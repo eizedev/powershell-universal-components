@@ -169,11 +169,37 @@ export default function EChart(props) {
             const payload = { name: e.name, selected: e.selected };
             call("onLegendChange", payload);
         };
+        // parallel: dragging along an axis keeps lines in that range; -OnSelect gets their rows
+        let areaTimer;
+        const onAxisArea = () => {
+            clearTimeout(areaTimer);
+            areaTimer = setTimeout(() => {
+                const data = latest.current.data || [];
+                const rows = [];
+                let filtered = false;
+                chart.getModel().eachSeriesByType("parallel", (series) => {
+                    const raw = series.getRawData();
+                    const inactive = series.getRawIndicesByActiveState("inactive");
+                    filtered = filtered || inactive.length > 0;
+                    series.getRawIndicesByActiveState("active").forEach((i) => {
+                        const item = raw.getRawDataItem(i);
+                        if (item && item.rowIndex !== undefined && data[item.rowIndex]) rows.push(data[item.rowIndex]);
+                    });
+                });
+                // rows: the selected data rows (all rows when nothing is selected); at most 1000
+                const payload = { filtered, count: rows.length, rows: rows.slice(0, 1000) };
+                latest.current.setState({ range: { filtered, count: rows.length } });
+                call("onSelect", payload);
+            }, 250);
+        };
+        chart.on("axisareaselected", onAxisArea);
         chart.on("click", onClick);
         chart.on("brushEnd", onBrush);
         chart.on("datazoom", onZoom);
         chart.on("legendselectchanged", onLegend);
         return () => {
+            clearTimeout(areaTimer);
+            chart.off("axisareaselected", onAxisArea);
             chart.off("click", onClick);
             chart.off("brushEnd", onBrush);
             chart.off("datazoom", onZoom);

@@ -267,7 +267,8 @@ function New-UDEChart {
         name, value, row (the clicked data row, when the chart has fewer than 20000 points).
     .PARAMETER OnSelect
         Runs when a range is selected with -Brush. $EventData: from, to (ISO dates on a time axis,
-        category names on a category axis, numbers otherwise).
+        category names on a category axis, numbers otherwise). For parallel, after dragging along an
+        axis: filtered, count and rows (the data rows of the lines still shown, at most 1000).
     .PARAMETER OnZoom
         Runs after zooming. $EventData: from, to, start, end (percent).
     .PARAMETER OnLegendChange

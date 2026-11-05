@@ -942,7 +942,23 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
             New-UDGrid -Item -ExtraSmallSize 12 -Content {
                 New-UDCard -Title 'Servers across all measures (parallel; drag along an axis to filter, e.g. patch age > 30)' -Content {
                     $servers = $assets | Where-Object Class -Like '*server' | Select-Object Name, Class, Customer, Cpu, RamGB, DiskUsedPct, PatchAgeDays, BackupAgeHours, OpenTickets, SourceCount
-                    New-UDEChart -Data $servers -Type parallel -X Name -GroupBy Class -Y Customer, Cpu, RamGB, DiskUsedPct, PatchAgeDays, BackupAgeHours, OpenTickets, SourceCount -Height 420px
+                    New-UDEChart -Data $servers -Type parallel -X Name -GroupBy Class -Y Customer, Cpu, RamGB, DiskUsedPct, PatchAgeDays, BackupAgeHours, OpenTickets, SourceCount -Height 420px -OnSelect {
+                        $Session:ParallelRows = if ($EventData.filtered) { @($EventData.rows) } else { $null }
+                        Sync-UDElement -Id 'parallel-rows'
+                    }
+                    New-UDDynamic -Id 'parallel-rows' -Content {
+                        if ($Session:ParallelRows) {
+                            New-UDTypography -Variant subtitle2 -Text ('{0} servers in the selected ranges' -f $Session:ParallelRows.Count)
+                            # rows come back from the browser with camelCase keys; the columns give order and titles
+                            $columns = foreach ($c in @('name', 'Name'), @('class', 'Class'), @('customer', 'Customer'), @('patchAgeDays', 'Patch age (days)'), @('backupAgeHours', 'Backup age (h)'), @('diskUsedPct', 'Disk used %')) {
+                                New-UDTableColumn -Property $c[0] -Title $c[1] -ShowSort
+                            }
+                            New-UDTable -Data @($Session:ParallelRows) -Columns $columns -Dense -ShowPagination -PageSize 5 -PageSizeOptions 5, 10, 25
+                        }
+                        else {
+                            New-UDTypography -Variant caption -Text 'Drag along an axis to list the servers in that range.'
+                        }
+                    }
                 }
             }
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {

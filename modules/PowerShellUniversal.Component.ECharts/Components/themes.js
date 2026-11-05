@@ -23,7 +23,7 @@ function themeFor(c, psu) {
         timeAxis: axis,
         logAxis: axis,
         // parallel axes and the theme river's single axis are themed separately from the grid axes
-        parallelAxis: { ...axis, nameTextStyle: { color: text } },
+        parallelAxis: { ...axis, nameTextStyle: { color: text }, areaSelectStyle: { color: c.accent, borderColor: c.accent, opacity: 0.25 } },
         singleAxis: axis,
         // the button name shown on hover: page text on a contrasting chip, icon in the accent colour
         toolbox: {
