@@ -8,6 +8,7 @@
  *   percent[:decimals]    25 %              (value is a fraction: 0.25)
  *   percent100[:decimals] 25 %              (value is already in percent: 25)
  *   compact               1,2 Mio.          (locale short form)
+ *   compactcurrency[:CODE] 9,9 Mio. €       (short form with currency, for labels)
  *   bytes                 1,5 MB            (powers of 1024, B KB MB GB TB)
  *   duration[:unit]       2 h 5 min         (value in s by default; unit ms|s|min|h|d)
  *   date | datetime | time                  (ISO strings or epoch milliseconds)
@@ -114,6 +115,8 @@ export function formatter(spec, locale) {
         }
         case "compact":
             return nf({ notation: "compact", maximumFractionDigits: 1 });
+        case "compactcurrency":
+            return nf({ style: "currency", currency: (f.arg || "EUR").toUpperCase(), notation: "compact", maximumFractionDigits: 1 });
         case "bytes":
             return (v) => formatBytes(toNumber(v), locale);
         case "duration": {
@@ -134,6 +137,24 @@ export function formatter(spec, locale) {
         default:
             return nf(decimals === undefined ? { maximumFractionDigits: 2 } : { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
     }
+}
+
+/*
+ * The format for value labels on bars and slices: the short form of number and currency formats,
+ * so "9.850.000,00 €" does not overlap its neighbours ("9,9 Mio. €"). Other formats stay as they are.
+ */
+export function labelFormatSpec(format) {
+    const f = parseFormat(format);
+    if (!f) {
+        return "compact";
+    }
+    if (f.name === "currency") {
+        return `compactcurrency:${f.arg || "EUR"}`;
+    }
+    if (f.name === "number" || f.name === "integer") {
+        return "compact";
+    }
+    return format;
 }
 
 export function defaultLocale(requested) {

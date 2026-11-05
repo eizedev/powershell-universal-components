@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
-import { buildOption } from "./buildOption";
+import { buildOption, responsive, optionForWidth, NARROW, TINY } from "./buildOption";
 import { ensureTheme } from "./themes";
 import { usePsuTheme, effectiveMode } from "../../../shared/js/psuTheme";
 import { defaultLocale } from "../../../shared/js/formatters";
@@ -50,7 +50,8 @@ export default function EChart(props) {
     const option = useMemo(() => {
         try {
             const exportIcons = props.export === false ? undefined : { ...EXPORT_ICONS, onCsv: () => exportAs("csv"), onXlsx: () => exportAs("xlsx") };
-            return { value: buildOption(props, { locale, exportIcons }) };
+            const base = buildOption(props, { locale, exportIcons });
+            return { value: base, rules: responsive(base, props, { locale }) };
         } catch (e) {
             return { error: e.message };
         }
@@ -68,11 +69,18 @@ export default function EChart(props) {
         }
     }
 
+    // width class of the container: the option is rebuilt only when it crosses a rule's limit
+    const [widthClass, setWidthClass] = useState("wide");
+    const classOf = (w) => (w <= TINY ? "tiny" : w <= NARROW ? "narrow" : "wide");
+
     // create once, dispose on unmount; follow the container's size
     useEffect(() => {
         const chart = echarts.init(container.current, ensureTheme(echarts, mode, psuTheme), { renderer: props.renderer === "svg" ? "svg" : "canvas" });
         chartRef.current = chart;
-        const resize = new ResizeObserver(() => chart.resize());
+        const resize = new ResizeObserver((entries) => {
+            chart.resize();
+            setWidthClass(classOf(entries[0].contentRect.width));
+        });
         resize.observe(container.current);
         return () => {
             resize.disconnect();
@@ -95,8 +103,9 @@ export default function EChart(props) {
         if (!chart || !option.value) {
             return;
         }
-        chart.setOption(option.value, { replaceMerge: ["series", "xAxis", "yAxis", "grid", "dataset", "visualMap", "calendar", "radar"] });
-    }, [option]);
+        const width = container.current ? container.current.clientWidth : 0;
+        chart.setOption(optionForWidth(option.value, option.rules, width), { replaceMerge: ["series", "xAxis", "yAxis", "grid", "dataset", "visualMap", "calendar", "radar"] });
+    }, [option, widthClass]);
 
     // linked charts: same -Group share tooltip, zoom and legend
     useEffect(() => {

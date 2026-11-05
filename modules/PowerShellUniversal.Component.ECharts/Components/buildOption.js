@@ -1,5 +1,5 @@
 import { columnsOf, getter, resolveColumn, resolveColumns } from "../../../shared/js/columns.js";
-import { formatter } from "../../../shared/js/formatters.js";
+import { formatter, labelFormatSpec } from "../../../shared/js/formatters.js";
 
 /*
  * Turns the simple parameters of New-UDEChart (chartType, x, y, groupBy, ...) and the rows into an
@@ -143,6 +143,17 @@ function valueFormatter(props, locale) {
     return formatter(props.format, locale);
 }
 
+// Value labels: -LabelFormat, else -Format with the short form for large numbers only, so
+// 9.850.000,00 € becomes 9,9 Mio. € while 99,97 stays 99,97
+function labelFormatter(props, locale) {
+    if (props.labelFormat) {
+        return formatter(props.labelFormat, locale);
+    }
+    const full = formatter(props.format || "number", locale);
+    const short = formatter(labelFormatSpec(props.format), locale);
+    return (v) => (typeof v === "number" && Math.abs(v) >= 10000 ? short(v) : full(v));
+}
+
 function titleOf(props) {
     if (!props.title && !props.subtitle) {
         return undefined;
@@ -172,7 +183,7 @@ function gridOf(props, legend) {
     return {
         left: 12,
         right: 24,
-        top: (props.title ? (props.subtitle ? 80 : 60) : legend.show && legend.top !== undefined ? 50 : 36) + (props.dataLabels ? 16 : 0),
+        top: (props.title ? (props.subtitle ? 80 : 60) : legend.show && legend.top !== undefined ? 56 : props.toolbox === false ? 24 : 48) + (props.dataLabels ? 16 : 0),
         bottom: (legend.show && legend.bottom !== undefined ? 30 : 8) + (zoomMode(props).slider ? 34 : 0),
         containLabel: true
     };
@@ -222,7 +233,7 @@ export function toolboxOf(props, cartesian, exportIcons) {
  * markLine entries from PowerShell: "median", "average", "min", "max" (of each series) or
  * @{ value = 48; name = 'SLA'; axis = 'y' } for a fixed line.
  */
-function markLineOf(props, horizontal, fmt) {
+function markLineOf(props, horizontal, fmt, seriesIndex = 0) {
     const items = list(props.markLine);
     if (items.length === 0) {
         return undefined;
@@ -245,7 +256,7 @@ function markLineOf(props, horizontal, fmt) {
     }
     return {
         symbol: ["none", "none"],
-        label: { formatter: (p) => `${p.name ? p.name + ": " : ""}${fmt ? fmt(p.value) : p.value}`, position: "insideEndTop" },
+        label: { formatter: (p) => `${p.name ? p.name + ": " : ""}${fmt ? fmt(p.value) : p.value}`, position: seriesIndex % 2 === 0 ? "insideEndTop" : "insideEndBottom" },
         lineStyle: { type: "dashed" },
         data
     };
@@ -267,6 +278,7 @@ function cartesian(props, rows, keys, ctx) {
     const xValues = rows.map((r) => r[xKey]);
     const xType = axisTypeFor(xValues, props.xAxisType, type);
     const fmt = valueFormatter(props, ctx.locale);
+    const lfmt = labelFormatter(props, ctx.locale);
     // the axis pointer shows the exact value under the mouse: never a raw float
     const pointerFmt = fmt || formatter("number", ctx.locale);
     const xFmt = formatter(props.xFormat || (xType === "time" ? "date" : undefined), ctx.locale);
@@ -278,7 +290,9 @@ function cartesian(props, rows, keys, ctx) {
     const seriesDefs = [];
     if (groupKey) {
         const y = yKeys[0];
-        for (const g of unique(rows.map((r) => r[groupKey]))) {
+        // groups in natural order (P1, P2 ... P10), so legend and colours do not depend on row order
+        const groups = unique(rows.map((r) => r[groupKey])).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+        for (const g of groups) {
             seriesDefs.push({ name: String(g), y, filter: (r) => String(r[groupKey] ?? "") === String(g) });
         }
     } else {
@@ -350,9 +364,10 @@ function cartesian(props, rows, keys, ctx) {
                 color: seriesType === "bar" && props.stacked ? "#fff" : undefined,
                 formatter: (p) => {
                     const v = Array.isArray(p.value) ? p.value[horizontal ? 0 : 1] : p.value;
-                    return v === null || v === undefined ? "" : fmt ? fmt(v) : String(v);
+                    return v === null || v === undefined ? "" : lfmt(v);
                 }
             };
+            s.labelLayout = { hideOverlap: true };
         }
         if (props.negativeColor && seriesType === "bar") {
             s.itemStyle = {
@@ -372,8 +387,8 @@ function cartesian(props, rows, keys, ctx) {
     });
     // markLine statistics belong to every series, fixed lines once
     if (list(props.markLine).some((m) => typeof m === "string")) {
-        series.slice(1).forEach((s) => {
-            s.markLine = markLineOf({ markLine: list(props.markLine).filter((m) => typeof m === "string") }, horizontal, fmt);
+        series.slice(1).forEach((s, i) => {
+            s.markLine = markLineOf({ markLine: list(props.markLine).filter((m) => typeof m === "string") }, horizontal, fmt, i + 1);
         });
     }
 
@@ -423,9 +438,10 @@ function nameValue(props, rows, keys, ctx) {
     const data = rows.map((r, rowIndex) => ({ name: String(r[nameKey] ?? ""), value: num(r[valueKey]), rowIndex }));
     const legend = legendOf(props, true);
     const pct = new Intl.NumberFormat(ctx.locale, { style: "percent", maximumFractionDigits: 1 });
+    const lfmt = labelFormatter(props, ctx.locale);
     const label = props.dataLabels === false ? { show: false } : {
         show: true,
-        formatter: (p) => `${p.name}\n${fmt ? fmt(p.value) : p.value} (${pct.format((p.percent || 0) / 100)})`
+        formatter: (p) => `${p.name}\n${lfmt(p.value)} (${pct.format((p.percent || 0) / 100)})`
     };
     const series = type === "funnel"
         ? { type: "funnel", data, sort: "descending", gap: 2, label: { ...label, position: "inside" }, emphasis: { focus: "self" }, left: "10%", width: "80%", top: props.title ? 70 : 20, bottom: 40 }
@@ -433,7 +449,11 @@ function nameValue(props, rows, keys, ctx) {
             type: "pie",
             data,
             radius: type === "donut" ? ["45%", "72%"] : [0, "72%"],
-            center: ["50%", props.title ? "55%" : "50%"],
+            // the pie lives in a box that leaves room for title and legend, so outside labels
+            // never run into the legend
+            top: props.title ? 56 : 28,
+            bottom: legend.show && legend.bottom !== undefined ? 40 : 8,
+            labelLayout: { hideOverlap: true },
             itemStyle: { borderRadius: type === "donut" ? 4 : 0, borderWidth: 1 },
             label,
             labelLine: { show: label.show !== false },
@@ -488,10 +508,14 @@ function calendar(props, rows, keys, ctx) {
     const dKey = resolveColumn(props.x, keys) ?? keys[0];
     const vKey = resolveColumns(props.y, keys)[0] ?? resolveColumn(props.value, keys) ?? keys[1];
     const days = rows.map((r) => String(r[dKey] ?? "").slice(0, 10)).filter((d) => d.length === 10).sort();
-    const years = unique(days.map((d) => d.slice(0, 4)));
     const data = rows.map((r, rowIndex) => ({ value: [String(r[dKey] ?? "").slice(0, 10), num(r[vKey])], rowIndex }));
     const fmt = valueFormatter(props, ctx.locale);
-    const calendars = years.map((y, i) => ({ range: y, top: (props.title ? 70 : 30) + i * 170, left: 40, right: 20, cellSize: ["auto", 16], yearLabel: { show: true } }));
+    // one calendar per year, each limited to the days that have data
+    const years = unique(days.map((d) => d.slice(0, 4)));
+    const calendars = years.map((y, i) => {
+        const inYear = days.filter((d) => d.startsWith(y));
+        return { range: [inYear[0], inYear[inYear.length - 1]], top: (props.title ? 80 : 56) + i * 170, left: 50, right: 20, cellSize: ["auto", 16], yearLabel: { show: years.length > 1 } };
+    });
     return {
         title: titleOf(props),
         tooltip: { confine: true, formatter: (p) => `${p.value[0]}<br/><b>${fmt ? fmt(p.value[1]) : p.value[1]}</b>` },
@@ -507,13 +531,13 @@ function calendar(props, rows, keys, ctx) {
 function boxplot(props, rows, keys, ctx) {
     const groupKey = resolveColumn(props.x, keys) ?? resolveColumn(props.groupBy, keys);
     const vKey = resolveColumns(props.y, keys)[0] ?? resolveColumn(props.value, keys) ?? keys.find((k) => rows.some((r) => typeof r[k] === "number"));
-    const groups = groupKey ? unique(rows.map((r) => r[groupKey])).map(String) : [vKey];
+    const groups = groupKey ? unique(rows.map((r) => r[groupKey])).map(String).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })) : [vKey];
     const stats = groups.map((g) => boxStats(rows.filter((r) => !groupKey || String(r[groupKey] ?? "") === g).map((r) => num(r[vKey]))));
     const fmt = valueFormatter(props, ctx.locale);
     const f = (v) => (v === null || v === undefined ? "" : fmt ? fmt(v) : v);
     const horizontal = Boolean(props.horizontal);
     const cat = { type: "category", data: groups };
-    const val = { type: "value", name: props.yTitle, axisLabel: fmt ? { formatter: (v) => fmt(v) } : {} };
+    const val = { type: props.logScale ? "log" : "value", name: props.yTitle, axisLabel: fmt ? { formatter: (v) => fmt(v) } : {} };
     return {
         title: titleOf(props),
         tooltip: {
@@ -594,12 +618,13 @@ function candlestick(props, rows, keys, ctx) {
     const volumeKey = resolveColumn(props.volume ?? "volume", keys);
     const xs = rows.map((r) => r[xKey]);
     const fmt = valueFormatter(props, ctx.locale);
-    const legend = legendOf(props, Boolean(volumeKey));
+    const legend = legendOf({ ...props, legend: props.legend || "top" }, Boolean(volumeKey));
+    const compact = formatter("compact", ctx.locale);
     const grids = volumeKey
-        ? [{ left: 12, right: 24, top: props.title ? 60 : 30, height: "55%", containLabel: true }, { left: 12, right: 24, top: "75%", height: "13%", containLabel: true }]
+        ? [{ left: 12, right: 24, top: props.title ? 76 : 56, height: "52%", containLabel: true }, { left: 12, right: 24, top: "74%", height: "12%", containLabel: true }]
         : [gridOf(props, legend)];
     const xAxis = grids.map((_, i) => ({ type: "category", data: xs, gridIndex: i, axisLabel: { show: i === grids.length - 1, hideOverlap: true }, boundaryGap: true }));
-    const yAxis = grids.map((_, i) => ({ type: "value", gridIndex: i, scale: true, axisLabel: i === 0 && fmt ? { formatter: (v) => fmt(v) } : {}, splitNumber: i === 0 ? 5 : 2 }));
+    const yAxis = grids.map((_, i) => ({ type: "value", gridIndex: i, scale: true, axisLabel: i === 0 ? (fmt ? { formatter: (v) => fmt(v) } : {}) : { formatter: (v) => compact(v) }, splitNumber: i === 0 ? 5 : 2 }));
     const series = [{
         type: "candlestick",
         name: props.title || "Price",
@@ -652,7 +677,7 @@ function radar(props, rows, keys, ctx) {
         title: titleOf(props),
         legend: legendOf(props, true),
         tooltip: { trigger: "item", confine: true, valueFormatter: valueFormatter(props, ctx.locale) || undefined },
-        radar: { indicator: indicators.map((k) => ({ name: k, max: max ?? Math.max(...rows.map((r) => num(r[k]) || 0)) * 1.1 })), radius: "65%" },
+        radar: { indicator: indicators.map((k) => ({ name: displayName(k, props.y), max: max ?? Math.max(...rows.map((r) => num(r[k]) || 0)) * 1.1 })), radius: "65%" },
         series: [{ type: "radar", emphasis: { focus: "self" }, areaStyle: { opacity: 0.15 }, data: rows.map((r, rowIndex) => ({ name: String(r[nameKey] ?? ""), value: indicators.map((k) => num(r[k])), rowIndex })) }]
     };
 }
@@ -726,6 +751,7 @@ function waterfall(props, rows, keys, ctx) {
     const totalKey = resolveColumn("total", keys);
     const totals = new Set(list(props.totals).map(String));
     const fmt = valueFormatter(props, ctx.locale);
+    const lfmt = labelFormatter(props, ctx.locale);
     const up = props.positiveColor || "#3ba272";
     const down = props.negativeColor || "#ee6666";
     const totalColor = props.totalColor || "#5470c6";
@@ -749,14 +775,80 @@ function waterfall(props, rows, keys, ctx) {
         title: titleOf(props),
         tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, confine: true, formatter: (ps) => { const p = ps.find((x) => x.seriesIndex === 1); return p ? `${p.name}: <b>${fmt ? fmt(p.data.label) : p.data.label}</b>` : ""; } },
         grid: { left: 12, right: 24, top: props.title ? 76 : 56, bottom: 20, containLabel: true },
-        xAxis: { type: "category", data: rows.map((r) => String(r[xKey] ?? "")), axisLabel: { hideOverlap: true } },
-        yAxis: { type: "value", axisLabel: fmt ? { formatter: (v) => fmt(v) } : {} },
+        // every step is named: all labels, slanted when there are many
+        xAxis: { type: "category", data: rows.map((r) => String(r[xKey] ?? "")), axisLabel: { interval: 0, rotate: rows.length > 6 ? 30 : 0 } },
+        yAxis: { type: "value", axisLabel: { formatter: (v) => lfmt(v) } },
         toolbox: toolboxOf(props, false, ctx.exportIcons),
         series: [
             { type: "bar", stack: "w", silent: true, itemStyle: { color: "transparent", borderColor: "transparent" }, emphasis: { disabled: true }, data: base, tooltip: { show: false } },
-            { type: "bar", stack: "w", data: bars, label: { show: props.dataLabels !== false, position: "top", formatter: (p) => (fmt ? fmt(p.data.label) : p.data.label) } }
+            { type: "bar", stack: "w", data: bars, labelLayout: { hideOverlap: true }, label: { show: props.dataLabels !== false, position: "top", formatter: (p) => lfmt(p.data.label) } }
         ]
     };
+}
+
+// ---- responsive rules ----------------------------------------------------------------------------
+
+/*
+ * Rules for the chart's own width, applied again on every resize (window size, browser zoom, a card
+ * that gets narrower; see optionForWidth). Below NARROW the chart keeps what it needs to be read and
+ * drops what it cannot fit: outside labels of pie/donut become percentages inside the slices (names
+ * stay in the legend and tooltip), bar labels go, toolbox and margins shrink.
+ */
+export const NARROW = 520;
+export const TINY = 360;
+
+export function responsive(option, props, ctx = {}) {
+    const type = String(props.chartType || "line").toLowerCase();
+    const series = Array.isArray(option.series) ? option.series : [];
+    const pct = new Intl.NumberFormat(ctx.locale || "en-US", { style: "percent", maximumFractionDigits: 0 });
+    const narrow = {
+        toolbox: option.toolbox ? { itemSize: 13, itemGap: 6, feature: { magicType: { show: false }, dataZoom: { show: false }, brush: { show: false } } } : undefined,
+        legend: option.legend && option.legend.show ? { itemGap: 6, itemWidth: 14, textStyle: { fontSize: 11 } } : undefined,
+        title: option.title ? { textStyle: { fontSize: 14 }, subtextStyle: { fontSize: 11 } } : undefined
+    };
+    if (type === "pie" || type === "donut") {
+        narrow.series = [{
+            radius: type === "donut" ? ["38%", "78%"] : [0, "78%"],
+            label: { show: true, position: "inside", formatter: (p) => (p.percent >= 6 ? pct.format(p.percent / 100) : ""), fontSize: 11 },
+            labelLine: { show: false }
+        }];
+        narrow.legend = { ...(narrow.legend || {}), show: true, type: "scroll", bottom: 0 };
+    } else if (CARTESIAN.has(type) || type === "histogram" || type === "waterfall" || type === "boxplot") {
+        narrow.grid = { left: 4, right: 8 };
+        narrow.xAxis = { axisLabel: { fontSize: 10 } };
+        narrow.yAxis = { axisLabel: { fontSize: 10 }, nameTextStyle: { fontSize: 10 } };
+        // value labels on every bar do not fit; the tooltip still shows them
+        if (props.dataLabels && type !== "waterfall") {
+            narrow.series = series.map(() => ({ label: { show: false } }));
+        }
+    } else if (type === "heatmap") {
+        narrow.xAxis = { axisLabel: { rotate: 45, fontSize: 9 } };
+        narrow.yAxis = { axisLabel: { fontSize: 9 } };
+    } else if (type === "treemap") {
+        narrow.series = [{ upperLabel: { show: false }, label: { fontSize: 10 } }];
+    } else if (type === "sunburst") {
+        narrow.series = [{ label: { fontSize: 9, minAngle: 12 } }];
+    } else if (type === "radar") {
+        narrow.radar = { radius: "55%", axisName: { fontSize: 9 } };
+    } else if (type === "sankey") {
+        narrow.series = [{ label: { fontSize: 9 }, nodeGap: 6, left: 4, right: 60 }];
+    } else if (type === "gauge") {
+        narrow.series = [{ detail: { fontSize: 18 }, axisLabel: { fontSize: 9, distance: 18 } }];
+    }
+    const tiny = { legend: option.legend && option.legend.show ? { textStyle: { fontSize: 10 }, itemWidth: 10, itemHeight: 8 } : undefined, toolbox: option.toolbox ? { show: false } : undefined };
+    return [
+        { maxWidth: NARROW, option: normalize(narrow) },
+        { maxWidth: TINY, option: normalize(tiny) }
+    ];
+}
+
+/*
+ * The option for a chart of the given width: the base option with every rule whose maxWidth the
+ * width is below merged over it. (ECharts' own media queries do not combine with replaceMerge,
+ * which live updates need, so the component applies the rules itself on resize.)
+ */
+export function optionForWidth(option, rules, width) {
+    return rules.filter((r) => width > 0 && width <= r.maxWidth).reduce((o, r) => mergeOptions(o, r.option), option);
 }
 
 // ---- entry point ---------------------------------------------------------------------------------

@@ -34,7 +34,14 @@ function themeFor(c, psu) {
         scatter: { label: { color: text, textBorderWidth: 0 } },
         sankey: { label: { color: text, textBorderWidth: 0 } },
         sunburst: { label: { textBorderWidth: 0 } },
-        treemap: { label: { textBorderWidth: 0 } }
+        gauge: { axisLabel: { color: c.muted }, detail: { color: text }, title: { color: c.muted }, splitLine: { lineStyle: { color: c.muted } }, axisTick: { lineStyle: { color: c.muted } } },
+        // ECharts fills boxplot boxes white, which glares on a dark page
+        boxplot: { itemStyle: { color: c.tooltip, borderWidth: 1.5 } },
+        heatmap: { label: { color: text, textBorderWidth: 0 } },
+        // ECharts' radar fills its rings with light greys that glare on a dark page
+        radar: { axisName: { color: c.muted }, axisLine: { lineStyle: { color: c.axis } }, splitLine: { lineStyle: { color: c.axis } }, splitArea: { areaStyle: { color: ["transparent", c.split] } } },
+        // gaps and header bars between treemap tiles in the page colour, not white
+        treemap: { label: { textBorderWidth: 0 }, upperLabel: { color: text, textBorderWidth: 0 }, itemStyle: { borderColor: c.tooltip }, breadcrumb: { itemStyle: { color: c.split, textStyle: { color: text } } } }
     };
 }
 

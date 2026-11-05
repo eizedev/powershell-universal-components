@@ -6,4 +6,3 @@ site/
 ._*
 .claude/*
 !.claude/settings.json
-Components/package-lock.json

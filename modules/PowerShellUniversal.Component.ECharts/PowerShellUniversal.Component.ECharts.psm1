@@ -99,8 +99,11 @@ function New-UDEChart {
         Bottom, Top, Left, Right or None. Default: Bottom when there is more than one series.
     .PARAMETER Format
         Value format for axis, tooltip and labels: number, number:2, integer, currency, currency:USD,
-        percent (0.25 -> 25 %), percent100 (25 -> 25 %), compact, bytes, duration (seconds),
+        percent (0.25 -> 25 %), percent100 (25 -> 25 %), compact, compactcurrency:EUR, bytes, duration (seconds),
         duration:min, duration:h, date, datetime, time, text. Numbers use the browser's locale or -Locale.
+    .PARAMETER LabelFormat
+        Format for value labels (-DataLabels, pie, waterfall). Default: the short form of -Format
+        (currency:EUR -> compactcurrency:EUR, "9,9 Mio. €"), so long numbers do not overlap.
     .PARAMETER XFormat
         Format for x axis labels, e.g. date.
     .PARAMETER Locale
@@ -232,7 +235,8 @@ function New-UDEChart {
         [ValidateSet('Auto', 'Light', 'Dark')][string]$Theme = 'Auto',
         [string[]]$Palette,
         [ValidateSet('Bottom', 'Top', 'Left', 'Right', 'None')][string]$Legend,
-        [ValidatePattern('^(number|integer|currency|percent|percent100|compact|bytes|duration|date|datetime|time|text)(:[A-Za-z0-9]+)?$')][string]$Format,
+        [ValidatePattern('^(number|integer|currency|compactcurrency|percent|percent100|compact|bytes|duration|date|datetime|time|text)(:[A-Za-z0-9]+)?$')][string]$Format,
+        [ValidatePattern('^(number|integer|currency|compactcurrency|percent|percent100|compact|bytes|duration|date|datetime|time|text)(:[A-Za-z0-9]+)?$')][string]$LabelFormat,
         [ValidatePattern('^(number|integer|currency|percent|percent100|compact|bytes|duration|date|datetime|time|text)(:[A-Za-z0-9]+)?$')][string]$XFormat,
         [ValidatePattern('^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$')][string]$Locale,
         [string]$XTitle,
@@ -303,7 +307,7 @@ function New-UDEChart {
     $map = [ordered]@{
         X = 'x'; Y = 'y'; GroupBy = 'groupBy'; Value = 'value'; Path = 'path'; Source = 'source'; Target = 'target'
         Open = 'open'; Close = 'close'; Low = 'low'; High = 'high'; Volume = 'volume'; Totals = 'totals'
-        Title = 'title'; Subtitle = 'subtitle'; Width = 'width'; Palette = 'palette'; Format = 'format'; XFormat = 'xFormat'
+        Title = 'title'; Subtitle = 'subtitle'; Width = 'width'; Palette = 'palette'; Format = 'format'; LabelFormat = 'labelFormat'; XFormat = 'xFormat'
         Locale = 'locale'; XTitle = 'xTitle'; YTitle = 'yTitle'; SecondaryY = 'secondaryY'; SecondaryTitle = 'secondaryTitle'
         Min = 'min'; Max = 'max'; YMin = 'yMin'; YMax = 'yMax'; Bins = 'bins'; MarkLine = 'markLine'
         NegativeColor = 'negativeColor'; PositiveColor = 'positiveColor'; ExportColumns = 'exportColumns'

@@ -1,0 +1,630 @@
+<#
+    Showcase app for PowerShellUniversal.Component.ECharts: every chart type with realistic data, from
+    simple bars to a ticket report, finance charts, public APIs, PowerShell and DataTable data, live
+    updates and a benchmark. Ticket and finance data are generated with a fixed seed, so every load shows
+    the same numbers; the public APIs need internet access from the PSU server.
+
+    Deploy: copy into an app (admin console) or with PSUTools: Set-PSUTestApp -Name EChartsShowcase
+    -BaseUrl /echarts -ScriptPath ./examples/showcase.ps1
+#>
+
+#region Generated ticket data (2000 tickets, last 120 days)
+if (-not $Cache:EChartsTickets) {
+    $rng = [System.Random]::new(42)
+    $teams = 'Service Desk', 'Network', 'Server', 'Applications'
+    $priorities = 'P1', 'P2', 'P3', 'P4'
+    $channels = 'Mail', 'Phone', 'Portal', 'Monitoring'
+    $start = (Get-Date).Date.AddDays(-120)
+    $Cache:EChartsTickets = foreach ($i in 1..2000) {
+        $created = $start.AddDays($rng.Next(0, 120)).AddHours([math]::Min(23, [math]::Max(0, [int](8 + 4 * ($rng.NextDouble() + $rng.NextDouble() - 1) * 2)))).AddMinutes($rng.Next(0, 60))
+        $priority = $priorities[[math]::Min(3, [int][math]::Floor([math]::Pow($rng.NextDouble(), 0.6) * 4))]
+        $factor = @{ P1 = 0.3; P2 = 0.7; P3 = 1.0; P4 = 1.6 }[$priority]
+        # lead time: log-normal, a few long runners
+        $lead = [math]::Round([math]::Exp(2.6 + 0.9 * ($rng.NextDouble() + $rng.NextDouble() + $rng.NextDouble() - 1.5)) * $factor, 1)
+        $status = if ($created -gt (Get-Date).AddDays(-7) -and $rng.NextDouble() -lt 0.5) { 'Open' } elseif ($rng.NextDouble() -lt 0.08) { 'Waiting' } else { 'Closed' }
+        [pscustomobject]@{
+            Id              = 10000 + $i
+            Created         = $created
+            Team            = $teams[$rng.Next(0, 4)]
+            Priority        = $priority
+            Channel         = $channels[$rng.Next(0, 4)]
+            Status          = $status
+            LeadHours       = $lead
+            HoldHours       = [math]::Round($lead * 0.25 * $rng.NextDouble(), 1)
+            WaitHours       = [math]::Round($lead * 0.35 * $rng.NextDouble(), 1)
+            ResponseMinutes = [math]::Round(5 + 90 * [math]::Pow($rng.NextDouble(), 2) * $factor)
+        }
+    }
+}
+#endregion
+
+New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
+
+    #region Basics
+    New-UDPage -Name 'Basics' -Url '/basics' -Content {
+        $months = 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        $sales = for ($m = 0; $m -lt 12; $m++) {
+            [pscustomobject]@{ Month = $months[$m]; Online = 120 + 15 * $m + (($m * 37) % 40); Store = 200 - 6 * $m + (($m * 53) % 30); Partner = 60 + 4 * $m }
+        }
+        New-UDTypography -Variant h5 -Text 'Basics: two lines of PowerShell each'
+        New-UDGrid -Container -Content {
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Bar' -Content { New-UDEChart -Data $sales -Type bar -X Month -Y Online, Store, Partner -Height 320px }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Stacked bar with labels' -Content { New-UDEChart -Data $sales -Type bar -X Month -Y Online, Store, Partner -Stacked -DataLabels -Height 320px }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Smooth area, stacked' -Content { New-UDEChart -Data $sales -Type area -X Month -Y Online, Store, Partner -Stacked -Smooth -Height 320px }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Horizontal bar, sorted' -Content {
+                    New-UDEChart -Data ($sales | Sort-Object Online -Descending) -Type bar -Horizontal -X Month -Y Online -DataLabels -Height 320px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 4 -Content {
+                New-UDCard -Title 'Pie' -Content {
+                    New-UDEChart -Type pie -X Channel -Y Count -Height 300px -Data ($Cache:EChartsTickets | Group-Object Channel | Select-Object @{ n = 'Channel'; e = { $_.Name } }, Count)
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 4 -Content {
+                New-UDCard -Title 'Donut, click shows a toast' -Content {
+                    New-UDEChart -Type donut -X Status -Y Count -Height 300px -Data ($Cache:EChartsTickets | Group-Object Status | Select-Object @{ n = 'Status'; e = { $_.Name } }, Count) `
+                        -OnClick { Show-UDToast -Message ('{0}: {1} tickets' -f $EventData.name, $EventData.value) }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 4 -Content {
+                New-UDCard -Title 'Scatter: response vs lead time' -Content {
+                    New-UDEChart -Type scatter -X ResponseMinutes -Y LeadHours -GroupBy Priority -XAxisType Value -Height 300px -Data ($Cache:EChartsTickets | Select-Object -First 600)
+                }
+            }
+        }
+    }
+    #endregion
+
+    #region Ticket report
+    New-UDPage -Name 'Ticket report' -Url '/tickets' -Content {
+        $tickets = $Cache:EChartsTickets
+        $closed = @($tickets | Where-Object Status -EQ 'Closed')
+        $sla = 48
+        $sorted = $closed.LeadHours | Sort-Object
+        $median = $sorted[[int][math]::Floor($sorted.Count / 2)]
+        $within = ($closed | Where-Object LeadHours -LE $sla).Count / [math]::Max(1, $closed.Count)
+
+        New-UDTypography -Variant h5 -Text 'Ticket report'
+        New-UDTypography -Variant body2 -Text ('{0} tickets, {1} closed, median lead time {2:N1} h, {3:P1} within the {4} h SLA. Click a bar or select a range to filter the table.' -f $tickets.Count, $closed.Count, $median, $within, $sla)
+
+        New-UDGrid -Container -Content {
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 4 -Content {
+                New-UDCard -Title 'SLA compliance' -Content {
+                    New-UDEChart -Type gauge -Data @([pscustomobject]@{ Name = 'within SLA'; Value = [math]::Round($within * 100, 1) }) -X Name -Y Value -Format percent100 -Height 260px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 8 -Content {
+                New-UDCard -Title 'Opened per day: this period vs previous period' -Content {
+                    # last 60 days against the 60 before, aligned by day number
+                    $today = (Get-Date).Date
+                    $perDay = foreach ($offset in 0..59) {
+                        $now = $today.AddDays(-59 + $offset)
+                        $before = $now.AddDays(-60)
+                        [pscustomobject]@{
+                            Day      = 'Day {0}' -f ($offset + 1)
+                            Current  = @($tickets | Where-Object { $_.Created.Date -eq $now }).Count
+                            Previous = @($tickets | Where-Object { $_.Created.Date -eq $before }).Count
+                        }
+                    }
+                    New-UDEChart -Data $perDay -Type line -X Day -Y Current, Previous -Smooth -Height 260px -MarkLine average `
+                        -Options @{ series = @(@{ name = 'This period' }, @{ name = 'Previous period'; lineStyle = @{ type = 'dashed' }; itemStyle = @{ opacity = 0.6 } }) }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Lead time distribution with median and SLA' -Content {
+                    New-UDEChart -Data $closed -Type histogram -Y LeadHours -Format 'duration:h' -Bins 30 -Height 320px `
+                        -MarkLine 'median', @{ value = $sla; name = 'SLA'; color = '#e53935' } -XTitle 'Lead time'
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Lead time by team (boxplot: quartiles, whiskers, outliers)' -Content {
+                    New-UDEChart -Data $closed -Type boxplot -X Team -Y LeadHours -Format 'duration:h' -Height 320px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Tickets per team and priority (click filters the table)' -Content {
+                    $byTeam = $tickets | Group-Object Team, Priority | ForEach-Object {
+                        [pscustomobject]@{ Team = $_.Group[0].Team; Priority = $_.Group[0].Priority; Tickets = $_.Count }
+                    } | Sort-Object Team, Priority
+                    New-UDEChart -Data $byTeam -Type bar -X Team -Y Tickets -GroupBy Priority -Stacked -Height 320px -OnClick {
+                        $Session:TicketFilter = @{ Team = $EventData.name; Priority = $EventData.seriesName }
+                        Sync-UDElement -Id 'ticket-table'
+                    }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Average times per team (hours)' -Content {
+                    $avg = $closed | Group-Object Team | ForEach-Object {
+                        [pscustomobject]@{
+                            Team     = $_.Name
+                            Lead     = [math]::Round(($_.Group | Measure-Object LeadHours -Average).Average, 1)
+                            Hold     = [math]::Round(($_.Group | Measure-Object HoldHours -Average).Average, 1)
+                            Waiting  = [math]::Round(($_.Group | Measure-Object WaitHours -Average).Average, 1)
+                            Response = [math]::Round(($_.Group | Measure-Object ResponseMinutes -Average).Average / 60, 2)
+                        }
+                    }
+                    New-UDEChart -Data $avg -Type bar -X Team -Y Lead, Hold, Waiting, Response -Format 'number:1' -DataLabels -Height 320px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -Content {
+                New-UDCard -Title 'Tickets per day: select a range (brush button) to filter the table' -Content {
+                    $daily = $tickets | Group-Object { $_.Created.Date } | ForEach-Object {
+                        [pscustomobject]@{ Day = [datetime]$_.Name; Opened = $_.Count; P1 = @($_.Group | Where-Object Priority -EQ 'P1').Count }
+                    } | Sort-Object Day
+                    New-UDEChart -Data $daily -Type bar -X Day -Y Opened, P1 -SecondaryY P1 -SecondaryTitle 'P1' -Zoom Both -Brush -Height 320px `
+                        -Options @{ series = @(@{}, @{ type = 'line'; smooth = $true }) } -OnSelect {
+                        $Session:TicketFilter = @{ From = $EventData.from; To = $EventData.to }
+                        Sync-UDElement -Id 'ticket-table'
+                    }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Tickets per day (calendar)' -Content {
+                    $perDate = $tickets | Group-Object { $_.Created.ToString('yyyy-MM-dd') } | Select-Object @{ n = 'Date'; e = { $_.Name } }, Count
+                    New-UDEChart -Data $perDate -Type calendar -X Date -Y Count -Height 220px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Created: weekday x hour' -Content {
+                    $days = 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+                    $grid = $tickets | Group-Object { $_.Created.DayOfWeek }, { $_.Created.Hour } | ForEach-Object {
+                        [pscustomobject]@{ Hour = '{0:00}' -f $_.Group[0].Created.Hour; Weekday = [string]$_.Group[0].Created.DayOfWeek; Tickets = $_.Count }
+                    } | Sort-Object @{ e = { [int]$_.Hour } }, @{ e = { $days.IndexOf($_.Weekday) } }
+                    New-UDEChart -Data $grid -Type heatmap -X Hour -Y Weekday -Value Tickets -Height 300px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Channel to team to status (sankey)' -Content {
+                    $flows = @(
+                        $tickets | Group-Object Channel, Team | ForEach-Object { [pscustomobject]@{ Source = $_.Group[0].Channel; Target = $_.Group[0].Team; Value = $_.Count } }
+                        $tickets | Group-Object Team, Status | ForEach-Object { [pscustomobject]@{ Source = $_.Group[0].Team; Target = $_.Group[0].Status; Value = $_.Count } }
+                    )
+                    New-UDEChart -Data $flows -Type sankey -Height 360px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Status funnel' -Content {
+                    $all = $tickets.Count
+                    $responded = @($tickets | Where-Object ResponseMinutes -LE 60).Count
+                    New-UDEChart -Type funnel -X Stage -Y Tickets -Height 360px -Data @(
+                        [pscustomobject]@{ Stage = 'Created'; Tickets = $all }
+                        [pscustomobject]@{ Stage = 'Answered within 1 h'; Tickets = $responded }
+                        [pscustomobject]@{ Stage = 'Closed'; Tickets = $closed.Count }
+                        [pscustomobject]@{ Stage = 'Closed within SLA'; Tickets = @($closed | Where-Object LeadHours -LE $sla).Count }
+                    )
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -Content {
+                New-UDDynamic -Id 'ticket-table' -Content {
+                    $rows = $Cache:EChartsTickets
+                    $f = $Session:TicketFilter
+                    $label = 'all tickets'
+                    if ($f -and $f.Team) {
+                        $rows = $rows | Where-Object { $_.Team -eq $f.Team -and $_.Priority -eq $f.Priority }
+                        $label = '{0}, {1}' -f $f.Team, $f.Priority
+                    }
+                    elseif ($f -and $f.From) {
+                        $from = [datetime]$f.From; $to = [datetime]$f.To
+                        $rows = $rows | Where-Object { $_.Created -ge $from -and $_.Created -le $to.AddDays(1) }
+                        $label = '{0:d} to {1:d}' -f $from, $to
+                    }
+                    New-UDCard -Title ('Tickets: {0} ({1})' -f $label, @($rows).Count) -Content {
+                        New-UDButton -Text 'Show all' -Variant outlined -OnClick { $Session:TicketFilter = $null; Sync-UDElement -Id 'ticket-table' }
+                        New-UDTable -Data (@($rows) | Sort-Object Created -Descending | Select-Object -First 200 Id, @{ n = 'Created'; e = { $_.Created.ToString('yyyy-MM-dd HH:mm') } }, Team, Priority, Channel, Status, LeadHours) -Dense -PageSize 10 -ShowSort
+                    }
+                }
+            }
+        }
+    }
+    #endregion
+
+    #region Finance
+    New-UDPage -Name 'Finance' -Url '/finance' -Content {
+        $months = 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        $rng = [System.Random]::new(7)
+        $planActual = for ($m = 0; $m -lt 10; $m++) {
+            $plan = 820000 + 25000 * $m
+            $actual = [math]::Round($plan * (0.9 + 0.2 * $rng.NextDouble()))
+            [pscustomobject]@{ Month = $months[$m]; Plan = $plan; Actual = $actual; Variance = $actual - $plan }
+        }
+        $ytd = 0; $ytdPlan = 0
+        $cumulative = foreach ($row in $planActual) {
+            $ytd += $row.Actual; $ytdPlan += $row.Plan
+            [pscustomobject]@{ Month = $row.Month; 'Actual YTD' = $ytd; 'Plan YTD' = $ytdPlan }
+        }
+        New-UDTypography -Variant h5 -Text 'Finance'
+        New-UDGrid -Container -Content {
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Profit bridge (waterfall)' -Content {
+                    New-UDEChart -Type waterfall -X Step -Y Amount -Totals 'Gross margin', 'Operating result' -Format 'currency:EUR' -Locale de-DE -Height 360px -Data @(
+                        [pscustomobject]@{ Step = 'Revenue'; Amount = 9850000 }
+                        [pscustomobject]@{ Step = 'Material'; Amount = -3420000 }
+                        [pscustomobject]@{ Step = 'Freight'; Amount = -410000 }
+                        [pscustomobject]@{ Step = 'Gross margin'; Amount = 0 }
+                        [pscustomobject]@{ Step = 'Staff'; Amount = -3150000 }
+                        [pscustomobject]@{ Step = 'Rent'; Amount = -620000 }
+                        [pscustomobject]@{ Step = 'IT'; Amount = -480000 }
+                        [pscustomobject]@{ Step = 'Other income'; Amount = 260000 }
+                        [pscustomobject]@{ Step = 'Operating result'; Amount = 0 }
+                    )
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Plan vs actual per month' -Content {
+                    New-UDEChart -Data $planActual -Type bar -X Month -Y Plan, Actual -Format compact -Locale de-DE -Height 360px `
+                        -Options @{ series = @(@{ itemStyle = @{ color = 'transparent'; borderColor = '#909399'; borderWidth = 2 }; barGap = '-100%'; z = 3 }, @{ barWidth = '50%' }) }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Variance to plan (negative in red)' -Content {
+                    New-UDEChart -Data $planActual -Type bar -X Month -Y Variance -Format 'currency:EUR' -Locale de-DE -NegativeColor '#e53935' -DataLabels -Height 320px `
+                        -Options @{ series = @(@{ label = @{ fontSize = 10 } }) }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Year to date' -Content {
+                    New-UDEChart -Data $cumulative -Type area -X Month -Y 'Actual YTD', 'Plan YTD' -Format compact -Locale de-DE -Height 320px `
+                        -Options @{ series = @(@{}, @{ areaStyle = @{ opacity = 0 }; lineStyle = @{ type = 'dashed' } }) }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Cost centres (treemap, click to zoom in)' -Content {
+                    $costs = @(
+                        [pscustomobject]@{ Division = 'Operations'; Department = 'Logistics'; Cost = 1850000 }
+                        [pscustomobject]@{ Division = 'Operations'; Department = 'Production'; Cost = 3120000 }
+                        [pscustomobject]@{ Division = 'Operations'; Department = 'Quality'; Cost = 540000 }
+                        [pscustomobject]@{ Division = 'Sales'; Department = 'Field sales'; Cost = 1320000 }
+                        [pscustomobject]@{ Division = 'Sales'; Department = 'Marketing'; Cost = 760000 }
+                        [pscustomobject]@{ Division = 'Administration'; Department = 'Finance'; Cost = 610000 }
+                        [pscustomobject]@{ Division = 'Administration'; Department = 'IT'; Cost = 980000 }
+                        [pscustomobject]@{ Division = 'Administration'; Department = 'HR'; Cost = 420000 }
+                    )
+                    New-UDEChart -Data $costs -Type treemap -Path Division, Department -Y Cost -Format compact -Locale de-DE -Height 360px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Same data as sunburst' -Content {
+                    New-UDEChart -Type sunburst -Path Division, Department -Y Cost -Format compact -Locale de-DE -Height 360px -Data @(
+                        [pscustomobject]@{ Division = 'Operations'; Department = 'Logistics'; Cost = 1850000 }
+                        [pscustomobject]@{ Division = 'Operations'; Department = 'Production'; Cost = 3120000 }
+                        [pscustomobject]@{ Division = 'Sales'; Department = 'Field sales'; Cost = 1320000 }
+                        [pscustomobject]@{ Division = 'Sales'; Department = 'Marketing'; Cost = 760000 }
+                        [pscustomobject]@{ Division = 'Administration'; Department = 'IT'; Cost = 980000 }
+                        [pscustomobject]@{ Division = 'Administration'; Department = 'HR'; Cost = 420000 }
+                    )
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -Content {
+                New-UDCard -Title 'Share price with volume (candlestick, generated)' -Content {
+                    $price = 100.0
+                    $day = (Get-Date).Date.AddDays(-180)
+                    $ohlc = foreach ($i in 1..180) {
+                        $day = $day.AddDays(1)
+                        if ($day.DayOfWeek -in 'Saturday', 'Sunday') { continue }
+                        $open = $price
+                        $close = [math]::Round($open * (1 + ($rng.NextDouble() - 0.48) * 0.04), 2)
+                        $price = $close
+                        [pscustomobject]@{
+                            Date = $day.ToString('yyyy-MM-dd'); Open = $open; Close = $close
+                            Low = [math]::Round([math]::Min($open, $close) * (1 - $rng.NextDouble() * 0.015), 2)
+                            High = [math]::Round([math]::Max($open, $close) * (1 + $rng.NextDouble() * 0.015), 2)
+                            Volume = $rng.Next(80000, 400000)
+                        }
+                    }
+                    New-UDEChart -Data $ohlc -Type candlestick -X Date -Open Open -Close Close -Low Low -High High -Volume Volume -Format 'currency:EUR' -Locale de-DE -Height 420px -MarkLine 'max', 'min'
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Revenue by region' -Content {
+                    New-UDEChart -Type donut -X Region -Y Revenue -Format 'currency:EUR' -Locale de-DE -Height 320px -Data @(
+                        [pscustomobject]@{ Region = 'DACH'; Revenue = 4120000 }
+                        [pscustomobject]@{ Region = 'Benelux'; Revenue = 1350000 }
+                        [pscustomobject]@{ Region = 'Nordics'; Revenue = 980000 }
+                        [pscustomobject]@{ Region = 'UK'; Revenue = 1720000 }
+                        [pscustomobject]@{ Region = 'Rest of world'; Revenue = 1680000 }
+                    )
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Department scores (radar)' -Content {
+                    New-UDEChart -Type radar -X Department -Y Budget, Quality, Speed, Satisfaction, Innovation -Max 100 -Height 320px -Data @(
+                        [pscustomobject]@{ Department = 'Logistics'; Budget = 82; Quality = 74; Speed = 91; Satisfaction = 68; Innovation = 55 }
+                        [pscustomobject]@{ Department = 'IT'; Budget = 64; Quality = 88; Speed = 72; Satisfaction = 79; Innovation = 93 }
+                        [pscustomobject]@{ Department = 'Sales'; Budget = 91; Quality = 69; Speed = 84; Satisfaction = 86; Innovation = 61 }
+                    )
+                }
+            }
+        }
+    }
+    #endregion
+
+    #region Managed services
+    New-UDPage -Name 'Managed services' -Url '/msp' -Content {
+        # A managed service provider's platform: generated with a fixed seed
+        $rng = [System.Random]::new(2026)
+        New-UDTypography -Variant h5 -Text 'Managed services: VMware, Windows and Linux, storage, network, backup'
+        New-UDGrid -Container -Content {
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'VMware clusters: CPU and RAM use, vCPU:pCPU' -Content {
+                    $clusters = foreach ($c in 'CL-PROD-01', 'CL-PROD-02', 'CL-PROD-03', 'CL-DMZ-01', 'CL-VDI-01', 'CL-TEST-01') {
+                        [pscustomobject]@{ Cluster = $c; 'CPU %' = [math]::Round(35 + 50 * $rng.NextDouble(), 1); 'RAM %' = [math]::Round(50 + 45 * $rng.NextDouble(), 1); 'vCPU:pCPU' = [math]::Round(1.5 + 4 * $rng.NextDouble(), 1) }
+                    }
+                    New-UDEChart -Data $clusters -Type bar -X Cluster -Y 'CPU %', 'RAM %', 'vCPU:pCPU' -SecondaryY 'vCPU:pCPU' -SecondaryTitle 'vCPU:pCPU' -YMax 100 -Height 340px `
+                        -MarkLine @{ value = 85; name = 'RAM threshold'; color = '#e53935' } -Options @{ series = @(@{}, @{}, @{ type = 'line'; symbolSize = 10 }) }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Virtual machines by operating system and support status' -Content {
+                    $os = @(
+                        @('Windows Server 2016', 'Extended support', 412), @('Windows Server 2019', 'Mainstream ended', 1180), @('Windows Server 2022', 'Supported', 1640),
+                        @('Windows Server 2025', 'Supported', 310), @('RHEL 8', 'Supported', 520), @('RHEL 9', 'Supported', 690), @('Ubuntu 22.04', 'Supported', 840),
+                        @('Ubuntu 24.04', 'Supported', 460), @('Debian 12', 'Supported', 280), @('SLES 15', 'Supported', 150), @('CentOS 7', 'End of life', 96), @('Windows Server 2012 R2', 'End of life', 64)
+                    ) | ForEach-Object { [pscustomobject]@{ OS = $_[0]; Support = $_[1]; VMs = $_[2] } } | Sort-Object VMs
+                    New-UDEChart -Data $os -Type bar -Horizontal -X OS -Y VMs -GroupBy Support -Stacked -Height 380px `
+                        -Palette '#e53935', '#fb8c00', '#fdd835', '#43a047' -OnClick { Show-UDToast -Message ('{0}: {1} VMs ({2})' -f $EventData.name, $EventData.value, $EventData.seriesName) }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Storage capacity per system (used and free)' -Content {
+                    $tb = [math]::Pow(1024, 4)
+                    $storage = foreach ($a in @(('NetApp AFF A400 FRA', 420), ('NetApp AFF A250 MUC', 180), ('Pure FlashArray//X FRA', 300), ('vSAN CL-PROD-01', 160), ('vSAN CL-VDI-01', 96), ('Dell PowerScale archive', 1200), ('S3 object (MinIO)', 800))) {
+                        $used = $a[1] * (0.45 + 0.5 * $rng.NextDouble())
+                        [pscustomobject]@{ System = $a[0]; Used = [math]::Round($used * $tb); Free = [math]::Round(($a[1] - $used) * $tb) }
+                    }
+                    New-UDEChart -Data $storage -Type bar -Horizontal -X System -Y Used, Free -Stacked -Format bytes -Height 360px -Palette '#5470c6', '#91cc7533'
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Storage growth, 12 months and a 6-month forecast' -Content {
+                    $used = 610.0
+                    $growth = foreach ($m in -11..6) {
+                        $month = (Get-Date -Day 1).AddMonths($m).ToString('yyyy-MM')
+                        if ($m -le 0) { $used += 14 + 8 * $rng.NextDouble(); [pscustomobject]@{ Month = $month; 'Used TB' = [math]::Round($used, 1); 'Forecast TB' = $null } }
+                        else { [pscustomobject]@{ Month = $month; 'Used TB' = $null; 'Forecast TB' = [math]::Round($used + 18 * $m, 1) } }
+                    }
+                    New-UDEChart -Data $growth -Type line -X Month -Y 'Used TB', 'Forecast TB' -Height 360px -MarkLine @{ value = 820; name = 'Installed capacity'; color = '#e53935' } `
+                        -Options @{ series = @(@{ areaStyle = @{ opacity = 0.2 } }, @{ lineStyle = @{ type = 'dashed' } }) }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Datastores: latency vs IOPS (click for details)' -Content {
+                    $ds = foreach ($i in 1..60) {
+                        $tier = @('Gold (NVMe)', 'Silver (SSD)', 'Bronze (hybrid)')[$i % 3]
+                        $base = @{ 'Gold (NVMe)' = 0.4; 'Silver (SSD)' = 1.2; 'Bronze (hybrid)' = 4.5 }[$tier]
+                        [pscustomobject]@{ Datastore = 'DS-{0:000}' -f $i; Tier = $tier; IOPS = $rng.Next(500, 60000); 'Latency ms' = [math]::Round($base * (0.5 + 1.5 * $rng.NextDouble()), 2) }
+                    }
+                    New-UDEChart -Data $ds -Type scatter -X IOPS -Y 'Latency ms' -GroupBy Tier -XAxisType Value -Height 340px -MarkLine @{ value = 5; name = 'Latency SLA' } `
+                        -OnClick { Show-UDToast -Message ('{0}: {1} IOPS at {2} ms' -f $EventData.row.datastore, $EventData.row.iops, $EventData.row.'latency ms') }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'WAN link utilisation per hour (%)' -Content {
+                    $links = 'FRA-MUC 10G', 'FRA-HAM 10G', 'FRA-AMS 40G', 'Internet FRA 20G', 'Internet MUC 10G', 'MPLS customer A', 'MPLS customer B'
+                    $util = foreach ($l in $links) {
+                        foreach ($h in 0..23) {
+                            $day = [math]::Max(0, [math]::Sin(($h - 6) / 24 * 2 * [math]::PI))
+                            [pscustomobject]@{ Hour = '{0:00}:00' -f $h; Link = $l; Utilisation = [math]::Round(8 + 70 * $day * (0.6 + 0.4 * $rng.NextDouble()) + ($h -eq 2) * 55, 0) }
+                        }
+                    }
+                    New-UDEChart -Data $util -Type heatmap -X Hour -Y Link -Value Utilisation -Min 0 -Max 100 -Format percent100 -Height 340px `
+                        -Options @{ visualMap = @{ inRange = @{ color = @('#1b5e20', '#fdd835', '#e53935') } } }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Backup jobs per night (Veeam): success, warning, failed' -Content {
+                    $nights = foreach ($d in -29..0) {
+                        $total = 1800 + $rng.Next(0, 120)
+                        $failed = $rng.Next(0, 18); $warn = $rng.Next(10, 60)
+                        [pscustomobject]@{ Night = (Get-Date).Date.AddDays($d); Success = $total - $failed - $warn; Warning = $warn; Failed = $failed }
+                    }
+                    New-UDEChart -Data $nights -Type bar -X Night -Y Success, Warning, Failed -Stacked -Height 340px -Palette '#43a047', '#fb8c00', '#e53935' -YMin 1500
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Backup job duration against the 6-hour backup window' -Content {
+                    $jobs = foreach ($i in 1..1500) { [pscustomobject]@{ Minutes = [math]::Round([math]::Exp(3.6 + 0.8 * ($rng.NextDouble() + $rng.NextDouble() - 1)), 0) } }
+                    New-UDEChart -Data $jobs -Type histogram -Y Minutes -Format 'duration:min' -Bins 25 -Height 340px -MarkLine 'median', @{ value = 360; name = 'Backup window'; color = '#e53935' }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Availability last 30 days vs 99.9 % SLA' -Content {
+                    $services = foreach ($svc in 'vCenter', 'IaaS compute', 'Object storage', 'Managed SQL', 'Managed Kubernetes', 'Firewall as a service', 'VDI', 'Exchange hybrid', 'Backup portal') {
+                        [pscustomobject]@{ Service = $svc; Availability = [math]::Round(99.8 + 0.2 * $rng.NextDouble(), 3) }
+                    }
+                    New-UDEChart -Data $services -Type bar -X Service -Y Availability -YMin 99.7 -YMax 100 -Format 'number:2' -DataLabels -Height 340px `
+                        -MarkLine @{ value = 99.9; name = 'SLA 99.9 %'; color = '#e53935' }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Incident resolution by priority against SLA (hours)' -Content {
+                    $inc = foreach ($i in 1..800) {
+                        $p = @('P1', 'P2', 'P3', 'P4')[[math]::Min(3, [int]([math]::Pow($rng.NextDouble(), 0.5) * 4))]
+                        $f = @{ P1 = 1.5; P2 = 4; P3 = 12; P4 = 30 }[$p]
+                        [pscustomobject]@{ Priority = $p; Hours = [math]::Round($f * [math]::Exp(0.6 * ($rng.NextDouble() + $rng.NextDouble() - 1)), 1) }
+                    }
+                    New-UDEChart -Data $inc -Type boxplot -X Priority -Y Hours -Format 'duration:h' -Height 340px -LogScale
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -Content {
+                New-UDCard -Title 'Monthly recurring revenue by customer and service (click a customer to zoom in)' -Content {
+                    $catalog = 'vCPU', 'RAM', 'Block storage', 'Object storage', 'Backup', 'Firewall', 'Managed OS Windows', 'Managed OS Linux', 'Managed SQL', 'Kubernetes', 'Microsoft 365'
+                    $mrr = foreach ($cust in 'Contoso AG', 'Fabrikam GmbH', 'Northwind KG', 'Tailspin SE', 'Adatum GmbH', 'Woodgrove Bank', 'Litware Inc', 'Proseware') {
+                        foreach ($svc in ($catalog | Get-Random -Count (Get-Random -Minimum 4 -Maximum 9 -SetSeed $cust.Length))) {
+                            [pscustomobject]@{ Customer = $cust; Service = $svc; MRR = $rng.Next(800, 24000) }
+                        }
+                    }
+                    New-UDEChart -Data $mrr -Type treemap -Path Customer, Service -Y MRR -Format 'currency:EUR' -Locale de-DE -Height 440px
+                }
+            }
+        }
+    }
+    #endregion
+
+    #region Public data
+    New-UDPage -Name 'Public data' -Url '/public' -Content {
+        New-UDTypography -Variant h5 -Text 'Public APIs (fetched by the PSU server; each card shows an error if the API is unreachable)'
+        New-UDGrid -Container -Content {
+            New-UDGrid -Item -ExtraSmallSize 12 -Content {
+                New-UDCard -Title 'Weather Berlin, next 7 days (Open-Meteo): temperature and rain on two axes' -Content {
+                    try {
+                        $w = Invoke-RestMethod 'https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&hourly=temperature_2m,precipitation&timezone=Europe%2FBerlin&forecast_days=7' -TimeoutSec 20
+                        $hours = for ($i = 0; $i -lt $w.hourly.time.Count; $i++) {
+                            [pscustomobject]@{ Time = $w.hourly.time[$i]; Temperature = $w.hourly.temperature_2m[$i]; Rain = $w.hourly.precipitation[$i] }
+                        }
+                        New-UDEChart -Data $hours -Type line -X Time -Y Temperature, Rain -SecondaryY Rain -YTitle '°C' -SecondaryTitle 'mm' -Zoom Both -Height 340px `
+                            -Options @{ series = @(@{ smooth = $true }, @{ type = 'bar'; itemStyle = @{ opacity = 0.6 } }) }
+                    }
+                    catch { New-UDAlert -Severity warning -Text ('Open-Meteo: {0}' -f $_.Exception.Message) }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'EUR exchange rates, last 12 months (ECB via Frankfurter)' -Content {
+                    try {
+                        $from = (Get-Date).AddYears(-1).ToString('yyyy-MM-dd')
+                        $fx = Invoke-RestMethod "https://api.frankfurter.dev/v1/$from..?symbols=USD,GBP,CHF" -TimeoutSec 20
+                        $rates = foreach ($p in $fx.rates.PSObject.Properties) {
+                            [pscustomobject]@{ Date = $p.Name; USD = $p.Value.USD; GBP = $p.Value.GBP; CHF = $p.Value.CHF }
+                        }
+                        New-UDEChart -Data $rates -Type line -X Date -Y USD, GBP, CHF -Format 'number:4' -Zoom Both -Height 340px -Options @{ yAxis = @{ scale = $true } }
+                    }
+                    catch { New-UDAlert -Severity warning -Text ('Frankfurter: {0}' -f $_.Exception.Message) }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Earthquakes of the last 7 days (USGS): magnitude vs depth' -Content {
+                    try {
+                        $q = Invoke-RestMethod 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson' -TimeoutSec 20
+                        $quakes = $q.features | ForEach-Object {
+                            [pscustomobject]@{ Magnitude = $_.properties.mag; Depth = $_.geometry.coordinates[2]; Type = if ($_.properties.tsunami) { 'Tsunami alert' } else { 'Earthquake' }; Place = $_.properties.place }
+                        }
+                        New-UDEChart -Data $quakes -Type scatter -X Magnitude -Y Depth -GroupBy Type -XAxisType Value -YTitle 'km' -Height 340px `
+                            -OnClick { Show-UDToast -Message ('M{0} at {1} km: {2}' -f $EventData.row.magnitude, $EventData.row.depth, $EventData.row.place) } `
+                            -Options @{ yAxis = @{ inverse = $true } }
+                    }
+                    catch { New-UDAlert -Severity warning -Text ('USGS: {0}' -f $_.Exception.Message) }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Population, 15 largest countries (World Bank)' -Content {
+                    try {
+                        $wb = Invoke-RestMethod 'https://api.worldbank.org/v2/country/all/indicator/SP.POP.TOTL?date=2023&format=json&per_page=400' -TimeoutSec 30
+                        # the list mixes countries and aggregates; countries have a 3-letter ISO code and a region
+                        $countries = Invoke-RestMethod 'https://api.worldbank.org/v2/country?format=json&per_page=400' -TimeoutSec 30
+                        $real = @($countries[1] | Where-Object { $_.region.id -ne 'NA' } | ForEach-Object id)
+                        $top = $wb[1] | Where-Object { $_.countryiso3code -in $real -and $_.value } | Sort-Object value -Descending | Select-Object -First 15 @{ n = 'Country'; e = { $_.country.value } }, @{ n = 'Population'; e = { $_.value } }
+                        New-UDEChart -Data $top -Type bar -Horizontal -X Country -Y Population -Format compact -DataLabels -Height 420px
+                    }
+                    catch { New-UDAlert -Severity warning -Text ('World Bank: {0}' -f $_.Exception.Message) }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'An OpenAPI document: operations per tag and method (Swagger Petstore)' -Content {
+                    try {
+                        $api = Invoke-RestMethod 'https://petstore3.swagger.io/api/v3/openapi.json' -TimeoutSec 20
+                        $ops = foreach ($path in $api.paths.PSObject.Properties) {
+                            foreach ($op in $path.Value.PSObject.Properties) {
+                                [pscustomobject]@{ Tag = @($op.Value.tags)[0]; Method = $op.Name.ToUpper(); Path = $path.Name }
+                            }
+                        }
+                        $byTag = $ops | Group-Object Tag, Method | ForEach-Object { [pscustomobject]@{ Tag = $_.Group[0].Tag; Method = $_.Group[0].Method; Operations = $_.Count } }
+                        New-UDEChart -Data $byTag -Type bar -X Tag -Y Operations -GroupBy Method -Stacked -DataLabels -Height 420px
+                    }
+                    catch { New-UDAlert -Severity warning -Text ('OpenAPI: {0}' -f $_.Exception.Message) }
+                }
+            }
+        }
+    }
+    #endregion
+
+    #region Technical
+    New-UDPage -Name 'Technical' -Url '/technical' -Content {
+        New-UDTypography -Variant h5 -Text 'Data from PowerShell on the PSU server'
+        New-UDGrid -Container -Content {
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Processes by memory (Get-Process)' -Content {
+                    $procs = Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First 12 @{ n = 'Process'; e = { '{0} ({1})' -f $_.ProcessName, $_.Id } }, @{ n = 'Memory'; e = { $_.WorkingSet64 } }
+                    New-UDEChart -Data $procs -Type bar -Horizontal -X Process -Y Memory -Format bytes -DataLabels -Height 380px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Size of the PSU program folder (treemap from Get-ChildItem)' -Content {
+                    $root = Split-Path ([System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName)
+                    $files = Get-ChildItem -LiteralPath $root -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
+                        $rel = [System.IO.Path]::GetRelativePath($root, $_.DirectoryName).Replace('\', '/')
+                        [pscustomobject]@{ Folder = if ($rel -eq '.') { '(root)' } else { ($rel -split '/' | Select-Object -First 2) -join '/' }; Bytes = $_.Length }
+                    }
+                    $sizes = $files | Group-Object Folder | ForEach-Object { [pscustomobject]@{ Folder = $_.Name; Bytes = ($_.Group | Measure-Object Bytes -Sum).Sum } }
+                    New-UDEChart -Data $sizes -Type treemap -Path Folder -Y Bytes -Format bytes -Height 380px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'A System.Data.DataTable with DBNull (as SqlClient returns it)' -Content {
+                    $table = [System.Data.DataTable]::new()
+                    [void]$table.Columns.Add('Server', [string])
+                    [void]$table.Columns.Add('CpuPercent', [double])
+                    [void]$table.Columns.Add('MemoryPercent', [double])
+                    foreach ($r in @(('db01', 71.5, 82.1), ('db02', 34.2, [DBNull]::Value), ('app01', 55.0, 61.3), ('app02', [DBNull]::Value, 44.8), ('web01', 18.9, 37.0))) {
+                        [void]$table.Rows.Add($r[0], $r[1], $r[2])
+                    }
+                    New-UDEChart -Data $table -Type bar -X Server -Y CpuPercent, MemoryPercent -Format percent100 -DataLabels -Height 320px `
+                        -ExportColumns @{ field = 'Server'; title = 'Server' }, @{ field = 'CpuPercent'; title = 'CPU %'; type = 'number' }, @{ field = 'MemoryPercent'; title = 'Memory %'; type = 'number' }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Linked charts: zoom or hover one, the other follows' -Content {
+                    $t0 = (Get-Date).Date
+                    $series = foreach ($i in 0..287) { [pscustomobject]@{ Time = $t0.AddMinutes(5 * $i); Requests = [math]::Round(400 + 300 * [math]::Sin($i / 30) + ($i * 13) % 50); Errors = [math]::Round(5 + 4 * [math]::Cos($i / 17) + ($i * 7) % 3) } }
+                    New-UDEChart -Data $series -Type area -X Time -Y Requests -Group 'linked' -Height 180px -Legend None
+                    New-UDEChart -Data $series -Type bar -X Time -Y Errors -Group 'linked' -Height 180px -Legend None -Palette '#ee6666'
+                }
+            }
+        }
+    }
+    #endregion
+
+    #region Live
+    New-UDPage -Name 'Live' -Url '/live' -Content {
+        New-UDTypography -Variant h5 -Text 'Live data: a new point every 2 seconds (Set-UDEChartData), zoom and hidden series stay'
+        $Session:LivePoints = [System.Collections.Generic.List[object]]::new()
+        New-UDEChart -Id 'live-chart' -Data @() -Type line -X Time -Y Load, Queue -Smooth -Height 360px -Zoom Slider
+        New-UDElement -Tag 'div' -AutoRefresh -RefreshInterval 2 -Endpoint {
+            $now = Get-Date
+            $Session:LivePoints.Add([pscustomobject]@{ Time = $now; Load = [math]::Round(50 + 30 * [math]::Sin($now.Second / 9) + (Get-Random -Maximum 10), 1); Queue = Get-Random -Minimum 0 -Maximum 25 })
+            while ($Session:LivePoints.Count -gt 300) { $Session:LivePoints.RemoveAt(0) }
+            Set-UDEChartData -Id 'live-chart' -Data $Session:LivePoints
+        }
+    }
+    #endregion
+
+    #region Benchmark
+    New-UDPage -Name 'Benchmark' -Url '/benchmark' -Content {
+        New-UDTypography -Variant h5 -Text 'Large data: points generated on the server, sampled (LTTB) in the browser'
+        New-UDSelect -Id 'bench-size' -Label 'Points' -DefaultValue '10000' -Option {
+            New-UDSelectOption -Name '10.000' -Value '10000'
+            New-UDSelectOption -Name '100.000' -Value '100000'
+            New-UDSelectOption -Name '300.000' -Value '300000'
+        } -OnChange { $Session:BenchSize = [int]$EventData; Sync-UDElement -Id 'bench' }
+        New-UDDynamic -Id 'bench' -Content {
+            $n = if ($Session:BenchSize) { $Session:BenchSize } else { 10000 }
+            $watch = [System.Diagnostics.Stopwatch]::StartNew()
+            $t0 = [datetime]'2026-01-01'
+            $points = [System.Collections.Generic.List[object]]::new($n)
+            $v = 100.0
+            $rnd = [System.Random]::new(1)
+            for ($i = 0; $i -lt $n; $i++) {
+                $v += ($rnd.NextDouble() - 0.5) * 2
+                $points.Add([pscustomobject]@{ Time = $t0.AddSeconds(30 * $i); Value = [math]::Round($v, 2) })
+            }
+            New-UDTypography -Variant body2 -Text ('{0:N0} points generated in {1:N0} ms on the server' -f $n, $watch.ElapsedMilliseconds)
+            New-UDEChart -Data $points -Type line -X Time -Y Value -Zoom Both -Height 420px -NoExport
+        }
+    }
+    #endregion
+)

@@ -11,9 +11,10 @@ const days = [
 
 test("line with GroupBy: one series per group, time axis, rows kept for events", () => {
     const o = buildOption({ chartType: "line", data: days, x: "Day", y: ["Opened"], groupBy: "Team" }, { locale: "en-US" });
-    assert.deepEqual(o.series.map((s) => s.name), ["OPS", "DEV"]);
+    // groups in natural order, independent of row order
+    assert.deepEqual(o.series.map((s) => s.name), ["DEV", "OPS"]);
     assert.equal(o.xAxis.type, "time");
-    assert.deepEqual(o.series[0].data[1], { value: ["2026-11-02T00:00:00", 4], rowIndex: 2 });
+    assert.deepEqual(o.series[1].data[1], { value: ["2026-11-02T00:00:00", 4], rowIndex: 2 });
     assert.equal(o.series[0].emphasis.focus, "series");
 });
 
@@ -125,9 +126,39 @@ test("mergeOptions: objects by key, arrays by index, object into every array ele
     assert.equal(o.series[0].type, "bar");
 });
 
+test("groups sort naturally: P2 before P10", () => {
+    const rows = [{ x: "a", g: "P10", v: 1 }, { x: "a", g: "P2", v: 1 }, { x: "a", g: "P1", v: 1 }];
+    assert.deepEqual(buildOption({ chartType: "bar", data: rows, x: "x", y: ["v"], groupBy: "g" }, {}).series.map((s) => s.name), ["P1", "P2", "P10"]);
+});
+
+test("value labels use the short form of the format", () => {
+    const o = buildOption({ chartType: "bar", data: [{ s: "a", v: 9850000 }], x: "s", y: ["v"], dataLabels: true, format: "currency:EUR" }, { locale: "de-DE" });
+    assert.match(o.series[0].label.formatter({ value: 9850000 }), /9,9\sMio\.\s€/);
+    assert.match(o.tooltip.valueFormatter(9850000), /9\.850\.000,00\s€/);
+});
+
 test("every chart type builds from empty data", () => {
     for (const t of CHART_TYPES) {
         assert.doesNotThrow(() => buildOption({ chartType: t, data: [] }, {}), t);
     }
     assert.throws(() => buildOption({ chartType: "nope", data: [] }, {}), /Unknown chart type/);
+});
+
+test("responsive rules for narrow containers", async () => {
+    const { responsive, optionForWidth, NARROW } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js");
+    const rows = [{ s: "Open", c: 2 }, { s: "Closed", c: 6 }];
+    const base = buildOption({ chartType: "donut", data: rows, x: "s", y: ["c"] }, {});
+    const rules = responsive(base, { chartType: "donut" }, { locale: "en-US" });
+    assert.equal(rules[0].maxWidth, NARROW);
+    const narrow = optionForWidth(base, rules, 390);
+    assert.equal(narrow.series[0].label.position, "inside");
+    assert.equal(narrow.series[0].label.formatter({ percent: 75 }), "75%");
+    assert.equal(narrow.series[0].label.formatter({ percent: 2 }), "", "tiny slices stay unlabelled");
+    assert.equal(narrow.series[0].data.length, 2, "data survives the merge");
+    assert.notEqual(optionForWidth(base, rules, 1200).series[0].label.position, "inside");
+    const barBase = buildOption({ chartType: "bar", data: rows, x: "s", y: ["c"], dataLabels: true }, {});
+    const bars = optionForWidth(barBase, responsive(barBase, { chartType: "bar", dataLabels: true }, {}), 400);
+    assert.equal(bars.series[0].label.show, false);
+    assert.equal(bars.toolbox.feature.magicType.show, false);
+    assert.equal(optionForWidth(barBase, responsive(barBase, { chartType: "bar" }, {}), 300).toolbox.show, false);
 });
