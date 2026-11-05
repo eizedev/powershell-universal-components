@@ -186,6 +186,11 @@ freshness, findings over time, servers across all measures, VM folders, backup j
 asset 360, datastore trend), calendar heatmaps, intraday charts with axis breaks and small multiples,
 public APIs, PowerShell and DataTable data, live data and a benchmark.
 
+## Apache ECharts gallery
+
+[docs/gallery.md](docs/gallery.md) maps the examples of the Apache ECharts gallery to parameters,
+`-Options`, PowerShell-side preparation, or says why one is not included (maps, 3D, custom series).
+
 ## Limits
 
 - Keyboard navigation inside a chart is not supported by Apache ECharts; the data stays reachable
