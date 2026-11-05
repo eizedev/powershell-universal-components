@@ -157,8 +157,67 @@ test("responsive rules for narrow containers", async () => {
     assert.equal(narrow.series[0].data.length, 2, "data survives the merge");
     assert.notEqual(optionForWidth(base, rules, 1200).series[0].label.position, "inside");
     const barBase = buildOption({ chartType: "bar", data: rows, x: "s", y: ["c"], dataLabels: true }, {});
-    const bars = optionForWidth(barBase, responsive(barBase, { chartType: "bar", dataLabels: true }, {}), 400);
-    assert.equal(bars.series[0].label.show, false);
+    const barRules = responsive(barBase, { chartType: "bar", dataLabels: true }, {});
+    const bars = optionForWidth(barBase, barRules, 400);
+    assert.notEqual(bars.series[0].label.show, false, "labels stay on a narrow card");
     assert.equal(bars.toolbox.feature.magicType.show, false);
+    assert.equal(optionForWidth(barBase, barRules, 300).series[0].label.show, false, "and go when tiny");
     assert.equal(optionForWidth(barBase, responsive(barBase, { chartType: "bar" }, {}), 300).toolbox.show, false);
+});
+
+test("axis breaks: ISO dates on a time axis become epoch ms, none on category axes", async () => {
+    const { axisBreaks } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js");
+    const b = axisBreaks([{ start: "2026-11-05T18:00:00Z", end: "2026-11-06T08:00:00Z" }], "time");
+    assert.equal(b[0].start, Date.parse("2026-11-05T18:00:00Z"));
+    assert.equal(b[0].gap, "1%");
+    assert.equal(axisBreaks([{ start: 1, end: 2 }], "category"), undefined);
+    assert.equal(axisBreaks([{ start: 5, end: 2 }], "value"), undefined, "end before start is dropped");
+    const o = buildOption({ chartType: "line", data: days, x: "day", y: ["opened"], breaks: [{ start: "2026-11-01T12:00:00Z", end: "2026-11-01T20:00:00Z" }] }, {});
+    assert.equal(o.xAxis.breaks.length, 1);
+    assert.equal(buildOption({ chartType: "bar", data: [{ s: "a", v: 1 }], x: "s", y: ["v"], yBreaks: [{ start: 100, end: 1000, gap: "5%" }] }, {}).yAxis[0].breaks[0].end, 1000);
+});
+
+test("sparkline: no axes, no legend, latest point marked", () => {
+    const rows = [{ t: "a", v: 1 }, { t: "b", v: 3 }, { t: "c", v: null }];
+    const o = buildOption({ chartType: "area", data: rows, x: "t", y: ["v"], sparkline: true }, {});
+    assert.equal(o.xAxis.show, false);
+    assert.equal(o.legend.show, false);
+    assert.equal(o.toolbox, undefined);
+    assert.deepEqual(o.series[0].markPoint.data[0].coord, [1, 3]);
+});
+
+test("facets: one grid per value, shared value scale", () => {
+    const rows = [
+        { day: "Mon", hour: "08", v: 2 }, { day: "Mon", hour: "09", v: 9 },
+        { day: "Tue", hour: "08", v: 4 }, { day: "Tue", hour: "09", v: 1 },
+        { day: "Wed", hour: "08", v: 3 }
+    ];
+    const o = buildOption({ chartType: "line", data: rows, x: "hour", y: ["v"], facet: "day", facetColumns: 2 }, {});
+    assert.equal(o.grid.length, 3);
+    assert.equal(o.xAxis.length, 3);
+    assert.deepEqual(o.yAxis.map((a) => a.max), [9, 9, 9]);
+    assert.deepEqual(o.series.map((s) => s.xAxisIndex), [0, 1, 2]);
+    assert.deepEqual(o.title.map((t) => t.text), ["Mon", "Tue", "Wed"]);
+    assert.ok(o.grid.every((g) => /%$/.test(g.top)), "layout in plain percent");
+});
+
+test("normalize: stacks sum to 100 %, raw values kept", () => {
+    const rows = [{ m: "Jan", a: 1, b: 3 }, { m: "Feb", a: 2, b: 2 }];
+    const o = buildOption({ chartType: "bar", data: rows, x: "m", y: ["a", "b"], normalize: true }, { locale: "en-US" });
+    assert.deepEqual(o.series[0].data.map((d) => d.value), [25, 50]);
+    assert.deepEqual(o.series[1].data.map((d) => d.raw), [3, 2]);
+    assert.equal(o.yAxis[0].max({ max: 100.00000000001 }), 100.00000000001, "never clips the stack");
+    assert.equal(o.yAxis[0].max({ max: 60 }), 100);
+    assert.equal(o.series[1].stack, "total");
+    const labelled = buildOption({ chartType: "bar", data: rows, x: "m", y: ["a", "b"], normalize: true, dataLabels: true }, {});
+    assert.equal(labelled.series[0].label.position, "inside", "labels inside the stack");
+});
+
+test("zoom axis: value axis zoom for vertical bars", () => {
+    const rows = [{ m: "Jan", a: 1 }];
+    const o = buildOption({ chartType: "bar", data: rows, x: "m", y: ["a"], zoom: "both", zoomAxis: "y" }, {});
+    assert.ok(o.dataZoom.every((z) => z.yAxisIndex !== undefined));
+    assert.ok(o.dataZoom.some((z) => z.orient === "vertical"));
+    const both = buildOption({ chartType: "bar", data: rows, x: "m", y: ["a"], zoom: "inside", zoomAxis: "both" }, {});
+    assert.equal(both.dataZoom.length, 2);
 });

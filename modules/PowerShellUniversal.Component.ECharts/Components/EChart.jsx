@@ -77,6 +77,8 @@ export default function EChart(props) {
     useEffect(() => {
         const chart = echarts.init(container.current, ensureTheme(echarts, mode, psuTheme), { renderer: props.renderer === "svg" ? "svg" : "canvas" });
         chartRef.current = chart;
+        // the ECharts instance on its element, for page scripts and tests: element.echarts.getOption()
+        container.current.echarts = chart;
         const resize = new ResizeObserver((entries) => {
             chart.resize();
             setWidthClass(classOf(entries[0].contentRect.width));

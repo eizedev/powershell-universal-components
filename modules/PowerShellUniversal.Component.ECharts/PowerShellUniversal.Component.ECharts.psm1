@@ -132,6 +132,8 @@ function New-UDEChart {
         Stack the series (line, area, bar).
     .PARAMETER Horizontal
         Horizontal bars (bar, boxplot).
+    .PARAMETER Normalize
+        Stack the series to 100 % per category (shares); the tooltip shows share and original value.
     .PARAMETER Smooth
         Smooth lines.
     .PARAMETER LogScale
@@ -145,8 +147,25 @@ function New-UDEChart {
         Colour for negative bars (bar, waterfall).
     .PARAMETER PositiveColor
         Colour for rising waterfall steps.
+    .PARAMETER Breaks
+        Gaps cut out of a time or value x axis: @{ start = ...; end = ...; gap = '1%' }, start and end
+        as dates (time axis) or numbers. New-UDEChartTimeBreak builds them for nights and weekends.
+        Not possible on category axes.
+    .PARAMETER YBreaks
+        Gaps cut out of the value axis, e.g. @{ start = 200; end = 5000 } when one bar dwarfs the rest.
+    .PARAMETER Facet
+        Small multiples: one small chart per value of this column (e.g. one per weekday), all with the
+        same value scale (line, area, step, bar, scatter).
+    .PARAMETER FacetColumns
+        Small multiples per row. Default: up to 4.
+    .PARAMETER Sparkline
+        A tiny trend without axes, legend and toolbox, for tiles and tables (line, area, bar).
+        Use with -Height, e.g. 60px.
     .PARAMETER Zoom
         Inside (mouse wheel and drag, default), Slider, Both or None.
+    .PARAMETER ZoomAxis
+        X (default: along the data), Y (the value axis, to look into small values next to large ones)
+        or Both. With Both the mouse wheel zooms X, Shift + wheel zooms Y.
     .PARAMETER Brush
         Select a range with the mouse (toolbox button); fires -OnSelect.
     .PARAMETER NoToolbox
@@ -251,13 +270,20 @@ function New-UDEChart {
         [ValidateRange(1, 500)][int]$Bins,
         [switch]$Stacked,
         [switch]$Horizontal,
+        [switch]$Normalize,
         [switch]$Smooth,
         [switch]$LogScale,
         [switch]$DataLabels,
         [object[]]$MarkLine,
         [string]$NegativeColor,
         [string]$PositiveColor,
+        [hashtable[]]$Breaks,
+        [hashtable[]]$YBreaks,
+        [string]$Facet,
+        [ValidateRange(1, 12)][int]$FacetColumns,
+        [switch]$Sparkline,
         [ValidateSet('Inside', 'Slider', 'Both', 'None')][string]$Zoom = 'Inside',
+        [ValidateSet('X', 'Y', 'Both')][string]$ZoomAxis = 'X',
         [switch]$Brush,
         [switch]$NoToolbox,
         [switch]$NoExport,
@@ -295,10 +321,13 @@ function New-UDEChart {
         export    = -not $NoExport
         stacked   = [bool]$Stacked
         horizontal = [bool]$Horizontal
+        normalize = [bool]$Normalize
+        zoomAxis  = $ZoomAxis.ToLowerInvariant()
         smooth    = [bool]$Smooth
         logScale  = [bool]$LogScale
         brush     = [bool]$Brush
         decal     = [bool]$Decal
+        sparkline = [bool]$Sparkline
         xAxisType = $XAxisType.ToLowerInvariant()
     }
     # DataLabels: unset means the chart type's default (pie shows labels, bars do not)
@@ -312,6 +341,7 @@ function New-UDEChart {
         Min = 'min'; Max = 'max'; YMin = 'yMin'; YMax = 'yMax'; Bins = 'bins'; MarkLine = 'markLine'
         NegativeColor = 'negativeColor'; PositiveColor = 'positiveColor'; ExportColumns = 'exportColumns'
         ExportFileName = 'exportFileName'; Group = 'group'; Options = 'options'
+        Breaks = 'breaks'; YBreaks = 'yBreaks'; Facet = 'facet'; FacetColumns = 'facetColumns'
     }
     foreach ($name in $map.Keys) {
         if ($PSBoundParameters.ContainsKey($name)) { $props[$map[$name]] = $PSBoundParameters[$name] }
@@ -322,6 +352,70 @@ function New-UDEChart {
     if ($OnZoom) { $props['onZoom'] = $OnZoom }
     if ($OnLegendChange) { $props['onLegendChange'] = $OnLegendChange }
     $props
+}
+
+function New-UDEChartTimeBreak {
+    <#
+    .SYNOPSIS
+        Axis breaks that cut nights and/or weekends out of a time axis (intraday charts, business hours).
+    .DESCRIPTION
+        Returns one break per night (between -DayEnd and the next -DayStart) and, with -Weekends, one per
+        weekend, between -From and -To, ready for New-UDEChart -Breaks. Dates are written in ISO 8601 with
+        the local offset, like the chart's own data, so the cuts line up with the points.
+    .PARAMETER From
+        Start of the period.
+    .PARAMETER To
+        End of the period.
+    .PARAMETER DayStart
+        Start of the visible part of a day. Default: 08:00.
+    .PARAMETER DayEnd
+        End of the visible part of a day. Default: 18:00.
+    .PARAMETER Weekends
+        Also cut out Saturdays and Sundays completely.
+    .PARAMETER Gap
+        Visual width of each cut, in percent of the axis. Default: 1%.
+    .EXAMPLE
+        $breaks = New-UDEChartTimeBreak -From (Get-Date).AddDays(-14) -To (Get-Date) -DayStart '07:00' -DayEnd '19:00' -Weekends
+        New-UDEChart -Data $samples -Type line -X Time -Y Latency -Breaks $breaks
+    .OUTPUTS
+        System.Collections.Hashtable
+    #>
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory)][datetime]$From,
+        [Parameter(Mandatory)][datetime]$To,
+        [timespan]$DayStart = '08:00',
+        [timespan]$DayEnd = '18:00',
+        [switch]$Weekends,
+        [ValidatePattern('^\d+(\.\d+)?%$')][string]$Gap = '1%'
+    )
+    if ($DayEnd -le $DayStart) { throw 'DayEnd must be later than DayStart.' }
+    $day = $From.Date
+    $cuts = [System.Collections.Generic.List[object]]::new()
+    while ($day -le $To.Date) {
+        $isWeekend = $Weekends -and $day.DayOfWeek -in 'Saturday', 'Sunday'
+        if ($isWeekend) {
+            $cuts.Add(@($day, ($day.AddDays(1))))
+        }
+        else {
+            # parentheses: the comma binds tighter than +
+            $cuts.Add(@($day, ($day + $DayStart)))
+            $cuts.Add(@(($day + $DayEnd), ($day.AddDays(1))))
+        }
+        $day = $day.AddDays(1)
+    }
+    # neighbouring cuts (evening + night + next morning, whole weekends) become one break
+    $merged = [System.Collections.Generic.List[object]]::new()
+    foreach ($c in $cuts) {
+        if ($merged.Count -gt 0 -and $merged[$merged.Count - 1][1] -ge $c[0]) { $merged[$merged.Count - 1][1] = $c[1] }
+        else { $merged.Add(@($c[0], $c[1])) }
+    }
+    foreach ($m in $merged) {
+        $start = if ($m[0] -lt $From) { $From } else { $m[0] }
+        $end = if ($m[1] -gt $To) { $To } else { $m[1] }
+        if ($end -gt $start) { @{ start = $start.ToString('o'); end = $end.ToString('o'); gap = $Gap } }
+    }
 }
 
 function Set-UDEChartData {
@@ -349,4 +443,4 @@ function Set-UDEChartData {
     }
 }
 
-Export-ModuleMember -Function New-UDEChart, Set-UDEChartData
+Export-ModuleMember -Function New-UDEChart, New-UDEChartTimeBreak, Set-UDEChartData

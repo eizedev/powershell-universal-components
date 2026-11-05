@@ -82,6 +82,63 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
     }
     #endregion
 
+    #region Bars
+    New-UDPage -Name 'Bars' -Url '/bars' -Content {
+        $rng = [System.Random]::new(3)
+        $teams = 'Service Desk', 'Network', 'Server', 'Applications', 'Security', 'Database'
+        $statusRows = foreach ($t in $teams) { [pscustomobject]@{ Team = $t; Open = $rng.Next(5, 60); Waiting = $rng.Next(2, 25); Closed = $rng.Next(80, 400) } }
+        $months = 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'
+        $card = { param($Title, $Size, [scriptblock]$Chart) New-UDGrid -Item -ExtraSmallSize 12 -MediumSize $Size -Content { New-UDCard -Title $Title -Content $Chart } }
+        New-UDTypography -Variant h5 -Text 'Bar charts in every variant'
+        New-UDGrid -Container -Content {
+            & $card 'Columns with values' 4 { New-UDEChart -Data $statusRows -Type bar -X Team -Y Closed -DataLabels -Height 300px }
+            & $card 'Grouped' 4 { New-UDEChart -Data $statusRows -Type bar -X Team -Y Open, Waiting, Closed -Height 300px }
+            & $card 'Stacked' 4 { New-UDEChart -Data $statusRows -Type bar -X Team -Y Open, Waiting, Closed -Stacked -Height 300px }
+            & $card 'Stacked horizontal' 6 { New-UDEChart -Data $statusRows -Type bar -Horizontal -X Team -Y Open, Waiting, Closed -Stacked -DataLabels -Height 340px }
+            & $card 'Stacked to 100 % (share per team; tooltip shows the counts)' 6 { New-UDEChart -Data $statusRows -Type bar -Horizontal -X Team -Y Open, Waiting, Closed -Normalize -DataLabels -LabelFormat 'percent100:0' -Height 340px }
+            & $card 'Negative values, horizontal: budget variance per department' 6 {
+                $variance = foreach ($d in 'IT', 'HR', 'Sales', 'Marketing', 'Logistics', 'Production', 'Finance', 'Legal') { [pscustomobject]@{ Department = $d; Variance = $rng.Next(-180000, 140000) } }
+                New-UDEChart -Data ($variance | Sort-Object Variance) -Type bar -Horizontal -X Department -Y Variance -Format 'currency:EUR' -Locale de-DE -NegativeColor '#e53935' -DataLabels -Height 340px
+            }
+            & $card 'Diverging: survey answers (negative to the left)' 6 {
+                $survey = foreach ($q in 'Response time', 'Communication', 'Solution quality', 'Self-service portal', 'Opening hours') {
+                    $neg = $rng.Next(5, 35)
+                    [pscustomobject]@{ Question = $q; 'Disagree' = - $neg; 'Rather disagree' = - $rng.Next(5, 20); 'Rather agree' = $rng.Next(15, 35); 'Agree' = $rng.Next(20, 50) }
+                }
+                New-UDEChart -Data $survey -Type bar -Horizontal -X Question -Y 'Disagree', 'Rather disagree', 'Rather agree', 'Agree' -Stacked -Height 340px -Palette '#c62828', '#ef9a9a', '#a5d6a7', '#2e7d32' `
+                    -Options @{ xAxis = @{ axisLabel = @{} } }
+            }
+            & $card 'Select columns with the brush (toolbox), the range comes back as a toast' 6 {
+                $daily = foreach ($d in 0..29) { [pscustomobject]@{ Day = (Get-Date).Date.AddDays(-29 + $d); Changes = $rng.Next(3, 40) } }
+                New-UDEChart -Data $daily -Type bar -X Day -Y Changes -Brush -Height 320px -OnSelect { Show-UDToast -Message ('Selected {0} to {1}' -f $EventData.from, $EventData.to) }
+            }
+            & $card 'Zoom on the value axis: one outlier, small values still readable (slider on the right)' 6 {
+                $disk = foreach ($s in 1..14) { [pscustomobject]@{ Server = 'srv{0:00}' -f $s; 'Disk GB' = if ($s -eq 7) { 9800 } else { $rng.Next(40, 420) } } }
+                New-UDEChart -Data $disk -Type bar -X Server -Y 'Disk GB' -Zoom Both -ZoomAxis Y -DataLabels -Height 320px
+            }
+            & $card 'Bars and a line on a second axis: tickets and SLA %' 6 {
+                $mixed = foreach ($m in $months) { [pscustomobject]@{ Month = $m; Tickets = $rng.Next(600, 1100); 'SLA %' = [math]::Round(92 + 7 * $rng.NextDouble(), 1) } }
+                New-UDEChart -Data $mixed -Type bar -X Month -Y Tickets, 'SLA %' -SecondaryY 'SLA %' -SecondaryTitle 'SLA %' -Height 320px -Options @{ series = @(@{}, @{ type = 'line'; smooth = $true; symbolSize = 8 }); yAxis = @(@{}, @{ min = 90; max = 100 }) }
+            }
+            & $card 'Sorted, with the average' 6 {
+                $apps = foreach ($a in 'SAP', 'Exchange', 'SharePoint', 'Teams', 'Jira', 'Confluence', 'GitLab', 'ServiceNow', 'Salesforce', 'Workday') { [pscustomobject]@{ App = $a; Incidents = $rng.Next(2, 60) } }
+                New-UDEChart -Data ($apps | Sort-Object Incidents -Descending) -Type bar -X App -Y Incidents -MarkLine average -DataLabels -Height 320px
+            }
+            & $card 'Many categories: 80 servers, zoom with the slider' 12 {
+                $many = foreach ($s in 1..80) { [pscustomobject]@{ Server = 'vm-{0:000}' -f $s; CPU = $rng.Next(2, 95); RAM = $rng.Next(10, 98) } }
+                New-UDEChart -Data $many -Type bar -X Server -Y CPU, RAM -Format percent100 -Zoom Both -Height 340px -MarkLine @{ value = 85; name = 'Threshold'; color = '#e53935' }
+            }
+            & $card 'Rounded corners and a target line through -Options' 6 {
+                New-UDEChart -Data $statusRows -Type bar -X Team -Y Closed -Height 300px -MarkLine @{ value = 250; name = 'Target'; color = '#43a047' } -Options @{ series = @(@{ itemStyle = @{ borderRadius = @(6, 6, 0, 0) }; barWidth = '45%' }) }
+            }
+            & $card 'Monthly trend as stacked area of bars (step)' 6 {
+                $trend = foreach ($m in $months) { [pscustomobject]@{ Month = $m; IaaS = $rng.Next(200, 400); PaaS = $rng.Next(80, 200); SaaS = $rng.Next(120, 260) } }
+                New-UDEChart -Data $trend -Type bar -X Month -Y IaaS, PaaS, SaaS -Stacked -Format compact -Height 300px -Options @{ series = @(@{ barCategoryGap = '10%' }) }
+            }
+        }
+    }
+    #endregion
+
     #region Ticket report
     New-UDPage -Name 'Ticket report' -Url '/tickets' -Content {
         $tickets = $Cache:EChartsTickets
@@ -410,7 +467,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                     $util = foreach ($l in $links) {
                         foreach ($h in 0..23) {
                             $day = [math]::Max(0, [math]::Sin(($h - 6) / 24 * 2 * [math]::PI))
-                            [pscustomobject]@{ Hour = '{0:00}:00' -f $h; Link = $l; Utilisation = [math]::Round(8 + 70 * $day * (0.6 + 0.4 * $rng.NextDouble()) + ($h -eq 2) * 55, 0) }
+                            [pscustomobject]@{ Hour = '{0:00}:00' -f $h; Link = $l; Utilisation = [math]::Round(8 + 70 * $day * (0.6 + 0.4 * $rng.NextDouble()) + $(if ($h -eq 2) { 55 } else { 0 }), 0) }  # 02:00 backup traffic
                         }
                     }
                     New-UDEChart -Data $util -Type heatmap -X Hour -Y Link -Value Utilisation -Min 0 -Max 100 -Format percent100 -Height 340px `
@@ -461,6 +518,117 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                         }
                     }
                     New-UDEChart -Data $mrr -Type treemap -Path Customer, Service -Y MRR -Format 'currency:EUR' -Locale de-DE -Height 440px
+                }
+            }
+        }
+    }
+    #endregion
+
+    #region Calendar
+    New-UDPage -Name 'Calendar' -Url '/calendar' -Content {
+        $rng = [System.Random]::new(11)
+        $today = (Get-Date).Date
+        New-UDTypography -Variant h5 -Text 'Calendar heatmaps: one cell per day'
+        New-UDGrid -Container -Content {
+            New-UDGrid -Item -ExtraSmallSize 12 -Content {
+                New-UDCard -Title 'Changes per day, two years (one calendar per year)' -Content {
+                    $changes = foreach ($d in -729..0) {
+                        $day = $today.AddDays($d)
+                        $base = if ($day.DayOfWeek -in 'Saturday', 'Sunday') { 1 } else { 9 }
+                        [pscustomobject]@{ Date = $day.ToString('yyyy-MM-dd'); Changes = [math]::Max(0, $base + $rng.Next(-3, 12)) }
+                    }
+                    New-UDEChart -Data $changes -Type calendar -X Date -Y Changes -Height 420px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Backup success rate per day (red below 95 %, orange below 99 %)' -Content {
+                    $rate = foreach ($d in -179..0) { [pscustomobject]@{ Date = $today.AddDays($d).ToString('yyyy-MM-dd'); Success = [math]::Round(100 - [math]::Pow($rng.NextDouble(), 6) * 9, 2) } }
+                    New-UDEChart -Data $rate -Type calendar -X Date -Y Success -Format 'percent100:2' -Height 260px -Options @{
+                        visualMap = @{ type = 'piecewise'; pieces = @(@{ lt = 95; color = '#e53935'; label = '< 95 %' }, @{ gte = 95; lt = 99; color = '#fb8c00'; label = '95 - 99 %' }, @{ gte = 99; color = '#43a047'; label = '>= 99 %' }) }
+                    }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'On-call: alerts outside business hours per day' -Content {
+                    $alerts = foreach ($d in -179..0) { [pscustomobject]@{ Date = $today.AddDays($d).ToString('yyyy-MM-dd'); Alerts = [math]::Max(0, [int]([math]::Pow($rng.NextDouble(), 3) * 14)) } }
+                    New-UDEChart -Data $alerts -Type calendar -X Date -Y Alerts -Height 260px -Options @{ visualMap = @{ inRange = @{ color = @('#e8f5e9', '#ffb74d', '#c62828') } } } `
+                        -OnClick { Show-UDToast -Message ('{0}: {1} alerts' -f $EventData.value[0], $EventData.value[1]) }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -Content {
+                New-UDCard -Title 'Change freeze, maintenance windows and patch days' -Content {
+                    $plan = foreach ($d in 0..119) {
+                        $day = $today.AddDays($d)
+                        $kind = if ($day.Month -eq 12 -and $day.Day -ge 15) { 3 } elseif ($day.DayOfWeek -eq 'Tuesday' -and $day.Day -ge 8 -and $day.Day -le 14) { 2 } elseif ($day.DayOfWeek -eq 'Saturday') { 1 } else { 0 }
+                        [pscustomobject]@{ Date = $day.ToString('yyyy-MM-dd'); Kind = $kind }
+                    }
+                    New-UDEChart -Data $plan -Type calendar -X Date -Y Kind -Height 240px -Options @{
+                        visualMap = @{ type = 'piecewise'; pieces = @(@{ value = 0; color = 'rgba(128,128,128,0.15)'; label = 'normal' }, @{ value = 1; color = '#42a5f5'; label = 'maintenance window' }, @{ value = 2; color = '#ab47bc'; label = 'patch day' }, @{ value = 3; color = '#e53935'; label = 'change freeze' }) }
+                        tooltip   = @{ show = $false }
+                    }
+                }
+            }
+        }
+    }
+    #endregion
+
+    #region Intraday
+    New-UDPage -Name 'Intraday & small multiples' -Url '/intraday' -Content {
+        $rng = [System.Random]::new(5)
+        $from = (Get-Date).Date.AddDays(-13)
+        $to = (Get-Date).Date.AddDays(1).AddSeconds(-1)
+        New-UDTypography -Variant h5 -Text 'Axis breaks, small multiples and sparklines'
+        New-UDGrid -Container -Content {
+            New-UDGrid -Item -ExtraSmallSize 12 -Content {
+                New-UDCard -Title 'Portal response time, business hours only (nights and weekends cut out)' -Content {
+                    $samples = for ($t = $from; $t -lt $to; $t = $t.AddMinutes(10)) {
+                        if ($t.DayOfWeek -in 'Saturday', 'Sunday' -or $t.Hour -lt 7 -or $t.Hour -ge 19) { continue }
+                        $load = [math]::Sin(($t.Hour - 7) / 12 * [math]::PI)
+                        [pscustomobject]@{ Time = $t; 'Response ms' = [math]::Round(180 + 220 * $load + $rng.Next(0, 90) + $(if ($rng.NextDouble() -lt 0.01) { 900 } else { 0 })) }
+                    }
+                    $breaks = New-UDEChartTimeBreak -From $from -To $to -DayStart '07:00' -DayEnd '19:00' -Weekends
+                    New-UDEChart -Data $samples -Type line -X Time -Y 'Response ms' -Breaks $breaks -Zoom Both -Height 360px -MarkLine @{ value = 600; name = 'SLA 600 ms'; color = '#e53935' } `
+                        -Options @{ series = @(@{ lineStyle = @{ width = 1 } }) }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Backups per hour, only the backup window 22:00 - 06:00' -Content {
+                    $start = (Get-Date).Date.AddDays(-6)
+                    $jobs = for ($t = $start; $t -lt (Get-Date).Date.AddDays(1); $t = $t.AddHours(1)) {
+                        if ($t.Hour -ge 6 -and $t.Hour -lt 22) { continue }
+                        [pscustomobject]@{ Hour = $t; Finished = $rng.Next(40, 260); Failed = $rng.Next(0, 6) }
+                    }
+                    $daytime = for ($d = $start; $d -lt (Get-Date).Date.AddDays(1); $d = $d.AddDays(1)) { @{ start = $d.AddHours(6).ToString('o'); end = $d.AddHours(22).ToString('o'); gap = '2%' } }
+                    New-UDEChart -Data $jobs -Type bar -X Hour -Y Finished, Failed -Stacked -Breaks $daytime -Height 340px -Palette '#43a047', '#e53935'
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Storage per customer: a break in the value axis keeps the small ones readable' -Content {
+                    $customers = @(('Contoso', 48), ('Fabrikam', 62), ('Northwind', 35), ('Tailspin', 1840), ('Adatum', 71), ('Litware', 29)) | ForEach-Object { [pscustomobject]@{ Customer = $_[0]; TB = $_[1] } }
+                    New-UDEChart -Data $customers -Type bar -X Customer -Y TB -DataLabels -YBreaks @{ start = 120; end = 1750; gap = '8%' } -Height 340px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -Content {
+                New-UDCard -Title 'Tickets per hour, one small chart per weekday (same scale)' -Content {
+                    $days = 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+                    $perHour = foreach ($d in $days) {
+                        $weekend = $d -in 'Saturday', 'Sunday'
+                        foreach ($h in 0..23) {
+                            $curve = [math]::Max(0, [math]::Sin(($h - 6) / 13 * [math]::PI))
+                            [pscustomobject]@{ Weekday = $d; Hour = '{0:00}' -f $h; Tickets = [math]::Round($curve * $(if ($weekend) { 6 } else { 28 }) + $rng.Next(0, 4)); Calls = [math]::Round($curve * $(if ($weekend) { 3 } else { 14 }) + $rng.Next(0, 3)) }
+                        }
+                    }
+                    New-UDEChart -Data $perHour -Type area -X Hour -Y Tickets, Calls -Facet Weekday -FacetColumns 4 -Smooth -Height 460px
+                }
+            }
+            foreach ($kpi in @(@('CPU, last 24 h', '%', 'percent100'), @('Open tickets', '', 'integer'), @('Backup volume', 'TB', 'number:1'), @('Portal latency', 'ms', 'integer'))) {
+                $points = foreach ($i in 0..47) { [pscustomobject]@{ T = $i; V = [math]::Round(40 + 25 * [math]::Sin($i / 6 + $kpi[0].Length) + $rng.Next(0, 12), 1) } }
+                New-UDGrid -Item -ExtraSmallSize 12 -SmallSize 6 -MediumSize 3 -Content {
+                    New-UDCard -Content {
+                        New-UDTypography -Variant caption -Text $kpi[0]
+                        New-UDTypography -Variant h4 -Text ('{0} {1}' -f $points[-1].V, $kpi[1])
+                        New-UDEChart -Data $points -Type area -X T -Y V -Sparkline -Format $kpi[2] -Height 60px
+                    }
                 }
             }
         }

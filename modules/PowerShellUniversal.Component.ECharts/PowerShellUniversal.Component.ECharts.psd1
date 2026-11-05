@@ -8,7 +8,7 @@
     Description       = 'Interactive Apache ECharts charts for PowerShell Universal apps: zoom, range selection, click events, linked charts, light and dark theme, CSV and Excel export, fed straight from SQL DataTables, REST results and PowerShell objects.'
     # PSU 2026 runs apps in PowerShell 7 (integrated SDK or an external pwsh environment)
     PowerShellVersion = '7.4'
-    FunctionsToExport = @('New-UDEChart', 'Set-UDEChartData')
+    FunctionsToExport = @('New-UDEChart', 'New-UDEChartTimeBreak', 'Set-UDEChartData')
     CmdletsToExport   = @()
     VariablesToExport = @()
     AliasesToExport   = @()

@@ -182,8 +182,9 @@ function legendOf(props, hasSeriesNames) {
 function gridOf(props, legend) {
     return {
         left: 12,
-        right: 24,
-        top: (props.title ? (props.subtitle ? 80 : 60) : legend.show && legend.top !== undefined ? 56 : props.toolbox === false ? 24 : 48) + (props.dataLabels ? 16 : 0),
+        right: String(props.zoomAxis || "x").toLowerCase() !== "x" && zoomMode(props).slider ? 40 : 24,
+        // axis names sit above the axes: one more row so they stay clear of the toolbox
+        top: (props.title ? (props.subtitle ? 80 : 60) : legend.show && legend.top !== undefined ? 56 : props.toolbox === false ? 24 : 48) + (props.dataLabels ? 16 : 0) + (props.yTitle || props.secondaryTitle ? 14 : 0),
         bottom: (legend.show && legend.bottom !== undefined ? 30 : 8) + (zoomMode(props).slider ? 34 : 0),
         containLabel: true
     };
@@ -194,15 +195,31 @@ function zoomMode(props) {
     return { inside: mode === "inside" || mode === "both", slider: mode === "slider" || mode === "both" };
 }
 
+/*
+ * -ZoomAxis: X zooms the axis the data runs along (default; for horizontal bars the vertical one),
+ * Y the value axis (to look into small bars next to large ones), Both both. On the value axis the
+ * mouse wheel needs Shift, so it does not fight the category zoom.
+ */
 function dataZoomOf(props, horizontal, legendBottom = false) {
     const mode = zoomMode(props);
-    const axis = horizontal ? { yAxisIndex: 0 } : { xAxisIndex: [0] };
-    const zooms = [];
-    if (mode.inside) {
-        zooms.push({ type: "inside", ...axis, filterMode: "none" });
+    const which = String(props.zoomAxis || "x").toLowerCase();
+    const axes = [];
+    if (which === "x" || which === "both") {
+        axes.push({ axis: horizontal ? { yAxisIndex: 0 } : { xAxisIndex: [0] }, vertical: horizontal, value: false });
     }
-    if (mode.slider) {
-        zooms.push({ type: "slider", ...axis, filterMode: "none", height: 22, bottom: horizontal ? undefined : legendBottom ? 34 : 8 });
+    if (which === "y" || which === "both") {
+        axes.push({ axis: horizontal ? { xAxisIndex: [0] } : { yAxisIndex: [0] }, vertical: !horizontal, value: true });
+    }
+    const zooms = [];
+    for (const { axis, vertical, value } of axes) {
+        if (mode.inside) {
+            zooms.push({ type: "inside", ...axis, filterMode: "none", zoomOnMouseWheel: value && which === "both" ? "shift" : true, moveOnMouseMove: !(value && which === "both") });
+        }
+        if (mode.slider) {
+            zooms.push(vertical
+                ? { type: "slider", ...axis, filterMode: "none", width: 16, right: 4, orient: "vertical" }
+                : { type: "slider", ...axis, filterMode: "none", height: 22, bottom: legendBottom ? 34 : 8 });
+        }
     }
     return zooms;
 }
@@ -262,9 +279,36 @@ function markLineOf(props, horizontal, fmt, seriesIndex = 0) {
     };
 }
 
+// ---- axis breaks -----------------------------------------------------------------------------------
+
+/*
+ * -Breaks / -YBreaks: @{ start; end; gap } from PowerShell. On a time axis start and end may be ISO
+ * dates; ECharts wants epoch milliseconds there. gap defaults to a thin '1%' so the cut stays visible.
+ */
+export function axisBreaks(list_, axisType) {
+    const items = list(list_);
+    if (items.length === 0 || axisType === "category") {
+        return undefined;
+    }
+    const toValue = (v) => (axisType === "time" && typeof v === "string" ? Date.parse(v) : num(v));
+    const out = items
+        .filter(isPlainObject)
+        .map((b) => ({ start: toValue(b.start), end: toValue(b.end), gap: b.gap ?? "1%" }))
+        .filter((b) => b.start !== null && b.end !== null && !isNaN(b.start) && !isNaN(b.end) && b.end > b.start);
+    // ECharts does not allow mixing percentage and absolute gaps within one axis
+    if (out.some((b) => typeof b.gap === "string") && out.some((b) => typeof b.gap !== "string")) {
+        out.forEach((b) => {
+            b.gap = typeof b.gap === "string" ? b.gap : "1%";
+        });
+    }
+    return out.length ? out : undefined;
+}
+
 // ---- cartesian: line, area, bar, scatter, step --------------------------------------------------
 
-function cartesian(props, rows, keys, ctx) {
+function cartesian(props_, rows, keys, ctx) {
+    // -Normalize is a stack that sums to 100 %: everything that applies to stacks applies
+    const props = props_.normalize ? { ...props_, stacked: true } : props_;
     const type = String(props.chartType).toLowerCase();
     const horizontal = Boolean(props.horizontal) && type === "bar";
     const xKey = resolveColumn(props.x, keys) ?? keys[0];
@@ -364,6 +408,10 @@ function cartesian(props, rows, keys, ctx) {
                 color: seriesType === "bar" && props.stacked ? "#fff" : undefined,
                 formatter: (p) => {
                     const v = Array.isArray(p.value) ? p.value[horizontal ? 0 : 1] : p.value;
+                    // in a 100 % stack, a label in a sliver below 4 % only collides with its neighbours
+                    if (props.normalize && typeof v === "number" && v < 4) {
+                        return "";
+                    }
                     return v === null || v === undefined ? "" : lfmt(v);
                 }
             };
@@ -385,6 +433,21 @@ function cartesian(props, rows, keys, ctx) {
         }
         return s;
     });
+    // -Normalize: every category sums to 100 %; the original value stays on the item for the tooltip
+    if (props.normalize && categories) {
+        const valueOf = (d) => (d && typeof d === "object" ? d.value : d);
+        const totals = categories.map((_, i) => series.reduce((sum, s) => sum + Math.abs(valueOf(s.data[i]) || 0), 0));
+        series.forEach((s) => {
+            s.stack = "total";
+            s.data = s.data.map((d, i) => {
+                const raw = valueOf(d);
+                // unrounded: rounded shares can sum to 100.01, and ECharts clips a bar beyond the axis max
+                const share = raw === null || raw === undefined || totals[i] === 0 ? null : (raw / totals[i]) * 100;
+                return { ...(d && typeof d === "object" ? d : {}), value: share, raw };
+            });
+        });
+    }
+
     // markLine statistics belong to every series, fixed lines once
     if (list(props.markLine).some((m) => typeof m === "string")) {
         series.slice(1).forEach((s, i) => {
@@ -394,6 +457,8 @@ function cartesian(props, rows, keys, ctx) {
 
     const valueAxis = (index) => ({
         type: props.logScale ? "log" : "value",
+        breaks: index === 0 ? axisBreaks(props.yBreaks, "value") : undefined,
+        breakArea: index === 0 && props.yBreaks ? { itemStyle: { color: "rgba(128,128,128,0.12)", borderColor: "rgba(128,128,128,0.35)", borderWidth: 1 }, zigzagAmplitude: 2 } : undefined,
         min: index === 0 ? props.yMin : undefined,
         max: index === 0 ? props.yMax : undefined,
         name: index === 0 ? props.yTitle : props.secondaryTitle,
@@ -402,12 +467,18 @@ function cartesian(props, rows, keys, ctx) {
     });
     const categoryAxis = {
         type: xType,
+        breaks: axisBreaks(props.breaks, xType),
+        breakArea: props.breaks ? { itemStyle: { color: "rgba(128,128,128,0.12)", borderColor: "rgba(128,128,128,0.35)", borderWidth: 1 }, zigzagAmplitude: 2 } : undefined,
         name: props.xTitle,
         data: categories,
         boundaryGap: seriesType === "bar" || xType === "category" ? undefined : false,
         axisLabel: props.xFormat && xFmt ? { formatter: (v) => xFmt(v), hideOverlap: true } : { hideOverlap: true }
     };
     const yAxes = secondary.size > 0 ? [valueAxis(0), valueAxis(1)] : [valueAxis(0)];
+    if (props.normalize) {
+        const pct100 = formatter("percent100:0", ctx.locale);
+        yAxes[0] = { ...yAxes[0], max: (extent) => Math.max(100, extent.max), axisLabel: { formatter: (v) => pct100(v) } };
+    }
     const legend = legendOf(props, series.length > 1);
     return {
         title: titleOf(props),
@@ -415,6 +486,14 @@ function cartesian(props, rows, keys, ctx) {
         grid: gridOf(props, legend),
         tooltip: {
             trigger: seriesType === "scatter" ? "item" : "axis",
+            // normalized: the share and the original value
+            formatter: props.normalize
+                ? (ps) => {
+                    const pctF = formatter("percent100:1", ctx.locale);
+                    const items = Array.isArray(ps) ? ps : [ps];
+                    return `${items[0] ? items[0].name : ""}<br/>${items.map((p) => `${p.marker}${p.seriesName}: <b>${pctF(p.value)}</b> (${fmt ? fmt(p.data.raw) : p.data.raw})`).join("<br/>")}`;
+                }
+                : undefined,
             axisPointer: { type: seriesType === "bar" ? "shadow" : "cross", label: { formatter: (p) => String((horizontal ? p.axisDimension === "y" : p.axisDimension === "x") ? (xFmt && xType !== "category" ? xFmt(p.value) : p.value) : pointerFmt(p.value)) } },
             valueFormatter: fmt ? (v) => fmt(Array.isArray(v) ? v[v.length - 1] : v) : undefined,
             confine: true
@@ -424,6 +503,96 @@ function cartesian(props, rows, keys, ctx) {
         dataZoom: dataZoomOf(props, horizontal, legend.show && legend.bottom !== undefined),
         brush: props.brush ? { xAxisIndex: "all", brushLink: "all", brushType: "lineX", outOfBrush: { colorAlpha: 0.2 } } : undefined,
         toolbox: toolboxOf(props, true, ctx.exportIcons),
+        series
+    };
+}
+
+// ---- sparkline: a tiny trend without axes, for tiles and tables ----------------------------------
+
+function sparkline(props, rows, keys, ctx) {
+    const base = cartesian({ ...props, legend: "none", toolbox: false, zoom: "none", dataLabels: false, markLine: undefined }, rows, keys, ctx);
+    const last = (data) => {
+        for (let i = data.length - 1; i >= 0; i--) {
+            const v = data[i] && typeof data[i] === "object" && !Array.isArray(data[i]) ? data[i].value : data[i];
+            if (v !== null && v !== undefined) {
+                return i;
+            }
+        }
+        return -1;
+    };
+    base.series.forEach((s) => {
+        s.smooth = props.smooth !== false;
+        s.showSymbol = false;
+        s.symbolSize = 6;
+        s.lineStyle = { width: 1.5 };
+        if (s.type === "line" && props.chartType !== "line") {
+            s.areaStyle = { opacity: 0.2 };
+        }
+        const i = last(s.data);
+        if (i >= 0) {
+            // the latest value stands out
+            s.markPoint = { symbol: "circle", symbolSize: 6, label: { show: false }, data: [{ coord: Array.isArray(s.data[i].value) ? s.data[i].value : [i, s.data[i].value ?? s.data[i]] }] };
+        }
+    });
+    const hide = (axis) => ({ ...axis, show: false, name: undefined });
+    return {
+        ...base,
+        title: undefined,
+        grid: { left: 2, right: 6, top: 4, bottom: 2, containLabel: false },
+        xAxis: Array.isArray(base.xAxis) ? base.xAxis.map(hide) : hide(base.xAxis),
+        yAxis: Array.isArray(base.yAxis) ? base.yAxis.map((a) => ({ ...hide(a), scale: true })) : { ...hide(base.yAxis), scale: true },
+        tooltip: { ...base.tooltip, axisPointer: { type: "line" }, position: (pt) => [pt[0] + 10, 0] },
+        dataZoom: [],
+        toolbox: undefined,
+        brush: undefined
+    };
+}
+
+// ---- small multiples: one small chart per value of -Facet, shared scale ------------------------
+
+function facets(props, rows, keys, ctx) {
+    const facetKey = resolveColumn(props.facet, keys);
+    const values = unique(rows.map((r) => r[facetKey])).map(String);
+    const columns = Math.max(1, Math.min(props.facetColumns || Math.min(4, values.length), values.length));
+    const rowsOfGrid = Math.ceil(values.length / columns);
+    const parts = values.map((v) => cartesian({ ...props, facet: undefined, title: undefined, toolbox: false, legend: "none", zoom: "none", brush: false }, rows.filter((r) => String(r[facetKey] ?? "") === v), keys, ctx));
+    // one value scale for all: comparable at a glance
+    const allValues = parts.flatMap((p) => p.series.flatMap((s) => s.data.map((d) => (d && typeof d === "object" && !Array.isArray(d) ? d.value : d)).map((v) => (Array.isArray(v) ? v[1] : v)))).filter((v) => typeof v === "number");
+    const max = props.yMax ?? (allValues.length ? Math.max(...allValues) : undefined);
+    const min = props.yMin ?? (allValues.length && Math.min(...allValues) < 0 ? Math.min(...allValues) : 0);
+    // layout in percent of the chart height (ECharts has no calc()); -Height in px gives the scale
+    const heightPx = parseInt(String(props.height || "400"), 10) || 400;
+    const pct = (px) => (px / heightPx) * 100;
+    const headPct = pct((props.title ? 50 : 8) + (props.toolbox === false ? 0 : 28));
+    const legendPct = parts[0] && parts[0].series.length > 1 ? pct(30) : pct(6);
+    const labelPct = pct(18); // the small title above each cell
+    const cellH = (100 - headPct - legendPct) / rowsOfGrid;
+    const cellW = 100 / columns;
+    const grids = [];
+    const xAxis = [];
+    const yAxis = [];
+    const series = [];
+    const titles = props.title ? [titleOf(props)] : [];
+    parts.forEach((p, i) => {
+        const col = i % columns;
+        const row = Math.floor(i / columns);
+        const cellTop = headPct + row * cellH;
+        grids.push({ left: `${col * cellW + 1}%`, width: `${cellW - 3}%`, top: `${cellTop + labelPct}%`, height: `${Math.max(5, cellH - labelPct - pct(28))}%`, containLabel: true });
+        xAxis.push({ ...p.xAxis, gridIndex: i, axisLabel: { ...(p.xAxis.axisLabel || {}), fontSize: 10, hideOverlap: true } });
+        yAxis.push({ ...p.yAxis[0], gridIndex: i, min, max, axisLabel: { ...(p.yAxis[0].axisLabel || {}), fontSize: 10, show: col === 0 }, name: undefined, splitNumber: 3 });
+        p.series.forEach((s) => series.push({ ...s, xAxisIndex: i, yAxisIndex: i }));
+        titles.push({ text: values[i], textStyle: { fontSize: 12, fontWeight: "normal" }, left: `${col * cellW + 1.5}%`, top: `${cellTop}%` });
+    });
+    const names = unique(series.map((s) => s.name));
+    return {
+        title: titles,
+        legend: names.length > 1 ? { show: true, type: "scroll", bottom: 0, data: names } : { show: false },
+        tooltip: { trigger: "axis", confine: true, valueFormatter: parts[0] ? parts[0].tooltip.valueFormatter : undefined },
+        axisPointer: { link: [{ xAxisIndex: "all" }] },
+        grid: grids,
+        xAxis,
+        yAxis,
+        toolbox: toolboxOf({ ...props, brush: false }, false, ctx.exportIcons),
         series
     };
 }
@@ -817,9 +986,9 @@ export function responsive(option, props, ctx = {}) {
         narrow.grid = { left: 4, right: 8 };
         narrow.xAxis = { axisLabel: { fontSize: 10 } };
         narrow.yAxis = { axisLabel: { fontSize: 10 }, nameTextStyle: { fontSize: 10 } };
-        // value labels on every bar do not fit; the tooltip still shows them
+        // value labels go only when the chart is tiny (see below); the tooltip still shows them
         if (props.dataLabels && type !== "waterfall") {
-            narrow.series = series.map(() => ({ label: { show: false } }));
+            narrow.series = series.map(() => ({ label: { fontSize: 10 } }));
         }
     } else if (type === "heatmap") {
         narrow.xAxis = { axisLabel: { rotate: 45, fontSize: 9 } };
@@ -835,7 +1004,11 @@ export function responsive(option, props, ctx = {}) {
     } else if (type === "gauge") {
         narrow.series = [{ detail: { fontSize: 18 }, axisLabel: { fontSize: 9, distance: 18 } }];
     }
-    const tiny = { legend: option.legend && option.legend.show ? { textStyle: { fontSize: 10 }, itemWidth: 10, itemHeight: 8 } : undefined, toolbox: option.toolbox ? { show: false } : undefined };
+    const tiny = {
+        legend: option.legend && option.legend.show ? { textStyle: { fontSize: 10 }, itemWidth: 10, itemHeight: 8 } : undefined,
+        toolbox: option.toolbox ? { show: false } : undefined,
+        series: props.dataLabels && (CARTESIAN.has(type) || type === "histogram") ? series.map(() => ({ label: { show: false } })) : undefined
+    };
     return [
         { maxWidth: NARROW, option: normalize(narrow) },
         { maxWidth: TINY, option: normalize(tiny) }
@@ -908,7 +1081,11 @@ export function buildOption(props, ctx = {}) {
     const type = String(props.chartType || "line").toLowerCase();
     const context = { locale: ctx.locale || "en-US", exportIcons: ctx.exportIcons };
     let option;
-    if (CARTESIAN.has(type)) {
+    if (CARTESIAN.has(type) && props.sparkline) {
+        option = sparkline({ ...props, chartType: type }, rows, keys, context);
+    } else if (CARTESIAN.has(type) && props.facet && resolveColumn(props.facet, keys) !== undefined) {
+        option = facets({ ...props, chartType: type }, rows, keys, context);
+    } else if (CARTESIAN.has(type)) {
         option = cartesian({ ...props, chartType: type }, rows, keys, context);
     } else if (BUILDERS[type]) {
         option = BUILDERS[type]({ ...props, chartType: type }, rows, keys, context);
