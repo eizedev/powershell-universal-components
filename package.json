@@ -1,0 +1,12 @@
+{
+  "name": "powershell-universal-components",
+  "private": true,
+  "type": "module",
+  "description": "Repository root: shared JavaScript is ESM; tests run with node --test. fflate is here so the tests resolve it the way each module's bundle does.",
+  "scripts": {
+    "test": "node --test \"tests/js/*.test.js\""
+  },
+  "devDependencies": {
+    "fflate": "0.8.3"
+  }
+}

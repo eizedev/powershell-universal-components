@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  javascript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Unit tests
+        run: |
+          # no install scripts: the tests need none, and a hijacked dependency could run one
+          npm ci --no-audit --no-fund --ignore-scripts
+          npm test
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: ["PowerShellUniversal.Component.ECharts"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Build module
+        shell: pwsh
+        run: ./build/Build-Module.ps1 -Module '${{ matrix.module }}'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ matrix.module }}
+          path: output/${{ matrix.module }}
+          retention-days: 14
+
+  powershell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Pester and PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Install-PSResource -Name Pester -Version 6.2.0 -TrustRepository -Quiet
+          Install-PSResource -Name PSScriptAnalyzer -Version 1.25.0 -TrustRepository -Quiet
+          # PowerShell files of the repository, not of node_modules or build output
+          $files = Get-ChildItem -Path modules, shared, build, tests -Recurse -File -Include *.ps1, *.psm1, *.psd1 |
+              Where-Object FullName -NotMatch '[\\/](node_modules|public|output)[\\/]'
+          $findings = $files | ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -Severity Warning, Error }
+          $findings | Format-Table RuleName, ScriptName, Line, Message -AutoSize -Wrap
+          if ($findings) { throw ('PSScriptAnalyzer: {0} finding(s)' -f @($findings).Count) }
+          Import-Module Pester -RequiredVersion 6.2.0
+          $config = New-PesterConfiguration
+          $config.Run.Path = 'tests/powershell'
+          $config.Run.Exit = $true
+          $config.Output.Verbosity = 'Detailed'
+          Invoke-Pester -Configuration $config

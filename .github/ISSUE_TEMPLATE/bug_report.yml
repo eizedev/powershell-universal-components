@@ -1,0 +1,38 @@
+name: Bug report
+description: Something does not work as described.
+labels: ["bug"]
+body:
+  - type: input
+    id: module
+    attributes:
+      label: Module and version
+      placeholder: PowerShellUniversal.Component.ECharts 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: psu
+    attributes:
+      label: PowerShell Universal version and platform
+      placeholder: 2026.3.4 on Windows / Linux container
+    validations:
+      required: true
+  - type: textarea
+    id: code
+    attributes:
+      label: The command
+      description: The New-UD... call, with a few rows of sample data if possible (no real data).
+      render: powershell
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens, what you expected
+      description: Include browser console errors and a screenshot if it is visual.
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      placeholder: Edge 142, light theme, window 1440 px wide

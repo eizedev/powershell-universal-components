@@ -1,0 +1,8 @@
+node_modules/
+public/
+output/
+/site/
+.DS_Store
+._*
+.claude/*
+!.claude/settings.json

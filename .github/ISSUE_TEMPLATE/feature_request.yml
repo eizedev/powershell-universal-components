@@ -1,0 +1,21 @@
+name: Feature request
+description: A chart type, an option or a new component.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What you want to show or do
+      description: The data you have and what the chart or component should let people do with it.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: How you would like to call it
+      render: powershell
+  - type: textarea
+    id: reference
+    attributes:
+      label: References
+      description: Links to library examples (e.g. an Apache ECharts example) that come close.
