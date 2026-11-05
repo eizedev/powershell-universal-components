@@ -208,7 +208,8 @@ export default function EChart(props) {
     }, [option]);
 
     return (
-        <div id={props.id} style={{ width: props.width || "100%" }}>
+        // -ClassName and -Style as on PSU's own components; -Width wins over a width in -Style
+        <div id={props.id} className={props.className} style={{ ...(props.style || {}), width: props.width || (props.style && props.style.width) || "100%" }}>
             {option.error && <div role="alert" style={{ color: "#d32f2f", padding: 8 }}>EChart: {option.error}</div>}
             <div ref={container} style={{ width: "100%", height: props.height || "400px" }} />
         </div>

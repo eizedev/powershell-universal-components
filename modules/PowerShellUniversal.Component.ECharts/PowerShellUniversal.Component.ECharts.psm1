@@ -143,6 +143,10 @@ function New-UDEChart {
         CSS height. Default: 400px.
     .PARAMETER Width
         CSS width. Default: 100%.
+    .PARAMETER ClassName
+        CSS class of the chart's outer element, as on PSU's own components.
+    .PARAMETER Style
+        CSS styles of the chart's outer element, e.g. @{ marginTop = '8px'; border = '1px solid #ccc' }.
     .PARAMETER Theme
         Auto (follows the app's light/dark switch), Light or Dark.
     .PARAMETER Palette
@@ -361,6 +365,8 @@ function New-UDEChart {
         [string]$Subtitle,
         [string]$Height = '400px',
         [string]$Width,
+        [string]$ClassName,
+        [hashtable]$Style,
         [ValidateSet('Auto', 'Light', 'Dark')][string]$Theme = 'Auto',
         [string[]]$Palette,
         [ValidateSet('Bottom', 'Top', 'Left', 'Right', 'None')][string]$Legend,
@@ -449,7 +455,7 @@ function New-UDEChart {
     $map = [ordered]@{
         X = 'x'; Y = 'y'; GroupBy = 'groupBy'; Value = 'value'; Path = 'path'; Source = 'source'; Target = 'target'
         Open = 'open'; Close = 'close'; Low = 'low'; High = 'high'; Volume = 'volume'; Totals = 'totals'
-        Title = 'title'; Subtitle = 'subtitle'; Width = 'width'; Palette = 'palette'; Format = 'format'; LabelFormat = 'labelFormat'; XFormat = 'xFormat'
+        Title = 'title'; Subtitle = 'subtitle'; Width = 'width'; ClassName = 'className'; Style = 'style'; Palette = 'palette'; Format = 'format'; LabelFormat = 'labelFormat'; XFormat = 'xFormat'
         Locale = 'locale'; XTitle = 'xTitle'; YTitle = 'yTitle'; SecondaryY = 'secondaryY'; SecondaryTitle = 'secondaryTitle'
         Min = 'min'; Max = 'max'; YMin = 'yMin'; YMax = 'yMax'; Bins = 'bins'; MarkLine = 'markLine'
         NegativeColor = 'negativeColor'; PositiveColor = 'positiveColor'; ExportColumns = 'exportColumns'

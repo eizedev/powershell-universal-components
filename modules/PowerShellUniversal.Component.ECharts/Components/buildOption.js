@@ -1455,6 +1455,17 @@ export function responsive(option, props, ctx = {}) {
     } else if (type === "heatmap") {
         narrow.xAxis = { axisLabel: { rotate: 45, fontSize: 9 } };
         narrow.yAxis = { axisLabel: { fontSize: 9 } };
+        // values in the cells only as small text; they overlap on a phone otherwise
+        narrow.series = [{ label: { fontSize: 8 } }];
+    } else if (type === "tree" || type === "graph") {
+        narrow.series = [{ label: { fontSize: 9 }, left: type === "tree" ? 60 : undefined, right: type === "tree" ? 90 : undefined }];
+    } else if (type === "chord") {
+        narrow.series = [{ radius: ["52%", "60%"], label: { fontSize: 9 } }];
+    } else if (type === "parallel") {
+        narrow.parallel = { left: 20, right: 30 };
+        narrow.parallelAxis = { nameTextStyle: { fontSize: 9 }, axisLabel: { fontSize: 9 } };
+    } else if (type === "matrix") {
+        narrow.matrix = { x: { label: { fontSize: 9 } }, y: { label: { fontSize: 9 }, levelSize: 70 } };
     } else if (type === "treemap") {
         narrow.series = [{ upperLabel: { show: false }, label: { fontSize: 10 } }];
     } else if (type === "sunburst") {

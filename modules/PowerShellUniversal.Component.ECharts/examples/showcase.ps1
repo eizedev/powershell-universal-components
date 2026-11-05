@@ -1213,6 +1213,61 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
     }
     #endregion
 
+    #region Layouts
+    New-UDPage -Name 'Layouts' -Url '/layouts' -Content {
+        # Charts inside PSU's layout components: each must take the width it gets, also when it was
+        # created hidden (a closed tab, panel or modal) and shown later.
+        $month = 1..12 | ForEach-Object { [pscustomobject]@{ Month = (Get-Date -Day 1).AddMonths($_ - 12).ToString('yyyy-MM'); Tickets = 80 + 10 * $_; Closed = 70 + 9 * $_ } }
+        $share = 'Mail', 'Phone', 'Portal', 'Monitoring' | ForEach-Object { [pscustomobject]@{ Channel = $_; Tickets = 100 + 37 * $_.Length } }
+        New-UDTypography -Variant h5 -Text 'Layouts: charts in stacks, tabs, panels, modals and grids'
+        New-UDTypography -Variant h6 -Text 'New-UDStack (row, three charts side by side)'
+        New-UDStack -Direction row -Spacing 2 -FullWidth -Children {
+            New-UDPaper -Style @{ flex = '1 1 0'; minWidth = 0; padding = '8px' } -Children { New-UDEChart -Data $month -Type line -X Month -Y Tickets -Height 220px -NoToolbox }
+            New-UDPaper -Style @{ flex = '1 1 0'; minWidth = 0; padding = '8px' } -Children { New-UDEChart -Data $month -Type bar -X Month -Y Closed -Height 220px -NoToolbox }
+            New-UDPaper -Style @{ flex = '1 1 0'; minWidth = 0; padding = '8px' } -Children { New-UDEChart -Data $share -Type donut -X Channel -Y Tickets -Height 220px -NoToolbox }
+        }
+        New-UDTypography -Variant h6 -Text 'New-UDStack (column)'
+        New-UDStack -Direction column -Spacing 1 -Children {
+            New-UDEChart -Data $month -Type area -X Month -Y Tickets, Closed -Height 200px
+        }
+        New-UDTypography -Variant h6 -Text 'New-UDTabs: second tab hidden at first (default) and rendered on open (-RenderOnActive)'
+        New-UDTabs -Tabs {
+            New-UDTab -Text 'Line' -Content { New-UDEChart -Data $month -Type line -X Month -Y Tickets, Closed -Height 260px }
+            New-UDTab -Text 'Bar (hidden at first)' -Content { New-UDEChart -Data $month -Type bar -X Month -Y Tickets, Closed -Height 260px }
+        }
+        New-UDTabs -RenderOnActive -Tabs {
+            New-UDTab -Text 'Pie' -Content { New-UDEChart -Data $share -Type pie -X Channel -Y Tickets -Height 260px }
+            New-UDTab -Text 'Funnel (render on open)' -Content { New-UDEChart -Data $share -Type funnel -X Channel -Y Tickets -Height 260px }
+        }
+        New-UDTypography -Variant h6 -Text 'New-UDExpansionPanel (closed at first)'
+        New-UDExpansionPanelGroup -Children {
+            New-UDExpansionPanel -Title 'Open me: tickets per month' -Content { New-UDEChart -Data $month -Type bar -X Month -Y Tickets -Height 240px }
+        }
+        New-UDTypography -Variant h6 -Text 'New-UDModal'
+        New-UDButton -Text 'Open a chart in a modal' -OnClick {
+            Show-UDModal -FullWidth -MaxWidth lg -Content { New-UDEChart -Data $month -Type line -X Month -Y Tickets, Closed -Height 360px }
+        }
+        New-UDTypography -Variant h6 -Text 'Nested New-UDGrid and a fixed-height New-UDPaper (-Height 100%)'
+        New-UDGrid -Container -Spacing 2 -Content {
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 4 -Content {
+                New-UDGrid -Container -Content {
+                    New-UDGrid -Item -ExtraSmallSize 6 -Content { New-UDEChart -Data $share -Type donut -X Channel -Y Tickets -Height 180px -NoToolbox -Legend None }
+                    New-UDGrid -Item -ExtraSmallSize 6 -Content { New-UDEChart -Data $month -Type bar -X Month -Y Tickets -Height 180px -NoToolbox -Sparkline }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 8 -Content {
+                New-UDPaper -Style @{ height = '260px'; padding = '8px' } -Children { New-UDEChart -Data $month -Type line -X Month -Y Tickets -Height '100%' -ClassName 'chart-in-paper' -Style @{ minHeight = '200px' } }
+            }
+        }
+        New-UDTypography -Variant h6 -Text 'New-UDDynamic with -AutoRefresh (rebuilt every 10 s)'
+        New-UDDynamic -AutoRefresh -AutoRefreshInterval 10 -Content {
+            $now = Get-Date
+            $live = 0..29 | ForEach-Object { [pscustomobject]@{ Time = $now.AddSeconds(-10 * (29 - $_)); Load = [math]::Round(40 + 20 * [math]::Sin(($now.Second + $_) / 4), 1) } }
+            New-UDEChart -Data $live -Type area -X Time -Y Load -Height 200px -Zoom None
+        }
+    }
+    #endregion
+
     #region Technical
     New-UDPage -Name 'Technical' -Url '/technical' -Content {
         New-UDTypography -Variant h5 -Text 'Data from PowerShell on the PSU server'

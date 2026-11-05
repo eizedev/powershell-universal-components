@@ -15,7 +15,8 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
   `-TooltipColumns`, `-TooltipTemplate`) with named formats; tooltip values HTML-escaped.
 - Pins (`-MarkPoint`), linear trends with forecast and target date (`-Trend`, `-Forecast`,
   `-TrendTarget`), shaded bands (`-Band`), time windows (`-MarkArea`), gauge styles and thresholds,
-  rose charts, bubble size (`-Size`), legend placement and type (`-Legend`, `-LegendType`).
+  rose charts, bubble size (`-Size`), legend placement and type (`-Legend`, `-LegendType`),
+  `-Thresholds` colouring line stretches, `-ClassName` and `-Style`.
 - Data straight from DataTables (DBNull as null), PowerShell objects, REST results and script blocks;
   column names matched without regard to case.
 - Zoom (wheel, box, slider; on the value axis with `-ZoomAxis`), range selection (`-Brush`), linked

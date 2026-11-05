@@ -146,6 +146,16 @@ New-UDEChart -Data $samples -Type line -X Time -Y ResponseMs -Breaks $breaks -Ma
 
 `-YBreaks @{ start = 120; end = 1750 }` keeps small bars readable next to one huge one.
 
+## Layout
+
+`-Height` (default `400px`, also `100%` inside a container with a fixed height) and `-Width` (default:
+the container's width) size the chart; `-Id`, `-ClassName` and `-Style` work as on PSU's own components.
+The chart follows its container's size, also when it was created hidden and shown later: tested in
+`New-UDStack`, `New-UDGrid`, `New-UDPaper`, `New-UDTabs` (with and without `-RenderOnActive`),
+`New-UDExpansionPanel`, `Show-UDModal` and `New-UDDynamic -AutoRefresh` (showcase page "Layouts"). In a
+row of a flex container (`New-UDStack -Direction row`), give the items `flex = '1 1 0'; minWidth = 0`, or
+they keep the width of their first drawing.
+
 ## Theme
 
 Light and dark follow the app's theme switch (`Theme Auto`); `-Theme Light` or `Dark` pins one.
