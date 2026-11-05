@@ -365,3 +365,18 @@ test("graph layered: columns follow the links, edge labels from a column", () =>
     assert.equal(s.links[2].label.formatter, "Gi1/0/12 > vmnic2");
     assert.equal(s.links[1].label, undefined);
 });
+
+test("matrix: one grid per cell on the matrix, one scale per column", () => {
+    const rows = [];
+    for (const c of ["A", "B"]) for (const k of ["Tickets", "SLA"]) for (const w of [1, 2, 3]) rows.push({ customer: c, kpi: k, week: `W${w}`, value: k === "SLA" ? 90 + w : w * (c === "A" ? 10 : 20) });
+    const o = buildOption({ chartType: "matrix", data: rows, y: ["customer"], groupBy: "kpi", x: "week", value: "value" }, {});
+    assert.deepEqual(o.matrix.x.data, ["Tickets", "SLA"]);
+    assert.deepEqual(o.matrix.y.data, ["A", "B"]);
+    assert.equal(o.grid.length, 4);
+    assert.deepEqual(o.grid[0].coord, ["Tickets", "A"]);
+    // Tickets range 10..60 for both customers, 15 % padding
+    assert.equal(o.yAxis[0].max, 67.5, "Tickets scale shared by A and B");
+    assert.equal(o.yAxis[2].max, o.yAxis[0].max);
+    assert.equal(o.yAxis[0].min, 2.5);
+    assert.equal(o.series[3].xAxisIndex, 3);
+});

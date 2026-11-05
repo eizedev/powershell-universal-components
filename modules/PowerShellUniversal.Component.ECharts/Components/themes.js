@@ -44,6 +44,8 @@ function themeFor(c, psu) {
         graph: { label: { color: text, textBorderWidth: 0 }, edgeLabel: { color: c.muted, textBorderWidth: 0 }, lineStyle: { color: c.muted } },
         tree: { label: { color: text, textBorderWidth: 0 }, lineStyle: { color: c.axis }, itemStyle: { borderColor: c.accent } },
         chord: { label: { color: text, textBorderWidth: 0 } },
+        line: { endLabel: { color: text, textBorderWidth: 0 } },
+        matrix: { x: { label: { color: text }, itemStyle: { borderColor: c.axis } }, y: { label: { color: text }, itemStyle: { borderColor: c.axis } }, body: { itemStyle: { borderColor: c.split } }, backgroundStyle: { borderColor: c.axis } },
         sunburst: { label: { textBorderWidth: 0 } },
         gauge: { axisLabel: { color: c.muted }, detail: { color: text }, title: { color: c.muted }, splitLine: { lineStyle: { color: c.muted } }, axisTick: { lineStyle: { color: c.muted } } },
         // ECharts fills boxplot boxes white, which glares on a dark page

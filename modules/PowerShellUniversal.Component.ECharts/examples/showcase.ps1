@@ -413,6 +413,23 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
         $rng = [System.Random]::new(2026)
         New-UDTypography -Variant h5 -Text 'Managed services: VMware, Windows and Linux, storage, network, backup'
         New-UDGrid -Container -Content {
+            New-UDGrid -Item -ExtraSmallSize 12 -Content {
+                New-UDCard -Title 'Service review: KPIs per customer, last 12 weeks (matrix; one scale per column, last value at the end)' -Content {
+                    $mrng = [System.Random]::new(31)
+                    $kpis = [ordered]@{ 'Tickets' = 60; 'SLA met %' = 96; 'Backup success %' = 98; 'Patch compliance %' = 91; 'Availability %' = 99.8; 'Cost (kEUR)' = 42 }
+                    $review = foreach ($cust in 'Customer A', 'Customer B', 'Customer C', 'Customer D', 'Customer E', 'Customer F') {
+                        $scale = 0.5 + $mrng.NextDouble()
+                        foreach ($kpi in $kpis.Keys) {
+                            $v = $kpis[$kpi]
+                            foreach ($w in -11..0) {
+                                $value = if ($kpi -like '*%') { $v - (100 - $v) * 0.8 * $mrng.NextDouble() * $scale } else { $v * $scale * (0.8 + 0.4 * $mrng.NextDouble()) }
+                                [pscustomobject]@{ Customer = $cust; Kpi = $kpi; Week = (Get-Date).Date.AddDays(7 * $w).ToString('yyyy-MM-dd'); Value = [math]::Round($value, 2) }
+                            }
+                        }
+                    }
+                    New-UDEChart -Data $review -Type matrix -Y Customer -GroupBy Kpi -X Week -Value Value -CellType Area -Height 420px
+                }
+            }
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
                 New-UDCard -Title 'VMware clusters: CPU and RAM use, vCPU:pCPU' -Content {
                     $clusters = foreach ($c in 'CL-PROD-01', 'CL-PROD-02', 'CL-PROD-03', 'CL-DMZ-01', 'CL-VDI-01', 'CL-TEST-01') {

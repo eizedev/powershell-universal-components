@@ -59,6 +59,8 @@ function New-UDEChart {
         - parallel: -Y (dimensions), -X (name), -GroupBy (colour) - compare many items across many
           measures; drag along an axis to filter
         - themeriver: -X (date), -GroupBy (category), -Y (value) - how a mix changes over time
+        - matrix: -Y (rows, e.g. customer), -GroupBy (columns, e.g. KPI), -X (time inside a cell),
+          -Value, -CellType - a table of sparklines with one scale per column
 
     .PARAMETER Id
         Component id for Get-UDElement, Set-UDElement, Sync-UDElement and Set-UDEChartData.
@@ -123,6 +125,8 @@ function New-UDEChart {
     .PARAMETER Layout
         For graph: Force (default; nodes arrange themselves, drag to move), Circular, or Layered (left
         to right along the links, e.g. firewall > core switch > access switch > ESXi > VM).
+    .PARAMETER CellType
+        For matrix: Line (default), Area or Bar in each cell.
     .PARAMETER EdgeLabel
         For graph: column written on each link, e.g. the ports of a connection ('Gi1/0/12 > vmnic2').
     .PARAMETER Undirected
@@ -310,7 +314,7 @@ function New-UDEChart {
     param(
         [string]$Id = [guid]::NewGuid().ToString(),
         [Parameter(Mandatory)][AllowNull()][object]$Data,
-        [ValidateSet('line', 'area', 'bar', 'scatter', 'step', 'pie', 'donut', 'funnel', 'heatmap', 'calendar', 'boxplot', 'histogram', 'candlestick', 'gauge', 'radar', 'sankey', 'treemap', 'sunburst', 'waterfall', 'gantt', 'graph', 'tree', 'chord', 'parallel', 'themeriver')]
+        [ValidateSet('line', 'area', 'bar', 'scatter', 'step', 'pie', 'donut', 'funnel', 'heatmap', 'calendar', 'boxplot', 'histogram', 'candlestick', 'gauge', 'radar', 'sankey', 'treemap', 'sunburst', 'waterfall', 'gantt', 'graph', 'tree', 'chord', 'parallel', 'themeriver', 'matrix')]
         [string]$Type = 'line',
         [string]$X,
         [string[]]$Y,
@@ -340,6 +344,7 @@ function New-UDEChart {
         [string]$RootName,
         [ValidateSet('Force', 'Circular', 'Layered')][string]$Layout,
         [string]$EdgeLabel,
+        [ValidateSet('Line', 'Area', 'Bar')][string]$CellType,
         [switch]$Undirected,
         [object[]]$MarkPoint,
         [string]$LabelColumn,
@@ -454,6 +459,7 @@ function New-UDEChart {
     foreach ($name in $map.Keys) {
         if ($PSBoundParameters.ContainsKey($name)) { $props[$map[$name]] = $PSBoundParameters[$name] }
     }
+    if ($PSBoundParameters.ContainsKey('CellType')) { $props['cellType'] = $CellType.ToLowerInvariant() }
     if ($Undirected) { $props['directed'] = $false }
     if ($PSBoundParameters.ContainsKey('LegendType')) { $props['legendType'] = $LegendType.ToLowerInvariant() }
     if ($PSBoundParameters.ContainsKey('Layout')) { $props['layout'] = $Layout.ToLowerInvariant() }

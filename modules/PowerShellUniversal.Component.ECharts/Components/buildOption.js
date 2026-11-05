@@ -1238,6 +1238,88 @@ function graph(props, rows, keys, ctx) {
     };
 }
 
+/*
+ * matrix: a table of small charts - one per row value (-Y, e.g. customer) and column value
+ * (-GroupBy, e.g. KPI) - each showing -Value over -X (time or category). Every column has one value
+ * scale, so a cell compares with the cells above and below it. -CellType Line (default), Area or Bar;
+ * the last value is written at the end of each line.
+ */
+function matrixChart(props, rows, keys, ctx) {
+    const rowKey = resolveColumns(props.y, keys)[0] ?? keys[0];
+    const colKey = resolveColumn(props.groupBy, keys) ?? keys[1];
+    const xKey = resolveColumn(props.x, keys) ?? keys[2];
+    const vKey = resolveColumn(props.value, keys) ?? keys.find((k) => ![rowKey, colKey, xKey].includes(k) && rows.some((r) => typeof r[k] === "number"));
+    const rowCats = unique(rows.map((r) => String(r[rowKey] ?? "")));
+    const colCats = unique(rows.map((r) => String(r[colKey] ?? "")));
+    const xType = axisTypeFor(rows.map((r) => r[xKey]), props.xAxisType, "line");
+    const cellType = String(props.cellType || "line").toLowerCase();
+    const fmt = valueFormatter(props, ctx.locale);
+    const lfmt = labelFormatter(props, ctx.locale);
+    const palette = Array.isArray(props.palette) && props.palette.length ? props.palette : undefined;
+    // one value scale per column
+    const extent = new Map(colCats.map((c) => [c, [Infinity, -Infinity]]));
+    rows.forEach((r) => {
+        const v = num(r[vKey]);
+        if (v === null) return;
+        const e = extent.get(String(r[colKey] ?? ""));
+        e[0] = Math.min(e[0], v);
+        e[1] = Math.max(e[1], v);
+    });
+    const grid = [];
+    const xAxis = [];
+    const yAxis = [];
+    const series = [];
+    rowCats.forEach((rc) => {
+        colCats.forEach((cc, ci) => {
+            const cell = rows.map((r, rowIndex) => ({ r, rowIndex })).filter(({ r }) => String(r[rowKey] ?? "") === rc && String(r[colKey] ?? "") === cc);
+            if (cell.length === 0) return;
+            const i = grid.length;
+            const [lo, hi] = extent.get(cc);
+            grid.push({ coordinateSystem: "matrix", coord: [cc, rc], left: 6, right: cellType === "bar" ? 6 : 44, top: 6, bottom: 6 });
+            xAxis.push({ gridIndex: i, type: xType === "time" ? "time" : "category", show: false, boundaryGap: cellType === "bar" });
+            // bars start at zero; lines use the column's range, so 96 % vs 99 % is visible
+            const pad = hi > lo ? (hi - lo) * 0.15 : Math.abs(hi) * 0.05 || 1;
+            yAxis.push(cellType === "bar"
+                ? { gridIndex: i, type: "value", show: false, min: Math.min(0, lo), max: hi }
+                : { gridIndex: i, type: "value", show: false, min: lo - pad, max: hi + pad });
+            const data = cell.map(({ r, rowIndex }) => ({ value: [r[xKey], num(r[vKey])], rowIndex }));
+            const last = data[data.length - 1].value[1];
+            series.push({
+                type: cellType === "bar" ? "bar" : "line",
+                name: cc,
+                xAxisIndex: i,
+                yAxisIndex: i,
+                data,
+                showSymbol: false,
+                smooth: Boolean(props.smooth),
+                areaStyle: cellType === "area" ? { opacity: 0.2 } : undefined,
+                color: palette ? palette[ci % palette.length] : undefined,
+                lineStyle: { width: 1.5 },
+                endLabel: cellType === "bar" ? undefined : { show: true, fontSize: 11, formatter: () => (last === null ? "" : lfmt(last)) },
+                emphasis: { focus: "none" },
+                tooltip: { valueFormatter: fmt || undefined }
+            });
+        });
+    });
+    return {
+        title: titleOf(props),
+        tooltip: { trigger: "axis", confine: true, axisPointer: { type: "line" } },
+        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        matrix: {
+            top: props.title ? 60 : 40,
+            left: 8,
+            right: 8,
+            bottom: 8,
+            x: { data: colCats, levelSize: 30 },
+            y: { data: rowCats, levelSize: Math.min(220, 24 + 7 * Math.max(...rowCats.map((c) => c.length))) }
+        },
+        grid,
+        xAxis,
+        yAxis,
+        series
+    };
+}
+
 // Hierarchy from a list of path columns (-Path Region, Country, City) or a "/"-separated column
 function hierarchy(rows, pathKeys, vKey) {
     const root = { children: [] };
@@ -1680,7 +1762,8 @@ const BUILDERS = {
     tree: treeDiagram,
     chord,
     parallel,
-    themeriver: themeRiver
+    themeriver: themeRiver,
+    matrix: matrixChart
 };
 
 export const CHART_TYPES = [...CARTESIAN, ...Object.keys(BUILDERS)];
