@@ -832,7 +832,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
         New-UDTypography -Variant body2 -Text ('{0} assets matched across {1} source systems. Click a cell of the coverage matrix to list the assets a source is missing.' -f $assets.Count, $sourceNames.Count)
         New-UDGrid -Container -Content {
             New-UDGrid -Item -ExtraSmallSize 12 -LargeSize 7 -Content {
-                New-UDCard -Title 'Coverage: share of assets each source knows (only where it is expected)' -Content {
+                New-UDCard -Title 'Coverage: share of assets each source knows (click a cell: lists the gaps, sets the Class filter in the table)' -Content {
                     $coverage = foreach ($class in ($assets.Class | Select-Object -Unique)) {
                         $ofClass = @($assets | Where-Object Class -EQ $class)
                         foreach ($src in $sourceNames) {
@@ -850,7 +850,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                 }
             }
             New-UDGrid -Item -ExtraSmallSize 12 -LargeSize 5 -Content {
-                New-UDCard -Title 'In how many sources is an asset found? (1 = orphan)' -Content {
+                New-UDCard -Title 'In how many sources is an asset found? (1 = orphan; click: filters the rows on the server)' -Content {
                     $byCount = $assets | Group-Object SourceCount | ForEach-Object { [pscustomobject]@{ Sources = [int]$_.Name; Assets = $_.Count } } | Sort-Object Sources
                     New-UDEChart -Data $byCount -Type bar -X Sources -Y Assets -XAxisType Category -DataLabels -Height 360px -XTitle 'sources' `
                         -OnClick { $Session:GapFilter = @{ Count = [int]$EventData.name }; Sync-UDElement -Id 'gap-table' }
@@ -859,9 +859,15 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
             New-UDGrid -Item -ExtraSmallSize 12 -Content {
                 New-UDDynamic -Id 'gap-table' -Content {
                     $f = $Session:GapFilter
+                    # two ways to filter from a chart click: preset the table's own column filters
+                    # (visible and removable in the table), or filter the rows on the server
+                    $initial = @{}
                     if ($f -and $f.Source) {
-                        $rows = @($Cache:EChartsAssets | Where-Object { $_.Class -eq $f.Class -and $f.Source -in $_.Expected -and $f.Source -notin $_.Sources })
-                        $label = '{0} missing in {1}' -f $f.Class, $f.Source
+                        $rows = @($Cache:EChartsAssets | Where-Object { $f.Source -in $_.Expected -and $f.Source -notin $_.Sources })
+                        $label = 'missing in {0} - Class filter set in the table by the click' -f $f.Source
+                        # the table's own column filter (react-table); the id is the column property in
+                        # camelCase. One filter only: PSU 2026.3.4 fails with two entries in filters.
+                        $initial = @{ filters = @(@{ id = 'class'; value = $f.Class }) }
                     }
                     elseif ($f -and $f.Count) {
                         $rows = @($Cache:EChartsAssets | Where-Object SourceCount -EQ $f.Count)
@@ -890,7 +896,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                             New-UDTableColumn -Property FoundIn -Title 'Found in'
                         )
                         # expand a row for the asset's details from all sources
-                        New-UDTable -Data @($table) -Columns $columns -Dense -ShowPagination -PageSize 10 -PageSizeOptions 10, 25, 50 -ShowSearch -ShowFilter -OnRowExpand {
+                        New-UDTable -Data @($table) -Columns $columns -Dense -ShowPagination -PageSize 10 -PageSizeOptions 10, 25, 50 -ShowSearch -ShowFilter -InitialState $initial -OnRowExpand {
                             $asset = $Cache:EChartsAssets | Where-Object Name -EQ $EventData.Name | Select-Object -First 1
                             New-UDElement -Tag 'div' -Attributes @{ style = @{ padding = '8px 16px' } } -Content {
                                 New-UDTypography -Variant body2 -Text ('{0} - {1}, {2}' -f $asset.Name, $asset.Class, $asset.Customer)
