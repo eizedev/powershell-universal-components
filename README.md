@@ -5,7 +5,7 @@ each one a PowerShell module you install on its own.
 
 | Module | What it adds |
 | --- | --- |
-| [PowerShellUniversal.Component.ECharts](modules/PowerShellUniversal.Component.ECharts/README.md) | `New-UDEChart`: interactive [Apache ECharts](https://echarts.apache.org/) charts - 19 chart types, zoom, range selection, click events, linked charts, axis breaks, small multiples, light and dark theme, CSV and Excel export - fed straight from SQL DataTables, REST results and PowerShell objects. |
+| [PowerShellUniversal.Component.ECharts](modules/PowerShellUniversal.Component.ECharts/README.md) | `New-UDEChart`: interactive [Apache ECharts](https://echarts.apache.org/) charts - 25 chart types, zoom, range selection, click events, linked charts, axis breaks, small multiples, light and dark theme, CSV and Excel export - fed straight from SQL DataTables, REST results and PowerShell objects. |
 
 ## Install
 

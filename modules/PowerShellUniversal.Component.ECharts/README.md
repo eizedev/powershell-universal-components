@@ -46,9 +46,17 @@ Wide data has one column per series (`-Y Opened, Closed`); long data has one row
 | `sankey` | `-Source`, `-Target`, `-Value` | |
 | `treemap`, `sunburst` | `-Path` (columns from the root, or one column "a/b/c"), `-Y` | click to zoom in |
 | `waterfall` | `-X` (step), `-Y` (change), `-Totals` | steps in `-Totals` show the running total |
+| `gantt` | `-X` (lane), `-Start`, `-End`, `-GroupBy` (colour), `-Value` (label) | backup windows, maintenance, on-call; zoom along time |
+| `graph` | `-Source`, `-Target`, `-GroupBy`, `-TargetGroup` | dependencies and topology; `-Layout Force \| Circular \| Layered`, `-EdgeLabel` (ports on the lines), `-Undirected` |
+| `tree` | `-Path` (levels, or one column "a/b/c") | folders, vCenter > cluster > host > VM, repository > job > VM; `-Orient LR \| TB \| Radial`, `-Depth`, `-RootName` |
+| `chord` | `-Source`, `-Target`, `-Value` | overlaps or hand-overs between the same set of things |
+| `parallel` | `-Y` (axes), `-X` (name), `-GroupBy` | many items across many measures; drag along an axis to filter |
+| `themeriver` | `-X` (date), `-GroupBy`, `-Y` | how a mix of categories changes over time |
 
 More: `-Facet <column>` draws one small chart per value with a shared scale (small multiples),
-`-Sparkline` a tiny trend without axes for tiles, `-Breaks`/`-YBreaks` cut ranges out of an axis.
+`-Sparkline` a tiny trend without axes for tiles (line, area, bar), `-Breaks`/`-YBreaks` cut ranges out
+of an axis, `-GaugeStyle Progress | Ring | Grade` and `-Thresholds` shape a gauge, `-Rose` turns a pie
+into a Nightingale chart, `-Band Low, High` shades a range, `-MarkArea` marks a time window.
 
 ## Interaction
 
@@ -82,6 +90,25 @@ New-UDEChart -Data $daily -Type bar -X Day -Y Opened -Brush -OnSelect {
 `-OnZoom` gets `from`, `to`, `start`, `end`; `-OnLegendChange` gets `name` and `selected`. The last click,
 range and zoom are also in the component's state (`Get-UDElement`).
 
+## Labels and tooltips
+
+Labels and tooltips can come from the row behind each point, for every chart type:
+
+```powershell
+New-UDEChart -Data $vms -Type tree -Path Folder -LabelTemplate '{Name} ({Cpu} vCPU)' `
+    -TooltipColumns 'vCPU=Cpu', 'Memory (GB)=RamGB:integer', 'Disk=DiskBytes:bytes', 'PowerState'
+New-UDEChart -Data $links -Type graph -Source From -Target To `
+    -TooltipTemplate "{From} > {To}`nVLAN: {Vlan}`nLoad: {Load:percent100:0}"
+```
+
+A placeholder `{Column}` or `{Column:format}` takes any format of `-Format`; a list column is joined with
+commas; `` `n `` starts a new line. `-LabelColumn Name` is the short form of `-LabelTemplate '{Name}'`.
+`-TooltipColumns` entries are `Column`, `Column:format` or `Label=Column:format`. Points without a row of
+their own (a tree's folders, aggregated nodes) keep their name. Values are HTML-escaped in tooltips.
+
+`-Legend Bottom | Top | Left | Right | None` places the legend; `-LegendType Scroll` (default) pages
+through entries that do not fit, `Plain` wraps them over several lines.
+
 ## Formats
 
 `-Format` applies to axis, tooltip and labels; `-LabelFormat` to value labels only (default: the short
@@ -92,10 +119,21 @@ form of `-Format` for numbers of 10,000 and more). Numbers and dates use the bro
 25 %), `percent100` (25 -> 25 %), `compact` (1.2M), `bytes`, `duration` (seconds), `duration:min`,
 `duration:h`, `date`, `datetime`, `time`, `text`.
 
-## Reference lines
+## Reference lines, pins and trends
 
 `-MarkLine 'median', 'average'` per series, or fixed lines: `@{ value = 48; name = 'SLA'; color = '#e53935' }`
 (`axis = 'x'` for a vertical line).
+
+`-MarkPoint 'max', 'min'` pins those values on every series; `@{ x = 'Thu'; y = 306; label = 'Outage' }`
+pins one point (add `series = 'Mail'` for another series than the first).
+
+`-Trend Linear` adds a dashed least-squares line per series. On a time or value axis, `-Forecast 6`
+continues it six steps of the data, and `-TrendTarget 100` continues it until it reaches 100 and marks the
+date - when a datastore is full or a licence count is used up:
+
+```powershell
+New-UDEChart -Data $fill -Type line -X Day -Y Used -Format 'percent100:0' -Trend Linear -TrendTarget 100
+```
 
 ## Axis breaks
 
@@ -138,12 +176,15 @@ New-UDElement -Tag div -AutoRefresh -RefreshInterval 5 -Endpoint {
 
 ## Examples
 
-[examples/showcase.ps1](examples/showcase.ps1) is a complete app with ten pages: basics, every bar
-variant, a ticket report (lead time distribution with SLA, boxplots per team, previous period,
-calendar, weekday x hour, sankey, click and range filters on a table), finance (waterfall, plan vs
-actual, YTD, treemap, candlestick), managed services (VMware, storage, network, backup, availability),
-calendar heatmaps, intraday charts with axis breaks and small multiples, public APIs, PowerShell and
-DataTable data, live data and a benchmark.
+[examples/showcase.ps1](examples/showcase.ps1) is a complete app: basics, every bar variant, a ticket
+report (lead time distribution with SLA, boxplots per team, previous period, calendar, weekday x hour,
+sankey, click and range filters on a table), finance (waterfall, plan vs actual, YTD, treemap,
+candlestick), managed services (VMware, storage, network, backup, availability), operations (backup
+gantt, maintenance windows, capacity forecast, dependencies), a data platform that combines many source
+systems (coverage matrix with a gap table, sources per asset, backup and EDR gaps, shared assets,
+freshness, findings over time, servers across all measures, VM folders, backup jobs, network path,
+asset 360, datastore trend), calendar heatmaps, intraday charts with axis breaks and small multiples,
+public APIs, PowerShell and DataTable data, live data and a benchmark.
 
 ## Limits
 
