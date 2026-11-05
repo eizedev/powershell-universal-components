@@ -408,3 +408,12 @@ test("tooltips escape names from the data", () => {
     const g = buildOption({ chartType: "graph", data: [{ source: evil, target: "t" }] }, {});
     assert.ok(!g.tooltip.formatter({ name: evil, data: {} }).includes("<img"));
 });
+
+test("a column name that matches no column is an error naming the columns", () => {
+    const rows = [{ team: "A", n: 1 }];
+    assert.throws(() => buildOption({ chartType: "bar", data: rows, x: "Team", y: ["Tickets"] }, {}), /-Y Tickets.*Columns in the data: team, n/);
+    assert.throws(() => buildOption({ chartType: "bar", data: rows, x: "Tem", y: ["n"] }, {}), /-X Tem/);
+    assert.doesNotThrow(() => buildOption({ chartType: "bar", data: [], x: "Anything", y: ["Else"] }, {}), "empty data is fine");
+    const empty = buildOption({ chartType: "line", data: [] }, {});
+    assert.equal(empty.graphic.style.text, "No data");
+});

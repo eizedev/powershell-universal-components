@@ -198,6 +198,8 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                     New-UDEChart -Data $byTeam -Type bar -X Team -Y Tickets -GroupBy Priority -Stacked -Height 320px -OnClick {
                         $Session:TicketFilter = @{ Team = $EventData.name; Priority = $EventData.seriesName }
                         Sync-UDElement -Id 'ticket-table'
+                        # the table is further down the page: say what happened
+                        Show-UDToast -Message ('Table below filtered: {0}, {1}' -f $EventData.name, $EventData.seriesName) -Duration 4000
                     }
                 }
             }
@@ -224,6 +226,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                         -Options @{ series = @(@{}, @{ type = 'line'; smooth = $true }) } -OnSelect {
                         $Session:TicketFilter = @{ From = $EventData.from; To = $EventData.to }
                         Sync-UDElement -Id 'ticket-table'
+                        Show-UDToast -Message 'Table below filtered to the selected days' -Duration 4000
                     }
                 }
             }
@@ -235,11 +238,13 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
             }
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
                 New-UDCard -Title 'Created: weekday x hour' -Content {
+                    # every weekday x hour, also the empty ones: the axes take their order from the rows
                     $days = 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
-                    $grid = $tickets | Group-Object { $_.Created.DayOfWeek }, { $_.Created.Hour } | ForEach-Object {
-                        [pscustomobject]@{ Hour = '{0:00}' -f $_.Group[0].Created.Hour; Weekday = [string]$_.Group[0].Created.DayOfWeek; Tickets = $_.Count }
-                    } | Sort-Object @{ e = { [int]$_.Hour } }, @{ e = { $days.IndexOf($_.Weekday) } }
-                    New-UDEChart -Data $grid -Type heatmap -X Hour -Y Weekday -Value Tickets -Height 300px
+                    $counts = $tickets | Group-Object { '{0}|{1}' -f $_.Created.DayOfWeek, $_.Created.Hour } -AsHashTable -AsString
+                    $grid = foreach ($h in 0..23) {
+                        foreach ($d in $days) { [pscustomobject]@{ Hour = '{0:00}' -f $h; Weekday = $d; Tickets = @($counts["$d|$h"]).Where({ $_ }).Count } }
+                    }
+                    New-UDEChart -Data $grid -Type heatmap -X Hour -Y Weekday -Value Tickets -Height 300px -Options @{ yAxis = @{ inverse = $true } }
                 }
             }
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
@@ -279,7 +284,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                     }
                     New-UDCard -Title ('Tickets: {0} ({1})' -f $label, @($rows).Count) -Content {
                         New-UDButton -Text 'Show all' -Variant outlined -OnClick { $Session:TicketFilter = $null; Sync-UDElement -Id 'ticket-table' }
-                        New-UDTable -Data (@($rows) | Sort-Object Created -Descending | Select-Object -First 200 Id, @{ n = 'Created'; e = { $_.Created.ToString('yyyy-MM-dd HH:mm') } }, Team, Priority, Channel, Status, LeadHours) -Dense -PageSize 10 -ShowSort
+                        New-UDTable -Data (@($rows) | Sort-Object Created -Descending | Select-Object Id, @{ n = 'Created'; e = { $_.Created.ToString('yyyy-MM-dd HH:mm') } }, Team, Priority, Channel, Status, LeadHours) -Dense -ShowPagination -PageSize 10 -PageSizeOptions 10, 25, 50 -ShowSort -ShowSearch
                     }
                 }
             }
@@ -423,7 +428,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                             $v = $kpis[$kpi]
                             foreach ($w in -11..0) {
                                 $value = if ($kpi -like '*%') { $v - (100 - $v) * 0.8 * $mrng.NextDouble() * $scale } else { $v * $scale * (0.8 + 0.4 * $mrng.NextDouble()) }
-                                [pscustomobject]@{ Customer = $cust; Kpi = $kpi; Week = (Get-Date).Date.AddDays(7 * $w).ToString('yyyy-MM-dd'); Value = [math]::Round($value, 2) }
+                                [pscustomobject]@{ Customer = $cust; Kpi = $kpi; Week = (Get-Date).Date.AddDays(7 * $w).ToString('yyyy-MM-dd'); Value = if ($kpi -eq 'Tickets') { [math]::Round($value) } else { [math]::Round($value, 2) } }
                             }
                         }
                     }

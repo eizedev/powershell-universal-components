@@ -6,13 +6,15 @@
  */
 
 const LIGHT = { text: "#303133", muted: "#6e7079", axis: "#c9cdd4", split: "#e8eaef", tooltip: "#ffffff", tooltipBorder: "#e4e7ed", accent: "#1976d2" };
-const DARK = { text: "#e5e7eb", muted: "#a3a8b3", axis: "#4b5058", split: "#2a2d33", tooltip: "#2c2f35", tooltipBorder: "#3a3d44", accent: "#64b5f6" };
+// dark: ECharts' default palette, but its third colour (#505372, grey-violet) almost vanishes on a dark card
+const DARK = { text: "#e5e7eb", muted: "#a3a8b3", axis: "#4b5058", split: "#2a2d33", tooltip: "#2c2f35", tooltipBorder: "#3a3d44", accent: "#64b5f6", palette: ["#5070dd", "#b6d634", "#9aa0d0", "#ff994d", "#0ca8df", "#ffd10a", "#fb628b", "#a58be0", "#3fbe95"] };
 
 function themeFor(c, psu) {
     const text = (psu && psu.text) || c.text;
     // splitArea: ECharts' default greys glare on a dark page (heatmap cells without a value)
     const axis = { axisLine: { lineStyle: { color: c.axis } }, axisTick: { lineStyle: { color: c.axis } }, axisLabel: { color: c.muted }, splitLine: { lineStyle: { color: c.split } }, splitArea: { areaStyle: { color: ["transparent", c.split] } }, nameTextStyle: { color: c.muted } };
     return {
+        color: c.palette,
         backgroundColor: "transparent",
         textStyle: { color: text, fontFamily: psu && psu.fontFamily ? psu.fontFamily : undefined },
         title: { textStyle: { color: text }, subtextStyle: { color: c.muted } },

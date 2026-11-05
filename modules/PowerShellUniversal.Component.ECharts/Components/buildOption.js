@@ -195,7 +195,8 @@ function gridOf(props, legend) {
         // an x axis name sits right of the axis end: room for it (about 7 px per character)
         right: Math.max(String(props.zoomAxis || "x").toLowerCase() !== "x" && zoomMode(props).slider ? 40 : 24, props.xTitle && !props.horizontal ? 16 + 7 * String(props.xTitle).length : 0),
         // axis names sit above the axes: one more row so they stay clear of the toolbox
-        top: (props.title ? (props.subtitle ? 80 : 60) : legend.show && legend.top !== undefined ? 56 : props.toolbox === false ? 24 : 48) + (props.dataLabels ? 16 : 0) + (props.yTitle || props.secondaryTitle ? 14 : 0),
+        // below title and toolbox: axis names sit above the plot, pins (-MarkPoint) reach 46 px above their point
+        top: (props.title ? (props.subtitle ? 80 : 60) : legend.show && legend.top !== undefined ? 56 : props.toolbox === false ? 24 : 48) + (props.dataLabels ? 16 : 0) + (props.yTitle || props.secondaryTitle ? 24 : 0) + (props.markPoint ? 30 : 0),
         bottom: (legend.show && legend.bottom !== undefined ? 30 : 8) + (zoomMode(props).slider ? 34 : 0),
         containLabel: true
     };
@@ -660,8 +661,9 @@ function cartesian(props_, rows, keys, ctx) {
             };
             if (hit !== undefined) {
                 const when = formatter(xType === "time" ? "date" : "number", ctx.locale)(hit);
-                t.markPoint = { symbol: "pin", symbolSize: 36, data: [{ coord: [hit, num(props.trendTarget)], value: when, label: { show: false } }], label: { show: false }, tooltip: { show: true, formatter: () => html`${s.name}: ${fmt ? fmt(num(props.trendTarget)) : props.trendTarget} ≈ ${when}` } };
-                t.markLine = { symbol: "none", silent: true, label: { formatter: () => when, position: "insideEndTop" }, data: [{ xAxis: hit }], lineStyle: { type: "dotted" } };
+                // the date as a label below the target, the line down to the axis without text of its own
+                t.markPoint = { symbol: "circle", symbolSize: 8, data: [{ coord: [hit, num(props.trendTarget)], value: when }], label: { show: true, position: "left", distance: 6, formatter: () => when, fontSize: 11, fontWeight: "bold", textBorderWidth: 0, color: "inherit" }, tooltip: { show: true, formatter: () => html`${s.name}: ${fmt ? fmt(num(props.trendTarget)) : props.trendTarget} ≈ ${when}` } };
+                t.markLine = { symbol: "none", silent: true, label: { show: false }, data: [{ xAxis: hit }], lineStyle: { type: "dotted" } };
             }
             series.push(t);
         });
@@ -681,7 +683,8 @@ function cartesian(props_, rows, keys, ctx) {
         min: index === 0 ? props.yMin : undefined,
         max: index === 0 ? props.yMax : undefined,
         name: index === 0 ? props.yTitle : props.secondaryTitle,
-        axisLabel: fmt ? { formatter: (v) => fmt(v) } : {},
+        // numbers in the page's language also without -Format (ECharts itself writes 1,200 everywhere)
+        axisLabel: { formatter: (v) => pointerFmt(v) },
         splitLine: { show: index === 0 }
     });
     const categoryAxis = {
@@ -898,7 +901,8 @@ function heatmap(props, rows, keys, ctx) {
         // room below the axis labels for the colour scale and its end values
         grid: { left: 12, right: 24, top: props.title ? 60 : props.toolbox === false ? 20 : 44, bottom: 84, containLabel: true },
         // every column labelled; long names wrap within the column instead of being dropped
-        xAxis: { type: "category", data: xs, splitArea: { show: true }, axisLabel: { interval: 0, hideOverlap: false, overflow: "break", width: Math.max(48, Math.floor(900 / Math.max(1, xs.length))) } },
+        // up to 12 columns every one is labelled (long names wrap); with more (24 hours) ECharts thins them out
+        xAxis: { type: "category", data: xs, splitArea: { show: true }, axisLabel: xs.length <= 12 ? { interval: 0, hideOverlap: false, overflow: "break", width: Math.max(48, Math.floor(900 / Math.max(1, xs.length))) } : { hideOverlap: true } },
         yAxis: { type: "category", data: ys, splitArea: { show: true } },
         visualMap: visualMapOf(data.map((d) => d.value[2]), props, ctx),
         toolbox: toolboxOf(props, false, ctx.exportIcons),
@@ -1222,7 +1226,8 @@ function graph(props, rows, keys, ctx) {
         columns.forEach((col, d) => col.forEach((n, i) => position.set(n, { x: d * 200, y: ((i + 0.5) * height) / col.length })));
     }
     // legend top-left (the toolbox sits top-right): a force layout is not bounded and would run over a bottom legend
-    const legend = categories.length ? { show: true, type: "scroll", top: props.title ? 34 : 4, left: 0, right: 140, data: categories } : { show: false };
+    // ECharts drops "right" next to "left", so the width keeps the legend clear of the toolbox
+    const legend = categories.length ? { show: true, type: "scroll", top: props.title ? 34 : 4, left: 0, width: props.toolbox === false ? "95%" : "60%", data: categories } : { show: false };
     return {
         title: titleOf(props),
         legend,
@@ -1560,7 +1565,8 @@ function gantt(props, rows, keys, ctx) {
                 return html`<b>${lanes[lane]}</b>${label ? " · " + label : ""}<br/>${trusted(p.marker)}${p.seriesName}<br/>${dt(a)} – ${dt(b)} (${dur})`;
             }
         },
-        grid: gridOf({ ...props, dataLabels: false }, legend),
+        // room for the zoom slider below the last lane
+        grid: gridOf({ ...props, dataLabels: false, zoomAuto: true }, legend),
         xAxis: { type: "time", position: "top", splitLine: { show: true }, axisLabel: { hideOverlap: true } },
         yAxis: { type: "category", data: lanes, inverse: true, axisTick: { show: false }, splitLine: { show: true } },
         dataZoom: dataZoomOf({ ...props, zoomAuto: true }, false, legend.show && legend.bottom !== undefined),
@@ -1773,6 +1779,26 @@ function applyTemplates(option, props, rows, keys, ctx) {
     return option;
 }
 
+// parameters that name columns: a name that matches no column is an error, not a silently different chart
+const COLUMN_PROPS = ["x", "y", "groupBy", "value", "source", "target", "path", "size", "secondaryY", "open", "close", "low", "high", "volume", "start", "end", "band", "facet", "labelColumn", "targetGroup", "edgeLabel"];
+
+function checkColumns(props, rows, keys) {
+    if (rows.length === 0) {
+        return;
+    }
+    const missing = [];
+    for (const name of COLUMN_PROPS) {
+        list(props[name]).forEach((c) => {
+            if (c !== null && c !== undefined && c !== "" && resolveColumn(c, keys) === undefined) {
+                missing.push(`-${name.charAt(0).toUpperCase()}${name.slice(1)} ${c}`);
+            }
+        });
+    }
+    if (missing.length) {
+        throw new Error(`no column for ${missing.join(", ")}. Columns in the data: ${keys.join(", ")}`);
+    }
+}
+
 // ---- entry point ---------------------------------------------------------------------------------
 
 const BUILDERS = {
@@ -1834,6 +1860,7 @@ function normalize(value) {
 export function buildOption(props, ctx = {}) {
     const rows = Array.isArray(props.data) ? props.data.filter((r) => r && typeof r === "object") : [];
     const keys = columnsOf(rows);
+    checkColumns(props, rows, keys);
     const type = String(props.chartType || "line").toLowerCase();
     const context = { locale: ctx.locale || "en-US", exportIcons: ctx.exportIcons };
     let option;
@@ -1855,5 +1882,9 @@ export function buildOption(props, ctx = {}) {
     option.animation = rows.length <= LARGE;
     option.aria = { enabled: true, decal: { show: Boolean(props.decal) } };
     applyTemplates(option, props, rows, keys, context);
+    if (rows.length === 0 && !option.graphic) {
+        // an empty chart says so instead of showing bare axes
+        option.graphic = { type: "text", left: "center", top: "middle", silent: true, style: { text: props.emptyText || "No data", fontSize: 14, fill: "#8a8f98" } };
+    }
     return mergeOptions(normalize(option), props.options);
 }
