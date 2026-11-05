@@ -103,7 +103,7 @@ function New-UDEChart {
         duration:min, duration:h, date, datetime, time, text. Numbers use the browser's locale or -Locale.
     .PARAMETER LabelFormat
         Format for value labels (-DataLabels, pie, waterfall). Default: the short form of -Format
-        (currency:EUR -> compactcurrency:EUR, "9,9 Mio. €"), so long numbers do not overlap.
+        (currency:EUR -> compactcurrency:EUR, "9,9 Mio. EUR" in de-DE), so long numbers do not overlap.
     .PARAMETER XFormat
         Format for x axis labels, e.g. date.
     .PARAMETER Locale
@@ -227,6 +227,8 @@ function New-UDEChart {
     .OUTPUTS
         System.Collections.Hashtable
     #>
+    # describes a chart (or its axis breaks) for PSU to render; changes no state, so no ShouldProcess
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding()]
     [OutputType([hashtable])]
     param(
@@ -380,6 +382,8 @@ function New-UDEChartTimeBreak {
     .OUTPUTS
         System.Collections.Hashtable
     #>
+    # describes a chart (or its axis breaks) for PSU to render; changes no state, so no ShouldProcess
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding()]
     [OutputType([hashtable])]
     param(

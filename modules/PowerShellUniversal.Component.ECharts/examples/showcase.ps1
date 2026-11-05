@@ -88,19 +88,24 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
         $teams = 'Service Desk', 'Network', 'Server', 'Applications', 'Security', 'Database'
         $statusRows = foreach ($t in $teams) { [pscustomobject]@{ Team = $t; Open = $rng.Next(5, 60); Waiting = $rng.Next(2, 25); Closed = $rng.Next(80, 400) } }
         $months = 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'
-        $card = { param($Title, $Size, [scriptblock]$Chart) New-UDGrid -Item -ExtraSmallSize 12 -MediumSize $Size -Content { New-UDCard -Title $Title -Content $Chart } }
+        function Add-ChartCard {
+            # one grid cell with a card around a chart (the parameters are used inside -Content)
+            [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '')]
+            param([string]$Title, [int]$Size, [scriptblock]$Chart)
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize $Size -Content { New-UDCard -Title $Title -Content $Chart }
+        }
         New-UDTypography -Variant h5 -Text 'Bar charts in every variant'
         New-UDGrid -Container -Content {
-            & $card 'Columns with values' 4 { New-UDEChart -Data $statusRows -Type bar -X Team -Y Closed -DataLabels -Height 300px }
-            & $card 'Grouped' 4 { New-UDEChart -Data $statusRows -Type bar -X Team -Y Open, Waiting, Closed -Height 300px }
-            & $card 'Stacked' 4 { New-UDEChart -Data $statusRows -Type bar -X Team -Y Open, Waiting, Closed -Stacked -Height 300px }
-            & $card 'Stacked horizontal' 6 { New-UDEChart -Data $statusRows -Type bar -Horizontal -X Team -Y Open, Waiting, Closed -Stacked -DataLabels -Height 340px }
-            & $card 'Stacked to 100 % (share per team; tooltip shows the counts)' 6 { New-UDEChart -Data $statusRows -Type bar -Horizontal -X Team -Y Open, Waiting, Closed -Normalize -DataLabels -LabelFormat 'percent100:0' -Height 340px }
-            & $card 'Negative values, horizontal: budget variance per department' 6 {
+            Add-ChartCard 'Columns with values' 4 { New-UDEChart -Data $statusRows -Type bar -X Team -Y Closed -DataLabels -Height 300px }
+            Add-ChartCard 'Grouped' 4 { New-UDEChart -Data $statusRows -Type bar -X Team -Y Open, Waiting, Closed -Height 300px }
+            Add-ChartCard 'Stacked' 4 { New-UDEChart -Data $statusRows -Type bar -X Team -Y Open, Waiting, Closed -Stacked -Height 300px }
+            Add-ChartCard 'Stacked horizontal' 6 { New-UDEChart -Data $statusRows -Type bar -Horizontal -X Team -Y Open, Waiting, Closed -Stacked -DataLabels -Height 340px }
+            Add-ChartCard 'Stacked to 100 % (share per team; tooltip shows the counts)' 6 { New-UDEChart -Data $statusRows -Type bar -Horizontal -X Team -Y Open, Waiting, Closed -Normalize -DataLabels -LabelFormat 'percent100:0' -Height 340px }
+            Add-ChartCard 'Negative values, horizontal: budget variance per department' 6 {
                 $variance = foreach ($d in 'IT', 'HR', 'Sales', 'Marketing', 'Logistics', 'Production', 'Finance', 'Legal') { [pscustomobject]@{ Department = $d; Variance = $rng.Next(-180000, 140000) } }
                 New-UDEChart -Data ($variance | Sort-Object Variance) -Type bar -Horizontal -X Department -Y Variance -Format 'currency:EUR' -Locale de-DE -NegativeColor '#e53935' -DataLabels -Height 340px
             }
-            & $card 'Diverging: survey answers (negative to the left)' 6 {
+            Add-ChartCard 'Diverging: survey answers (negative to the left)' 6 {
                 $survey = foreach ($q in 'Response time', 'Communication', 'Solution quality', 'Self-service portal', 'Opening hours') {
                     $neg = $rng.Next(5, 35)
                     [pscustomobject]@{ Question = $q; 'Disagree' = - $neg; 'Rather disagree' = - $rng.Next(5, 20); 'Rather agree' = $rng.Next(15, 35); 'Agree' = $rng.Next(20, 50) }
@@ -108,30 +113,30 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                 New-UDEChart -Data $survey -Type bar -Horizontal -X Question -Y 'Disagree', 'Rather disagree', 'Rather agree', 'Agree' -Stacked -Height 340px -Palette '#c62828', '#ef9a9a', '#a5d6a7', '#2e7d32' `
                     -Options @{ xAxis = @{ axisLabel = @{} } }
             }
-            & $card 'Select columns with the brush (toolbox), the range comes back as a toast' 6 {
+            Add-ChartCard 'Select columns with the brush (toolbox), the range comes back as a toast' 6 {
                 $daily = foreach ($d in 0..29) { [pscustomobject]@{ Day = (Get-Date).Date.AddDays(-29 + $d); Changes = $rng.Next(3, 40) } }
                 New-UDEChart -Data $daily -Type bar -X Day -Y Changes -Brush -Height 320px -OnSelect { Show-UDToast -Message ('Selected {0} to {1}' -f $EventData.from, $EventData.to) }
             }
-            & $card 'Zoom on the value axis: one outlier, small values still readable (slider on the right)' 6 {
+            Add-ChartCard 'Zoom on the value axis: one outlier, small values still readable (slider on the right)' 6 {
                 $disk = foreach ($s in 1..14) { [pscustomobject]@{ Server = 'srv{0:00}' -f $s; 'Disk GB' = if ($s -eq 7) { 9800 } else { $rng.Next(40, 420) } } }
                 New-UDEChart -Data $disk -Type bar -X Server -Y 'Disk GB' -Zoom Both -ZoomAxis Y -DataLabels -Height 320px
             }
-            & $card 'Bars and a line on a second axis: tickets and SLA %' 6 {
+            Add-ChartCard 'Bars and a line on a second axis: tickets and SLA %' 6 {
                 $mixed = foreach ($m in $months) { [pscustomobject]@{ Month = $m; Tickets = $rng.Next(600, 1100); 'SLA %' = [math]::Round(92 + 7 * $rng.NextDouble(), 1) } }
                 New-UDEChart -Data $mixed -Type bar -X Month -Y Tickets, 'SLA %' -SecondaryY 'SLA %' -SecondaryTitle 'SLA %' -Height 320px -Options @{ series = @(@{}, @{ type = 'line'; smooth = $true; symbolSize = 8 }); yAxis = @(@{}, @{ min = 90; max = 100 }) }
             }
-            & $card 'Sorted, with the average' 6 {
+            Add-ChartCard 'Sorted, with the average' 6 {
                 $apps = foreach ($a in 'SAP', 'Exchange', 'SharePoint', 'Teams', 'Jira', 'Confluence', 'GitLab', 'ServiceNow', 'Salesforce', 'Workday') { [pscustomobject]@{ App = $a; Incidents = $rng.Next(2, 60) } }
                 New-UDEChart -Data ($apps | Sort-Object Incidents -Descending) -Type bar -X App -Y Incidents -MarkLine average -DataLabels -Height 320px
             }
-            & $card 'Many categories: 80 servers, zoom with the slider' 12 {
+            Add-ChartCard 'Many categories: 80 servers, zoom with the slider' 12 {
                 $many = foreach ($s in 1..80) { [pscustomobject]@{ Server = 'vm-{0:000}' -f $s; CPU = $rng.Next(2, 95); RAM = $rng.Next(10, 98) } }
                 New-UDEChart -Data $many -Type bar -X Server -Y CPU, RAM -Format percent100 -Zoom Both -Height 340px -MarkLine @{ value = 85; name = 'Threshold'; color = '#e53935' }
             }
-            & $card 'Rounded corners and a target line through -Options' 6 {
+            Add-ChartCard 'Rounded corners and a target line through -Options' 6 {
                 New-UDEChart -Data $statusRows -Type bar -X Team -Y Closed -Height 300px -MarkLine @{ value = 250; name = 'Target'; color = '#43a047' } -Options @{ series = @(@{ itemStyle = @{ borderRadius = @(6, 6, 0, 0) }; barWidth = '45%' }) }
             }
-            & $card 'Monthly trend as stacked area of bars (step)' 6 {
+            Add-ChartCard 'Monthly trend as stacked area of bars (step)' 6 {
                 $trend = foreach ($m in $months) { [pscustomobject]@{ Month = $m; IaaS = $rng.Next(200, 400); PaaS = $rng.Next(80, 200); SaaS = $rng.Next(120, 260) } }
                 New-UDEChart -Data $trend -Type bar -X Month -Y IaaS, PaaS, SaaS -Stacked -Format compact -Height 300px -Options @{ series = @(@{ barCategoryGap = '10%' }) }
             }
@@ -646,7 +651,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                         $hours = for ($i = 0; $i -lt $w.hourly.time.Count; $i++) {
                             [pscustomobject]@{ Time = $w.hourly.time[$i]; Temperature = $w.hourly.temperature_2m[$i]; Rain = $w.hourly.precipitation[$i] }
                         }
-                        New-UDEChart -Data $hours -Type line -X Time -Y Temperature, Rain -SecondaryY Rain -YTitle '°C' -SecondaryTitle 'mm' -Zoom Both -Height 340px `
+                        New-UDEChart -Data $hours -Type line -X Time -Y Temperature, Rain -SecondaryY Rain -YTitle 'deg C' -SecondaryTitle 'mm' -Zoom Both -Height 340px `
                             -Options @{ series = @(@{ smooth = $true }, @{ type = 'bar'; itemStyle = @{ opacity = 0.6 } }) }
                     }
                     catch { New-UDAlert -Severity warning -Text ('Open-Meteo: {0}' -f $_.Exception.Message) }
