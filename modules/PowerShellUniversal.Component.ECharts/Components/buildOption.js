@@ -1029,7 +1029,8 @@ function graph(props, rows, keys, ctx) {
         degree.set(String(r[tKey]), (degree.get(String(r[tKey])) || 0) + 1);
     });
     const maxDegree = Math.max(1, ...degree.values());
-    const legend = categories.length ? { show: true, type: "scroll", bottom: 0, data: categories } : { show: false };
+    // legend top-left (the toolbox sits top-right): a force layout is not bounded and would run over a bottom legend
+    const legend = categories.length ? { show: true, type: "scroll", top: props.title ? 34 : 4, left: 0, right: 140, data: categories } : { show: false };
     return {
         title: titleOf(props),
         legend,
@@ -1040,8 +1041,8 @@ function graph(props, rows, keys, ctx) {
             layout: props.layout || "force",
             roam: true,
             draggable: true,
-            top: props.title ? 60 : 30,
-            bottom: legend.show ? 40 : 10,
+            top: (props.title ? 34 : 4) + (legend.show ? 48 : 24),
+            bottom: 16,
             categories: categories.map((name) => ({ name })),
             data: names.map((name) => ({ name, value: degree.get(name), category: groupOf.has(name) && categories.indexOf(groupOf.get(name)) >= 0 ? categories.indexOf(groupOf.get(name)) : undefined, symbolSize: 10 + 26 * Math.sqrt(degree.get(name) / maxDegree) })),
             links: rows.map((r, rowIndex) => ({ source: String(r[sKey] ?? ""), target: String(r[tKey] ?? ""), value: vKey ? num(r[vKey]) : undefined, rowIndex })),
@@ -1051,7 +1052,7 @@ function graph(props, rows, keys, ctx) {
             edgeSymbolSize: 6,
             lineStyle: { opacity: 0.6, curveness: 0.1 },
             emphasis: { focus: "adjacency", lineStyle: { width: 3 } },
-            force: { repulsion: Math.max(60, 600 / Math.sqrt(names.length || 1)), edgeLength: [40, 140], gravity: 0.08 }
+            force: { repulsion: Math.max(60, 600 / Math.sqrt(names.length || 1)), edgeLength: [40, 140], gravity: 0.1, initLayout: "circular" }
         }]
     };
 }
