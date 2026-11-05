@@ -57,7 +57,7 @@ export function csvSeparator(locale) {
 }
 
 function csvValue(value, column, locale, separator) {
-    if (value === null || value === undefined) {
+    if (value === null || value === undefined || value === "") {
         return "";
     }
     if (column.type === "number" || column.type === "integer" || column.type === "currency" || column.type === "percent") {
@@ -68,8 +68,9 @@ function csvValue(value, column, locale, separator) {
         }
     }
     const text = column.format ? formatter(column.format, locale)(value) : String(value);
-    // a leading = + - @ would make Excel evaluate the cell as a formula (CSV injection): prefix a quote
-    const safe = /^[=+\-@\t]/.test(text) ? `'${text}` : text;
+    // a leading = + - @ (or a tab or carriage return before one) would make Excel evaluate the cell as a
+    // formula (CSV injection): prefix a quote. Text columns only - numbers were written above.
+    const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
     const needsQuotes = /["\r\n]/.test(safe) || safe.includes(separator);
     return needsQuotes ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
@@ -106,7 +107,13 @@ function cellRef(col, row) {
 }
 
 // Excel serial date: days since 1899-12-30, local wall-clock time kept as written
-function excelDate(value) {
+export function excelDate(value) {
+    // a date without a time ("2026-11-03") is a calendar day: JavaScript would read it as UTC midnight,
+    // which is the evening before west of UTC
+    const day = typeof value === "string" ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(value) : null;
+    if (day) {
+        return Date.UTC(Number(day[1]), Number(day[2]) - 1, Number(day[3])) / 86400000 + 25569;
+    }
     const d = value instanceof Date ? value : new Date(value);
     if (isNaN(d.getTime())) {
         return null;

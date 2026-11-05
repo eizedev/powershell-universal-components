@@ -21,7 +21,8 @@ jobs:
           node-version: "22"
       - name: Unit tests
         run: |
-          npm ci --no-audit --no-fund
+          # no install scripts: the tests need none, and a hijacked dependency could run one
+          npm ci --no-audit --no-fund --ignore-scripts
           npm test
 
   build:

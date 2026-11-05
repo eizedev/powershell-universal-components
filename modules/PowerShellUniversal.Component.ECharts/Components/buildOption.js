@@ -135,7 +135,11 @@ export function mergeOptions(base, user) {
     if (isPlainObject(base) && isPlainObject(user)) {
         const out = { ...base };
         for (const [k, v] of Object.entries(user)) {
-            out[k] = k in base ? mergeOptions(base[k], v) : v;
+            // never merge into the prototype chain (a "__proto__" key from JSON)
+            if (k === "__proto__" || k === "constructor" || k === "prototype") {
+                continue;
+            }
+            out[k] = Object.prototype.hasOwnProperty.call(base, k) ? mergeOptions(base[k], v) : v;
         }
         return out;
     }
@@ -257,6 +261,9 @@ export function toolboxOf(props, cartesian, exportIcons) {
     if (exportIcons && exportIcons.onCsv && exportIcons.onXlsx) {
         feature.myCsv = { show: true, title: "CSV", icon: exportIcons.csv, onclick: exportIcons.onCsv };
         feature.myXlsx = { show: true, title: "Excel", icon: exportIcons.xlsx, onclick: exportIcons.onXlsx };
+    }
+    if (exportIcons && exportIcons.onFullscreen) {
+        feature.myFullscreen = { show: true, title: "Full screen", icon: exportIcons.fullscreen, onclick: exportIcons.onFullscreen };
     }
     return { show: true, right: 8, top: props.title ? 34 : 0, feature };
 }
@@ -562,9 +569,12 @@ function cartesian(props_, rows, keys, ctx) {
     if (band.length === 2 && !horizontal) {
         const [lowKey, highKey] = band;
         const point = (r, v) => (categories ? v : [xType === "value" ? num(r[xKey]) : r[xKey], v]);
-        const low = categories ? categories.map((c) => { const r = rows.find((x) => String(x[xKey] ?? "") === c); return r ? num(r[lowKey]) : null; }) : rows.map((r) => point(r, num(r[lowKey])));
+        // first row per category, looked up once (a find per category is quadratic)
+        const rowOfCat = new Map();
+        rows.forEach((x) => { const c = String(x[xKey] ?? ""); if (!rowOfCat.has(c)) rowOfCat.set(c, x); });
+        const low = categories ? categories.map((c) => { const r = rowOfCat.get(c); return r ? num(r[lowKey]) : null; }) : rows.map((r) => point(r, num(r[lowKey])));
         const width = categories
-            ? categories.map((c) => { const r = rows.find((x) => String(x[xKey] ?? "") === c); return r && num(r[highKey]) !== null && num(r[lowKey]) !== null ? num(r[highKey]) - num(r[lowKey]) : null; })
+            ? categories.map((c) => { const r = rowOfCat.get(c); return r && num(r[highKey]) !== null && num(r[lowKey]) !== null ? num(r[highKey]) - num(r[lowKey]) : null; })
             : rows.map((r) => point(r, num(r[highKey]) !== null && num(r[lowKey]) !== null ? num(r[highKey]) - num(r[lowKey]) : null));
         const bandName = props.bandName || `${displayName(lowKey, props.band)} - ${displayName(highKey, props.band)}`;
         series.unshift(

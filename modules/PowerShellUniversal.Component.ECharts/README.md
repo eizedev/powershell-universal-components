@@ -23,12 +23,14 @@ PSU repository. Then use `New-UDEChart` in any app.
 ## Data
 
 `-Data` takes a `System.Data.DataTable` or `DataView` (SqlClient, ODBC), DataRows, PSCustomObjects,
-hashtables, or a script block returning any of these. `DBNull` becomes an empty value, dates become ISO
+hashtables, or a script block returning any of these. `DBNull` becomes `null` (a gap in a line), dates become ISO
 8601 (the time axis picks them up), TimeSpans become seconds. Column names are matched without regard to
 case, so `-X Team` finds `team`.
 
 Wide data has one column per series (`-Y Opened, Closed`); long data has one row per series and point
-(`-Y Tickets -GroupBy Team` draws one series per team).
+(`-Y Tickets -GroupBy Team` draws one series per team). On a category axis each x value is one point
+per series: rows with the same x (and group) are not added up - the last one wins. Aggregate first
+(`Group-Object`, SQL `GROUP BY`).
 
 ## Chart types
 
@@ -52,6 +54,7 @@ Wide data has one column per series (`-Y Opened, Closed`); long data has one row
 | `chord` | `-Source`, `-Target`, `-Value` | overlaps or hand-overs between the same set of things |
 | `parallel` | `-Y` (axes), `-X` (name), `-GroupBy` | many items across many measures; drag along an axis to filter |
 | `themeriver` | `-X` (date), `-GroupBy`, `-Y` | how a mix of categories changes over time |
+| `matrix` | `-Y` (rows), `-GroupBy` (columns), `-X` (inside a cell), `-Value`, `-CellType` | a table of sparklines, e.g. KPIs per customer; one scale per column |
 
 More: `-Facet <column>` draws one small chart per value with a shared scale (small multiples),
 `-Sparkline` a tiny trend without axes for tiles (line, area, bar), `-Breaks`/`-YBreaks` cut ranges out
@@ -61,7 +64,9 @@ into a Nightingale chart, `-Band Low, High` shades a range, `-MarkArea` marks a 
 ## Interaction
 
 On by default: tooltips, hover highlighting, legend toggles, zoom with the mouse wheel, and a toolbox with
-box zoom, line/bar/stack switch, restore, PNG, CSV and Excel. Options:
+box zoom, line/bar/stack switch, restore, PNG, CSV, Excel and full screen (the chart alone on the whole
+screen, zoom and selection kept; Esc returns; not offered where the browser cannot do it, e.g. iPhone
+Safari). Options:
 
 | Parameter | Effect |
 | --- | --- |
@@ -69,7 +74,7 @@ box zoom, line/bar/stack switch, restore, PNG, CSV and Excel. Options:
 | `-ZoomAxis X \| Y \| Both` | zoom along the data (X) or the value axis (Y); with Both, Shift + wheel zooms Y |
 | `-Brush` | select a range with the mouse (toolbox button) |
 | `-Group <name>` | charts with the same group share tooltip, zoom and legend |
-| `-NoToolbox`, `-NoExport` | hide the toolbox or its CSV/Excel buttons |
+| `-NoToolbox`, `-NoExport`, `-NoFullscreen` | hide the toolbox, its CSV/Excel buttons or the full screen button |
 | `-ExportColumns` | export columns in order, with `title`, `type` (text, number, integer, currency, percent, date, datetime, boolean) and `format` |
 
 Events run a script block on the server; `$EventData` holds what happened:
@@ -196,6 +201,20 @@ freshness, findings over time, servers across all measures, VM folders, backup j
 asset 360, datastore trend), calendar heatmaps, intraday charts with axis breaks and small multiples,
 public APIs, PowerShell and DataTable data, live data and a benchmark.
 
+## Security notes
+
+- Everything in `-Data` is sent to the browser - every column, also those the chart does not draw - and
+  is what CSV/Excel export offers by default. Select the columns first (`Select-Object`) when a source
+  holds more than the viewer may see.
+- `$EventData` comes from the browser (the clicked row, a selected range, rows of a parallel
+  selection). Treat it like any user input: look the record up again on the server before acting on
+  it, never pass it to a query or command unchecked. A parallel selection sends at most 1000 rows; a
+  click sends the one row.
+- `-Options`, `-MarkLine`, `-MarkArea`, `-Thresholds` and the templates are configuration for the app
+  author; do not build them from what a user typed. Values from the data are HTML-escaped in tooltips;
+  in CSV export, text starting with `=`, `+`, `-` or `@` gets a leading `'` so spreadsheets do not run it
+  as a formula (Excel export writes text cells, which are never evaluated).
+
 ## Apache ECharts gallery
 
 [docs/gallery.md](docs/gallery.md) maps the examples of the Apache ECharts gallery to parameters,
@@ -211,4 +230,5 @@ public APIs, PowerShell and DataTable data, live data and a benchmark.
 
 ## License
 
-MIT. Includes Apache ECharts (Apache-2.0) and fflate (MIT).
+MIT. Includes Apache ECharts (Apache-2.0), ZRender (BSD-3-Clause), fflate (MIT), tslib (0BSD) and PSU's
+universal-dashboard helper (ISC); their licence texts are in `THIRD-PARTY-NOTICES.txt` of the built module.

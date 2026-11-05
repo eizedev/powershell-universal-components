@@ -389,3 +389,22 @@ test("thresholds on a line: piecewise colours by value, trend lines excluded", (
     assert.deepEqual(o.visualMap.pieces[0], { lte: 250, color: "green" });
     assert.equal(o.visualMap.pieces[1].gt, 250);
 });
+
+test("mergeOptions ignores __proto__ and constructor keys", () => {
+    const user = JSON.parse('{"__proto__": {"polluted": 1}, "constructor": {"x": 1}, "title": {"text": "ok"}}');
+    const out = mergeOptions({ title: { text: "a" } }, user);
+    assert.equal(out.title.text, "ok");
+    assert.equal(out.polluted, undefined);
+    assert.equal(Object.getPrototypeOf(out), Object.prototype);
+    assert.equal({}.polluted, undefined);
+});
+
+test("tooltips escape names from the data", () => {
+    const evil = '<img src=x onerror="alert(1)">';
+    const heat = buildOption({ chartType: "heatmap", data: [{ x: evil, y: "b", v: 1 }], x: "x", y: ["y"], value: "v" }, {});
+    const text = heat.tooltip.formatter({ value: [0, 0, 1] });
+    assert.ok(!text.includes("<img"), text);
+    assert.ok(text.includes("&lt;img"));
+    const g = buildOption({ chartType: "graph", data: [{ source: evil, target: "t" }] }, {});
+    assert.ok(!g.tooltip.formatter({ name: evil, data: {} }).includes("<img"));
+});

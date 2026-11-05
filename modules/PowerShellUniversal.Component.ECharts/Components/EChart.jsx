@@ -7,11 +7,25 @@ import { usePsuTheme, effectiveMode } from "../../../shared/js/psuTheme";
 import { defaultLocale } from "../../../shared/js/formatters";
 import { toCsv, toXlsxBytes, download, safeFileName } from "../../../shared/js/exporter";
 
+// components replaced (not merged) on every update, so a live update that changes the shape of the
+// chart leaves no stale axes or coordinate systems behind; zoom and legend state are kept
+const REPLACED = ["series", "xAxis", "yAxis", "grid", "dataset", "visualMap", "calendar", "radar", "parallel", "parallelAxis", "singleAxis", "matrix", "polar", "angleAxis", "radiusAxis", "markArea"];
+
 // Toolbox icons (SVG paths, 0..24 box): a sheet with "CSV" lines and a grid for Excel
 const EXPORT_ICONS = {
     csv: "path://M6 2h9l5 5v15H6z M14 2v6h6 M9 13h8 M9 17h8 M9 9h3",
-    xlsx: "path://M4 4h16v16H4z M4 9h16 M4 14h16 M10 4v16"
+    xlsx: "path://M4 4h16v16H4z M4 9h16 M4 14h16 M10 4v16",
+    fullscreen: "path://M3 9V3h6 M15 3h6v6 M21 15v6h-6 M9 21H3v-6"
 };
+
+// element full screen (not on iPhone Safari, which allows it only for videos)
+function canFullscreen() {
+    return typeof document !== "undefined" && Boolean(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+}
+
+function fullscreenElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
 
 /*
  * Values from ECharts events turned into something PowerShell can use: time axis values (epoch ms)
@@ -38,7 +52,9 @@ function rowOf(rows, params) {
 }
 
 export default function EChart(props) {
+    const outer = useRef(null);
     const container = useRef(null);
+    const [full, setFull] = useState(false);
     const chartRef = useRef(null);
     const psuTheme = usePsuTheme();
     const mode = effectiveMode(props.theme, psuTheme);
@@ -50,7 +66,12 @@ export default function EChart(props) {
 
     const option = useMemo(() => {
         try {
-            const exportIcons = props.export === false ? undefined : { ...EXPORT_ICONS, onCsv: () => exportAs("csv"), onXlsx: () => exportAs("xlsx") };
+            const exportIcons = {
+                ...EXPORT_ICONS,
+                onCsv: props.export === false ? undefined : () => exportAs("csv"),
+                onXlsx: props.export === false ? undefined : () => exportAs("xlsx"),
+                onFullscreen: props.fullscreen === false || !canFullscreen() ? undefined : () => toggleFullscreen()
+            };
             const base = buildOption(props, { locale, exportIcons });
             return { value: base, rules: responsive(base, props, { locale }) };
         } catch (e) {
@@ -69,6 +90,29 @@ export default function EChart(props) {
             download(`${name}.xlsx`, toXlsxBytes(data, p.exportColumns, p.title || "Data"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         }
     }
+
+    // the chart alone on the whole screen and back (Esc or the button); zoom, selection and the
+    // hidden series stay, because it is the same chart
+    function toggleFullscreen() {
+        const el = outer.current;
+        if (!el) {
+            return;
+        }
+        if (fullscreenElement() === el) {
+            (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+        } else {
+            (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+        }
+    }
+    useEffect(() => {
+        const onChange = () => setFull(fullscreenElement() === outer.current);
+        document.addEventListener("fullscreenchange", onChange);
+        document.addEventListener("webkitfullscreenchange", onChange);
+        return () => {
+            document.removeEventListener("fullscreenchange", onChange);
+            document.removeEventListener("webkitfullscreenchange", onChange);
+        };
+    }, []);
 
     // width class of the container: the option is rebuilt only when it crosses a rule's limit
     const [widthClass, setWidthClass] = useState("wide");
@@ -108,15 +152,20 @@ export default function EChart(props) {
             return;
         }
         const width = container.current ? container.current.clientWidth : 0;
-        chart.setOption(optionForWidth(option.value, option.rules, width), { replaceMerge: ["series", "xAxis", "yAxis", "grid", "dataset", "visualMap", "calendar", "radar"] });
+        chart.setOption(optionForWidth(option.value, option.rules, width), { replaceMerge: REPLACED });
     }, [option, widthClass]);
 
-    // linked charts: same -Group share tooltip, zoom and legend
+    // linked charts: same -Group share tooltip, zoom and legend; a removed group unlinks the chart
     useEffect(() => {
         const chart = chartRef.current;
-        if (chart && props.group) {
+        if (!chart) {
+            return;
+        }
+        if (props.group) {
             chart.group = String(props.group);
             echarts.connect(chart.group);
+        } else {
+            chart.group = "";
         }
     }, [props.group]);
 
@@ -209,9 +258,17 @@ export default function EChart(props) {
 
     return (
         // -ClassName and -Style as on PSU's own components; -Width wins over a width in -Style
-        <div id={props.id} className={props.className} style={{ ...(props.style || {}), width: props.width || (props.style && props.style.width) || "100%" }}>
+        // full screen: the page's background behind the chart, which is transparent otherwise
+        <div
+            id={props.id}
+            ref={outer}
+            className={props.className}
+            style={full
+                ? { width: "100vw", height: "100vh", boxSizing: "border-box", padding: 16, background: getComputedStyle(document.body).backgroundColor || (mode === "dark" ? "#121212" : "#fff") }
+                : { ...(props.style || {}), width: props.width || (props.style && props.style.width) || "100%" }}
+        >
             {option.error && <div role="alert" style={{ color: "#d32f2f", padding: 8 }}>EChart: {option.error}</div>}
-            <div ref={container} style={{ width: "100%", height: props.height || "400px" }} />
+            <div ref={container} style={{ width: "100%", height: full ? "100%" : props.height || "400px" }} />
         </div>
     );
 }

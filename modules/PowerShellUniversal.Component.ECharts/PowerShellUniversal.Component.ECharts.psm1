@@ -257,6 +257,9 @@ function New-UDEChart {
         Hide the toolbox.
     .PARAMETER NoExport
         Hide the CSV and Excel buttons.
+    .PARAMETER NoFullscreen
+        Hide the toolbox button that shows the chart alone on the whole screen (Esc returns). The
+        button is hidden anyway where the browser cannot show an element full screen (iPhone Safari).
     .PARAMETER ExportColumns
         Columns of the CSV/Excel export, in order: names, or hashtables
         @{ field = 'leadTime'; title = 'Lead time (h)'; type = 'number'; format = 'number:1' }
@@ -340,9 +343,9 @@ function New-UDEChart {
         [string]$Size,
         [ValidateCount(2, 2)][string[]]$Band,
         [string]$BandName,
-        [hashtable[]]$MarkArea,
+        [object[]]$MarkArea,
         [ValidateSet('Progress', 'Ring', 'Grade')][string]$GaugeStyle = 'Progress',
-        [hashtable[]]$Thresholds,
+        [object[]]$Thresholds,
         [switch]$Rose,
         [string]$TargetGroup,
         [ValidateSet('LR', 'RL', 'TB', 'BT', 'Radial')][string]$Orient,
@@ -394,8 +397,8 @@ function New-UDEChart {
         [object[]]$MarkLine,
         [string]$NegativeColor,
         [string]$PositiveColor,
-        [hashtable[]]$Breaks,
-        [hashtable[]]$YBreaks,
+        [object[]]$Breaks,
+        [object[]]$YBreaks,
         [string]$Facet,
         [ValidateRange(1, 12)][int]$FacetColumns,
         [switch]$Sparkline,
@@ -404,6 +407,7 @@ function New-UDEChart {
         [switch]$Brush,
         [switch]$NoToolbox,
         [switch]$NoExport,
+        [switch]$NoFullscreen,
         [object[]]$ExportColumns,
         [string]$ExportFileName,
         [string]$Group,
@@ -436,6 +440,7 @@ function New-UDEChart {
         renderer  = $Renderer.ToLowerInvariant()
         toolbox   = -not $NoToolbox
         export    = -not $NoExport
+        fullscreen = -not $NoFullscreen
         stacked   = [bool]$Stacked
         horizontal = [bool]$Horizontal
         normalize = [bool]$Normalize
@@ -559,7 +564,9 @@ function Set-UDEChartData {
     .PARAMETER Data
         Rows, as for New-UDEChart.
     .EXAMPLE
-        Set-UDEChartData -Id 'cpu' -Data (Get-Counter '\Processor(_Total)\% Processor Time' -MaxSamples 1 | ...)
+        $sample = Get-Counter '\Processor(_Total)\% Processor Time' -MaxSamples 1
+        $Cache:Cpu = @($Cache:Cpu) + [pscustomobject]@{ Time = $sample.Timestamp; Load = [math]::Round($sample.CounterSamples[0].CookedValue, 1) } | Select-Object -Last 120
+        Set-UDEChartData -Id 'cpu' -Data $Cache:Cpu
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(

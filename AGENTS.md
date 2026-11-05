@@ -21,7 +21,7 @@ hashtable PSU renders; see [README.md](README.md).
 npm ci && npm test                                   # JavaScript unit tests (repository root)
 pwsh ./build/Build-Module.ps1 -Module PowerShellUniversal.Component.ECharts   # output/<Module>/<Version>
 pwsh -c 'Invoke-Pester -Path tests/powershell'       # Pester 5 or 6
-pwsh -c 'Invoke-ScriptAnalyzer -Path modules/<Module>/<Module>.psm1'
+pwsh -c 'Get-ChildItem modules, shared, build, tests -Recurse -Include *.ps1, *.psm1, *.psd1 | Where-Object FullName -NotMatch "node_modules|public|output" | ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -Severity Warning, Error }'   # as CI
 ```
 
 A change to a component is checked on a PSU test instance in a browser (light and dark theme, a

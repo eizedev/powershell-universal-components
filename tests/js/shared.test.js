@@ -91,3 +91,18 @@ test("template: columns case-insensitive, formats, lists, escaping, unknown kept
     assert.equal(columnsTemplate(["Cpu", "RamGB:bytes"]), "Cpu: {Cpu}\nRamGB: {RamGB:bytes}");
     assert.equal(columnsTemplate(["Memory (GB)=RamGB:number:1"]), "Memory (GB): {RamGB:number:1}");
 });
+
+test("excelDate: a date without time is that calendar day in every time zone", async () => {
+    const { excelDate } = await import("../../shared/js/exporter.js");
+    // 2026-11-03 is Excel serial 46329, whatever TZ the test runs in
+    assert.equal(excelDate("2026-11-03"), 46329);
+    assert.equal(excelDate("not a date"), null);
+});
+
+test("csv: empty numbers stay empty, formula triggers incl. CR are prefixed", async () => {
+    const { toCsv } = await import("../../shared/js/exporter.js");
+    const csv = toCsv([{ n: "", t: "\r=1+1" }], [{ field: "n", type: "number" }, { field: "t", type: "text" }], "en-US");
+    const line = csv.split("\r\n")[1];
+    assert.ok(line.startsWith(","), "empty number cell, not 0");
+    assert.ok(line.includes("'\r=1+1"), "carriage return before = is prefixed");
+});
