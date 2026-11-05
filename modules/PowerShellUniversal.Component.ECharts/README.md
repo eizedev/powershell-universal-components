@@ -153,8 +153,8 @@ the container's width) size the chart; `-Id`, `-ClassName` and `-Style` work as 
 The chart follows its container's size, also when it was created hidden and shown later: tested in
 `New-UDStack`, `New-UDGrid`, `New-UDPaper`, `New-UDTabs` (with and without `-RenderOnActive`),
 `New-UDExpansionPanel`, `Show-UDModal` and `New-UDDynamic -AutoRefresh` (showcase page "Layouts"). In a
-row of a flex container (`New-UDStack -Direction row`), give the items `flex = '1 1 0'; minWidth = 0`, or
-they keep the width of their first drawing.
+row of a flex container (`New-UDStack -Direction row`), the items share the row with
+`-Style @{ flex = '1 1 0'; minWidth = 0 }` on their `New-UDPaper` (as on the showcase page).
 
 ## Theme
 
