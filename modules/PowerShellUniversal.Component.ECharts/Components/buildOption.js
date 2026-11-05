@@ -637,6 +637,7 @@ function cartesian(props_, rows, keys, ctx) {
                 : [[first, fit.slope * first + fit.intercept], [last, fit.slope * last + fit.intercept]];
             const t = {
                 type: "line",
+                id: `__trend${series.length}`,
                 name: props.trendName || `${s.name} (trend)`,
                 data: line,
                 yAxisIndex: s.yAxisIndex,
@@ -687,10 +688,21 @@ function cartesian(props_, rows, keys, ctx) {
         const pct100 = formatter("percent100:0", ctx.locale);
         yAxes[0] = { ...yAxes[0], max: (extent) => Math.max(100, extent.max), axisLabel: { formatter: (v) => pct100(v) } };
     }
+    // -Thresholds on lines and areas: each stretch of the line in the colour of its band (red above
+    // the SLA). Upper bounds ascending, as for the gauge; above the last bound the last colour stays.
+    const stops = list(props.thresholds).filter(isPlainObject).map((t) => ({ value: num(t.value), color: t.color })).filter((t) => t.value !== null && t.color).sort((a, b) => a.value - b.value);
+    let visualMap;
+    if (stops.length && seriesType === "line" && !horizontal) {
+        const lines = series.map((s, i) => (s.type === "line" && s.stack !== "__band" && !String(s.id || "").startsWith("__trend") ? i : -1)).filter((i) => i >= 0);
+        const pieces = stops.map((t, i) => ({ gt: i === 0 ? undefined : stops[i - 1].value, lte: t.value, color: t.color }));
+        pieces.push({ gt: stops[stops.length - 1].value, color: stops[stops.length - 1].color });
+        visualMap = { type: "piecewise", show: false, dimension: 1, seriesIndex: lines, pieces, outOfRange: { color: stops[stops.length - 1].color } };
+    }
     const legend = legendOf(props, series.length > 1);
     return {
         title: titleOf(props),
         legend,
+        visualMap,
         grid: gridOf(props, legend),
         tooltip: {
             trigger: seriesType === "scatter" ? "item" : "axis",

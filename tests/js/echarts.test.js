@@ -380,3 +380,12 @@ test("matrix: one grid per cell on the matrix, one scale per column", () => {
     assert.equal(o.yAxis[0].min, 2.5);
     assert.equal(o.series[3].xAxisIndex, 3);
 });
+
+test("thresholds on a line: piecewise colours by value, trend lines excluded", () => {
+    const rows = [0, 1, 2, 3].map((i) => ({ t: `2026-01-0${i + 1}T00:00:00Z`, ms: 100 + 100 * i }));
+    const o = buildOption({ chartType: "line", data: rows, x: "t", y: ["ms"], trend: "linear", thresholds: [{ value: 250, color: "green" }, { value: 1e9, color: "red" }] }, {});
+    assert.equal(o.visualMap.type, "piecewise");
+    assert.deepEqual(o.visualMap.seriesIndex, [0]);
+    assert.deepEqual(o.visualMap.pieces[0], { lte: 250, color: "green" });
+    assert.equal(o.visualMap.pieces[1].gt, 250);
+});

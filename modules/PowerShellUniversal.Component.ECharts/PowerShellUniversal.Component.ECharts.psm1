@@ -112,8 +112,10 @@ function New-UDEChart {
         Progress (default, one value), Ring (one ring per row, e.g. availability per service) or Grade
         (arc coloured by -Thresholds, with a needle).
     .PARAMETER Thresholds
-        For -GaugeStyle Grade: upper bounds with colours, ascending:
+        Upper bounds with colours, ascending:
         @{ value = 95; color = '#e53935' }, @{ value = 99; color = '#fb8c00' }, @{ value = 100; color = '#43a047' }
+        For -GaugeStyle Grade the bands of the dial; for line and area each stretch of the line in the
+        colour of its band (e.g. red above an SLA), above the last bound in the last colour.
     .PARAMETER TargetGroup
         For graph: column naming the group of the target node (colour and legend).
     .PARAMETER Orient

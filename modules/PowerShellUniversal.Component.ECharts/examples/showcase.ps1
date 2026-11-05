@@ -621,10 +621,12 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                 }
             }
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
-                New-UDCard -Title 'API latency today with the incident window marked' -Content {
+                New-UDCard -Title 'API latency today: red above the SLA, incident window marked' -Content {
                     $t0 = (Get-Date).Date
                     $lat = foreach ($i in 0..287) { $t = $t0.AddMinutes(5 * $i); [pscustomobject]@{ Time = $t; 'Latency ms' = [math]::Round(80 + 30 * [math]::Sin($i / 20) + $rng.Next(0, 15) + $(if ($i -ge 130 -and $i -le 150) { 400 } else { 0 })) } }
+                    # the line turns red where it is above the SLA
                     New-UDEChart -Data $lat -Type area -X Time -Y 'Latency ms' -Height 320px -MarkLine @{ value = 250; name = 'SLA'; color = '#e53935' } `
+                        -Thresholds @{ value = 250; color = '#43a047' }, @{ value = 100000; color = '#e53935' } `
                         -MarkArea @{ from = $t0.AddMinutes(650).ToString('o'); to = $t0.AddMinutes(755).ToString('o'); name = 'Incident INC-4711'; color = 'rgba(229,57,53,0.15)' }
                 }
             }
