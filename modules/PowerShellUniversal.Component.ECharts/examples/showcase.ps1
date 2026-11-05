@@ -618,6 +618,22 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                     )
                 }
             }
+            New-UDGrid -Item -ExtraSmallSize 12 -Content {
+                New-UDCard -Title 'Dependencies: services, VMs, ESXi hosts, datastores (drag, zoom; hover shows what an outage affects)' -Content {
+                    $links = [System.Collections.Generic.List[object]]::new()
+                    $services = 'CRM', 'ERP', 'Webshop', 'Mail', 'File', 'Monitoring', 'Billing'
+                    foreach ($svc in $services) {
+                        foreach ($n in 1..$rng.Next(1, 4)) {
+                            $vm = 'vm-{0}-{1:00}' -f $svc.ToLower(), $n
+                            $links.Add([pscustomobject]@{ From = $svc; To = $vm; FromKind = 'Service'; ToKind = 'VM' })
+                            $links.Add([pscustomobject]@{ From = $vm; To = 'esx-{0:00}' -f $rng.Next(1, 7); FromKind = 'VM'; ToKind = 'ESXi host' })
+                        }
+                    }
+                    foreach ($h in 1..6) { $links.Add([pscustomobject]@{ From = 'esx-{0:00}' -f $h; To = @('DS-Gold', 'DS-Silver', 'DS-Bronze')[$h % 3]; FromKind = 'ESXi host'; ToKind = 'Datastore' }) }
+                    New-UDEChart -Data $links -Type graph -Source From -Target To -GroupBy FromKind -TargetGroup ToKind -Height 520px `
+                        -OnClick { if ($EventData.name) { Show-UDToast -Message ('Selected {0}' -f $EventData.name) } }
+                }
+            }
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
                 New-UDCard -Title 'Half donut via -Options: licence usage' -Content {
                     New-UDEChart -Type donut -X State -Y Licences -Height 340px -Data @(
@@ -743,12 +759,23 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
 
     #region Public data
     New-UDPage -Name 'Public data' -Url '/public' -Content {
+        function Invoke-ShowcaseApi {
+            # public APIs are called once per hour per URL; every visitor shares the cached answer
+            param([Parameter(Mandatory)][string]$Uri)
+            $key = 'EChartsApi:' + $Uri
+            $hit = if ($Cache:EChartsApi) { $Cache:EChartsApi[$key] }
+            if ($hit -and $hit.Time -gt (Get-Date).AddHours(-1)) { return $hit.Data }
+            $data = Invoke-RestMethod -Uri $Uri -TimeoutSec 45
+            if (-not $Cache:EChartsApi) { $Cache:EChartsApi = @{} }
+            $Cache:EChartsApi[$key] = @{ Time = Get-Date; Data = $data }
+            $data
+        }
         New-UDTypography -Variant h5 -Text 'Public APIs (fetched by the PSU server; each card shows an error if the API is unreachable)'
         New-UDGrid -Container -Content {
             New-UDGrid -Item -ExtraSmallSize 12 -Content {
                 New-UDCard -Title 'Weather Berlin, next 7 days (Open-Meteo): temperature and rain on two axes' -Content {
                     try {
-                        $w = Invoke-RestMethod 'https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&hourly=temperature_2m,precipitation&timezone=Europe%2FBerlin&forecast_days=7' -TimeoutSec 20
+                        $w = Invoke-ShowcaseApi 'https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&hourly=temperature_2m,precipitation&timezone=Europe%2FBerlin&forecast_days=7'
                         $hours = for ($i = 0; $i -lt $w.hourly.time.Count; $i++) {
                             [pscustomobject]@{ Time = $w.hourly.time[$i]; Temperature = $w.hourly.temperature_2m[$i]; Rain = $w.hourly.precipitation[$i] }
                         }
@@ -762,7 +789,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                 New-UDCard -Title 'EUR exchange rates, last 12 months (ECB via Frankfurter)' -Content {
                     try {
                         $from = (Get-Date).AddYears(-1).ToString('yyyy-MM-dd')
-                        $fx = Invoke-RestMethod "https://api.frankfurter.dev/v1/$from..?symbols=USD,GBP,CHF" -TimeoutSec 20
+                        $fx = Invoke-ShowcaseApi "https://api.frankfurter.dev/v1/$from..?symbols=USD,GBP,CHF"
                         $rates = foreach ($p in $fx.rates.PSObject.Properties) {
                             [pscustomobject]@{ Date = $p.Name; USD = $p.Value.USD; GBP = $p.Value.GBP; CHF = $p.Value.CHF }
                         }
@@ -774,7 +801,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
                 New-UDCard -Title 'Earthquakes of the last 7 days (USGS): magnitude vs depth' -Content {
                     try {
-                        $q = Invoke-RestMethod 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson' -TimeoutSec 20
+                        $q = Invoke-ShowcaseApi 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson'
                         $quakes = $q.features | ForEach-Object {
                             [pscustomobject]@{ Magnitude = $_.properties.mag; Depth = $_.geometry.coordinates[2]; Type = if ($_.properties.tsunami) { 'Tsunami alert' } else { 'Earthquake' }; Place = $_.properties.place }
                         }
@@ -788,9 +815,9 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
                 New-UDCard -Title 'Population, 15 largest countries (World Bank)' -Content {
                     try {
-                        $wb = Invoke-RestMethod 'https://api.worldbank.org/v2/country/all/indicator/SP.POP.TOTL?date=2023&format=json&per_page=400' -TimeoutSec 30
+                        $wb = Invoke-ShowcaseApi 'https://api.worldbank.org/v2/country/all/indicator/SP.POP.TOTL?date=2023&format=json&per_page=400'
                         # the list mixes countries and aggregates; countries have a 3-letter ISO code and a region
-                        $countries = Invoke-RestMethod 'https://api.worldbank.org/v2/country?format=json&per_page=400' -TimeoutSec 30
+                        $countries = Invoke-ShowcaseApi 'https://api.worldbank.org/v2/country?format=json&per_page=400'
                         $real = @($countries[1] | Where-Object { $_.region.id -ne 'NA' } | ForEach-Object id)
                         $top = $wb[1] | Where-Object { $_.countryiso3code -in $real -and $_.value } | Sort-Object value -Descending | Select-Object -First 15 @{ n = 'Country'; e = { $_.country.value } }, @{ n = 'Population'; e = { $_.value } }
                         New-UDEChart -Data $top -Type bar -Horizontal -X Country -Y Population -Format compact -DataLabels -Height 420px
@@ -801,7 +828,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
                 New-UDCard -Title 'An OpenAPI document: operations per tag and method (Swagger Petstore)' -Content {
                     try {
-                        $api = Invoke-RestMethod 'https://petstore3.swagger.io/api/v3/openapi.json' -TimeoutSec 20
+                        $api = Invoke-ShowcaseApi 'https://petstore3.swagger.io/api/v3/openapi.json'
                         $ops = foreach ($path in $api.paths.PSObject.Properties) {
                             foreach ($op in $path.Value.PSObject.Properties) {
                                 [pscustomobject]@{ Tag = @($op.Value.tags)[0]; Method = $op.Name.ToUpper(); Path = $path.Name }

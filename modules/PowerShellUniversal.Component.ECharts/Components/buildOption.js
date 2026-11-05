@@ -1005,6 +1005,57 @@ function sankey(props, rows, keys, ctx) {
     };
 }
 
+/*
+ * graph: nodes and links from -Source/-Target (like sankey), force layout, drag and zoom with the
+ * mouse, neighbours highlighted on hover (what does an outage of X affect?). -GroupBy colours nodes:
+ * a column of the source rows naming the source node's group. Node size grows with its links.
+ */
+function graph(props, rows, keys, ctx) {
+    const sKey = resolveColumn(props.source ?? "source", keys) ?? keys[0];
+    const tKey = resolveColumn(props.target ?? "target", keys) ?? keys[1];
+    const vKey = resolveColumn(props.value, keys);
+    const groupKey = resolveColumn(props.groupBy, keys);
+    const targetGroupKey = resolveColumn(props.targetGroup, keys);
+    const names = unique(rows.flatMap((r) => [String(r[sKey] ?? ""), String(r[tKey] ?? "")])).filter((n) => n !== "");
+    const groupOf = new Map();
+    rows.forEach((r) => {
+        if (groupKey && !groupOf.has(String(r[sKey]))) groupOf.set(String(r[sKey]), String(r[groupKey] ?? ""));
+        if (targetGroupKey && !groupOf.has(String(r[tKey]))) groupOf.set(String(r[tKey]), String(r[targetGroupKey] ?? ""));
+    });
+    const categories = unique([...groupOf.values()]).filter((g) => g !== "");
+    const degree = new Map(names.map((n) => [n, 0]));
+    rows.forEach((r) => {
+        degree.set(String(r[sKey]), (degree.get(String(r[sKey])) || 0) + 1);
+        degree.set(String(r[tKey]), (degree.get(String(r[tKey])) || 0) + 1);
+    });
+    const maxDegree = Math.max(1, ...degree.values());
+    const legend = categories.length ? { show: true, type: "scroll", bottom: 0, data: categories } : { show: false };
+    return {
+        title: titleOf(props),
+        legend,
+        tooltip: { confine: true, formatter: (p) => (p.dataType === "edge" ? `${p.data.source} → ${p.data.target}${p.data.value !== undefined ? ": " + p.data.value : ""}` : `${p.name}${p.data.category !== undefined && categories[p.data.category] ? " (" + categories[p.data.category] + ")" : ""}`) },
+        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        series: [{
+            type: "graph",
+            layout: props.layout || "force",
+            roam: true,
+            draggable: true,
+            top: props.title ? 60 : 30,
+            bottom: legend.show ? 40 : 10,
+            categories: categories.map((name) => ({ name })),
+            data: names.map((name) => ({ name, value: degree.get(name), category: groupOf.has(name) && categories.indexOf(groupOf.get(name)) >= 0 ? categories.indexOf(groupOf.get(name)) : undefined, symbolSize: 10 + 26 * Math.sqrt(degree.get(name) / maxDegree) })),
+            links: rows.map((r, rowIndex) => ({ source: String(r[sKey] ?? ""), target: String(r[tKey] ?? ""), value: vKey ? num(r[vKey]) : undefined, rowIndex })),
+            label: { show: names.length <= 60, position: "right", fontSize: 11 },
+            labelLayout: { hideOverlap: true },
+            edgeSymbol: ["none", props.directed === false ? "none" : "arrow"],
+            edgeSymbolSize: 6,
+            lineStyle: { opacity: 0.6, curveness: 0.1 },
+            emphasis: { focus: "adjacency", lineStyle: { width: 3 } },
+            force: { repulsion: Math.max(60, 600 / Math.sqrt(names.length || 1)), edgeLength: [40, 140], gravity: 0.08 }
+        }]
+    };
+}
+
 // Hierarchy from a list of path columns (-Path Region, Country, City) or a "/"-separated column
 function hierarchy(rows, pathKeys, vKey) {
     const root = { children: [] };
@@ -1238,7 +1289,8 @@ const BUILDERS = {
     treemap: treeChart,
     sunburst: treeChart,
     waterfall,
-    gantt
+    gantt,
+    graph
 };
 
 export const CHART_TYPES = [...CARTESIAN, ...Object.keys(BUILDERS)];

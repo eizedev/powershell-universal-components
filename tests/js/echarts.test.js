@@ -273,3 +273,18 @@ test("ECharts locale from a language tag", async () => {
     assert.equal(echartsLocale("xx-YY"), "EN");
     assert.equal(echartsLocale(undefined), "EN");
 });
+
+test("graph: nodes from links, groups, degree-based size", () => {
+    const rows = [
+        { source: "CRM", target: "vm-sql01", kind: "Service", tkind: "VM" },
+        { source: "ERP", target: "vm-sql01", kind: "Service", tkind: "VM" },
+        { source: "vm-sql01", target: "esx-03", kind: "VM", tkind: "Host" }
+    ];
+    const o = buildOption({ chartType: "graph", data: rows, groupBy: "kind", targetGroup: "tkind" }, {});
+    const s = o.series[0];
+    assert.deepEqual(s.data.map((d) => d.name), ["CRM", "vm-sql01", "ERP", "esx-03"]);
+    assert.deepEqual(o.legend.data, ["Service", "VM", "Host"]);
+    assert.equal(s.data[1].value, 3, "vm-sql01 has three links");
+    assert.ok(s.data[1].symbolSize > s.data[0].symbolSize);
+    assert.equal(s.emphasis.focus, "adjacency");
+});

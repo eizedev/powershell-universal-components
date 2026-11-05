@@ -37,6 +37,7 @@ function themeFor(c, psu) {
         line: { label: { color: text, textBorderWidth: 0 } },
         scatter: { label: { color: text, textBorderWidth: 0 } },
         sankey: { label: { color: text, textBorderWidth: 0 } },
+        graph: { label: { color: text, textBorderWidth: 0 }, lineStyle: { color: c.muted } },
         sunburst: { label: { textBorderWidth: 0 } },
         gauge: { axisLabel: { color: c.muted }, detail: { color: text }, title: { color: c.muted }, splitLine: { lineStyle: { color: c.muted } }, axisTick: { lineStyle: { color: c.muted } } },
         // ECharts fills boxplot boxes white, which glares on a dark page

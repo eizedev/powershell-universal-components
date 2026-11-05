@@ -52,6 +52,8 @@ function New-UDEChart {
         - waterfall: -X (step), -Y (change), -Totals (steps that show the running total)
         - gantt: -X (row: server, job, person), -Start, -End, -GroupBy (colour, e.g. status), -Value
           (text in the bar) - maintenance windows, job runs, on-call shifts
+        - graph: -Source, -Target, optional -Value, -GroupBy (group of the source node), -TargetGroup
+          (group of the target node) - dependency and topology maps; drag, zoom, neighbours on hover
 
     .PARAMETER Id
         Component id for Get-UDElement, Set-UDElement, Sync-UDElement and Set-UDEChartData.
@@ -105,6 +107,8 @@ function New-UDEChart {
     .PARAMETER Thresholds
         For -GaugeStyle Grade: upper bounds with colours, ascending:
         @{ value = 95; color = '#e53935' }, @{ value = 99; color = '#fb8c00' }, @{ value = 100; color = '#43a047' }
+    .PARAMETER TargetGroup
+        For graph: column naming the group of the target node (colour and legend).
     .PARAMETER Rose
         Pie and donut as a rose (Nightingale) chart: the radius shows the value.
     .PARAMETER Title
@@ -259,7 +263,7 @@ function New-UDEChart {
     param(
         [string]$Id = [guid]::NewGuid().ToString(),
         [Parameter(Mandatory)][AllowNull()][object]$Data,
-        [ValidateSet('line', 'area', 'bar', 'scatter', 'step', 'pie', 'donut', 'funnel', 'heatmap', 'calendar', 'boxplot', 'histogram', 'candlestick', 'gauge', 'radar', 'sankey', 'treemap', 'sunburst', 'waterfall', 'gantt')]
+        [ValidateSet('line', 'area', 'bar', 'scatter', 'step', 'pie', 'donut', 'funnel', 'heatmap', 'calendar', 'boxplot', 'histogram', 'candlestick', 'gauge', 'radar', 'sankey', 'treemap', 'sunburst', 'waterfall', 'gantt', 'graph')]
         [string]$Type = 'line',
         [string]$X,
         [string[]]$Y,
@@ -283,6 +287,7 @@ function New-UDEChart {
         [ValidateSet('Progress', 'Ring', 'Grade')][string]$GaugeStyle = 'Progress',
         [hashtable[]]$Thresholds,
         [switch]$Rose,
+        [string]$TargetGroup,
         [string]$Title,
         [string]$Subtitle,
         [string]$Height = '400px',
@@ -380,7 +385,7 @@ function New-UDEChart {
         NegativeColor = 'negativeColor'; PositiveColor = 'positiveColor'; ExportColumns = 'exportColumns'
         ExportFileName = 'exportFileName'; Group = 'group'; Options = 'options'
         Breaks = 'breaks'; YBreaks = 'yBreaks'; Facet = 'facet'; FacetColumns = 'facetColumns'
-        Start = 'start'; End = 'end'; Size = 'size'; Band = 'band'; BandName = 'bandName'; MarkArea = 'markArea'; Thresholds = 'thresholds'
+        Start = 'start'; End = 'end'; Size = 'size'; Band = 'band'; BandName = 'bandName'; MarkArea = 'markArea'; Thresholds = 'thresholds'; TargetGroup = 'targetGroup'
     }
     foreach ($name in $map.Keys) {
         if ($PSBoundParameters.ContainsKey($name)) { $props[$map[$name]] = $PSBoundParameters[$name] }
