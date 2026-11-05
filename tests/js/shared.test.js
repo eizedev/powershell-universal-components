@@ -71,3 +71,23 @@ test("XLSX is a zip with typed cells", () => {
     assert.equal(bytes[1], 0x4b);
     assert.ok(bytes.length > 500);
 });
+
+test("html: interpolations escaped, nested html and markers kept", async () => {
+    const { html, joinHtml, trusted, escapeHtml } = await import("../../shared/js/html.js");
+    assert.equal(escapeHtml('<img src=x onerror="a">'), "&lt;img src=x onerror=&quot;a&quot;&gt;");
+    const name = "<script>x</script>";
+    assert.equal(String(html`<b>${name}</b>`), "<b>&lt;script&gt;x&lt;/script&gt;</b>");
+    assert.equal(String(html`${trusted("<span></span>")}${html`<i>${"&"}</i>`}`), "<span></span><i>&amp;</i>");
+    assert.equal(String(joinHtml([html`${"a<"}`, "b>"], "<br/>")), "a&lt;<br/>b&gt;");
+});
+
+test("template: columns case-insensitive, formats, lists, escaping, unknown kept", async () => {
+    const { compileTemplate, columnsTemplate } = await import("../../shared/js/template.js");
+    const keys = ["name", "cpu", "ramGB", "tags"];
+    const row = { name: "vm<1>", cpu: 4, ramGB: 16, tags: ["prod", "db"] };
+    const t = compileTemplate("{Name}: {CPU} vCPU, {RamGB:integer} GB [{Tags}] {Nope}", keys, "en-US");
+    assert.equal(t(row), "vm<1>: 4 vCPU, 16 GB [prod, db] {Nope}");
+    assert.equal(compileTemplate("{Name}\n{Cpu}", keys, "en-US")(row, true), "vm&lt;1&gt;<br/>4");
+    assert.equal(columnsTemplate(["Cpu", "RamGB:bytes"]), "Cpu: {Cpu}\nRamGB: {RamGB:bytes}");
+    assert.equal(columnsTemplate(["Memory (GB)=RamGB:number:1"]), "Memory (GB): {RamGB:number:1}");
+});

@@ -1,7 +1,7 @@
 // Tests for the ECharts option builder. Run: node --test tests/js/
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildOption, mergeOptions, boxStats, quantile, displayName, CHART_TYPES, LARGE } from "../../modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js";
+import { buildOption, mergeOptions, boxStats, quantile, displayName, linearFit, CHART_TYPES, LARGE } from "../../modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js";
 
 const days = [
     { day: "2026-11-01T00:00:00", team: "OPS", opened: 3 },
@@ -287,4 +287,81 @@ test("graph: nodes from links, groups, degree-based size", () => {
     assert.equal(s.data[1].value, 3, "vm-sql01 has three links");
     assert.ok(s.data[1].symbolSize > s.data[0].symbolSize);
     assert.equal(s.emphasis.focus, "adjacency");
+});
+
+test("linearFit: exact line, stable with timestamps", () => {
+    const f = linearFit([[0, 1], [1, 3], [2, 5]]);
+    assert.equal(f.slope, 2);
+    assert.equal(f.intercept, 1);
+    const t0 = Date.parse("2026-01-01T00:00:00Z");
+    const day = 86400000;
+    const g = linearFit([0, 1, 2, 3].map((i) => [t0 + i * day, 50 + i]));
+    assert.ok(Math.abs(g.slope * day - 1) < 1e-9, "one per day");
+    assert.equal(linearFit([[1, 1]]), undefined);
+});
+
+test("trend: forecast to a target marks the date", () => {
+    const rows = [0, 1, 2, 3].map((i) => ({ day: `2026-01-0${i + 1}T00:00:00Z`, used: 70 + 5 * i }));
+    const o = buildOption({ chartType: "line", data: rows, x: "day", y: ["used"], trend: "linear", trendTarget: 100 }, {});
+    const t = o.series.find((s) => s.name === "used (trend)");
+    assert.ok(t, "trend series added");
+    assert.equal(t.lineStyle.type, "dashed");
+    const hit = Date.parse("2026-01-07T00:00:00Z");
+    assert.ok(Math.abs(t.markLine.data[0].xAxis - hit) < 1000, "100 reached on Jan 7");
+    assert.ok(Math.abs(t.data[1][1] - 100) < 1e-6);
+});
+
+test("markPoint: statistics on every series, a fixed pin on the first", () => {
+    const rows = [{ d: "Mon", a: 1, b: 4 }, { d: "Tue", a: 3, b: 2 }];
+    const o = buildOption({ chartType: "bar", data: rows, x: "d", markPoint: ["max", { x: "Tue", y: 3, label: "Peak" }] }, {});
+    assert.deepEqual(o.series[0].markPoint.data.map((p) => p.type || p.name), ["max", "Peak"]);
+    assert.deepEqual(o.series[1].markPoint.data.map((p) => p.type || p.name), ["max"]);
+});
+
+test("tree: one root, path levels as children", () => {
+    const rows = [
+        { vc: "vc1", cluster: "A", host: "esx-01" },
+        { vc: "vc1", cluster: "A", host: "esx-02" },
+        { vc: "vc2", cluster: "B", host: "esx-03" }
+    ];
+    const o = buildOption({ chartType: "tree", data: rows, path: ["vc", "cluster", "host"], rootName: "All" }, {});
+    const root = o.series[0].data[0];
+    assert.equal(root.name, "All");
+    assert.deepEqual(root.children.map((c) => c.name), ["vc1", "vc2"]);
+    assert.equal(root.children[0].children[0].children.length, 2);
+    assert.equal(o.series[0].orient, "LR");
+});
+
+test("chord, parallel and themeriver build their series", () => {
+    const links = [{ source: "VMware", target: "Veeam", value: 410 }, { source: "VMware", target: "EDR", value: 380 }];
+    const c = buildOption({ chartType: "chord", data: links }, {});
+    assert.equal(c.series[0].type, "chord");
+    assert.deepEqual(c.series[0].data.map((d) => d.name), ["VMware", "Veeam", "EDR"]);
+
+    const vms = [{ vm: "a", os: "Windows", cpu: 4, ram: 16 }, { vm: "b", os: "Linux", cpu: 2, ram: 8 }];
+    const p = buildOption({ chartType: "parallel", data: vms, x: "vm", y: ["os", "cpu", "ram"], groupBy: "os" }, {});
+    assert.equal(p.parallelAxis[0].type, "category");
+    assert.equal(p.parallelAxis[1].type, "value");
+    assert.equal(p.series.length, 2);
+    assert.deepEqual(p.series[0].data[0].value, ["Linux", 2, 8]);
+
+    const r = buildOption({ chartType: "themeriver", data: days, x: "day", groupBy: "team", y: ["opened"] }, {});
+    assert.equal(r.singleAxis.type, "time");
+    assert.deepEqual(r.series[0].data[0], ["2026-11-01T00:00:00", 3, "OPS"]);
+});
+
+test("graph layered: columns follow the links, edge labels from a column", () => {
+    const rows = [
+        { from: "fw-01", to: "core-01", ports: "port1 > Te1/1" },
+        { from: "core-01", to: "acc-01", ports: "" },
+        { from: "acc-01", to: "esx-01", ports: "Gi1/0/12 > vmnic2" },
+        { from: "core-01", to: "esx-01", ports: null }
+    ];
+    const o = buildOption({ chartType: "graph", data: rows, source: "from", target: "to", layout: "layered", edgeLabel: "ports" }, {});
+    const s = o.series[0];
+    assert.equal(s.layout, "none");
+    const x = Object.fromEntries(s.data.map((d) => [d.name, d.x]));
+    assert.deepEqual([x["fw-01"], x["core-01"], x["acc-01"], x["esx-01"]], [0, 200, 400, 600], "esx-01 right of its furthest predecessor");
+    assert.equal(s.links[2].label.formatter, "Gi1/0/12 > vmnic2");
+    assert.equal(s.links[1].label, undefined);
 });

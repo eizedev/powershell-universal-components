@@ -757,6 +757,334 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
     }
     #endregion
 
+    #region Data platform
+    New-UDPage -Name 'Data platform' -Url '/dataplatform' -Content {
+        # One inventory combined from many source systems (virtualisation, backup, client management,
+        # Linux provisioning, EDR, IPAM/DCIM, monitoring, CMDB), as a data platform would deliver it
+        # through its REST API. Generated with a fixed seed; the tool names are placeholders.
+        if (-not $Cache:EChartsAssets) {
+            $rng = [System.Random]::new(7)
+            $customers = 'Customer A', 'Customer B', 'Customer C', 'Customer D', 'Customer E'
+            $classes = [ordered]@{ 'Windows server' = 260; 'Linux server' = 180; 'Client' = 420; 'Network device' = 90; 'Appliance' = 40 }
+            # which sources are expected to know an asset of this class
+            $expected = @{
+                'Windows server' = 'Virtualisation', 'Backup', 'Client mgmt', 'EDR', 'IPAM/DCIM', 'Monitoring', 'CMDB'
+                'Linux server'   = 'Virtualisation', 'Backup', 'Provisioning', 'EDR', 'IPAM/DCIM', 'Monitoring', 'CMDB'
+                'Client'         = 'Client mgmt', 'EDR', 'CMDB'
+                'Network device' = 'IPAM/DCIM', 'Monitoring', 'CMDB'
+                'Appliance'      = 'IPAM/DCIM', 'Monitoring', 'CMDB', 'Backup'
+            }
+            # how complete each source is (share of expected assets it really knows)
+            $quality = @{ 'Virtualisation' = 0.99; 'Backup' = 0.91; 'Client mgmt' = 0.94; 'Provisioning' = 0.82; 'EDR' = 0.88; 'IPAM/DCIM' = 0.76; 'Monitoring' = 0.85; 'CMDB' = 0.7 }
+            $n = 0
+            $Cache:EChartsAssets = foreach ($class in $classes.Keys) {
+                foreach ($i in 1..$classes[$class]) {
+                    $n++
+                    $customer = $customers[[math]::Min(4, [int][math]::Floor([math]::Pow($rng.NextDouble(), 1.4) * 5))]
+                    $virtual = $class -like '*server' -and $rng.NextDouble() -lt 0.9
+                    $sources = @($expected[$class] | Where-Object { ($_ -ne 'Virtualisation' -or $virtual) -and $rng.NextDouble() -lt $quality[$_] })
+                    # an asset the platform lists was found somewhere; the CMDB is the fallback here
+                    if ($sources.Count -eq 0) { $sources = @('CMDB') }
+                    $prefix = @{ 'Windows server' = 'win'; 'Linux server' = 'lnx'; 'Client' = 'cl'; 'Network device' = 'sw'; 'Appliance' = 'app' }[$class]
+                    $cluster = if ($virtual) { 'Cluster {0}' -f [char](65 + $rng.Next(0, 4)) } else { $null }
+                    [pscustomobject]@{
+                        Name            = '{0}-{1:0000}' -f $prefix, $n
+                        Class           = $class
+                        Customer        = $customer
+                        Sources         = $sources
+                        SourceCount     = $sources.Count
+                        Expected        = @($expected[$class] | Where-Object { $_ -ne 'Virtualisation' -or $virtual })
+                        vCenter         = if ($virtual) { @('vc-dc1', 'vc-dc2')[[int]($cluster -in 'Cluster C', 'Cluster D')] } else { $null }
+                        Cluster         = $cluster
+                        HostName        = if ($virtual) { 'esx-{0}{1:00}' -f $cluster.Substring(8).ToLowerInvariant(), $rng.Next(1, 7) } else { $null }
+                        Cpu             = if ($class -like '*server') { @(2, 4, 4, 8, 8, 16, 32)[$rng.Next(0, 7)] } else { $null }
+                        RamGB           = if ($class -like '*server') { @(4, 8, 16, 16, 32, 64, 128)[$rng.Next(0, 7)] } else { $null }
+                        DiskUsedPct     = if ($class -like '*server') { [math]::Round(30 + 65 * [math]::Pow($rng.NextDouble(), 0.7)) } else { $null }
+                        PatchAgeDays    = if ($class -in 'Windows server', 'Linux server', 'Client') { [math]::Round(60 * [math]::Pow($rng.NextDouble(), 2.2)) } else { $null }
+                        BackupAgeHours  = if ('Backup' -in $sources) { [math]::Round(2 + 30 * [math]::Pow($rng.NextDouble(), 3), 1) } else { $null }
+                        OpenTickets     = [int][math]::Floor([math]::Pow($rng.NextDouble(), 4) * 6)
+                    }
+                }
+            }
+        }
+        $assets = $Cache:EChartsAssets
+        $rng = [System.Random]::new(11)
+        $sourceNames = 'Virtualisation', 'Backup', 'Client mgmt', 'Provisioning', 'EDR', 'IPAM/DCIM', 'Monitoring', 'CMDB'
+
+        New-UDTypography -Variant h5 -Text 'Data platform: one inventory from many source systems'
+        New-UDTypography -Variant body2 -Text ('{0} assets matched across {1} source systems. Click a cell of the coverage matrix to list the assets a source is missing.' -f $assets.Count, $sourceNames.Count)
+        New-UDGrid -Container -Content {
+            New-UDGrid -Item -ExtraSmallSize 12 -LargeSize 7 -Content {
+                New-UDCard -Title 'Coverage: share of assets each source knows (only where it is expected)' -Content {
+                    $coverage = foreach ($class in ($assets.Class | Select-Object -Unique)) {
+                        $ofClass = @($assets | Where-Object Class -EQ $class)
+                        foreach ($src in $sourceNames) {
+                            $due = @($ofClass | Where-Object { $src -in $_.Expected })
+                            if ($due.Count) {
+                                [pscustomobject]@{ Source = $src; Class = $class; Coverage = [math]::Round(100 * @($due | Where-Object { $src -in $_.Sources }).Count / $due.Count, 1) }
+                            }
+                        }
+                    }
+                    New-UDEChart -Data $coverage -Type heatmap -X Source -Y Class -Value Coverage -Format 'percent100:0' -DataLabels -Min 60 -Max 100 -Height 360px `
+                        -Options @{ visualMap = @{ inRange = @{ color = '#e53935', '#fb8c00', '#fdd835', '#43a047' } } } -OnClick {
+                        $Session:GapFilter = @{ Class = $EventData.row.class; Source = $EventData.row.source }
+                        Sync-UDElement -Id 'gap-table'
+                    }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -LargeSize 5 -Content {
+                New-UDCard -Title 'In how many sources is an asset found? (1 = orphan)' -Content {
+                    $byCount = $assets | Group-Object SourceCount | ForEach-Object { [pscustomobject]@{ Sources = [int]$_.Name; Assets = $_.Count } } | Sort-Object Sources
+                    New-UDEChart -Data $byCount -Type bar -X Sources -Y Assets -XAxisType Category -DataLabels -Height 360px -XTitle 'sources' `
+                        -OnClick { $Session:GapFilter = @{ Count = [int]$EventData.name }; Sync-UDElement -Id 'gap-table' }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -Content {
+                New-UDDynamic -Id 'gap-table' -Content {
+                    $f = $Session:GapFilter
+                    if ($f -and $f.Source) {
+                        $rows = @($Cache:EChartsAssets | Where-Object { $_.Class -eq $f.Class -and $f.Source -in $_.Expected -and $f.Source -notin $_.Sources })
+                        $label = '{0} missing in {1}' -f $f.Class, $f.Source
+                    }
+                    elseif ($f -and $f.Count) {
+                        $rows = @($Cache:EChartsAssets | Where-Object SourceCount -EQ $f.Count)
+                        $label = 'found in {0} source(s)' -f $f.Count
+                    }
+                    else {
+                        $rows = @($Cache:EChartsAssets | Where-Object { $_.Sources.Count -lt $_.Expected.Count })
+                        $label = 'with at least one gap'
+                    }
+                    New-UDCard -Title ('Assets {0} ({1})' -f $label, $rows.Count) -Content {
+                        New-UDButton -Text 'Show all gaps' -Variant outlined -OnClick { $Session:GapFilter = $null; Sync-UDElement -Id 'gap-table' }
+                        $table = foreach ($asset in $rows) {
+                            [pscustomobject]@{
+                                Name      = $asset.Name
+                                Class     = $asset.Class
+                                Customer  = $asset.Customer
+                                FoundIn   = $asset.Sources -join ', '
+                                MissingIn = @($asset.Expected | Where-Object { $_ -notin $asset.Sources }) -join ', '
+                            }
+                        }
+                        $columns = @(
+                            New-UDTableColumn -Property Name -Title 'Name' -ShowSort -ShowFilter
+                            New-UDTableColumn -Property Class -Title 'Class' -ShowSort -ShowFilter -FilterType select
+                            New-UDTableColumn -Property Customer -Title 'Customer' -ShowSort -ShowFilter -FilterType select
+                            New-UDTableColumn -Property MissingIn -Title 'Missing in' -ShowSort -ShowFilter
+                            New-UDTableColumn -Property FoundIn -Title 'Found in'
+                        )
+                        # expand a row for the asset's details from all sources
+                        New-UDTable -Data @($table) -Columns $columns -Dense -ShowPagination -PageSize 10 -PageSizeOptions 10, 25, 50 -ShowSearch -ShowFilter -OnRowExpand {
+                            $asset = $Cache:EChartsAssets | Where-Object Name -EQ $EventData.Name | Select-Object -First 1
+                            New-UDElement -Tag 'div' -Attributes @{ style = @{ padding = '8px 16px' } } -Content {
+                                New-UDTypography -Variant body2 -Text ('{0} - {1}, {2}' -f $asset.Name, $asset.Class, $asset.Customer)
+                                if ($asset.vCenter) { New-UDTypography -Variant body2 -Text ('Virtualisation: {0} / {1} / {2}' -f $asset.vCenter, $asset.Cluster, $asset.HostName) }
+                                if ($asset.Cpu) { New-UDTypography -Variant body2 -Text ('{0} vCPU, {1} GB RAM, disk {2} % used' -f $asset.Cpu, $asset.RamGB, $asset.DiskUsedPct) }
+                                if ($null -ne $asset.PatchAgeDays) { New-UDTypography -Variant body2 -Text ('Last patch {0} days ago' -f $asset.PatchAgeDays) }
+                                New-UDTypography -Variant body2 -Text ('Last backup: {0}' -f $(if ($null -ne $asset.BackupAgeHours) { '{0} h ago' -f $asset.BackupAgeHours } else { 'none' }))
+                                New-UDTypography -Variant body2 -Text ('Open tickets: {0}' -f $asset.OpenTickets)
+                            }
+                        }
+                    }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Virtual servers: backup and EDR gaps (sankey)' -Content {
+                    $vms = @($assets | Where-Object { 'Virtualisation' -in $_.Sources })
+                    $step = foreach ($vm in $vms) {
+                        [pscustomobject]@{
+                            Customer = $vm.Customer
+                            Backup   = if ('Backup' -in $vm.Sources) { 'Backed up' } else { 'No backup' }
+                            Edr      = if ('EDR' -in $vm.Sources) { 'EDR agent' } else { 'No EDR' }
+                        }
+                    }
+                    $flows = @(
+                        $step | Group-Object Customer, Backup | ForEach-Object { [pscustomobject]@{ Source = $_.Group[0].Customer; Target = $_.Group[0].Backup; Value = $_.Count } }
+                        $step | Group-Object Backup, Edr | ForEach-Object { [pscustomobject]@{ Source = $_.Group[0].Backup; Target = $_.Group[0].Edr; Value = $_.Count } }
+                    )
+                    New-UDEChart -Data $flows -Type sankey -Height 380px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Which sources share assets? (chord; hover a source)' -Content {
+                    $pairs = @{}
+                    foreach ($a in $assets) {
+                        $s = @($a.Sources | Sort-Object)
+                        for ($i = 0; $i -lt $s.Count; $i++) {
+                            for ($j = $i + 1; $j -lt $s.Count; $j++) { $key = '{0}|{1}' -f $s[$i], $s[$j]; $pairs[$key] = 1 + [int]$pairs[$key] }
+                        }
+                    }
+                    $links = foreach ($k in $pairs.Keys | Sort-Object) { $p = $k -split '\|'; [pscustomobject]@{ Source = $p[0]; Target = $p[1]; Assets = $pairs[$k] } }
+                    New-UDEChart -Data $links -Type chord -Source Source -Target Target -Value Assets -Format integer -Legend None -Height 380px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Freshness: hours since the last successful import per source' -Content {
+                    $fresh = foreach ($src in $sourceNames) { [pscustomobject]@{ Source = $src; Hours = [math]::Round(0.5 + 30 * [math]::Pow($rng.NextDouble(), 3), 1) } }
+                    New-UDEChart -Data ($fresh | Sort-Object Hours -Descending) -Type bar -Horizontal -X Source -Y Hours -Format 'duration:h' -DataLabels -Height 360px `
+                        -MarkLine @{ value = 24; name = 'Stale'; color = '#e53935'; axis = 'x' } -Options @{ series = @(@{ itemStyle = @{ borderRadius = 3 } }) }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Findings per week by type (theme river)' -Content {
+                    $weeks = foreach ($w in -15..0) { (Get-Date).Date.AddDays(7 * $w - [int](Get-Date).DayOfWeek + 1) }
+                    $types = 'No backup', 'No EDR', 'Patch > 30 days', 'Not in CMDB', 'Disk > 90 %'
+                    $findings = foreach ($wk in $weeks) {
+                        foreach ($t in $types) {
+                            $base = @{ 'No backup' = 30; 'No EDR' = 45; 'Patch > 30 days' = 80; 'Not in CMDB' = 60; 'Disk > 90 %' = 20 }[$t]
+                            $trend = @{ 'No backup' = -1; 'No EDR' = -2; 'Patch > 30 days' = 1.5; 'Not in CMDB' = -2.5; 'Disk > 90 %' = 0.5 }[$t]
+                            $idx = [array]::IndexOf($weeks, $wk)
+                            [pscustomobject]@{ Week = $wk.ToString('yyyy-MM-dd'); Type = $t; Findings = [math]::Max(2, [math]::Round($base + $trend * $idx + $rng.Next(-6, 7))) }
+                        }
+                    }
+                    New-UDEChart -Data $findings -Type themeriver -X Week -GroupBy Type -Y Findings -Height 360px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -Content {
+                New-UDCard -Title 'Servers across all measures (parallel; drag along an axis to filter, e.g. patch age > 30)' -Content {
+                    $servers = $assets | Where-Object Class -Like '*server' | Select-Object Name, Class, Customer, Cpu, RamGB, DiskUsedPct, PatchAgeDays, BackupAgeHours, OpenTickets, SourceCount
+                    New-UDEChart -Data $servers -Type parallel -X Name -GroupBy Class -Y Customer, Cpu, RamGB, DiskUsedPct, PatchAgeDays, BackupAgeHours, OpenTickets, SourceCount -Height 420px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Virtualisation: vCenter > cluster > host > VM (tree; click to open)' -Content {
+                    $tree = $assets | Where-Object vCenter | Select-Object vCenter, Cluster, HostName, Name
+                    New-UDEChart -Data $tree -Type tree -Path vCenter, Cluster, HostName, Name -RootName 'Virtualisation' -Depth 2 -Height 520px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'VM folders (tree; hover a VM for CPU, memory, disk; label from a template)' -Content {
+                    $frng = [System.Random]::new(5)
+                    $folders = 'Customer A/Production', 'Customer A/Test', 'Customer B/Production', 'Customer C/Production', 'Customer C/DMZ', 'Infrastructure/Management', 'Infrastructure/Templates'
+                    $vmFolders = $assets | Where-Object vCenter | Select-Object -First 60 | ForEach-Object {
+                        $disk = [math]::Round(40 + 900 * [math]::Pow($frng.NextDouble(), 2))
+                        [pscustomobject]@{
+                            Folder     = '{0}/{1}/{2}' -f $_.vCenter, $folders[$frng.Next(0, $folders.Count)], $_.Name
+                            Name       = $_.Name
+                            Cpu        = $_.Cpu
+                            RamGB      = $_.RamGB
+                            DiskGB     = $disk
+                            PowerState = if ($frng.NextDouble() -lt 0.08) { 'Off' } else { 'On' }
+                        }
+                    }
+                    New-UDEChart -Data $vmFolders -Type tree -Path Folder -RootName 'vCenter' -Depth 3 -Height 640px `
+                        -LabelTemplate '{Name} ({Cpu} vCPU)' -TooltipColumns 'vCPU=Cpu', 'Memory (GB)=RamGB:integer', 'Disk (GB)=DiskGB:integer', 'Power=PowerState' `
+                        -OnClick { if ($EventData.row) { Show-UDToast -Message ('{0}: {1} vCPU, {2} GB RAM' -f $EventData.row.name, $EventData.row.cpu, $EventData.row.ramGB) } }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Backup: repository > job > VM (tree, top-down; hover for result and size)' -Content {
+                    $brng = [System.Random]::new(9)
+                    $jobs = [ordered]@{ 'Daily incremental A' = 'Repository DC1'; 'Daily incremental B' = 'Repository DC1'; 'SQL log backup' = 'Repository DC1'; 'Weekly full' = 'Repository DC2'; 'Copy to object storage' = 'Object storage' }
+                    $members = foreach ($job in $jobs.Keys) {
+                        foreach ($vm in ($assets | Where-Object { 'Backup' -in $_.Sources -and $_.vCenter } | Get-Random -Count 5 -SetSeed ($brng.Next()))) {
+                            $r = $brng.NextDouble()
+                            [pscustomobject]@{
+                                Repository = $jobs[$job]
+                                Job        = $job
+                                VM         = $vm.Name
+                                Result     = if ($r -lt 0.07) { 'Failed' } elseif ($r -lt 0.17) { 'Warning' } else { 'Success' }
+                                SizeGB     = [math]::Round(20 + 400 * $brng.NextDouble())
+                                Minutes    = $brng.Next(3, 95)
+                            }
+                        }
+                    }
+                    New-UDEChart -Data $members -Type tree -Path Repository, Job, VM -RootName 'Backup' -Orient TB -Depth 3 -Height 640px `
+                        -LabelTemplate '{VM}' -TooltipTemplate "Job: {Job}`nResult: {Result}`nSize: {SizeGB:integer} GB`nDuration: {Minutes:duration:min}"
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -Content {
+                New-UDCard -Title 'Backup job chains: primary job > copy job > target, verification and tape (graph)' -Content {
+                    $chain = @(
+                        [pscustomobject]@{ From = 'Daily incremental A'; To = 'Repository DC1'; Kind = 'Backup job'; ToKind = 'Repository' }
+                        [pscustomobject]@{ From = 'Daily incremental B'; To = 'Repository DC1'; Kind = 'Backup job'; ToKind = 'Repository' }
+                        [pscustomobject]@{ From = 'SQL log backup'; To = 'Repository DC1'; Kind = 'Backup job'; ToKind = 'Repository' }
+                        [pscustomobject]@{ From = 'Weekly full'; To = 'Repository DC2'; Kind = 'Backup job'; ToKind = 'Repository' }
+                        [pscustomobject]@{ From = 'Repository DC1'; To = 'Copy to object storage'; Kind = 'Repository'; ToKind = 'Copy job' }
+                        [pscustomobject]@{ From = 'Repository DC2'; To = 'Copy to object storage'; Kind = 'Repository'; ToKind = 'Copy job' }
+                        [pscustomobject]@{ From = 'Copy to object storage'; To = 'Object storage (immutable)'; Kind = 'Copy job'; ToKind = 'Repository' }
+                        [pscustomobject]@{ From = 'Repository DC2'; To = 'Tape monthly'; Kind = 'Repository'; ToKind = 'Copy job' }
+                        [pscustomobject]@{ From = 'Tape monthly'; To = 'Tape library'; Kind = 'Copy job'; ToKind = 'Repository' }
+                        [pscustomobject]@{ From = 'Verify restore weekly'; To = 'Daily incremental A'; Kind = 'Verification'; ToKind = 'Backup job' }
+                        [pscustomobject]@{ From = 'Verify restore weekly'; To = 'Weekly full'; Kind = 'Verification'; ToKind = 'Backup job' }
+                        [pscustomobject]@{ From = 'Proxy 01'; To = 'Daily incremental A'; Kind = 'Proxy'; ToKind = 'Backup job' }
+                        [pscustomobject]@{ From = 'Proxy 01'; To = 'Daily incremental B'; Kind = 'Proxy'; ToKind = 'Backup job' }
+                        [pscustomobject]@{ From = 'Proxy 02'; To = 'Weekly full'; Kind = 'Proxy'; ToKind = 'Backup job' }
+                        [pscustomobject]@{ From = 'Proxy 02'; To = 'SQL log backup'; Kind = 'Proxy'; ToKind = 'Backup job' }
+                    )
+                    New-UDEChart -Data $chain -Type graph -Source From -Target To -GroupBy Kind -TargetGroup ToKind -Height 460px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -Content {
+                New-UDCard -Title 'Network path: firewall > core > access switch ports > ESXi uplinks > port groups > VMs (layered graph; ports on the lines, hover for VLAN and load)' -Content {
+                    $nrng = [System.Random]::new(23)
+                    $link = { param($From, $To, $Kind, $ToKind, $Ports, $Vlan, $Speed)
+                        [pscustomobject]@{ From = $From; To = $To; Kind = $Kind; ToKind = $ToKind; Ports = $Ports; Vlan = $Vlan; Speed = $Speed; LoadPct = $nrng.Next(3, 92) } }
+                    $net = @(
+                        & $link 'Internet' 'fw-cluster-01' 'WAN' 'Firewall' 'wan1' '' '1 Gbit/s'
+                        & $link 'fw-cluster-01' 'core-sw-01' 'Firewall' 'Core switch' 'port9 > Te1/0/1' 'trunk' '10 Gbit/s'
+                        & $link 'fw-cluster-01' 'core-sw-02' 'Firewall' 'Core switch' 'port10 > Te1/0/1' 'trunk' '10 Gbit/s'
+                        foreach ($acc in 1..3) {
+                            & $link 'core-sw-01' ('acc-sw-{0:00}' -f $acc) 'Core switch' 'Access switch' ('Te1/0/{0} > Te1/1/1' -f (10 + $acc)) 'trunk' '10 Gbit/s'
+                            & $link 'core-sw-02' ('acc-sw-{0:00}' -f $acc) 'Core switch' 'Access switch' ('Te1/0/{0} > Te1/1/2' -f (10 + $acc)) 'trunk' '10 Gbit/s'
+                        }
+                        foreach ($esx in 1..4) {
+                            $acc = 1 + ($esx - 1) % 3
+                            & $link ('acc-sw-{0:00}' -f $acc) ('esx-{0:00}' -f $esx) 'Access switch' 'ESXi host' ('Gi1/0/{0} > vmnic0' -f (10 + $esx)) '100,120,130' '10 Gbit/s'
+                            & $link ('acc-sw-{0:00}' -f (1 + $acc % 3)) ('esx-{0:00}' -f $esx) 'Access switch' 'ESXi host' ('Gi1/0/{0} > vmnic1' -f (10 + $esx)) '100,120,130' '10 Gbit/s'
+                        }
+                        foreach ($esx in 1..4) {
+                            foreach ($pg in 'PG-Server-120', 'PG-DMZ-130') { & $link ('esx-{0:00}' -f $esx) $pg 'ESXi host' 'Port group' '' ($pg -replace '\D', '') '' }
+                        }
+                        foreach ($vm in 1..8) {
+                            $pg = if ($vm -le 6) { 'PG-Server-120' } else { 'PG-DMZ-130' }
+                            & $link $pg ('vm-{0:00}' -f $vm) 'Port group' 'VM' '' ($pg -replace '\D', '') '10 Gbit/s (vmxnet3)'
+                        }
+                    )
+                    New-UDEChart -Data $net -Type graph -Layout Layered -Source From -Target To -GroupBy Kind -TargetGroup ToKind -EdgeLabel Ports -Undirected `
+                        -TooltipTemplate "{From} > {To}`nPorts: {Ports}`nVLAN: {Vlan}`nSpeed: {Speed}`nLoad: {LoadPct:percent100:0}" -Height 620px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'One asset, all sources (asset 360)' -Content {
+                    $vm = $assets | Where-Object { $_.SourceCount -ge 6 -and $_.vCenter } | Select-Object -First 1
+                    $edges = @(
+                        [pscustomobject]@{ From = $vm.Name; To = $vm.HostName; Kind = 'Asset'; ToKind = 'Virtualisation' }
+                        [pscustomobject]@{ From = $vm.HostName; To = $vm.Cluster; Kind = 'Virtualisation'; ToKind = 'Virtualisation' }
+                        [pscustomobject]@{ From = $vm.Cluster; To = $vm.vCenter; Kind = 'Virtualisation'; ToKind = 'Virtualisation' }
+                        [pscustomobject]@{ From = $vm.Name; To = 'DS-Gold-02'; Kind = 'Asset'; ToKind = 'Virtualisation' }
+                        [pscustomobject]@{ From = $vm.Name; To = 'Job: Daily incremental'; Kind = 'Asset'; ToKind = 'Backup' }
+                        [pscustomobject]@{ From = 'Job: Daily incremental'; To = 'Repository: Object storage'; Kind = 'Backup'; ToKind = 'Backup' }
+                        [pscustomobject]@{ From = $vm.Name; To = 'Collection: Patch ring 2'; Kind = 'Asset'; ToKind = 'Client mgmt' }
+                        [pscustomobject]@{ From = $vm.Name; To = 'Policy: Servers strict'; Kind = 'Asset'; ToKind = 'EDR' }
+                        [pscustomobject]@{ From = $vm.Name; To = 'VLAN 120 / 10.x.120.0/24'; Kind = 'Asset'; ToKind = 'IPAM/DCIM' }
+                        [pscustomobject]@{ From = 'VLAN 120 / 10.x.120.0/24'; To = 'Site DC1'; Kind = 'IPAM/DCIM'; ToKind = 'IPAM/DCIM' }
+                        [pscustomobject]@{ From = $vm.Name; To = 'Check: CPU, disk, services'; Kind = 'Asset'; ToKind = 'Monitoring' }
+                        [pscustomobject]@{ From = $vm.Name; To = $vm.Customer; Kind = 'Asset'; ToKind = 'CMDB' }
+                        [pscustomobject]@{ From = $vm.Customer; To = 'Contract: Managed server'; Kind = 'CMDB'; ToKind = 'CMDB' }
+                        [pscustomobject]@{ From = $vm.Name; To = 'INC-20417 Disk almost full'; Kind = 'Asset'; ToKind = 'Tickets' }
+                        [pscustomobject]@{ From = $vm.Name; To = 'CHG-3310 Kernel update'; Kind = 'Asset'; ToKind = 'Tickets' }
+                    )
+                    New-UDEChart -Data $edges -Type graph -Source From -Target To -GroupBy Kind -TargetGroup ToKind -Height 520px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Datastore fill level with a linear trend to 100 % (when is it full?)' -Content {
+                    $fill = 61.0
+                    $ds = foreach ($d in -59..0) { $fill += 0.35 + 0.4 * ($rng.NextDouble() - 0.4); [pscustomobject]@{ Day = (Get-Date).Date.AddDays($d); 'DS-Gold-02' = [math]::Round($fill, 1) } }
+                    New-UDEChart -Data $ds -Type line -X Day -Y 'DS-Gold-02' -Format 'percent100:0' -Trend Linear -TrendTarget 100 -YMax 105 -Height 340px `
+                        -MarkLine @{ value = 100; name = 'Full'; color = '#e53935' }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Unpatched servers per week with pins on best and worst week' -Content {
+                    $unpatched = foreach ($w in -11..0) { [pscustomobject]@{ Week = 'W{0:00}' -f (52 + $w - 40); Windows = $rng.Next(8, 40); Linux = $rng.Next(4, 25) } }
+                    New-UDEChart -Data $unpatched -Type line -X Week -Y Windows, Linux -MarkPoint max, min -Height 340px
+                }
+            }
+        }
+    }
+    #endregion
+
     #region Public data
     New-UDPage -Name 'Public data' -Url '/public' -Content {
         function Invoke-ShowcaseApi {

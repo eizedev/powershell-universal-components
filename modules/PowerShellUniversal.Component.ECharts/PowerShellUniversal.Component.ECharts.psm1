@@ -54,6 +54,11 @@ function New-UDEChart {
           (text in the bar) - maintenance windows, job runs, on-call shifts
         - graph: -Source, -Target, optional -Value, -GroupBy (group of the source node), -TargetGroup
           (group of the target node) - dependency and topology maps; drag, zoom, neighbours on hover
+        - tree: -Path (levels, e.g. vCenter, Cluster, Host, VM), -Orient, -Depth - collapsible hierarchy
+        - chord: -Source, -Target, -Value - overlaps or hand-overs between the same set of things
+        - parallel: -Y (dimensions), -X (name), -GroupBy (colour) - compare many items across many
+          measures; drag along an axis to filter
+        - themeriver: -X (date), -GroupBy (category), -Y (value) - how a mix changes over time
 
     .PARAMETER Id
         Component id for Get-UDElement, Set-UDElement, Sync-UDElement and Set-UDEChartData.
@@ -109,6 +114,19 @@ function New-UDEChart {
         @{ value = 95; color = '#e53935' }, @{ value = 99; color = '#fb8c00' }, @{ value = 100; color = '#43a047' }
     .PARAMETER TargetGroup
         For graph: column naming the group of the target node (colour and legend).
+    .PARAMETER Orient
+        For tree: LR (default), RL, TB, BT or Radial.
+    .PARAMETER Depth
+        For tree: levels open at the start (default 2); click a node to open or close it.
+    .PARAMETER RootName
+        For tree: name of the common root when the data has several top-level values.
+    .PARAMETER Layout
+        For graph: Force (default; nodes arrange themselves, drag to move), Circular, or Layered (left
+        to right along the links, e.g. firewall > core switch > access switch > ESXi > VM).
+    .PARAMETER EdgeLabel
+        For graph: column written on each link, e.g. the ports of a connection ('Gi1/0/12 > vmnic2').
+    .PARAMETER Undirected
+        For graph: lines without arrows (cabling, peerings).
     .PARAMETER Rose
         Pie and donut as a rose (Nightingale) chart: the radius shows the value.
     .PARAMETER Title
@@ -125,6 +143,9 @@ function New-UDEChart {
         Series colours, e.g. '#5470c6', '#91cc75'.
     .PARAMETER Legend
         Bottom, Top, Left, Right or None. Default: Bottom when there is more than one series.
+    .PARAMETER LegendType
+        Scroll (default): one line or column with paging arrows when the entries do not fit. Plain: all
+        entries, wrapped over several lines (pie and donut make room for them).
     .PARAMETER Format
         Value format for axis, tooltip and labels: number, number:2, integer, currency, currency:USD,
         percent (0.25 -> 25 %), percent100 (25 -> 25 %), compact, compactcurrency:EUR, bytes, duration (seconds),
@@ -171,6 +192,31 @@ function New-UDEChart {
     .PARAMETER MarkLine
         Reference lines: 'median', 'average', 'min', 'max' (per series) or
         @{ value = 48; name = 'SLA'; color = '#e53935' } (fixed; add axis = 'x' for a vertical line).
+    .PARAMETER MarkPoint
+        Pins on single values: 'min', 'max', 'average' (per series) or
+        @{ x = 'Thu'; y = 306; label = 'Outage'; series = 'Mail' } (one point; without series on the first).
+    .PARAMETER LabelColumn
+        Show this column of the row behind each point as its label (every chart type).
+    .PARAMETER LabelTemplate
+        Label text from the row: '{Name} ({Cpu} vCPU, {RamGB:integer} GB)'. A placeholder is a column,
+        optionally with a format of -Format ('{Size:bytes}', '{Share:percent100:1}'); a list column is
+        joined with commas; `n starts a new line. Points without a row of their own (a tree's folders,
+        aggregated nodes) keep their name.
+    .PARAMETER TooltipColumns
+        Columns of the row shown in the tooltip, one line each, optionally with a format and a label:
+        'Cpu', 'RamGB:integer', 'Used:bytes', 'Memory (GB)=RamGB:integer'.
+    .PARAMETER TooltipTemplate
+        Tooltip text from the row, placeholders as in -LabelTemplate; `n starts a new line. Values are
+        HTML-escaped.
+    .PARAMETER Trend
+        Linear: a dashed least-squares trend line per series (line, area, bar, scatter).
+    .PARAMETER Forecast
+        With -Trend on a time or value axis: continue the trend for this many steps of the data.
+    .PARAMETER TrendTarget
+        With -Trend: continue the trend until it reaches this value and mark the date (a datastore at
+        100 %, a licence limit). Only when that lies ahead and within five times the data's span.
+    .PARAMETER TrendName
+        Legend name of the trend line. Default: '<series> (trend)'.
     .PARAMETER NegativeColor
         Colour for negative bars (bar, waterfall).
     .PARAMETER PositiveColor
@@ -263,7 +309,7 @@ function New-UDEChart {
     param(
         [string]$Id = [guid]::NewGuid().ToString(),
         [Parameter(Mandatory)][AllowNull()][object]$Data,
-        [ValidateSet('line', 'area', 'bar', 'scatter', 'step', 'pie', 'donut', 'funnel', 'heatmap', 'calendar', 'boxplot', 'histogram', 'candlestick', 'gauge', 'radar', 'sankey', 'treemap', 'sunburst', 'waterfall', 'gantt', 'graph')]
+        [ValidateSet('line', 'area', 'bar', 'scatter', 'step', 'pie', 'donut', 'funnel', 'heatmap', 'calendar', 'boxplot', 'histogram', 'candlestick', 'gauge', 'radar', 'sankey', 'treemap', 'sunburst', 'waterfall', 'gantt', 'graph', 'tree', 'chord', 'parallel', 'themeriver')]
         [string]$Type = 'line',
         [string]$X,
         [string[]]$Y,
@@ -288,6 +334,21 @@ function New-UDEChart {
         [hashtable[]]$Thresholds,
         [switch]$Rose,
         [string]$TargetGroup,
+        [ValidateSet('LR', 'RL', 'TB', 'BT', 'Radial')][string]$Orient,
+        [ValidateRange(1, 20)][int]$Depth,
+        [string]$RootName,
+        [ValidateSet('Force', 'Circular', 'Layered')][string]$Layout,
+        [string]$EdgeLabel,
+        [switch]$Undirected,
+        [object[]]$MarkPoint,
+        [string]$LabelColumn,
+        [string]$LabelTemplate,
+        [string[]]$TooltipColumns,
+        [string]$TooltipTemplate,
+        [ValidateSet('Linear')][string]$Trend,
+        [ValidateRange(1, 10000)][int]$Forecast,
+        [Nullable[double]]$TrendTarget,
+        [string]$TrendName,
         [string]$Title,
         [string]$Subtitle,
         [string]$Height = '400px',
@@ -295,6 +356,7 @@ function New-UDEChart {
         [ValidateSet('Auto', 'Light', 'Dark')][string]$Theme = 'Auto',
         [string[]]$Palette,
         [ValidateSet('Bottom', 'Top', 'Left', 'Right', 'None')][string]$Legend,
+        [ValidateSet('Scroll', 'Plain')][string]$LegendType,
         [ValidatePattern('^(number|integer|currency|compactcurrency|percent|percent100|compact|bytes|duration|date|datetime|time|text)(:[A-Za-z0-9]+)?$')][string]$Format,
         [ValidatePattern('^(number|integer|currency|compactcurrency|percent|percent100|compact|bytes|duration|date|datetime|time|text)(:[A-Za-z0-9]+)?$')][string]$LabelFormat,
         [ValidatePattern('^(number|integer|currency|percent|percent100|compact|bytes|duration|date|datetime|time|text)(:[A-Za-z0-9]+)?$')][string]$XFormat,
@@ -386,10 +448,15 @@ function New-UDEChart {
         ExportFileName = 'exportFileName'; Group = 'group'; Options = 'options'
         Breaks = 'breaks'; YBreaks = 'yBreaks'; Facet = 'facet'; FacetColumns = 'facetColumns'
         Start = 'start'; End = 'end'; Size = 'size'; Band = 'band'; BandName = 'bandName'; MarkArea = 'markArea'; Thresholds = 'thresholds'; TargetGroup = 'targetGroup'
+        Orient = 'orient'; Depth = 'depth'; RootName = 'rootName'; EdgeLabel = 'edgeLabel'; MarkPoint = 'markPoint'; LabelColumn = 'labelColumn'; LabelTemplate = 'labelTemplate'; TooltipColumns = 'tooltipColumns'; TooltipTemplate = 'tooltipTemplate'; Forecast = 'forecast'; TrendTarget = 'trendTarget'; TrendName = 'trendName'
     }
     foreach ($name in $map.Keys) {
         if ($PSBoundParameters.ContainsKey($name)) { $props[$map[$name]] = $PSBoundParameters[$name] }
     }
+    if ($Undirected) { $props['directed'] = $false }
+    if ($PSBoundParameters.ContainsKey('LegendType')) { $props['legendType'] = $LegendType.ToLowerInvariant() }
+    if ($PSBoundParameters.ContainsKey('Layout')) { $props['layout'] = $Layout.ToLowerInvariant() }
+    if ($PSBoundParameters.ContainsKey('Trend')) { $props['trend'] = $Trend.ToLowerInvariant() }
     if ($PSBoundParameters.ContainsKey('Legend')) { $props['legend'] = $Legend.ToLowerInvariant() }
     if ($OnClick) { $props['onClick'] = $OnClick }
     if ($OnSelect) { $props['onSelect'] = $OnSelect }

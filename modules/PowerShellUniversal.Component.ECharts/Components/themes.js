@@ -10,7 +10,8 @@ const DARK = { text: "#e5e7eb", muted: "#a3a8b3", axis: "#4b5058", split: "#2a2d
 
 function themeFor(c, psu) {
     const text = (psu && psu.text) || c.text;
-    const axis = { axisLine: { lineStyle: { color: c.axis } }, axisTick: { lineStyle: { color: c.axis } }, axisLabel: { color: c.muted }, splitLine: { lineStyle: { color: c.split } }, nameTextStyle: { color: c.muted } };
+    // splitArea: ECharts' default greys glare on a dark page (heatmap cells without a value)
+    const axis = { axisLine: { lineStyle: { color: c.axis } }, axisTick: { lineStyle: { color: c.axis } }, axisLabel: { color: c.muted }, splitLine: { lineStyle: { color: c.split } }, splitArea: { areaStyle: { color: ["transparent", c.split] } }, nameTextStyle: { color: c.muted } };
     return {
         backgroundColor: "transparent",
         textStyle: { color: text, fontFamily: psu && psu.fontFamily ? psu.fontFamily : undefined },
@@ -21,6 +22,9 @@ function themeFor(c, psu) {
         valueAxis: axis,
         timeAxis: axis,
         logAxis: axis,
+        // parallel axes and the theme river's single axis are themed separately from the grid axes
+        parallelAxis: { ...axis, nameTextStyle: { color: text } },
+        singleAxis: axis,
         // the button name shown on hover: page text on a contrasting chip, icon in the accent colour
         toolbox: {
             iconStyle: { borderColor: c.muted },
@@ -37,7 +41,9 @@ function themeFor(c, psu) {
         line: { label: { color: text, textBorderWidth: 0 } },
         scatter: { label: { color: text, textBorderWidth: 0 } },
         sankey: { label: { color: text, textBorderWidth: 0 } },
-        graph: { label: { color: text, textBorderWidth: 0 }, lineStyle: { color: c.muted } },
+        graph: { label: { color: text, textBorderWidth: 0 }, edgeLabel: { color: c.muted, textBorderWidth: 0 }, lineStyle: { color: c.muted } },
+        tree: { label: { color: text, textBorderWidth: 0 }, lineStyle: { color: c.axis }, itemStyle: { borderColor: c.accent } },
+        chord: { label: { color: text, textBorderWidth: 0 } },
         sunburst: { label: { textBorderWidth: 0 } },
         gauge: { axisLabel: { color: c.muted }, detail: { color: text }, title: { color: c.muted }, splitLine: { lineStyle: { color: c.muted } }, axisTick: { lineStyle: { color: c.muted } } },
         // ECharts fills boxplot boxes white, which glares on a dark page
