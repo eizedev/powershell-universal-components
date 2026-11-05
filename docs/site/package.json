@@ -19,6 +19,6 @@
     "@babel/preset-react": "7.28.5",
     "babel-loader": "10.1.1",
     "webpack": "5.112.2",
-    "webpack-cli": "7.0.1"
+    "webpack-cli": "7.2.3"
   }
 }
