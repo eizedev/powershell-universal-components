@@ -417,3 +417,13 @@ test("a column name that matches no column is an error naming the columns", () =
     const empty = buildOption({ chartType: "line", data: [] }, {});
     assert.equal(empty.graphic.style.text, "No data");
 });
+
+test("both themes carry a full palette", async () => {
+    const { ensureTheme } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/themes.js");
+    const registered = {};
+    const fake = { registerTheme: (name, theme) => { registered[name] = theme; } };
+    for (const mode of ["light", "dark"]) {
+        const name = ensureTheme(fake, mode, {});
+        assert.ok(Array.isArray(registered[name].color) && registered[name].color.length >= 8, `${mode} palette`);
+    }
+});
