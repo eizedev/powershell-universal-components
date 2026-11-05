@@ -5,8 +5,8 @@
  * -Palette is given).
  */
 
-const LIGHT = { text: "#303133", muted: "#6e7079", axis: "#c9cdd4", split: "#e8eaef", tooltip: "#ffffff", tooltipBorder: "#e4e7ed" };
-const DARK = { text: "#e5e7eb", muted: "#a3a8b3", axis: "#4b5058", split: "#2a2d33", tooltip: "#1f2125", tooltipBorder: "#3a3d44" };
+const LIGHT = { text: "#303133", muted: "#6e7079", axis: "#c9cdd4", split: "#e8eaef", tooltip: "#ffffff", tooltipBorder: "#e4e7ed", accent: "#1976d2" };
+const DARK = { text: "#e5e7eb", muted: "#a3a8b3", axis: "#4b5058", split: "#2a2d33", tooltip: "#2c2f35", tooltipBorder: "#3a3d44", accent: "#64b5f6" };
 
 function themeFor(c, psu) {
     const text = (psu && psu.text) || c.text;
@@ -21,7 +21,11 @@ function themeFor(c, psu) {
         valueAxis: axis,
         timeAxis: axis,
         logAxis: axis,
-        toolbox: { iconStyle: { borderColor: c.muted } },
+        // the button name shown on hover: page text on a contrasting chip, icon in the accent colour
+        toolbox: {
+            iconStyle: { borderColor: c.muted },
+            emphasis: { iconStyle: { borderColor: c.accent, textFill: text, textBackgroundColor: c.tooltip, textPadding: [3, 6], textBorderRadius: 3, textPosition: "bottom" } }
+        },
         dataZoom: { textStyle: { color: c.muted }, borderColor: c.axis },
         visualMap: { textStyle: { color: text } },
         calendar: { dayLabel: { color: c.muted }, monthLabel: { color: c.muted }, yearLabel: { color: c.muted }, itemStyle: { color: "transparent", borderColor: c.split }, splitLine: { lineStyle: { color: c.axis } } },

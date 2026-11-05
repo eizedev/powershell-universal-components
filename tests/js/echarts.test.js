@@ -221,3 +221,55 @@ test("zoom axis: value axis zoom for vertical bars", () => {
     const both = buildOption({ chartType: "bar", data: rows, x: "m", y: ["a"], zoom: "inside", zoomAxis: "both" }, {});
     assert.equal(both.dataZoom.length, 2);
 });
+
+test("bubble, mark area, band", () => {
+    const rows = [{ x: 1, y: 2, s: 10, lo: 1, hi: 3 }, { x: 2, y: 3, s: 40, lo: 2, hi: 5 }];
+    const b = buildOption({ chartType: "scatter", data: rows, x: "x", y: ["y"], size: "s", xAxisType: "value" }, {});
+    assert.equal(typeof b.series[0].symbolSize, "function");
+    assert.equal(Math.round(b.series[0].symbolSize([2, 3, 40])), 48);
+    const t = [{ t: "2026-11-01T00:00:00Z", v: 1, lo: 0, hi: 2 }, { t: "2026-11-02T00:00:00Z", v: 2, lo: 1, hi: 4 }];
+    const m = buildOption({ chartType: "line", data: t, x: "t", y: ["v"], markArea: [{ from: "2026-11-01T06:00:00Z", to: "2026-11-01T08:00:00Z", name: "Maintenance" }] }, {});
+    assert.equal(m.series[0].markArea.data[0][0].xAxis, Date.parse("2026-11-01T06:00:00Z"));
+    const band = buildOption({ chartType: "line", data: t, x: "t", y: ["v"], band: ["lo", "hi"] }, {});
+    assert.equal(band.series.length, 3);
+    assert.equal(band.series[0].stack, "__band");
+    assert.deepEqual(band.series[1].data.map((d) => d[1]), [2, 3], "second band series is the width");
+    assert.equal(band.series[2].name, "v");
+});
+
+test("gauge styles and gantt", () => {
+    const ring = buildOption({ chartType: "gauge", data: [{ s: "A", v: 99.9 }, { s: "B", v: 98 }], x: "s", y: ["v"], gaugeStyle: "ring" }, {});
+    assert.equal(ring.series.length, 2);
+    const grade = buildOption({ chartType: "gauge", data: [{ v: 97 }], y: ["v"], gaugeStyle: "grade", min: 90, thresholds: [{ value: 95, color: "red" }, { value: 99, color: "orange" }, { value: 100, color: "green" }] }, {});
+    assert.deepEqual(grade.series[0].axisLine.lineStyle.color.map((c) => c[1]), ["red", "orange", "green"]);
+    const rows = [{ host: "srv1", start: "2026-11-05T22:00:00Z", end: "2026-11-05T23:30:00Z", state: "ok" }, { host: "srv2", start: "2026-11-05T22:30:00Z", end: "2026-11-06T01:00:00Z", state: "failed" }];
+    const g = buildOption({ chartType: "gantt", data: rows, x: "host", groupBy: "state" }, {});
+    assert.deepEqual(g.yAxis.data, ["srv1", "srv2"]);
+    assert.deepEqual(g.series.map((s) => s.name), ["failed", "ok"]);
+    assert.equal(g.series[1].data[0].value[1], Date.parse("2026-11-05T22:00:00Z"));
+    assert.equal(typeof g.series[0].renderItem, "function");
+});
+
+test("zoom auto: slider with preview on time axes and many categories", () => {
+    const time = buildOption({ chartType: "line", data: days, x: "day", y: ["opened"] }, {});
+    assert.ok(time.dataZoom.some((z) => z.type === "slider"));
+    const few = buildOption({ chartType: "bar", data: [{ s: "a", v: 1 }], x: "s", y: ["v"] }, {});
+    assert.ok(few.dataZoom.every((z) => z.type === "inside"));
+    const many = buildOption({ chartType: "bar", data: Array.from({ length: 61 }, (_, i) => ({ s: "c" + i, v: i })), x: "s", y: ["v"] }, {});
+    assert.ok(many.dataZoom.some((z) => z.type === "slider"));
+    const none = buildOption({ chartType: "line", data: days, x: "day", y: ["opened"], zoom: "none" }, {});
+    assert.equal(none.dataZoom.length, 0);
+});
+
+test("ECharts locale from a language tag", async () => {
+    // locales.js imports ECharts' language files; only the tag mapping is tested here
+    const src = (await import("node:fs")).readFileSync(new URL("../../modules/PowerShellUniversal.Component.ECharts/Components/locales.js", import.meta.url), "utf8");
+    const body = src.slice(src.indexOf("export function echartsLocale"));
+    const LOCALES = { DE: 1, FR: 1, "PT-br": 1, "nb-NO": 1 };
+    const echartsLocale = new Function("LOCALES", body.replace("export ", "") + "; return echartsLocale;")(LOCALES);
+    assert.equal(echartsLocale("de-DE"), "DE");
+    assert.equal(echartsLocale("pt-BR"), "PT-br");
+    assert.equal(echartsLocale("nb"), "nb-NO");
+    assert.equal(echartsLocale("xx-YY"), "EN");
+    assert.equal(echartsLocale(undefined), "EN");
+});

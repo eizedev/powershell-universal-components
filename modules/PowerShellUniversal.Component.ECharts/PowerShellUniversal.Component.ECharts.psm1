@@ -50,6 +50,8 @@ function New-UDEChart {
         - sankey: -Source, -Target, -Value
         - treemap, sunburst: -Path (columns from the root down, or one column with "a/b/c"), -Y (value)
         - waterfall: -X (step), -Y (change), -Totals (steps that show the running total)
+        - gantt: -X (row: server, job, person), -Start, -End, -GroupBy (colour, e.g. status), -Value
+          (text in the bar) - maintenance windows, job runs, on-call shifts
 
     .PARAMETER Id
         Component id for Get-UDElement, Set-UDElement, Sync-UDElement and Set-UDEChartData.
@@ -83,6 +85,28 @@ function New-UDEChart {
         Volume column for candlestick (shown in a second panel).
     .PARAMETER Totals
         Waterfall steps (values of -X) that show the running total, e.g. 'Q1', 'Year'.
+    .PARAMETER Start
+        Start column for gantt.
+    .PARAMETER End
+        End column for gantt.
+    .PARAMETER Size
+        Bubble size column for scatter (area grows with the value).
+    .PARAMETER Band
+        Two columns, lower and upper bound, drawn as a shaded range behind the series (forecast,
+        confidence or normal operating range).
+    .PARAMETER BandName
+        Name of the band in the legend. Default: "<lower> - <upper>".
+    .PARAMETER MarkArea
+        Shaded ranges: @{ from = '2026-11-03T02:00'; to = '2026-11-03T04:00'; name = 'Maintenance' }
+        on the x axis, or with axis = 'y' a value range (e.g. the SLA corridor); color optional.
+    .PARAMETER GaugeStyle
+        Progress (default, one value), Ring (one ring per row, e.g. availability per service) or Grade
+        (arc coloured by -Thresholds, with a needle).
+    .PARAMETER Thresholds
+        For -GaugeStyle Grade: upper bounds with colours, ascending:
+        @{ value = 95; color = '#e53935' }, @{ value = 99; color = '#fb8c00' }, @{ value = 100; color = '#43a047' }
+    .PARAMETER Rose
+        Pie and donut as a rose (Nightingale) chart: the radius shows the value.
     .PARAMETER Title
         Title above the chart.
     .PARAMETER Subtitle
@@ -162,7 +186,8 @@ function New-UDEChart {
         A tiny trend without axes, legend and toolbox, for tiles and tables (line, area, bar).
         Use with -Height, e.g. 60px.
     .PARAMETER Zoom
-        Inside (mouse wheel and drag, default), Slider, Both or None.
+        Auto (default: mouse wheel and drag; plus a slider with a preview of the data on time axes and
+        with more than 60 categories), Inside (wheel and drag only), Slider, Both or None.
     .PARAMETER ZoomAxis
         X (default: along the data), Y (the value axis, to look into small values next to large ones)
         or Both. With Both the mouse wheel zooms X, Shift + wheel zooms Y.
@@ -234,7 +259,7 @@ function New-UDEChart {
     param(
         [string]$Id = [guid]::NewGuid().ToString(),
         [Parameter(Mandatory)][AllowNull()][object]$Data,
-        [ValidateSet('line', 'area', 'bar', 'scatter', 'step', 'pie', 'donut', 'funnel', 'heatmap', 'calendar', 'boxplot', 'histogram', 'candlestick', 'gauge', 'radar', 'sankey', 'treemap', 'sunburst', 'waterfall')]
+        [ValidateSet('line', 'area', 'bar', 'scatter', 'step', 'pie', 'donut', 'funnel', 'heatmap', 'calendar', 'boxplot', 'histogram', 'candlestick', 'gauge', 'radar', 'sankey', 'treemap', 'sunburst', 'waterfall', 'gantt')]
         [string]$Type = 'line',
         [string]$X,
         [string[]]$Y,
@@ -249,6 +274,15 @@ function New-UDEChart {
         [string]$High,
         [string]$Volume,
         [string[]]$Totals,
+        [string]$Start,
+        [string]$End,
+        [string]$Size,
+        [ValidateCount(2, 2)][string[]]$Band,
+        [string]$BandName,
+        [hashtable[]]$MarkArea,
+        [ValidateSet('Progress', 'Ring', 'Grade')][string]$GaugeStyle = 'Progress',
+        [hashtable[]]$Thresholds,
+        [switch]$Rose,
         [string]$Title,
         [string]$Subtitle,
         [string]$Height = '400px',
@@ -284,7 +318,7 @@ function New-UDEChart {
         [string]$Facet,
         [ValidateRange(1, 12)][int]$FacetColumns,
         [switch]$Sparkline,
-        [ValidateSet('Inside', 'Slider', 'Both', 'None')][string]$Zoom = 'Inside',
+        [ValidateSet('Auto', 'Inside', 'Slider', 'Both', 'None')][string]$Zoom = 'Auto',
         [ValidateSet('X', 'Y', 'Both')][string]$ZoomAxis = 'X',
         [switch]$Brush,
         [switch]$NoToolbox,
@@ -330,6 +364,8 @@ function New-UDEChart {
         brush     = [bool]$Brush
         decal     = [bool]$Decal
         sparkline = [bool]$Sparkline
+        rose      = [bool]$Rose
+        gaugeStyle = $GaugeStyle.ToLowerInvariant()
         xAxisType = $XAxisType.ToLowerInvariant()
     }
     # DataLabels: unset means the chart type's default (pie shows labels, bars do not)
@@ -344,6 +380,7 @@ function New-UDEChart {
         NegativeColor = 'negativeColor'; PositiveColor = 'positiveColor'; ExportColumns = 'exportColumns'
         ExportFileName = 'exportFileName'; Group = 'group'; Options = 'options'
         Breaks = 'breaks'; YBreaks = 'yBreaks'; Facet = 'facet'; FacetColumns = 'facetColumns'
+        Start = 'start'; End = 'end'; Size = 'size'; Band = 'band'; BandName = 'bandName'; MarkArea = 'markArea'; Thresholds = 'thresholds'
     }
     foreach ($name in $map.Keys) {
         if ($PSBoundParameters.ContainsKey($name)) { $props[$map[$name]] = $PSBoundParameters[$name] }

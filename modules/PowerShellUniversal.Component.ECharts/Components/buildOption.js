@@ -14,6 +14,9 @@ import { formatter, labelFormatSpec } from "../../../shared/js/formatters.js";
 export const LARGE = 20000;
 
 const CARTESIAN = new Set(["line", "area", "bar", "scatter", "step"]);
+
+// translucent fills for areas and bands that sit behind the data
+const SHADE = "rgba(128,128,128,0.14)";
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
 
 // ---- helpers ----------------------------------------------------------------------------------
@@ -190,8 +193,16 @@ function gridOf(props, legend) {
     };
 }
 
+/*
+ * -Zoom Auto (default): wheel zoom everywhere, plus the slider with its data preview where there is
+ * a lot to scroll through - a time axis or more than 60 categories. props.zoomAuto carries that
+ * decision from the builder.
+ */
 function zoomMode(props) {
-    const mode = String(props.zoom || "inside").toLowerCase();
+    let mode = String(props.zoom || "auto").toLowerCase();
+    if (mode === "auto") {
+        mode = props.zoomAuto ? "both" : "inside";
+    }
     return { inside: mode === "inside" || mode === "both", slider: mode === "slider" || mode === "both" };
 }
 
@@ -244,6 +255,31 @@ export function toolboxOf(props, cartesian, exportIcons) {
         feature.myXlsx = { show: true, title: "Excel", icon: exportIcons.xlsx, onclick: exportIcons.onXlsx };
     }
     return { show: true, right: 8, top: props.title ? 34 : 0, feature };
+}
+
+/*
+ * -MarkArea: shaded ranges such as maintenance windows or outages:
+ * @{ from = '2026-11-03T02:00'; to = '2026-11-03T04:00'; name = 'Maintenance'; color = '...' }
+ * axis = 'y' shades a value range (e.g. the SLA corridor) instead.
+ */
+function markAreaOf(props, xType, horizontal) {
+    const items = list(props.markArea).filter(isPlainObject);
+    if (items.length === 0) {
+        return undefined;
+    }
+    const value = (v, axis) => (axis === "x" && xType === "time" && typeof v === "string" ? Date.parse(v) : v);
+    return {
+        silent: false,
+        label: { position: "insideTop", fontSize: 11 },
+        data: items.map((m) => {
+            const axis = (m.axis || "x").toLowerCase();
+            const key = (axis === "x") !== horizontal ? "xAxis" : "yAxis";
+            return [
+                { name: m.name || "", [key]: value(m.from, axis), itemStyle: { color: m.color || SHADE } },
+                { [key]: value(m.to, axis) }
+            ];
+        })
+    };
 }
 
 /*
@@ -308,19 +344,22 @@ export function axisBreaks(list_, axisType) {
 
 function cartesian(props_, rows, keys, ctx) {
     // -Normalize is a stack that sums to 100 %: everything that applies to stacks applies
-    const props = props_.normalize ? { ...props_, stacked: true } : props_;
+    let props = props_.normalize ? { ...props_, stacked: true } : props_;
     const type = String(props.chartType).toLowerCase();
     const horizontal = Boolean(props.horizontal) && type === "bar";
     const xKey = resolveColumn(props.x, keys) ?? keys[0];
     const yKeys = resolveColumns(props.y, keys);
     const groupKey = resolveColumn(props.groupBy, keys);
     const secondary = new Set(resolveColumns(props.secondaryY, keys));
+    const sizeKey = resolveColumn(props.size, keys);
     if (yKeys.length === 0) {
         // all numeric columns except x and the group
         keys.filter((k) => k !== xKey && k !== groupKey && rows.some((r) => typeof r[k] === "number")).forEach((k) => yKeys.push(k));
     }
     const xValues = rows.map((r) => r[xKey]);
     const xType = axisTypeFor(xValues, props.xAxisType, type);
+    // decided here because it depends on the axis: see zoomMode
+    props = { ...props, zoomAuto: xType === "time" || unique(xValues).length > 60 };
     const fmt = valueFormatter(props, ctx.locale);
     const lfmt = labelFormatter(props, ctx.locale);
     // the axis pointer shows the exact value under the mouse: never a raw float
@@ -364,6 +403,9 @@ function cartesian(props_, rows, keys, ctx) {
             rows.forEach((r, rowIndex) => {
                 if (def.filter(r)) {
                     const point = horizontal ? [num(r[def.y]), r[xKey]] : [xType === "value" ? num(r[xKey]) : r[xKey], num(r[def.y])];
+                    if (sizeKey) {
+                        point.push(num(r[sizeKey]));
+                    }
                     data.push(large ? point : { value: point, rowIndex });
                 }
             });
@@ -391,7 +433,14 @@ function cartesian(props_, rows, keys, ctx) {
         if (seriesType === "bar" && large) {
             s.large = true;
         }
-        if (seriesType === "scatter") {
+        if (seriesType === "scatter" && sizeKey) {
+            // bubble: area grows with -Size (square root scale, 6 to 48 px)
+            const sizes = rows.map((r) => num(r[sizeKey])).filter((v) => v !== null && v >= 0);
+            const maxSize = Math.max(1, ...sizes);
+            s.symbolSize = (v) => 6 + 42 * Math.sqrt(Math.max(0, (Array.isArray(v) ? v[2] : 0) || 0) / maxSize);
+            s.itemStyle = { opacity: 0.75 };
+            s.emphasis = { focus: "series", label: { show: true, formatter: (p) => p.seriesName, position: "top" } };
+        } else if (seriesType === "scatter") {
             s.symbolSize = 8;
             if (large) {
                 s.large = true;
@@ -430,9 +479,33 @@ function cartesian(props_, rows, keys, ctx) {
             if (ml) {
                 s.markLine = ml;
             }
+            const ma = markAreaOf(props, xType, horizontal);
+            if (ma) {
+                s.markArea = ma;
+            }
         }
         return s;
     });
+    // -Band Lower, Upper: a shaded range (forecast, confidence, normal operating range) behind the
+    // series, drawn as an invisible base plus the stacked difference
+    const band = resolveColumns(props.band, keys);
+    if (band.length === 2 && !horizontal) {
+        const [lowKey, highKey] = band;
+        const point = (r, v) => (categories ? v : [xType === "value" ? num(r[xKey]) : r[xKey], v]);
+        const low = categories ? categories.map((c) => { const r = rows.find((x) => String(x[xKey] ?? "") === c); return r ? num(r[lowKey]) : null; }) : rows.map((r) => point(r, num(r[lowKey])));
+        const width = categories
+            ? categories.map((c) => { const r = rows.find((x) => String(x[xKey] ?? "") === c); return r && num(r[highKey]) !== null && num(r[lowKey]) !== null ? num(r[highKey]) - num(r[lowKey]) : null; })
+            : rows.map((r) => point(r, num(r[highKey]) !== null && num(r[lowKey]) !== null ? num(r[highKey]) - num(r[lowKey]) : null));
+        const bandName = props.bandName || `${displayName(lowKey, props.band)} - ${displayName(highKey, props.band)}`;
+        series.unshift(
+            { type: "line", name: bandName, data: width, stack: "__band", lineStyle: { opacity: 0 }, symbol: "none", areaStyle: { color: SHADE }, tooltip: { show: false }, emphasis: { disabled: true }, silent: true },
+            { type: "line", name: bandName, data: low, stack: "__band", lineStyle: { opacity: 0 }, symbol: "none", tooltip: { show: false }, emphasis: { disabled: true }, silent: true }
+        );
+        // the base must come first in the stack: ECharts stacks in series order
+        const [w, l] = series.splice(0, 2);
+        series.unshift(l, w);
+    }
+
     // -Normalize: every category sums to 100 %; the original value stays on the item for the tooltip
     if (props.normalize && categories) {
         const valueOf = (d) => (d && typeof d === "object" ? d.value : d);
@@ -618,6 +691,7 @@ function nameValue(props, rows, keys, ctx) {
             type: "pie",
             data,
             radius: type === "donut" ? ["45%", "72%"] : [0, "72%"],
+            roseType: props.rose ? "radius" : undefined,
             // the pie lives in a box that leaves room for title and legend, so outside labels
             // never run into the legend
             top: props.title ? 56 : 28,
@@ -817,20 +891,81 @@ function candlestick(props, rows, keys, ctx) {
     };
 }
 
+/*
+ * -GaugeStyle Progress (default): one value as a progress arc.
+ * Ring: one concentric ring per row (e.g. availability per service), names in the legend.
+ * Grade: the arc coloured by -Thresholds @{ value = 95; color = '#e53935' }, ... (upper bounds,
+ * ascending), with a needle.
+ */
 function gauge(props, rows, keys, ctx) {
     const vKey = resolveColumns(props.y, keys)[0] ?? resolveColumn(props.value, keys) ?? keys.find((k) => rows.some((r) => typeof r[k] === "number"));
     const nameKey = resolveColumn(props.x, keys);
     const fmt = valueFormatter(props, ctx.locale);
+    const f = (v) => (fmt ? fmt(v) : String(v));
+    const min = props.min ?? 0;
+    const max = props.max ?? 100;
+    const style = String(props.gaugeStyle || "progress").toLowerCase();
+    if (style === "ring") {
+        const items = rows.map((r, i) => ({ value: num(r[vKey]), name: nameKey ? String(r[nameKey]) : `#${i + 1}`, rowIndex: i }));
+        const step = Math.min(14, 60 / Math.max(1, items.length));
+        return {
+            title: titleOf(props),
+            legend: { show: true, type: "scroll", bottom: 0, data: items.map((d) => d.name) },
+            tooltip: { formatter: (p) => `${p.name}: ${f(p.value)}` },
+            series: items.map((d, i) => ({
+                type: "gauge",
+                name: d.name,
+                startAngle: 90,
+                endAngle: -270,
+                min,
+                max,
+                radius: `${88 - i * step}%`,
+                center: ["50%", props.title ? "54%" : "48%"],
+                pointer: { show: false },
+                progress: { show: true, roundCap: true, width: step * 0.7 + 4 },
+                axisLine: { lineStyle: { width: step * 0.7 + 4, opacity: 0.15 } },
+                splitLine: { show: false },
+                axisTick: { show: false },
+                axisLabel: { show: false },
+                title: { show: false },
+                detail: { show: i === 0 && items.length === 1, formatter: f, fontSize: 22, offsetCenter: [0, 0] },
+                data: [d]
+            }))
+        };
+    }
     const data = rows.slice(0, 1).map((r) => ({ value: num(r[vKey]), name: nameKey ? String(r[nameKey]) : props.title || "" }));
+    if (style === "grade") {
+        const stops = list(props.thresholds).filter(isPlainObject).map((t) => ({ value: num(t.value), color: t.color })).filter((t) => t.value !== null).sort((a, b) => a.value - b.value);
+        const colors = stops.length
+            ? stops.map((t) => [Math.min(1, Math.max(0, (t.value - min) / (max - min || 1))), t.color || "#5470c6"]).concat(stops[stops.length - 1].value < max ? [[1, stops[stops.length - 1].color || "#5470c6"]] : [])
+            : [[1, "#5470c6"]];
+        return {
+            title: titleOf(props),
+            tooltip: { formatter: (p) => `${p.name}: ${f(p.value)}` },
+            series: [{
+                type: "gauge",
+                min,
+                max,
+                axisLine: { lineStyle: { width: 18, color: colors } },
+                pointer: { itemStyle: { color: "auto" }, width: 5 },
+                axisTick: { distance: -18, length: 6, lineStyle: { color: "#fff", width: 1 } },
+                splitLine: { distance: -18, length: 18, lineStyle: { color: "#fff", width: 2 } },
+                axisLabel: { distance: 26, fontSize: 11, formatter: (v) => f(v) },
+                detail: { valueAnimation: true, formatter: f, fontSize: 22, offsetCenter: [0, "70%"], color: "inherit" },
+                title: { offsetCenter: [0, "95%"] },
+                data
+            }]
+        };
+    }
     return {
-        tooltip: { formatter: (p) => `${p.name}: ${fmt ? fmt(p.value) : p.value}` },
+        tooltip: { formatter: (p) => `${p.name}: ${f(p.value)}` },
         series: [{
             type: "gauge",
-            min: props.min ?? 0,
-            max: props.max ?? 100,
+            min,
+            max,
             progress: { show: true, width: 14 },
             axisLine: { lineStyle: { width: 14 } },
-            detail: { valueAnimation: true, formatter: (v) => (fmt ? fmt(v) : String(v)), fontSize: 24, offsetCenter: [0, "70%"] },
+            detail: { valueAnimation: true, formatter: (v) => f(v), fontSize: 24, offsetCenter: [0, "70%"] },
             title: { offsetCenter: [0, "95%"] },
             data
         }]
@@ -1024,6 +1159,68 @@ export function optionForWidth(option, rules, width) {
     return rules.filter((r) => width > 0 && width <= r.maxWidth).reduce((o, r) => mergeOptions(o, r.option), option);
 }
 
+// ---- gantt: bars from -Start to -End per row (maintenance windows, job runs, on-call shifts) -----
+
+function gantt(props, rows, keys, ctx) {
+    const rowKey = resolveColumn(props.x, keys) ?? keys[0];
+    const startKey = resolveColumn(props.start ?? "start", keys);
+    const endKey = resolveColumn(props.end ?? "end", keys);
+    const groupKey = resolveColumn(props.groupBy, keys);
+    const labelKey = resolveColumn(props.value, keys);
+    const lanes = unique(rows.map((r) => r[rowKey])).map(String);
+    const groups = groupKey ? unique(rows.map((r) => r[groupKey])).map(String).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })) : [displayName(rowKey, props.x)];
+    const dt = formatter("datetime", ctx.locale);
+    const ms = (v) => (typeof v === "number" ? v : Date.parse(v));
+    // each bar: [lane index, start ms, end ms, label]
+    const renderItem = (params, api) => {
+        const lane = api.value(0);
+        const from = api.coord([api.value(1), lane]);
+        const to = api.coord([api.value(2), lane]);
+        const height = api.size([0, 1])[1] * 0.62;
+        return {
+            type: "rect",
+            shape: { x: from[0], y: from[1] - height / 2, width: Math.max(2, to[0] - from[0]), height, r: 3 },
+            style: api.style(),
+            textContent: { style: { text: api.value(3) || "", fill: "#fff", fontSize: 11, overflow: "truncate", width: Math.max(0, to[0] - from[0] - 6) } },
+            textConfig: { position: "insideLeft" }
+        };
+    };
+    const legend = legendOf(props, groups.length > 1);
+    const series = groups.map((g, i) => ({
+        type: "custom",
+        name: g,
+        markArea: i === 0 ? markAreaOf(props, "time", false) : undefined,
+        renderItem,
+        clip: true,
+        encode: { x: [1, 2], y: 0 },
+        emphasis: { focus: "series" },
+        data: rows
+            .map((r, rowIndex) => ({ r, rowIndex }))
+            .filter(({ r }) => !groupKey || String(r[groupKey] ?? "") === g)
+            .map(({ r, rowIndex }) => ({ value: [lanes.indexOf(String(r[rowKey] ?? "")), ms(r[startKey]), ms(r[endKey]), labelKey ? String(r[labelKey] ?? "") : ""], rowIndex }))
+            .filter((d) => !isNaN(d.value[1]) && !isNaN(d.value[2]))
+    }));
+    return {
+        title: titleOf(props),
+        legend,
+        tooltip: {
+            confine: true,
+            formatter: (p) => {
+                const [lane, a, b, label] = p.value;
+                const minutes = Math.round((b - a) / 60000);
+                const dur = formatter("duration:min", ctx.locale)(minutes);
+                return `<b>${lanes[lane]}</b>${label ? " · " + label : ""}<br/>${p.marker}${p.seriesName}<br/>${dt(a)} – ${dt(b)} (${dur})`;
+            }
+        },
+        grid: gridOf({ ...props, dataLabels: false }, legend),
+        xAxis: { type: "time", position: "top", splitLine: { show: true }, axisLabel: { hideOverlap: true } },
+        yAxis: { type: "category", data: lanes, inverse: true, axisTick: { show: false }, splitLine: { show: true } },
+        dataZoom: dataZoomOf({ ...props, zoomAuto: true }, false, legend.show && legend.bottom !== undefined),
+        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        series
+    };
+}
+
 // ---- entry point ---------------------------------------------------------------------------------
 
 const BUILDERS = {
@@ -1040,7 +1237,8 @@ const BUILDERS = {
     sankey,
     treemap: treeChart,
     sunburst: treeChart,
-    waterfall
+    waterfall,
+    gantt
 };
 
 export const CHART_TYPES = [...CARTESIAN, ...Object.keys(BUILDERS)];

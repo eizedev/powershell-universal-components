@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
 import { buildOption, responsive, optionForWidth, NARROW, TINY } from "./buildOption";
 import { ensureTheme } from "./themes";
+import { registerLocales, echartsLocale } from "./locales";
 import { usePsuTheme, effectiveMode } from "../../../shared/js/psuTheme";
 import { defaultLocale } from "../../../shared/js/formatters";
 import { toCsv, toXlsxBytes, download, safeFileName } from "../../../shared/js/exporter";
@@ -75,7 +76,8 @@ export default function EChart(props) {
 
     // create once, dispose on unmount; follow the container's size
     useEffect(() => {
-        const chart = echarts.init(container.current, ensureTheme(echarts, mode, psuTheme), { renderer: props.renderer === "svg" ? "svg" : "canvas" });
+        registerLocales(echarts);
+        const chart = echarts.init(container.current, ensureTheme(echarts, mode, psuTheme), { renderer: props.renderer === "svg" ? "svg" : "canvas", locale: echartsLocale(locale) });
         chartRef.current = chart;
         // the ECharts instance on its element, for page scripts and tests: element.echarts.getOption()
         container.current.echarts = chart;
@@ -89,7 +91,7 @@ export default function EChart(props) {
             chart.dispose();
             chartRef.current = null;
         };
-    }, [props.renderer]);
+    }, [props.renderer, locale]);
 
     // theme follows PSU's light/dark switch
     useEffect(() => {

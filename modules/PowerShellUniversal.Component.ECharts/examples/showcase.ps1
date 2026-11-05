@@ -529,6 +529,107 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
     }
     #endregion
 
+    #region Operations
+    New-UDPage -Name 'Operations & SLA' -Url '/operations' -Content {
+        $rng = [System.Random]::new(17)
+        $night = (Get-Date).Date.AddDays(-1).AddHours(21)
+        New-UDTypography -Variant h5 -Text 'Operations and SLA: timelines, availability, forecasts'
+        New-UDGrid -Container -Content {
+            New-UDGrid -Item -ExtraSmallSize 12 -Content {
+                New-UDCard -Title 'Backup jobs last night per server (gantt; colour = result; zoom with the wheel)' -Content {
+                    $jobs = foreach ($srv in 1..14) {
+                        $t = $night.AddMinutes($rng.Next(0, 90))
+                        foreach ($kind in 'Incremental', 'Log', 'Copy to S3') {
+                            $dur = $rng.Next(10, 140)
+                            $state = if ($rng.NextDouble() -lt 0.06) { 'Failed' } elseif ($rng.NextDouble() -lt 0.12) { 'Warning' } else { 'Success' }
+                            [pscustomobject]@{ Server = 'srv-{0:00}' -f $srv; Job = $kind; Start = $t; End = $t.AddMinutes($dur); Result = $state }
+                            $t = $t.AddMinutes($dur + $rng.Next(2, 20))
+                        }
+                    }
+                    New-UDEChart -Data $jobs -Type gantt -X Server -Start Start -End End -GroupBy Result -Value Job -Height 460px -Palette '#e53935', '#43a047', '#fb8c00' `
+                        -MarkArea @{ from = $night.AddHours(1).ToString('o'); to = $night.AddHours(1.5).ToString('o'); name = 'Storage maintenance' } `
+                        -OnClick { Show-UDToast -Message ('{0} {1}: {2}' -f $EventData.row.server, $EventData.row.job, $EventData.row.result) }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 7 -Content {
+                New-UDCard -Title 'Maintenance windows and on-call next two weeks' -Content {
+                    $start = (Get-Date).Date
+                    $plan = @(
+                        foreach ($d in 0..13) {
+                            $day = $start.AddDays($d)
+                            [pscustomobject]@{ Lane = 'On-call'; Start = $day.AddHours(18); End = $day.AddHours(32); Kind = 'On-call'; Who = @('Anna', 'Ben', 'Chris', 'Dana')[$d % 4] }
+                            if ($day.DayOfWeek -eq 'Saturday') { [pscustomobject]@{ Lane = 'VMware'; Start = $day.AddHours(6); End = $day.AddHours(10); Kind = 'Maintenance'; Who = 'ESXi patches' } }
+                            if ($day.DayOfWeek -eq 'Tuesday' -and $day.Day -ge 8 -and $day.Day -le 14) { [pscustomobject]@{ Lane = 'Windows'; Start = $day.AddHours(20); End = $day.AddHours(24); Kind = 'Patch day'; Who = 'Patch Tuesday' } }
+                            if ($day.DayOfWeek -eq 'Thursday') { [pscustomobject]@{ Lane = 'Network'; Start = $day.AddHours(22); End = $day.AddHours(24); Kind = 'Maintenance'; Who = 'Firmware' } }
+                        }
+                    )
+                    New-UDEChart -Data $plan -Type gantt -X Lane -Start Start -End End -GroupBy Kind -Value Who -Height 300px -Zoom Slider
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 5 -Content {
+                New-UDCard -Title 'Availability per service (rings)' -Content {
+                    New-UDEChart -Type gauge -GaugeStyle Ring -X Service -Y Availability -Min 99 -Max 100 -Format 'percent100:2' -Height 300px -Data @(
+                        [pscustomobject]@{ Service = 'IaaS'; Availability = 99.97 }
+                        [pscustomobject]@{ Service = 'Managed SQL'; Availability = 99.91 }
+                        [pscustomobject]@{ Service = 'Kubernetes'; Availability = 99.85 }
+                        [pscustomobject]@{ Service = 'Backup'; Availability = 99.99 }
+                    )
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 4 -Content {
+                New-UDCard -Title 'SLA this month (grade gauge)' -Content {
+                    New-UDEChart -Type gauge -GaugeStyle Grade -Data @([pscustomobject]@{ Name = 'SLA'; Value = 98.7 }) -X Name -Y Value -Min 90 -Max 100 -Format 'percent100:1' -Height 280px `
+                        -Thresholds @{ value = 95; color = '#e53935' }, @{ value = 99; color = '#fb8c00' }, @{ value = 100; color = '#43a047' }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 8 -Content {
+                New-UDCard -Title 'Customers: revenue vs tickets, bubble size = VMs' -Content {
+                    $customers = foreach ($c in 'Contoso', 'Fabrikam', 'Northwind', 'Tailspin', 'Adatum', 'Woodgrove', 'Litware', 'Proseware', 'Alpine Ski', 'Coho Winery', 'Lucerne', 'Margie Travel') {
+                        [pscustomobject]@{ Customer = $c; 'Revenue per month' = $rng.Next(8000, 120000); 'Tickets per month' = $rng.Next(10, 400); VMs = $rng.Next(5, 600); Tier = @('Gold', 'Silver', 'Bronze')[$rng.Next(0, 3)] }
+                    }
+                    New-UDEChart -Data $customers -Type scatter -X 'Revenue per month' -Y 'Tickets per month' -Size VMs -GroupBy Tier -XAxisType Value -Height 300px -XTitle 'Revenue per month' `
+                        -OnClick { Show-UDToast -Message ('{0}: {1} VMs' -f $EventData.row.customer, $EventData.row.vms) }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Capacity forecast with a confidence band' -Content {
+                    $used = 540.0
+                    $forecast = foreach ($m in -11..9) {
+                        $month = (Get-Date -Day 1).AddMonths($m).ToString('yyyy-MM')
+                        if ($m -le 0) { $used += 9 + 6 * $rng.NextDouble(); [pscustomobject]@{ Month = $month; Used = [math]::Round($used); Forecast = $null; Low = $null; High = $null } }
+                        else { $f = $used + 12 * $m; [pscustomobject]@{ Month = $month; Used = $null; Forecast = [math]::Round($f); Low = [math]::Round($f - 4 * $m); High = [math]::Round($f + 6 * $m) } }
+                    }
+                    New-UDEChart -Data $forecast -Type line -X Month -Y Used, Forecast -Band Low, High -BandName 'Forecast range' -Height 320px -YTitle 'TB' `
+                        -MarkLine @{ value = 720; name = 'Installed'; color = '#e53935' } -Options @{ series = @(@{}, @{}, @{}, @{ lineStyle = @{ type = 'dashed' } }) }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'API latency today with the incident window marked' -Content {
+                    $t0 = (Get-Date).Date
+                    $lat = foreach ($i in 0..287) { $t = $t0.AddMinutes(5 * $i); [pscustomobject]@{ Time = $t; 'Latency ms' = [math]::Round(80 + 30 * [math]::Sin($i / 20) + $rng.Next(0, 15) + $(if ($i -ge 130 -and $i -le 150) { 400 } else { 0 })) } }
+                    New-UDEChart -Data $lat -Type area -X Time -Y 'Latency ms' -Height 320px -MarkLine @{ value = 250; name = 'SLA'; color = '#e53935' } `
+                        -MarkArea @{ from = $t0.AddMinutes(650).ToString('o'); to = $t0.AddMinutes(755).ToString('o'); name = 'Incident INC-4711'; color = 'rgba(229,57,53,0.15)' }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Ticket categories (rose / Nightingale)' -Content {
+                    New-UDEChart -Type pie -Rose -X Category -Y Tickets -Height 340px -Data @(
+                        foreach ($c in 'Password reset', 'Hardware', 'Network', 'Access request', 'Software install', 'E-mail', 'VPN', 'Printer') { [pscustomobject]@{ Category = $c; Tickets = $rng.Next(20, 300) } }
+                    )
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Half donut via -Options: licence usage' -Content {
+                    New-UDEChart -Type donut -X State -Y Licences -Height 340px -Data @(
+                        [pscustomobject]@{ State = 'Assigned'; Licences = 1840 }
+                        [pscustomobject]@{ State = 'Free'; Licences = 260 }
+                    ) -Options @{ series = @(@{ startAngle = 180; endAngle = 360; center = @('50%', '70%'); radius = @('55%', '95%') }) }
+                }
+            }
+        }
+    }
+    #endregion
+
     #region Calendar
     New-UDPage -Name 'Calendar' -Url '/calendar' -Content {
         $rng = [System.Random]::new(11)
