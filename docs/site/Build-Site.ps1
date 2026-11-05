@@ -27,6 +27,8 @@ $ErrorActionPreference = 'Stop'
 $site = $PSScriptRoot
 $repo = Resolve-Path (Join-Path $site '..' '..')
 if (-not $OutputPath) { $OutputPath = Join-Path $repo 'output' 'site' }
+# absolute now: the build changes into this folder later
+$OutputPath = [System.IO.Path]::GetFullPath($OutputPath, (Get-Location).Path)
 $moduleName = 'PowerShellUniversal.Component.ECharts'
 $moduleDir = Join-Path $repo 'modules' $moduleName
 
@@ -124,7 +126,7 @@ try {
         npm ci --no-audit --no-fund --ignore-scripts
         if ($LASTEXITCODE -ne 0) { throw ('npm ci failed ({0})' -f $LASTEXITCODE) }
     }
-    $env:SITE_OUT = (Resolve-Path $OutputPath).Path
+    $env:SITE_OUT = $OutputPath
     npx webpack --config webpack.config.cjs
     if ($LASTEXITCODE -ne 0) { throw ('webpack failed ({0})' -f $LASTEXITCODE) }
 }
