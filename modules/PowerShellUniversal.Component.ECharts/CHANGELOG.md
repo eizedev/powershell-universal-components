@@ -17,6 +17,7 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
   `-TrendTarget`), shaded bands (`-Band`), time windows (`-MarkArea`), gauge styles and thresholds,
   rose charts, bubble size (`-Size`), legend placement and type (`-Legend`, `-LegendType`),
   `-Thresholds` colouring line stretches, `-ClassName` and `-Style`, a full screen button.
+- An error naming the data's columns when a column parameter matches none; "No data" for empty data.
 - Data straight from DataTables (DBNull as null), PowerShell objects, REST results and script blocks;
   column names matched without regard to case.
 - Zoom (wheel, box, slider; on the value axis with `-ZoomAxis`), range selection (`-Brush`), linked

@@ -32,6 +32,10 @@ Wide data has one column per series (`-Y Opened, Closed`); long data has one row
 per series: rows with the same x (and group) are not added up - the last one wins. Aggregate first
 (`Group-Object`, SQL `GROUP BY`).
 
+A column parameter that matches no column (`-Y Tickts`) shows an error in place of the chart, with the
+columns the data has. Empty data shows "No data". Numbers on axes, labels and tooltips follow `-Locale` or, without it, the browser's
+language - two readers can see `1,200` and `1.200` for the same chart.
+
 ## Chart types
 
 | `-Type` | Columns | Notes |
