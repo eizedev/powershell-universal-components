@@ -1,0 +1,274 @@
+<#
+    Examples of the documentation site. Each one is shown as its code and as the chart that code
+    produces: Build-Site.ps1 runs the script block with the real New-UDEChart. Keep every block
+    self-contained (it creates its own data), so readers can copy it into an app as it is.
+#>
+
+@(
+    #region Start
+    @{ Section = 'First charts'; Title = 'A bar chart from any PowerShell objects'; Text = 'Name the columns; the chart picks a category axis for text and a value axis for numbers.'; Code = {
+            $sales = 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun' | ForEach-Object -Begin { $i = 0 } -Process {
+                $i++; [pscustomobject]@{ Month = $_; Online = 100 + 12 * $i; Store = 160 - 5 * $i }
+            }
+            New-UDEChart -Data $sales -Type bar -X Month -Y Online, Store -Height 320px
+        }
+    }
+    @{ Section = 'First charts'; Title = 'Long data: one series per group'; Text = '-GroupBy splits rows into series, in natural order (P1, P2 ... P10).'; Code = {
+            $tickets = foreach ($team in 'Service Desk', 'Network', 'Server') {
+                foreach ($p in 'P1', 'P2', 'P3') { [pscustomobject]@{ Team = $team; Priority = $p; Tickets = 10 * $team.Length + 7 * [int]$p.Substring(1) } }
+            }
+            New-UDEChart -Data $tickets -Type bar -X Team -Y Tickets -GroupBy Priority -Stacked -DataLabels -Height 320px
+        }
+    }
+    #endregion
+
+    #region Bars
+    @{ Section = 'Bars'; Title = 'Horizontal and sorted'; Text = 'Sort in PowerShell; -Horizontal turns the bars.'; Code = {
+            $vms = 'Windows Server 2025', 'Windows Server 2022', 'Ubuntu 24.04', 'RHEL 9', 'Debian 12', 'SLES 15' | ForEach-Object -Begin { $n = 0 } -Process { $n++; [pscustomobject]@{ OS = $_; VMs = 40 * $n + 3 * $_.Length } }
+            New-UDEChart -Data ($vms | Sort-Object VMs) -Type bar -Horizontal -X OS -Y VMs -DataLabels -Height 320px
+        }
+    }
+    @{ Section = 'Bars'; Title = 'Shares of 100 % per category'; Text = '-Normalize stacks to 100 %; the tooltip shows share and original value.'; Code = {
+            $mix = foreach ($q in 'Q1', 'Q2', 'Q3', 'Q4') {
+                [pscustomobject]@{ Quarter = $q; Mail = 120 - 10 * $q[1]; Phone = 80; Portal = 60 + 25 * [int]"$($q[1])" }
+            }
+            New-UDEChart -Data $mix -Type bar -X Quarter -Y Mail, Phone, Portal -Normalize -DataLabels -Height 320px
+        }
+    }
+    @{ Section = 'Bars'; Title = 'Negative values'; Text = '-NegativeColor marks losses.'; Code = {
+            $result = 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun' | ForEach-Object -Begin { $i = 0 } -Process { $i++; [pscustomobject]@{ Month = $_; Result = [math]::Round(40 * [math]::Sin($i)) } }
+            New-UDEChart -Data $result -Type bar -X Month -Y Result -NegativeColor '#e53935' -Format 'currency:EUR' -Height 300px
+        }
+    }
+    #endregion
+
+    #region Lines and time
+    @{ Section = 'Lines and time'; Title = 'Time axis with zoom and a reference line'; Text = 'Dates become a time axis; the wheel zooms, the slider below shows the whole range.'; Code = {
+            $rng = [System.Random]::new(4)
+            $latency = foreach ($m in 0..287) { [pscustomobject]@{ Time = ([datetime]'2026-11-03').AddMinutes(5 * $m); Ms = [math]::Round(90 + 30 * [math]::Sin($m / 20) + $rng.Next(0, 20)) } }
+            New-UDEChart -Data $latency -Type area -X Time -Y Ms -MarkLine @{ value = 150; name = 'SLA'; color = '#e53935' } -Thresholds @{ value = 150; color = '#43a047' }, @{ value = 100000; color = '#e53935' } -Height 320px
+        }
+    }
+    @{ Section = 'Lines and time'; Title = 'Trend to a limit: when is the datastore full?'; Text = '-Trend Linear with -TrendTarget continues the least-squares line and marks the date.'; Code = {
+            $fill = 0..59 | ForEach-Object { [pscustomobject]@{ Day = ([datetime]'2026-09-01').AddDays($_); Used = [math]::Round(60 + 0.42 * $_ + [math]::Sin($_) * 1.5, 1) } }
+            New-UDEChart -Data $fill -Type line -X Day -Y Used -Format 'percent100:0' -Trend Linear -TrendTarget 100 -YMax 105 -Height 320px
+        }
+    }
+    @{ Section = 'Lines and time'; Title = 'Business hours only'; Text = 'New-UDEChartTimeBreak cuts nights and weekends out of the time axis.'; Code = {
+            $from = [datetime]'2026-11-02'; $to = $from.AddDays(5)
+            $samples = for ($t = $from; $t -lt $to; $t = $t.AddMinutes(30)) { if ($t.Hour -ge 7 -and $t.Hour -lt 19) { [pscustomobject]@{ Time = $t; Calls = 20 + 15 * [math]::Sin(($t.Hour - 7) / 2) } } }
+            New-UDEChart -Data $samples -Type line -X Time -Y Calls -Breaks (New-UDEChartTimeBreak -From $from -To $to -DayStart '07:00' -DayEnd '19:00') -Height 300px
+        }
+    }
+    @{ Section = 'Lines and time'; Title = 'Pins on single values'; Text = '-MarkPoint max, min pins the extremes of every series.'; Code = {
+            $weeks = 1..12 | ForEach-Object { [pscustomobject]@{ Week = 'W{0:00}' -f (34 + $_); Windows = 20 + 9 * [math]::Sin($_); Linux = 12 + 6 * [math]::Cos($_ / 2) } }
+            New-UDEChart -Data $weeks -Type line -X Week -Y Windows, Linux -MarkPoint max, min -Format 'number:0' -Height 320px
+        }
+    }
+    #endregion
+
+    #region Distributions
+    @{ Section = 'Distributions'; Title = 'Lead time histogram with SLA'; Text = 'Bins, a median line and a fixed SLA line; durations in hours.'; Code = {
+            $rng = [System.Random]::new(7)
+            $lead = 1..600 | ForEach-Object { [pscustomobject]@{ Hours = [math]::Round([math]::Exp(2.6 + 0.8 * ($rng.NextDouble() + $rng.NextDouble() - 1)), 1) } }
+            New-UDEChart -Data $lead -Type histogram -Y Hours -Bins 24 -Format 'duration:h' -MarkLine 'median', @{ value = 48; name = 'SLA'; color = '#e53935' } -Height 320px
+        }
+    }
+    @{ Section = 'Distributions'; Title = 'Boxplot per team'; Text = 'Quartiles, whiskers and outliers are computed from the raw values.'; Code = {
+            $rng = [System.Random]::new(9)
+            $rows = foreach ($team in 'Service Desk', 'Network', 'Server', 'Applications') { 1..80 | ForEach-Object { [pscustomobject]@{ Team = $team; Hours = [math]::Round(4 + $team.Length * $rng.NextDouble() * 3, 1) } } }
+            New-UDEChart -Data $rows -Type boxplot -X Team -Y Hours -Format 'number:1' -Height 320px
+        }
+    }
+    #endregion
+
+    #region Shares
+    @{ Section = 'Shares'; Title = 'Donut'; Text = 'Labels with value and share; small slices move their label inside on narrow screens.'; Code = {
+            $channels = @(
+                [pscustomobject]@{ Channel = 'Mail'; Tickets = 812 }
+                [pscustomobject]@{ Channel = 'Phone'; Tickets = 455 }
+                [pscustomobject]@{ Channel = 'Portal'; Tickets = 390 }
+                [pscustomobject]@{ Channel = 'Monitoring'; Tickets = 168 }
+            )
+            New-UDEChart -Data $channels -Type donut -X Channel -Y Tickets -Height 320px
+        }
+    }
+    @{ Section = 'Shares'; Title = 'Funnel'; Code = {
+            $stages = @(
+                [pscustomobject]@{ Stage = 'Created'; Tickets = 2000 }
+                [pscustomobject]@{ Stage = 'Answered within 1 h'; Tickets = 1640 }
+                [pscustomobject]@{ Stage = 'Closed'; Tickets = 1810 }
+                [pscustomobject]@{ Stage = 'Closed within SLA'; Tickets = 1525 }
+            )
+            New-UDEChart -Data $stages -Type funnel -X Stage -Y Tickets -Height 320px
+        }
+    }
+    @{ Section = 'Shares'; Title = 'Treemap from paths'; Text = '-Path takes the levels from the root; click a box to zoom in.'; Code = {
+            $costs = @(
+                [pscustomobject]@{ Area = 'Infrastructure'; Item = 'Compute'; EUR = 42000 }
+                [pscustomobject]@{ Area = 'Infrastructure'; Item = 'Storage'; EUR = 18500 }
+                [pscustomobject]@{ Area = 'Infrastructure'; Item = 'Network'; EUR = 9200 }
+                [pscustomobject]@{ Area = 'Licences'; Item = 'Microsoft'; EUR = 31000 }
+                [pscustomobject]@{ Area = 'Licences'; Item = 'Backup'; EUR = 7600 }
+                [pscustomobject]@{ Area = 'Staff'; Item = 'Operations'; EUR = 54000 }
+            )
+            New-UDEChart -Data $costs -Type treemap -Path Area, Item -Y EUR -Format 'compactcurrency:EUR' -Height 340px
+        }
+    }
+    #endregion
+
+    #region Heatmaps and calendars
+    @{ Section = 'Heatmaps and calendars'; Title = 'Weekday x hour'; Code = {
+            $days = 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+            $grid = foreach ($h in 0..23) { foreach ($d in $days) { [pscustomobject]@{ Hour = '{0:00}' -f $h; Weekday = $d; Tickets = [math]::Max(0, [math]::Round(30 * [math]::Sin(($h - 6) / 4) * ($(if ($days.IndexOf($d) -lt 5) { 1 } else { 0.3 })))) } } }
+            New-UDEChart -Data $grid -Type heatmap -X Hour -Y Weekday -Value Tickets -Height 320px -Options @{ yAxis = @{ inverse = $true } }
+        }
+    }
+    @{ Section = 'Heatmaps and calendars'; Title = 'Calendar'; Code = {
+            $rng = [System.Random]::new(3)
+            $days = 0..240 | ForEach-Object { [pscustomobject]@{ Date = ([datetime]'2026-03-01').AddDays($_).ToString('yyyy-MM-dd'); Changes = $rng.Next(0, 25) } }
+            New-UDEChart -Data $days -Type calendar -X Date -Y Changes -Height 220px
+        }
+    }
+    #endregion
+
+    #region Finance
+    @{ Section = 'Finance'; Title = 'Waterfall: from revenue to result'; Code = {
+            $bridge = @(
+                [pscustomobject]@{ Step = 'Revenue'; EUR = 1200000 }
+                [pscustomobject]@{ Step = 'Staff'; EUR = -540000 }
+                [pscustomobject]@{ Step = 'Licences'; EUR = -210000 }
+                [pscustomobject]@{ Step = 'Hardware'; EUR = -130000 }
+                [pscustomobject]@{ Step = 'Other'; EUR = -60000 }
+                [pscustomobject]@{ Step = 'Result'; EUR = 0 }
+            )
+            New-UDEChart -Data $bridge -Type waterfall -X Step -Y EUR -Totals Result -Format 'compactcurrency:EUR' -Height 340px
+        }
+    }
+    @{ Section = 'Finance'; Title = 'Candlestick with volume'; Code = {
+            $rng = [System.Random]::new(11); $price = 100
+            $days = 0..59 | ForEach-Object {
+                $open = $price; $price = [math]::Round($price + $rng.NextDouble() * 6 - 3, 2)
+                [pscustomobject]@{ Date = ([datetime]'2026-08-03').AddDays($_); Open = $open; Close = $price; Low = [math]::Min($open, $price) - 1; High = [math]::Max($open, $price) + 1; Volume = $rng.Next(1000, 5000) }
+            }
+            New-UDEChart -Data $days -Type candlestick -X Date -Open Open -Close Close -Low Low -High High -Volume Volume -Height 380px
+        }
+    }
+    #endregion
+
+    #region Operations
+    @{ Section = 'Operations'; Title = 'Backup windows (gantt)'; Text = 'Bars from -Start to -End per lane, coloured by -GroupBy.'; Code = {
+            $night = [datetime]'2026-11-04 21:00'
+            $jobs = foreach ($srv in 1..6) { foreach ($k in 0..2) { $s = $night.AddMinutes(20 * $srv + 70 * $k); [pscustomobject]@{ Server = 'srv-{0:00}' -f $srv; Start = $s; End = $s.AddMinutes(45 + 5 * $srv); Result = @('Success', 'Success', 'Warning', 'Failed')[($srv + $k) % 4] } } }
+            New-UDEChart -Data $jobs -Type gantt -X Server -Start Start -End End -GroupBy Result -Palette '#e53935', '#43a047', '#fb8c00' -Height 340px
+        }
+    }
+    @{ Section = 'Operations'; Title = 'Gauge with bands'; Code = {
+            New-UDEChart -Data @([pscustomobject]@{ SLA = 98.7 }) -Type gauge -Y SLA -Min 90 -Max 100 -GaugeStyle Grade -Format 'percent100:1' `
+                -Thresholds @{ value = 95; color = '#e53935' }, @{ value = 99; color = '#fb8c00' }, @{ value = 100; color = '#43a047' } -Height 300px
+        }
+    }
+    #endregion
+
+    #region Relations and hierarchies
+    @{ Section = 'Relations and hierarchies'; Title = 'Network path (layered graph)'; Text = 'Columns follow the links; ports on the lines, details in the tooltip.'; Code = {
+            $links = @(
+                [pscustomobject]@{ From = 'fw-01'; To = 'core-01'; Kind = 'Firewall'; ToKind = 'Switch'; Ports = 'port9 > Te1/0/1'; Vlan = 'trunk' }
+                [pscustomobject]@{ From = 'core-01'; To = 'access-01'; Kind = 'Switch'; ToKind = 'Switch'; Ports = 'Te1/0/11 > Te1/1/1'; Vlan = 'trunk' }
+                [pscustomobject]@{ From = 'core-01'; To = 'access-02'; Kind = 'Switch'; ToKind = 'Switch'; Ports = 'Te1/0/12 > Te1/1/1'; Vlan = 'trunk' }
+                [pscustomobject]@{ From = 'access-01'; To = 'esx-01'; Kind = 'Switch'; ToKind = 'Host'; Ports = 'Gi1/0/11 > vmnic0'; Vlan = '120' }
+                [pscustomobject]@{ From = 'access-02'; To = 'esx-01'; Kind = 'Switch'; ToKind = 'Host'; Ports = 'Gi1/0/11 > vmnic1'; Vlan = '120' }
+                [pscustomobject]@{ From = 'esx-01'; To = 'vm-web'; Kind = 'Host'; ToKind = 'VM'; Ports = ''; Vlan = '120' }
+                [pscustomobject]@{ From = 'esx-01'; To = 'vm-db'; Kind = 'Host'; ToKind = 'VM'; Ports = ''; Vlan = '120' }
+            )
+            New-UDEChart -Data $links -Type graph -Layout Layered -Source From -Target To -GroupBy Kind -TargetGroup ToKind -EdgeLabel Ports -Undirected `
+                -TooltipTemplate "{From} > {To}`nPorts: {Ports}`nVLAN: {Vlan}" -Height 380px
+        }
+    }
+    @{ Section = 'Relations and hierarchies'; Title = 'Folders as a tree'; Text = 'One "a/b/c" column or several -Path columns; label and tooltip from templates.'; Code = {
+            $vms = @(
+                [pscustomobject]@{ Folder = 'vCenter/Customer A/Production/vm-a1'; Name = 'vm-a1'; Cpu = 4; RamGB = 16 }
+                [pscustomobject]@{ Folder = 'vCenter/Customer A/Production/vm-a2'; Name = 'vm-a2'; Cpu = 8; RamGB = 32 }
+                [pscustomobject]@{ Folder = 'vCenter/Customer A/Test/vm-a3'; Name = 'vm-a3'; Cpu = 2; RamGB = 8 }
+                [pscustomobject]@{ Folder = 'vCenter/Customer B/Production/vm-b1'; Name = 'vm-b1'; Cpu = 4; RamGB = 16 }
+                [pscustomobject]@{ Folder = 'vCenter/Infrastructure/Management/vm-mgmt'; Name = 'vm-mgmt'; Cpu = 2; RamGB = 4 }
+            )
+            New-UDEChart -Data $vms -Type tree -Path Folder -Depth 4 -LabelTemplate '{Name} ({Cpu} vCPU)' -TooltipColumns 'vCPU=Cpu', 'Memory (GB)=RamGB' -Height 360px
+        }
+    }
+    @{ Section = 'Relations and hierarchies'; Title = 'Flows (sankey)'; Code = {
+            $flows = @(
+                [pscustomobject]@{ Source = 'Mail'; Target = 'Service Desk'; Value = 520 }
+                [pscustomobject]@{ Source = 'Phone'; Target = 'Service Desk'; Value = 310 }
+                [pscustomobject]@{ Source = 'Monitoring'; Target = 'Server'; Value = 140 }
+                [pscustomobject]@{ Source = 'Service Desk'; Target = 'Closed'; Value = 700 }
+                [pscustomobject]@{ Source = 'Service Desk'; Target = 'Server'; Value = 130 }
+                [pscustomobject]@{ Source = 'Server'; Target = 'Closed'; Value = 250 }
+                [pscustomobject]@{ Source = 'Server'; Target = 'Waiting'; Value = 20 }
+            )
+            New-UDEChart -Data $flows -Type sankey -Height 340px
+        }
+    }
+    @{ Section = 'Relations and hierarchies'; Title = 'Overlaps (chord)'; Code = {
+            $shared = @(
+                [pscustomobject]@{ Source = 'Virtualisation'; Target = 'Backup'; Assets = 410 }
+                [pscustomobject]@{ Source = 'Virtualisation'; Target = 'EDR'; Assets = 380 }
+                [pscustomobject]@{ Source = 'Backup'; Target = 'EDR'; Assets = 350 }
+                [pscustomobject]@{ Source = 'EDR'; Target = 'CMDB'; Assets = 300 }
+                [pscustomobject]@{ Source = 'Backup'; Target = 'CMDB'; Assets = 260 }
+            )
+            New-UDEChart -Data $shared -Type chord -Source Source -Target Target -Value Assets -Legend None -Height 360px
+        }
+    }
+    #endregion
+
+    #region Comparisons
+    @{ Section = 'Comparisons'; Title = 'KPI matrix with sparklines'; Text = 'One small chart per row and column, one scale per column.'; Code = {
+            $kpis = foreach ($c in 'Customer A', 'Customer B', 'Customer C') {
+                foreach ($k in 'Tickets', 'SLA %', 'Backup %') {
+                    foreach ($w in 1..10) { [pscustomobject]@{ Customer = $c; Kpi = $k; Week = "W$w"; Value = switch ($k) { 'Tickets' { 40 + 5 * $c.Length + ($w % 4) * 6 } 'SLA %' { 97 + ($w % 3) } default { 98 + ($w % 2) } } } }
+                }
+            }
+            New-UDEChart -Data $kpis -Type matrix -Y Customer -GroupBy Kpi -X Week -Value Value -CellType Area -Height 300px
+        }
+    }
+    @{ Section = 'Comparisons'; Title = 'Many measures (parallel)'; Text = 'Drag along an axis to keep only the lines in that range; -OnSelect gets their rows.'; Code = {
+            $rng = [System.Random]::new(5)
+            $servers = 1..60 | ForEach-Object { [pscustomobject]@{ Name = 'srv-{0:00}' -f $_; Class = @('Windows', 'Linux')[$_ % 2]; Cpu = @(2, 4, 8, 16)[$rng.Next(0, 4)]; DiskPct = $rng.Next(30, 98); PatchDays = $rng.Next(0, 60) } }
+            New-UDEChart -Data $servers -Type parallel -X Name -GroupBy Class -Y Cpu, DiskPct, PatchDays -Height 340px -OnSelect { Show-UDToast -Message "$($EventData.count) servers" }
+        }
+    }
+    @{ Section = 'Comparisons'; Title = 'Radar'; Code = {
+            $teams = @(
+                [pscustomobject]@{ Team = 'Service Desk'; Speed = 8; Quality = 7; Coverage = 9; Docs = 5 }
+                [pscustomobject]@{ Team = 'Server'; Speed = 6; Quality = 9; Coverage = 6; Docs = 8 }
+            )
+            New-UDEChart -Data $teams -Type radar -X Team -Y Speed, Quality, Coverage, Docs -Max 10 -Height 320px
+        }
+    }
+    @{ Section = 'Comparisons'; Title = 'Small multiples'; Text = '-Facet draws one small chart per value, all on one scale.'; Code = {
+            $rows = foreach ($d in 'Mon', 'Tue', 'Wed', 'Thu', 'Fri') { foreach ($h in 8..18) { [pscustomobject]@{ Day = $d; Hour = $h; Calls = [math]::Round(20 + 15 * [math]::Sin(($h - 8) / 3) + $d.Length) } } }
+            New-UDEChart -Data $rows -Type line -X Hour -Y Calls -Facet Day -FacetColumns 5 -XAxisType Category -Height 220px
+        }
+    }
+    #endregion
+
+    #region Interaction
+    @{ Section = 'Interaction'; Title = 'Click and range selection'; Text = 'In an app these script blocks run on the server; here the page shows the $EventData they would get.'; Code = {
+            $daily = 0..29 | ForEach-Object { [pscustomobject]@{ Day = ([datetime]'2026-10-01').AddDays($_); Opened = 30 + ($_ % 7) * 4 } }
+            New-UDEChart -Data $daily -Type bar -X Day -Y Opened -Brush -OnClick {
+                Show-UDToast -Message "$($EventData.name): $($EventData.row.Opened) tickets"
+            } -OnSelect {
+                $Session:Range = $EventData; Sync-UDElement -Id 'ticket-table'
+            } -Height 320px
+        }
+    }
+    @{ Section = 'Interaction'; Title = 'Anything else: -Options'; Text = 'The full Apache ECharts option, merged over what the parameters built.'; Code = {
+            $months = 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun' | ForEach-Object -Begin { $i = 0 } -Process { $i++; [pscustomobject]@{ Month = $_; Tickets = 300 + 20 * $i; SLA = 96 + $i / 2 } }
+            New-UDEChart -Data $months -Type bar -X Month -Y Tickets, SLA -SecondaryY SLA -SecondaryTitle 'SLA %' -Height 320px -Options @{
+                series = @(@{ itemStyle = @{ borderRadius = 6 } }, @{ type = 'line'; smooth = $true })
+            }
+        }
+    }
+    #endregion
+)

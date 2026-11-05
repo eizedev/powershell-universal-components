@@ -1,7 +1,7 @@
 node_modules/
 public/
 output/
-site/
+/site/
 .DS_Store
 ._*
 .claude/*

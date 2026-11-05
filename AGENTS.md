@@ -13,6 +13,9 @@ hashtable PSU renders; see [README.md](README.md).
 - `shared/powershell/` - PowerShell used by several modules (data conversion); copied into each built
   module's `Private/`.
 - `build/` - `Build-Module.ps1` and the shared webpack configuration.
+- `docs/site/` - the documentation site: `examples.ps1` (code and chart from one source, run with the
+  real `New-UDEChart` by `Build-Site.ps1`), the page (`src/main.jsx`, `index.html`) and its own
+  `package.json`. A new parameter or chart type gets an example there.
 - `tests/js/` (node --test, no dependencies beyond the root `package.json`), `tests/powershell/` (Pester).
 
 ## Commands
@@ -20,6 +23,7 @@ hashtable PSU renders; see [README.md](README.md).
 ```bash
 npm ci && npm test                                   # JavaScript unit tests (repository root)
 pwsh ./build/Build-Module.ps1 -Module PowerShellUniversal.Component.ECharts   # output/<Module>/<Version>
+pwsh ./docs/site/Build-Site.ps1                      # output/site/index.html
 pwsh -c 'Invoke-Pester -Path tests/powershell'       # Pester 5 or 6
 pwsh -c 'Get-ChildItem modules, shared, build, tests -Recurse -Include *.ps1, *.psm1, *.psd1 | Where-Object FullName -NotMatch "node_modules|public|output" | ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -Severity Warning, Error }'   # as CI
 ```

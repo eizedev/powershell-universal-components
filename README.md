@@ -31,6 +31,14 @@ Invoke-Pester -Path ./tests/powershell
 The build writes `output/<Module>/<Version>/` with the bundle, the module, its manifest and the shared
 PowerShell code.
 
+## Documentation site
+
+`docs/site/` builds a static site: every example in `docs/site/examples.ps1` is shown as its PowerShell and
+as the chart that code produces, drawn by the module's own React component; the reference comes from the
+comment-based help. `./docs/site/Build-Site.ps1` writes it to `output/site/` (open `index.html`); the
+workflow `docs.yml` builds it on every pull request and publishes it to GitHub Pages from `main` once
+Pages is switched on and the repository variable `PAGES_ENABLED` is `true`.
+
 ## How it is put together
 
 Each module is a React component registered with PSU (`UniversalDashboard.register`) and a PowerShell
