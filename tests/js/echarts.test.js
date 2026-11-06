@@ -657,3 +657,44 @@ test("fitPlot: radial bar names keep clear of the rings' round caps", async () =
     assert.ok(fitted.radiusAxis.axisLabel.margin >= 9 + 4, `margin ${fitted.radiusAxis.axisLabel.margin}`);
     assert.equal(fitPlot(o, { width: 403, height: 340 }, { radiusAxis: { axisLabel: { margin: 2 } } }).radiusAxis.axisLabel.margin, o.radiusAxis.axisLabel.margin);
 });
+
+// -ColorMap: as New-UDEChart sends it (a list, since PSU camelCases dictionary keys)
+const stateColors = [{ name: "Failed", light: "#E3000F", dark: "#FF6B6B" }, { name: "success", light: "#287233", dark: "#287233" }];
+const runs = [
+    { Job: "Backup", State: "Success", Minutes: 12, Start: "2026-11-01T01:00:00Z", End: "2026-11-01T02:00:00Z" },
+    { Job: "Patch", State: "Failed", Minutes: 7, Start: "2026-11-01T03:00:00Z", End: "2026-11-01T03:30:00Z" },
+    { Job: "Report", State: "Running", Minutes: 3, Start: "2026-11-01T04:00:00Z", End: "2026-11-01T04:10:00Z" }
+];
+
+test("-ColorMap colours series by name (stacked bars, gantt groups), case-insensitive; others keep the palette", () => {
+    const bars = buildOption({ chartType: "bar", data: runs, x: "Job", y: ["Minutes"], groupBy: "State", stacked: true, colorMap: stateColors }, {});
+    const byName = Object.fromEntries(bars.series.map((s) => [s.name, s.color]));
+    assert.equal(byName.Failed, "#E3000F");
+    assert.equal(byName.Success, "#287233");
+    assert.equal(byName.Running, undefined);
+    const gantt = buildOption({ chartType: "gantt", data: runs, x: "Job", start: "Start", end: "End", groupBy: "State", colorMap: stateColors }, { mode: "dark" });
+    assert.equal(gantt.series.find((s) => s.name === "Failed").color, "#FF6B6B");
+    assert.equal(gantt.series.find((s) => s.name === "Running").color, undefined);
+});
+
+test("-ColorMap colours data items by name: pie slices and treemap nodes at every depth", () => {
+    const pie = buildOption({ chartType: "pie", data: runs, x: "State", y: ["Minutes"], colorMap: stateColors }, {});
+    const slice = (n) => pie.series[0].data.find((d) => d.name === n);
+    assert.equal(slice("Failed").itemStyle.color, "#E3000F");
+    assert.equal(slice("Running").itemStyle && slice("Running").itemStyle.color, undefined);
+    const tree = buildOption({ chartType: "treemap", data: runs, path: ["Job", "State"], y: ["Minutes"], colorMap: stateColors }, {});
+    const leaves = tree.series[0].data.flatMap((n) => n.children || []);
+    assert.equal(leaves.find((n) => n.name === "Failed").itemStyle.color, "#E3000F");
+});
+
+test("-ColorMap: only colour strings, and labels on a mapped fill contrast with it", async () => {
+    const { insideLabelColors } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/layout.js");
+    const bad = [{ name: "Failed", light: "red; background: url(x)" }, { name: "Success", light: "javascript:alert(1)" }];
+    const pie = buildOption({ chartType: "pie", data: runs, x: "State", y: ["Minutes"], colorMap: bad }, {});
+    assert.ok(pie.series[0].data.every((d) => !(d.itemStyle && d.itemStyle.color)));
+    // a light mapped colour on a dark palette: the label turns dark
+    const funnel = buildOption({ chartType: "funnel", data: runs, x: "State", y: ["Minutes"], colorMap: [{ name: "Running", light: "#FFEB3B" }], palette: ["#003452"] }, {});
+    const labelled = insideLabelColors(funnel, ["#003452"]);
+    assert.equal(labelled.series[0].data.find((d) => d.name === "Running").label.color, "#1f2430");
+    assert.equal(labelled.series[0].data.find((d) => d.name === "Failed").label.color, "#ffffff");
+});

@@ -136,6 +136,33 @@ Describe 'Parameters for other chart types' {
     }
 }
 
+Describe '-ColorMap' {
+    BeforeAll {
+        $script:runs = @(
+            [pscustomobject]@{ Job = 'Backup'; State = 'Success'; Minutes = 12 }
+            [pscustomobject]@{ Job = 'Patch'; State = 'Failed'; Minutes = 7 }
+        )
+    }
+    It 'sends a list of name, light and dark colours (dictionary keys would be camelCased by PSU)' {
+        $props = New-UDEChart -Data $runs -Type bar -X Job -Y Minutes -GroupBy State -ColorMap ([ordered]@{ Failed = '#E3000F'; Success = '#287233', '#4CAF50' })
+        $props.colorMap.Count | Should -Be 2
+        $props.colorMap[0].name | Should -Be 'Failed'
+        $props.colorMap[0].light | Should -Be '#E3000F'
+        $props.colorMap[0].dark | Should -Be '#E3000F'
+        $props.colorMap[1].dark | Should -Be '#4CAF50'
+    }
+    It 'refuses what is not a colour' {
+        { New-UDEChart -Data $runs -Type pie -X State -Y Minutes -ColorMap @{ Failed = 'red; background: url(x)' } } | Should -Throw '*-ColorMap*Failed*'
+        { New-UDEChart -Data $runs -Type pie -X State -Y Minutes -ColorMap @{ Failed = '#E3000F', '#FF0000', '#00FF00' } } | Should -Throw '*one colour or two*'
+    }
+    It 'warns about names no category has, and names the categories' {
+        $null = New-UDEChart -Data $runs -Type bar -X Job -Y Minutes -GroupBy State -ColorMap @{ failed = '#E3000F'; Skipped = 'gray' } -WarningVariable w -WarningAction SilentlyContinue
+        $w.Count | Should -Be 1
+        "$w" | Should -BeLike '*Skipped*Categories:*Failed*Success*'
+        "$w" | Should -Not -BeLike '*names failed*'
+    }
+}
+
 Describe 'Demo module' {
     It 'exports New-UDEChartShowcase and its app parses' {
         $demo = Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.ECharts.Demo'

@@ -27,7 +27,7 @@ the chart it draws, and the parameter reference.
 
 | Module | What it adds |
 | --- | --- |
-| [PowerShellUniversal.Component.ECharts](modules/PowerShellUniversal.Component.ECharts/README.md) | `New-UDEChart`: 29 chart types, from bars and lines to gantt, rankings, radial bars, network graphs, trees and KPI matrices; zoom, range selection, click events that filter other elements, linked charts, trends with forecast, `-Aggregate`, `-EventColumns`, CSV/Excel/PNG export, full screen, light and dark theme, corporate themes (`-LightTheme`/`-DarkTheme`, CSS variables). |
+| [PowerShellUniversal.Component.ECharts](modules/PowerShellUniversal.Component.ECharts/README.md) | `New-UDEChart`: 29 chart types, from bars and lines to gantt, rankings, radial bars, network graphs, trees and KPI matrices; zoom, range selection, click events that filter other elements, linked charts, trends with forecast, `-Aggregate`, `-EventColumns`, CSV/Excel/PNG export, full screen, light and dark theme, corporate themes (`-LightTheme`/`-DarkTheme`, CSS variables), fixed colours per category (`-ColorMap`). |
 | [PowerShellUniversal.Component.ECharts.Demo](modules/PowerShellUniversal.Component.ECharts.Demo/README.md) | `New-UDEChartShowcase`: the showcase app of the chart module as a module - 14 pages of examples with generated and public data, to try the charts or copy from. |
 | [PowerShellUniversal.Component.Perspective](modules/PowerShellUniversal.Component.Perspective/README.md) | `New-UDPerspective`: [Perspective](https://perspective-dev.github.io/) datagrid, pivot table and WebGL charts in one, which readers group, split, filter and sort themselves; WebAssembly engine for large row counts. |
 

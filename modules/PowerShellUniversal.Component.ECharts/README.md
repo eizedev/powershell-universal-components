@@ -213,8 +213,35 @@ A corporate design comes in two ways, both optional:
   :root[data-theme="dark"] { --psu-chart-1: #6fa8dc; --psu-chart-2: #f6b26b; --psu-chart-text: #e6e9ef; }
   ```
 
-Order: the module's theme, then the CSS properties, then `-LightTheme`/`-DarkTheme`, then `-Palette`
-and `-Options` of the single chart. The chart's background always stays transparent (it sits on the
+### Fixed colours per category
+
+Palette colours go by position, so a category's colour depends on which categories the data has.
+`-ColorMap` fixes a colour per name, for every chart type: series names (`-Y` columns, `-GroupBy`
+values, gantt groups) and data item names (pie, donut and funnel slices, treemap and sunburst nodes at
+every level, sankey and graph nodes, radar areas, the rings of a radial bar with one `-Y`). Names match without regard to case; categories not
+in the map keep the palette. Two colours give one per mode (light, dark):
+
+```powershell
+$states = @{ Failed = '#E3000F', '#FF6B6B'; Warning = '#FB8C00'; Success = '#287233' }
+New-UDEChart -Data $jobs -Type gantt -X Server -Start Start -End End -GroupBy Result -ColorMap $states
+New-UDEChart -Data $nights -Type bar -X Night -Y Success, Warning, Failed -Stacked -ColorMap $states
+```
+
+Colours are hex, `rgb()`, `rgba()`, `hsl()`, `hsla()` or CSS names; anything else is refused. A name
+that no category of the data has gives a warning that lists the categories. Labels on a mapped fill
+(funnel, pie with inside labels, treemap, sunburst) take the text colour with the better contrast to it.
+
+Without a map, palette colours follow the order of the series or items:
+
+| Types | Order |
+| --- | --- |
+| line, area, step, bar, scatter, boxplot, gantt, parallel, themeriver, polar, radialbar with `-GroupBy` | `-GroupBy` values in natural order (P1, P2 ... P10), independent of the row order |
+| the same types without `-GroupBy` | the `-Y` columns as given |
+| pie, donut, funnel, treemap, sunburst, radar, bump, sankey, graph; radialbar with one `-Y` | first appearance in the rows |
+| matrix | the `-GroupBy` columns in first appearance |
+
+Order: the module's theme, then the CSS properties, then `-LightTheme`/`-DarkTheme`, then `-Palette`,
+`-ColorMap` and `-Options` of the single chart. The chart's background always stays transparent (it sits on the
 card), so a theme's `backgroundColor` has no effect. CSS properties follow the page's mode, also for a
 chart pinned with `-Theme Light` or `Dark`, and are read when the chart is created and when the mode
 changes.
