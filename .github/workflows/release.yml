@@ -25,6 +25,7 @@ concurrency:
 jobs:
   prepare:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     env:
       TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
     outputs:
@@ -78,6 +79,7 @@ jobs:
     if: github.event_name == 'push'
     needs: prepare
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: psgallery
     permissions:
       contents: write

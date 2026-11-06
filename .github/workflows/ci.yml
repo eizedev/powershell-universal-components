@@ -12,6 +12,7 @@ permissions:
 jobs:
   javascript:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -27,6 +28,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         module: ["PowerShellUniversal.Component.ECharts", "PowerShellUniversal.Component.ECharts.Demo", "PowerShellUniversal.Component.Perspective"]
@@ -48,6 +50,7 @@ jobs:
 
   powershell:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -61,10 +64,12 @@ jobs:
           $ErrorActionPreference = 'Stop'
           Install-PSResource -Name Pester -Version 6.2.0 -TrustRepository -Quiet
           Install-PSResource -Name PSScriptAnalyzer -Version 1.25.0 -TrustRepository -Quiet
-          # PowerShell files of the repository, not of node_modules or build output
-          $files = Get-ChildItem -Path modules, shared, build, tests -Recurse -File -Include *.ps1, *.psm1, *.psd1 |
-              Where-Object FullName -NotMatch '[\\/](node_modules|public|output)[\\/]'
-          $findings = $files | ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -Severity Warning, Error }
+          # one call per folder: a call per file once failed with "more than one dynamic module in each
+          # dynamic assembly" and hung the job (#39). Findings in node_modules or build output do not count.
+          $findings = foreach ($folder in 'modules', 'shared', 'build', 'tests') {
+              Invoke-ScriptAnalyzer -Path $folder -Recurse -Severity Warning, Error |
+                  Where-Object ScriptPath -NotMatch '[\\/](node_modules|public|output)[\\/]'
+          }
           $findings | Format-Table RuleName, ScriptName, Line, Message -AutoSize -Wrap
           if ($findings) { throw ('PSScriptAnalyzer: {0} finding(s)' -f @($findings).Count) }
           Import-Module Pester -RequiredVersion 6.2.0
@@ -77,6 +82,7 @@ jobs:
   site:
     # the documentation site the browser tests open (needs pwsh, which the Playwright image lacks)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
