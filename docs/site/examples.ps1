@@ -313,7 +313,7 @@
     #endregion
 
     #region Perspective
-    @{ Section = 'Perspective'; Title = 'Datagrid that readers rearrange'; Text = 'Sort, filter, group and switch to a chart in the configuration panel (the button at the top right). A click on a cell gives the row, as $EventData would.'; Code = {
+    @{ Section = 'Perspective'; Title = 'Datagrid that readers rearrange'; Text = 'Sort, filter and group in the editor (Edit view); Table and Chart switch between the grid and a chart. A click on a cell gives the row, as $EventData would.'; Code = {
             $rng = [System.Random]::new(42)
             $tickets = foreach ($i in 1..800) {
                 [pscustomobject]@{

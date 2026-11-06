@@ -1,9 +1,9 @@
 # Perspective
 
 `New-UDPerspective` puts [Perspective](https://perspective-dev.github.io/) into PSU apps: a datagrid,
-pivot table and chart in one. Readers group, split, filter, sort and aggregate the data themselves in
-the configuration panel and switch between the grid and the charts; the parameters set the view it
-starts with. The data is held by Perspective's WebAssembly engine in a Web Worker in the browser, so
+pivot table and chart in one. Readers group, split, filter, sort and aggregate the data themselves:
+**Edit view** above the viewer opens the editor, **Table** and **Chart** switch between the grid and a
+chart ([Using the viewer](using.md)); the parameters set the view it starts with. The data is held by Perspective's WebAssembly engine in a Web Worker in the browser, so
 tens of thousands of rows stay fast.
 
 ```powershell
@@ -25,4 +25,4 @@ booleans, everything else text.
 New data for the same component replaces the rows and keeps the reader's layout; when the columns or
 their types change, the table is built anew and the view starts again from the parameters.
 
-Next: [The starting view](view.md), [Events, security and limits](events.md), [Reference](reference.md).
+Next: [Using the viewer](using.md), [The starting view](view.md), [Events, security and limits](events.md), [Reference](reference.md).

@@ -9,6 +9,9 @@
 | `-Sort` | `'Created desc'`, `'Team'` |
 | `-Filter` | `'Status == Open'`, `'LeadHours > 48'`, `'Team contains Net'` |
 | `-Settings` | open the configuration panel at the start |
+| `-ChartPlugin` | the chart of the toolbar's Chart button until the reader picks one: `Y Bar` (default) or any chart of `-Plugin` |
+| `-Labels` | the toolbar's words in another language: `@{ EditView = 'Ansicht bearbeiten'; Table = 'Tabelle'; Chart = 'Diagramm' }` |
+| `-NoToolbar` | no toolbar above the viewer (see [Using the viewer](using.md)) |
 | `-Config` | Perspective's full viewer configuration (the viewer's "copy" button gives it), merged over the parameters |
 
 Column names in these parameters are matched without regard to case; names with spaces work

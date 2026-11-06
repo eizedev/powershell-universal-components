@@ -33,6 +33,20 @@ Describe 'New-UDPerspective' {
         (New-UDPerspective -Data @([pscustomobject]@{ A = 1 }) -Plugin 'X/Y Scatter').plugin | Should -Be 'X/Y Scatter'
         { New-UDPerspective -Data @() -Plugin 'XY Scatter' } | Should -Throw
     }
+    It 'has the toolbar on by default, with Y Bar as the chart of the Table/Chart switch' {
+        $c = New-UDPerspective -Data @([pscustomobject]@{ A = 1 })
+        $c.toolbar | Should -BeTrue
+        $c.chartPlugin | Should -Be 'Y Bar'
+        $c.ContainsKey('labels') | Should -BeFalse
+    }
+    It 'takes -NoToolbar, -ChartPlugin and -Labels' {
+        $c = New-UDPerspective -Data @([pscustomobject]@{ A = 1 }) -NoToolbar -ChartPlugin Treemap -Labels @{ EditView = 'Ansicht bearbeiten' }
+        $c.toolbar | Should -BeFalse
+        $c.chartPlugin | Should -Be 'Treemap'
+        $c.labels.EditView | Should -Be 'Ansicht bearbeiten'
+        # the table is not a chart
+        { New-UDPerspective -Data @() -ChartPlugin Datagrid } | Should -Throw
+    }
     It 'converts a DataTable' {
         $t = [System.Data.DataTable]::new()
         [void]$t.Columns.Add('Name'); [void]$t.Columns.Add('Count', [int])
