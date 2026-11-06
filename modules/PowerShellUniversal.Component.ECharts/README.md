@@ -213,7 +213,8 @@ public APIs, PowerShell and DataTable data, live data and a benchmark.
 - `$EventData` comes from the browser (the clicked row, a selected range, rows of a parallel
   selection). Treat it like any user input: look the record up again on the server before acting on
   it, never pass it to a query or command unchecked. A parallel selection sends at most 1000 rows; a
-  click sends the one row.
+  click sends the one row. `-EventColumns Name, Id` limits those rows to the columns the script block
+  needs, which keeps messages small with wide rows.
 - `-Options`, `-MarkLine`, `-MarkArea`, `-Thresholds` and the templates are configuration for the app
   author; do not build them from what a user typed. Values from the data are HTML-escaped in tooltips;
   in CSV export, text starting with `=`, `+`, `-` or `@` gets a leading `'` so spreadsheets do not run it

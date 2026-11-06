@@ -106,3 +106,11 @@ test("csv: empty numbers stay empty, formula triggers incl. CR are prefixed", as
     assert.ok(line.startsWith(","), "empty number cell, not 0");
     assert.ok(line.includes("'\r=1+1"), "carriage return before = is prefixed");
 });
+
+test("pickColumns: only the named columns, case-insensitive; whole row without a list", async () => {
+    const { pickColumns } = await import("../../shared/js/columns.js");
+    const row = { name: "vm-01", cpu: 4, ramGB: 16, secretNote: "x" };
+    assert.deepEqual(pickColumns(row, ["Name", "RAMgb", "missing"]), { name: "vm-01", ramGB: 16 });
+    assert.equal(pickColumns(row, undefined), row);
+    assert.equal(pickColumns(undefined, ["Name"]), undefined);
+});

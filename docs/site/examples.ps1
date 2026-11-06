@@ -256,7 +256,8 @@
     #region Interaction
     @{ Section = 'Interaction'; Title = 'Click and range selection'; Text = 'In an app these script blocks run on the server; here the page shows the $EventData they would get.'; Code = {
             $daily = 0..29 | ForEach-Object { [pscustomobject]@{ Day = ([datetime]'2026-10-01').AddDays($_); Opened = 30 + ($_ % 7) * 4 } }
-            New-UDEChart -Data $daily -Type bar -X Day -Y Opened -Brush -OnClick {
+            # -EventColumns: only these columns of the row travel back to the server
+            New-UDEChart -Data $daily -Type bar -X Day -Y Opened -Brush -EventColumns Day, Opened -OnClick {
                 Show-UDToast -Message "$($EventData.name): $($EventData.row.Opened) tickets"
             } -OnSelect {
                 $Session:Range = $EventData; Sync-UDElement -Id 'ticket-table'

@@ -972,7 +972,8 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
             New-UDGrid -Item -ExtraSmallSize 12 -Content {
                 New-UDCard -Title 'Servers across all measures (parallel; drag along an axis to filter, e.g. patch age > 30)' -Content {
                     $servers = $assets | Where-Object Class -Like '*server' | Select-Object Name, Class, Customer, Cpu, RamGB, DiskUsedPct, PatchAgeDays, BackupAgeHours, OpenTickets, SourceCount
-                    New-UDEChart -Data $servers -Type parallel -X Name -GroupBy Class -Y Customer, Cpu, RamGB, DiskUsedPct, PatchAgeDays, BackupAgeHours, OpenTickets, SourceCount -Height 420px -OnSelect {
+                    New-UDEChart -Data $servers -Type parallel -X Name -GroupBy Class -Y Customer, Cpu, RamGB, DiskUsedPct, PatchAgeDays, BackupAgeHours, OpenTickets, SourceCount -Height 420px `
+                        -EventColumns Name, Class, Customer, PatchAgeDays, BackupAgeHours, DiskUsedPct -OnSelect {
                         $Session:ParallelRows = if ($EventData.filtered) { @($EventData.rows) } else { $null }
                         Sync-UDElement -Id 'parallel-rows'
                     }

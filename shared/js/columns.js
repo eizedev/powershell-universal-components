@@ -60,3 +60,20 @@ export function getter(requested, keys) {
     const key = resolveColumn(requested, keys);
     return key === undefined ? () => undefined : (row) => (row ? row[key] : undefined);
 }
+
+// The columns of a row an event sends back to the server (-EventColumns); without a list, the whole row.
+// Names match like everywhere else (case-insensitive); unknown names are left out.
+export function pickColumns(row, columns) {
+    if (!row || typeof row !== "object" || !Array.isArray(columns) || columns.length === 0) {
+        return row;
+    }
+    const keys = Object.keys(row);
+    const out = {};
+    for (const c of columns) {
+        const key = resolveColumn(c, keys);
+        if (key !== undefined) {
+            out[key] = row[key];
+        }
+    }
+    return out;
+}

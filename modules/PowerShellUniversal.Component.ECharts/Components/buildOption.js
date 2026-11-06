@@ -1780,7 +1780,7 @@ function applyTemplates(option, props, rows, keys, ctx) {
 }
 
 // parameters that name columns: a name that matches no column is an error, not a silently different chart
-const COLUMN_PROPS = ["x", "y", "groupBy", "value", "source", "target", "path", "size", "secondaryY", "open", "close", "low", "high", "volume", "start", "end", "band", "facet", "labelColumn", "targetGroup", "edgeLabel"];
+const COLUMN_PROPS = ["x", "y", "groupBy", "value", "source", "target", "path", "size", "secondaryY", "open", "close", "low", "high", "volume", "start", "end", "band", "facet", "labelColumn", "targetGroup", "edgeLabel", "eventColumns"];
 
 function checkColumns(props, rows, keys) {
     if (rows.length === 0) {
