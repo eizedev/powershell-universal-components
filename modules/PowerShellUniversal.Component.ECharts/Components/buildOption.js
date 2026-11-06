@@ -3,6 +3,7 @@ import { formatter, labelFormatSpec } from "../../../shared/js/formatters.js";
 import { html, joinHtml, trusted } from "../../../shared/js/html.js";
 import { compileTemplate, columnsTemplate } from "../../../shared/js/template.js";
 import { applyColorMap } from "./colormap.js";
+import { timeAxisFormatter } from "./timeaxis.js";
 
 /*
  * Turns the simple parameters of New-UDEChart (chartType, x, y, groupBy, ...) and the rows into an
@@ -755,7 +756,8 @@ function cartesian(props_, rows, keys, ctx) {
         name: props.xTitle,
         data: categories,
         boundaryGap: seriesType === "bar" || xType === "category" ? undefined : false,
-        axisLabel: props.xFormat && xFmt ? { formatter: (v) => xFmt(v), hideOverlap: true } : { hideOverlap: true }
+        // -XFormat wins; a time axis without it gets dates at day boundaries (see timeaxis.js)
+        axisLabel: props.xFormat && xFmt ? { formatter: (v) => xFmt(v), hideOverlap: true } : xType === "time" ? { formatter: timeAxisFormatter(ctx.locale), hideOverlap: true } : { hideOverlap: true }
     };
     const yAxes = secondary.size > 0 ? [valueAxis(0), valueAxis(1)] : [valueAxis(0)];
     if (props.normalize) {
@@ -1631,7 +1633,7 @@ function gantt(props, rows, keys, ctx) {
         },
         // room for the zoom slider below the last lane
         grid: gridOf({ ...props, dataLabels: false, zoomAuto: true }, legend),
-        xAxis: { type: "time", position: "top", splitLine: { show: true }, axisLabel: { hideOverlap: true } },
+        xAxis: { type: "time", position: "top", splitLine: { show: true }, axisLabel: { hideOverlap: true, formatter: timeAxisFormatter(ctx.locale) } },
         yAxis: { type: "category", data: lanes, inverse: true, axisTick: { show: false }, splitLine: { show: true } },
         dataZoom: dataZoomOf({ ...props, zoomAuto: true }, false, legend.show && legend.bottom !== undefined),
         toolbox: toolboxOf(props, false, ctx.exportIcons),
@@ -1767,12 +1769,13 @@ function themeRiver(props, rows, keys, ctx) {
     const names = unique(rows.map((r) => String(r[groupKey] ?? ""))).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     const fmt = valueFormatter(props, ctx.locale);
     const legend = legendOf(props, true);
+    const riverTime = axisTypeFor(rows.map((r) => r[xKey]), props.xAxisType, "line") === "time";
     return {
         title: titleOf(props),
         legend: { ...legend, data: names },
         tooltip: { trigger: "axis", confine: true, axisPointer: { type: "line" }, valueFormatter: fmt || undefined },
         toolbox: toolboxOf(props, false, ctx.exportIcons),
-        singleAxis: { type: axisTypeFor(rows.map((r) => r[xKey]), props.xAxisType, "line") === "time" ? "time" : "category", top: props.title ? 70 : 40, bottom: legend.show && legend.bottom !== undefined ? 60 : 30, axisPointer: { animation: true, label: { show: true } }, splitLine: { show: true, lineStyle: { type: "dashed", opacity: 0.3 } } },
+        singleAxis: { type: riverTime ? "time" : "category", axisLabel: riverTime ? { formatter: timeAxisFormatter(ctx.locale), hideOverlap: true } : undefined, top: props.title ? 70 : 40, bottom: legend.show && legend.bottom !== undefined ? 60 : 30, axisPointer: { animation: true, label: { show: true } }, splitLine: { show: true, lineStyle: { type: "dashed", opacity: 0.3 } } },
         series: [{
             type: "themeRiver",
             emphasis: { focus: "series" },
@@ -1881,6 +1884,32 @@ function ringMax(series, stacked) {
     return max > 0 ? max : 1;
 }
 
+/*
+ * The value at a ring's end runs along the ring (ECharts rotates it with the tangent), so on the lower
+ * half of the circle it stands upside down. Such a label is turned by half a turn and aligned to the
+ * other side, so it still starts at the ring's end and reads upright. The ring starts at the top
+ * (startAngle 90) and runs clockwise over angleMax; a stacked ring ends where its stack ends. ECharts
+ * takes a polar bar label's numeric rotate in radians (sectorLabel.js, setSectorTextRotation).
+ */
+export function uprightRingLabels(series, angleMax, stacked) {
+    const ends = [];
+    for (const s of series) {
+        if (!s.label || !s.label.show) continue;
+        s.data.forEach((d, i) => {
+            const v = num(d.value);
+            if (v === null) return;
+            ends[i] = (stacked ? ends[i] || 0 : 0) + v;
+            // the end's angle on screen: from the top, clockwise; ECharts turns the text by 1.5 pi minus it
+            const anchor = -Math.PI / 2 + (ends[i] / (angleMax || 1)) * 2 * Math.PI;
+            const turn = (((1.5 * Math.PI - anchor) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+            if (turn > Math.PI / 2 + 1e-9 && turn < 1.5 * Math.PI - 1e-9) {
+                d.label = { ...(d.label || {}), rotate: turn - Math.PI, align: "right" };
+            }
+        });
+    }
+    return series;
+}
+
 function polarChart(props, rows, keys, ctx) {
     const type = String(props.chartType).toLowerCase();
     const xKey = resolveColumn(props.x, keys) ?? keys[0];
@@ -1913,6 +1942,8 @@ function polarChart(props, rows, keys, ctx) {
             })
         };
     });
+    const angleMax = (props.max ?? ringMax(series, props.stacked)) * 4 / 3;
+    if (type === "radialbar") uprightRingLabels(series, angleMax, props.stacked);
     const legend = legendOf(props, series.length > 1);
     const center = ["50%", props.title ? "55%" : "52%"];
     const valueAxis = { type: "value", max: props.max, min: props.min, axisLabel: fmt ? { formatter: (v) => fmt(v) } : {}, splitLine: { show: true } };
@@ -1926,7 +1957,7 @@ function polarChart(props, rows, keys, ctx) {
         // radialbar: categories are the rings, the value runs around; the full value (-Max) fills three
         // quarters of the circle, so the ring names fit into the free quarter next to where the rings start.
         // polar: categories around, value outward
-        angleAxis: type === "radialbar" ? { type: "value", min: 0, max: (props.max ?? ringMax(series, props.stacked)) * 4 / 3, startAngle: 90, show: false } : { ...categoryAxis, startAngle: 90 },
+        angleAxis: type === "radialbar" ? { type: "value", min: 0, max: angleMax, startAngle: 90, show: false } : { ...categoryAxis, startAngle: 90 },
         radiusAxis: type === "radialbar" ? { ...categoryAxis, z: 10, axisLabel: { interval: 0, align: "right", margin: 10, fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } } : valueAxis,
         series
     };
