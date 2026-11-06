@@ -79,21 +79,29 @@ if ($component) {
 }
 # README and CHANGELOG travel with the module (PowerShell Gallery, an installed copy), where links
 # relative to the repository lead nowhere: they become links to the same file on the default branch
+# (images to the raw file). Code spans and fenced code blocks stay as they are.
 $projectUri = (Import-PowerShellDataFile -LiteralPath $manifest).PrivateData.PSData.ProjectUri
+$absoluteLink = {
+    param($m)
+    # resolve ../ against modules/<Module>/ without touching the file system
+    $parts = [System.Collections.Generic.List[string]]@('modules', $Module)
+    foreach ($part in $m.Groups['path'].Value -split '/') {
+        if ($part -eq '..') { if ($parts.Count) { $parts.RemoveAt($parts.Count - 1) } }
+        elseif ($part -and $part -ne '.') { $parts.Add($part) }
+    }
+    $kind = if ($m.Groups['image'].Success) { 'raw' } else { 'blob' }
+    '{0}[{1}]({2}/{3}/HEAD/{4}{5})' -f $m.Groups['image'].Value, $m.Groups['text'].Value, $projectUri.TrimEnd('/'), $kind, ($parts -join '/'), $m.Groups['title'].Value
+}
 foreach ($extra in 'README.md', 'CHANGELOG.md') {
     $file = Join-Path $source $extra
     if (-not (Test-Path -LiteralPath $file)) { continue }
     $text = Get-Content -LiteralPath $file -Raw
     if ($projectUri) {
-        $text = [regex]::Replace($text, '\]\((?![a-z][a-z0-9+.-]*:|#|/)(?<path>[^)\s]+)\)', {
-                param($m)
-                # resolve ../ against modules/<Module>/ without touching the file system
-                $parts = [System.Collections.Generic.List[string]]@('modules', $Module)
-                foreach ($part in $m.Groups['path'].Value -split '/') {
-                    if ($part -eq '..') { if ($parts.Count) { $parts.RemoveAt($parts.Count - 1) } }
-                    elseif ($part -and $part -ne '.') { $parts.Add($part) }
-                }
-                '](' + $projectUri.TrimEnd('/') + '/blob/HEAD/' + ($parts -join '/') + ')'
+        # odd pieces of this split are code (fenced blocks or spans) and are kept unchanged
+        $pieces = [regex]::Split($text, '((?ms)^```.*?^```[^\n]*$|`[^`\n]+`)')
+        $text = -join (0..($pieces.Count - 1) | ForEach-Object {
+                if ($_ % 2) { $pieces[$_] }
+                else { [regex]::Replace($pieces[$_], '(?<image>!)?\[(?<text>[^\[\]]*)\]\((?![a-z][a-z0-9+.-]*:|#|/)(?<path>[^)\s]+)(?<title>\s+"[^"]*")?\)', $absoluteLink) }
             })
     }
     Set-Content -LiteralPath (Join-Path $out $extra) -Value $text -NoNewline -Encoding utf8NoBOM
