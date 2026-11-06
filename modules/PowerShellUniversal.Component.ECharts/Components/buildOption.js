@@ -915,9 +915,9 @@ function nameValue(props, rows, keys, ctx) {
             radius: type === "donut" ? ["45%", "72%"] : [0, "72%"],
             roseType: props.rose ? "radius" : undefined,
             // the pie lives in a box that leaves room for title and legend, so outside labels
-            // never run into the legend
+            // never run into the legend (fitPlot in layout.js adds the lines a wrapping legend takes)
             top: props.title ? 56 : 28,
-            bottom: legend.show && legend.bottom !== undefined ? (legend.type === "plain" ? 16 + 22 * Math.ceil(data.length / 4) : 40) : 8,
+            bottom: legend.show && legend.bottom !== undefined ? 40 : 8,
             labelLayout: { hideOverlap: true },
             itemStyle: { borderRadius: type === "donut" ? 4 : 0, borderWidth: 1 },
             label,
@@ -1015,7 +1015,8 @@ function boxplot(props, rows, keys, ctx) {
                 ? html`<b>${p.name}</b><br/>Max: ${f(p.value[5])}<br/>Q3: ${f(p.value[4])}<br/>Median: ${f(p.value[3])}<br/>Q1: ${f(p.value[2])}<br/>Min: ${f(p.value[1])}`
                 : html`${groups[p.value[horizontal ? 1 : 0]]}: ${f(p.value[horizontal ? 0 : 1])}`)
         },
-        grid: { left: 12, right: 24, top: props.title ? 60 : 20, bottom: 20, containLabel: true },
+        // below the toolbox (top right), as gridOf() places the cartesian charts
+        grid: { left: 12, right: 24, top: props.title ? 60 : props.toolbox === false ? 20 : 44, bottom: 20, containLabel: true },
         xAxis: horizontal ? val : cat,
         yAxis: horizontal ? cat : val,
         dataZoom: dataZoomOf({ zoom: props.zoom ?? "none" }, horizontal),

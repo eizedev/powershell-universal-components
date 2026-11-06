@@ -41,3 +41,9 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
 ### Fixed
 
 - Resizing waits for the next frame, so WebKit (Safari) no longer reports a ResizeObserver loop.
+- Charts without a grid (funnel, treemap, pie, donut, sunburst, gauge, polar, radialbar, radar) keep
+  their plot clear of title, toolbox and legend at every size: a legend that wraps over several lines
+  (`-LegendType Plain`) no longer covers the lowest funnel stage, the toolbox no longer sits on a
+  treemap, sunburst or funnel. Boxplots start below the toolbox as the other cartesian charts do.
+- Labels inside funnel stages, pie slices, treemap tiles and sunburst rings take dark or white text,
+  whichever contrasts more with the fill, so they stay readable on palettes with dark and light colours.

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
 import { buildOption, responsive, optionForWidth, NARROW, TINY } from "./buildOption";
-import { ensureTheme } from "./themes";
+import { ensureTheme, themeObject } from "./themes";
+import { fitPlot, insideLabelColors, legendRows, needsFit } from "./layout";
 import { registerLocales, echartsLocale } from "./locales";
 import { usePsuTheme, effectiveMode } from "../../../shared/js/psuTheme";
 import { defaultLocale } from "../../../shared/js/formatters";
@@ -118,9 +119,17 @@ export default function EChart(props) {
         };
     }, []);
 
-    // width class of the container: the option is rebuilt only when it crosses a rule's limit
-    const [widthClass, setWidthClass] = useState("wide");
-    const classOf = (w) => (w <= TINY ? "tiny" : w <= NARROW ? "narrow" : "wide");
+    // layout key of the container: the option is applied again only when the width crosses a rule's
+    // limit, or - for charts without a grid, whose plot is placed by size (fitPlot) - when the size or
+    // the number of legend lines changes noticeably
+    const [layoutKey, setLayoutKey] = useState("wide");
+    const latestOption = useRef(null);
+    latestOption.current = option.value;
+    const keyOf = (w, h) => {
+        const base = w <= TINY ? "tiny" : w <= NARROW ? "narrow" : "wide";
+        const o = latestOption.current;
+        return o && needsFit(o) ? `${base}|${Math.round(w / 32)}|${Math.round(h / 16)}|${legendRows(o, w)}` : base;
+    };
 
     // create once, dispose on unmount; follow the container's size
     useEffect(() => {
@@ -133,12 +142,12 @@ export default function EChart(props) {
         // reporting, and WebKit then reports "ResizeObserver loop completed with undelivered notifications"
         let frame = 0;
         const resize = new ResizeObserver((entries) => {
-            const width = entries[0].contentRect.width;
+            const { width, height } = entries[0].contentRect;
             cancelAnimationFrame(frame);
             frame = requestAnimationFrame(() => {
                 if (!chart.isDisposed()) {
                     chart.resize();
-                    setWidthClass(classOf(width));
+                    setLayoutKey(keyOf(width, height));
                 }
             });
         });
@@ -159,15 +168,20 @@ export default function EChart(props) {
         }
     }, [mode, psuTheme.text, customKey]);
 
-    // option: series, axes and datasets are replaced, zoom and legend state survive data updates
+    // option: series, axes and datasets are replaced, zoom and legend state survive data updates.
+    // After the width rules: the plot of a chart without a grid placed clear of title, toolbox and
+    // legend, and labels on fills coloured for contrast with the palette of the current theme.
     useEffect(() => {
         const chart = chartRef.current;
         if (!chart || !option.value) {
             return;
         }
-        const width = container.current ? container.current.clientWidth : 0;
-        chart.setOption(optionForWidth(option.value, option.rules, width), { replaceMerge: REPLACED });
-    }, [option, widthClass]);
+        const width = chart.getWidth();
+        const sized = optionForWidth(option.value, option.rules, width);
+        const placed = fitPlot(sized, { width, height: chart.getHeight() }, props.options);
+        const palette = themeObject(mode, psuTheme, customTheme).color;
+        chart.setOption(insideLabelColors(placed, palette), { replaceMerge: REPLACED });
+    }, [option, layoutKey, mode, psuTheme.text, customKey]);
 
     // linked charts: same -Group share tooltip, zoom and legend; a removed group unlinks the chart
     useEffect(() => {
