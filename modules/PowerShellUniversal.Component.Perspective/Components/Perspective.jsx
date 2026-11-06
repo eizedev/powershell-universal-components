@@ -13,6 +13,10 @@ import { THEMES, viewerConfig, prepareRows } from "./prepare";
 function sharedWorker() {
     if (!window.__psuPerspectiveWorker) {
         window.__psuPerspectiveWorker = window.__psuPerspective.then((perspective) => perspective.worker());
+        // a failed start (e.g. a policy blocking workers) must not stick for the rest of the page
+        window.__psuPerspectiveWorker.catch(() => {
+            window.__psuPerspectiveWorker = null;
+        });
     }
     return window.__psuPerspectiveWorker;
 }
@@ -35,18 +39,31 @@ export default function Perspective(props) {
             try {
                 const worker = await sharedWorker();
                 if (cancelled) return;
-                if (tableRef.current) {
-                    await tableRef.current.replace(prepared.rows);
+                const schemaKey = JSON.stringify(prepared.schema);
+                // same columns and types: replace the rows in place, the view keeps its layout
+                if (tableRef.current && tableRef.current.schemaKey === schemaKey) {
+                    await tableRef.current.table.replace(prepared.rows);
                     return;
                 }
-                // the schema first fixes every column's type (dates as dates), then the rows
+                // first load, or the columns changed (a table keeps its schema): a new table
                 const table = await worker.table(prepared.schema);
                 if (prepared.rows.length) await table.update(prepared.rows);
-                tableRef.current = table;
+                if (cancelled) {
+                    // unmounted or new data while this one was being built
+                    await table.delete();
+                    return;
+                }
+                const previous = tableRef.current;
+                tableRef.current = { table, schemaKey };
                 if (viewerRef.current) {
                     await viewerRef.current.load(table);
-                    await viewerRef.current.restore(viewerConfig(latest.current, keys, mode));
+                    if (!previous) {
+                        const problems = [];
+                        await viewerRef.current.restore(viewerConfig(latest.current, keys, mode, prepared.schema, problems));
+                        if (problems.length) setError(problems.join("; "));
+                    }
                 }
+                if (previous) await previous.table.delete();
             } catch (e) {
                 if (!cancelled) setError(String(e && e.message ? e.message : e));
             }
@@ -81,12 +98,12 @@ export default function Perspective(props) {
     // free the viewer and the table when the component leaves the page
     useEffect(() => () => {
         const viewer = viewerRef.current;
-        const table = tableRef.current;
+        const current = tableRef.current;
         tableRef.current = null;
         (async () => {
             try {
                 if (viewer) await viewer.delete();
-                if (table) await table.delete();
+                if (current) await current.table.delete();
             } catch (e) {
                 // already gone with the page
             }

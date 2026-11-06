@@ -11,8 +11,8 @@ hashtable PSU renders; see [README.md](README.md).
   A module without `package.json` is PowerShell only (the demo module with its app in `Apps/`).
 - `shared/js/` - JavaScript used by several modules (PSU theme bridge, column matching, formats,
   CSV/XLSX export). Compiled into each module's bundle; never a runtime dependency between modules.
-- `shared/powershell/` - PowerShell used by several modules (data conversion); copied into each built
-  module's `Private/`.
+- `shared/powershell/` - PowerShell used by several modules (data conversion, asset registration);
+  copied into each built module's `Private/`.
 - `build/` - `Build-Module.ps1` and the shared webpack configuration.
 - `docs/site/` - the documentation site: `examples.ps1` (code and chart from one source, run with the
   real `New-UDEChart` by `Build-Site.ps1`), the page (`src/main.jsx`, `index.html`) and its own

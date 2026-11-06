@@ -27,7 +27,9 @@ your PSU repository.
 `-Data` takes a DataTable, DataRows, PSCustomObjects, hashtables or a script block, like the other
 modules of this repository. Column names keep their PowerShell spelling in the grid. Every column gets
 a type from its values: ISO dates and times become dates (sortable and filterable as dates), whole
-numbers integers, other numbers floats, `$true`/`$false` booleans, everything else text.
+numbers up to 2,147,483,647 integers (Perspective's integers are 32 bit), other numbers floats,
+`$true`/`$false` booleans, everything else text. New data for the same component replaces the rows and
+keeps the reader's layout; when the columns or their types change, the table is built anew.
 
 ## The starting view
 
@@ -42,7 +44,10 @@ numbers integers, other numbers floats, `$true`/`$false` booleans, everything el
 | `-Settings` | open the configuration panel at the start |
 | `-Config` | Perspective's full viewer configuration (the viewer's "copy" button gives it), merged over the parameters |
 
-Column names in these parameters are matched without regard to case.
+Column names in these parameters are matched without regard to case; names with spaces work
+(`'Lead Hours > 48'`). Filter values take the column's type (`'Code == 007'` stays text in a text
+column); `in` and `not in` take a comma-separated list. An entry that names no column of the data is
+reported above the grid.
 
 ## Events
 
@@ -65,13 +70,15 @@ components.
 - The bundle is about 8 MB: it carries Perspective's WebAssembly, so it works without internet access.
   The browser downloads it once and caches it; PSU runs it for every Perspective component on a page,
   and only the first run sets the engine up, the others share it (one Web Worker per page).
-- All rows go to the browser (see the security notes of the ECharts module; select columns first).
+- All rows go to the browser: select the columns a reader may see first (`Select-Object`). Cell values
+  are shown as text; a column formatted as a link (in the panel or through `-Config`) makes its values
+  clickable URLs, so do not do that for data users can write.
 - Number formats follow Perspective (thousands separators also on id columns); adjust them in the
   configuration panel or through `-Config`.
 
 ## Example
 
-[examples/smoke.ps1](examples/smoke.ps1): 5000 generated tickets as a datagrid, a pivot (team x
+[examples/smoke.ps1](https://github.com/eizedev/powershell-universal-components/blob/main/modules/PowerShellUniversal.Component.Perspective/examples/smoke.ps1): 5000 generated tickets as a datagrid, a pivot (team x
 priority) and a chart.
 
 ## License

@@ -10,8 +10,31 @@ function mapColumns(list, keys) {
     return (Array.isArray(list) ? list : list ? [list] : []).map((c) => resolveColumn(c, keys) ?? c);
 }
 
-// the viewer configuration from the simple parameters; -Config (the full Perspective config) wins
-export function viewerConfig(props, keys, mode) {
+// a column name at the start of a -Sort or -Filter entry: the longest known name that matches (case
+// insensitive), so names with spaces ("Lead Hours > 5") work; otherwise the first word
+function leadingColumn(text, keys) {
+    const lower = text.toLowerCase();
+    const known = [...keys].sort((a, b) => b.length - a.length).find((k) => lower.startsWith(k.toLowerCase()) && (lower.length === k.length || /\s/.test(lower[k.length])));
+    if (known) return { column: known, rest: text.slice(known.length).trim() };
+    const m = /^(\S+)\s*(.*)$/.exec(text);
+    return m ? { column: resolveColumn(m[1], keys) ?? m[1], rest: m[2] } : null;
+}
+
+const OPERATORS = ["not in", "is not null", "is null", "begins with", "ends with", "contains", "==", "!=", "<=", ">=", "<", ">", "in"];
+
+// a filter value of the column's type: a number only for number columns ("007" stays text in a text
+// column), lists for in / not in, quotes removed
+function filterValue(raw, operator, type) {
+    if (operator === "is null" || operator === "is not null") return null;
+    const unquote = (v) => v.trim().replace(/^(['"])(.*)\1$/, "$2");
+    const typed = (v) => (type === "integer" || type === "float" ? Number(unquote(v)) : type === "boolean" ? /^(true|\$true|1)$/i.test(unquote(v)) : unquote(v));
+    if (operator === "in" || operator === "not in") return raw.split(",").map(typed);
+    return typed(raw);
+}
+
+// the viewer configuration from the simple parameters; -Config (the full Perspective config) wins.
+// `schema` (column -> type) types filter values; unparsable entries are reported in `problems`.
+export function viewerConfig(props, keys, mode, schema = {}, problems = []) {
     const config = {
         plugin: props.plugin || "Datagrid",
         theme: THEMES[mode] || THEMES.light,
@@ -23,9 +46,9 @@ export function viewerConfig(props, keys, mode) {
     if (props.sort) {
         // "Column desc" / "Column" (asc)
         config.sort = (Array.isArray(props.sort) ? props.sort : [props.sort]).map((s) => {
-            const [name, dir] = String(s).trim().split(/\s+/);
-            return [resolveColumn(name, keys) ?? name, /^desc/i.test(dir || "") ? "desc" : "asc"];
-        });
+            const parsed = leadingColumn(String(s).trim(), keys);
+            return parsed ? [parsed.column, /^desc/i.test(parsed.rest) ? "desc" : "asc"] : null;
+        }).filter(Boolean);
     }
     if (props.aggregates && typeof props.aggregates === "object") {
         config.aggregates = Object.fromEntries(Object.entries(props.aggregates).map(([k, v]) => [resolveColumn(k, keys) ?? k, String(v)]));
@@ -33,10 +56,13 @@ export function viewerConfig(props, keys, mode) {
     if (props.filter) {
         // "Column == value" / "Column > 5": column, operator, value
         config.filter = (Array.isArray(props.filter) ? props.filter : [props.filter]).map((f) => {
-            const m = /^\s*(\S+)\s+(==|!=|<=|>=|<|>|contains|in|not in|is null|is not null|begins with|ends with)\s*(.*)$/i.exec(String(f));
-            if (!m) return null;
-            const value = m[3] === "" ? null : Number.isNaN(Number(m[3])) ? m[3] : Number(m[3]);
-            return [resolveColumn(m[1], keys) ?? m[1], m[2].toLowerCase(), value];
+            const parsed = leadingColumn(String(f).trim(), keys);
+            const op = parsed && OPERATORS.find((o) => parsed.rest.toLowerCase().startsWith(o) && (/^[=!<>]/.test(o) || parsed.rest.length === o.length || /\s/.test(parsed.rest[o.length])));
+            if (!parsed || !op || !keys.includes(parsed.column)) {
+                problems.push(`-Filter "${f}": expected "<column> <operator> <value>" with a column of the data`);
+                return null;
+            }
+            return [parsed.column, op, filterValue(parsed.rest.slice(op.length), op, schema[parsed.column])];
         }).filter(Boolean);
     }
     return props.config && typeof props.config === "object" ? { ...config, ...props.config } : config;
@@ -64,7 +90,8 @@ export function prepareRows(rows, columnNames) {
         if (values.length && values.every((v) => typeof v === "string" && DATE.test(v))) types[key] = "date";
         else if (values.length && values.every((v) => typeof v === "string" && DATETIME.test(v))) types[key] = "datetime";
         else if (values.length && values.every((v) => typeof v === "boolean")) types[key] = "boolean";
-        else if (values.length && values.every((v) => typeof v === "number")) types[key] = values.every((v) => Number.isInteger(v)) ? "integer" : "float";
+        // Perspective's integer is 32 bit: larger whole numbers (bytes, epoch ms, big ids) as float
+        else if (values.length && values.every((v) => typeof v === "number")) types[key] = values.every((v) => Number.isInteger(v) && Math.abs(v) <= 2147483647) ? "integer" : "float";
         else types[key] = "string";
     }
     const name = (k) => original.get(k) ?? k;
