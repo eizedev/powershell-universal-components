@@ -93,8 +93,11 @@ export function plotBands(option, width) {
     let bottom = 0;
     const title = list(option.title)[0];
     if (title && title.show !== false && (title.text || title.subtext)) {
-        // padding 5, a main line of about 30 px (18 px bold), a sub line of 18 px
-        top = Math.max(top, 5 + (title.text ? 30 : 0) + (title.subtext ? 18 : 0));
+        // padding 5, a main line of about 30 px (18 px bold), a sub line of 18 px (12 px), both growing
+        // with the text size (--psu-chart-font-size, fonts.js)
+        const main = (title.textStyle && title.textStyle.fontSize) || 18;
+        const sub = (title.subtextStyle && title.subtextStyle.fontSize) || 12;
+        top = Math.max(top, 5 + (title.text ? Math.round(main * 5 / 3) : 0) + (title.subtext ? Math.round(sub * 1.5) : 0));
     }
     const legend = list(option.legend)[0];
     const rows = legend ? legendRows(option, width) : 0;

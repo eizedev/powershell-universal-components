@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
 import { buildOption, responsive, optionForWidth, NARROW, TINY } from "./buildOption";
-import { ensureTheme, themeObject } from "./themes";
+import { ensureTheme, themeObject, pageFontSize } from "./themes";
+import { scaleFonts } from "./fonts";
 import { fitPlot, insideLabelColors, legendRows, needsFit } from "./layout";
 import { registerLocales, echartsLocale } from "./locales";
 import { usePsuTheme, effectiveMode } from "../../../shared/js/psuTheme";
@@ -169,7 +170,7 @@ export default function EChart(props) {
     }, [mode, psuTheme.text, customKey]);
 
     // option: series, axes and datasets are replaced, zoom and legend state survive data updates.
-    // After the width rules: the plot of a chart without a grid placed clear of title, toolbox and
+    // After the width rules and the text sizes: the plot of a chart without a grid placed clear of title, toolbox and
     // legend, and labels on fills coloured for contrast with the palette of the current theme.
     useEffect(() => {
         const chart = chartRef.current;
@@ -177,7 +178,8 @@ export default function EChart(props) {
             return;
         }
         const width = chart.getWidth();
-        const sized = optionForWidth(option.value, option.rules, width);
+        // text sizes from the app's stylesheet before the plot is placed, so the layout sees them
+        const sized = scaleFonts(optionForWidth(option.value, option.rules, width), pageFontSize());
         const placed = fitPlot(sized, { width, height: chart.getHeight() }, props.options);
         const theme = themeObject(mode, psuTheme, customTheme);
         chart.setOption(insideLabelColors(placed, theme.color, theme.textStyle && theme.textStyle.color), { replaceMerge: REPLACED });

@@ -15,7 +15,10 @@ plain legend wraps in a narrow container; a position or size set in `-Options` (
 labels under the nodes, and its nodes stay round in a narrow or a wide chart; radial bar names keep
 clear of the rings' round ends.
 In a narrow container the charts use smaller text and hide what does not fit (value labels on tiny
-charts, toolbox buttons that need room).
+charts, toolbox buttons that need room). With `--psu-chart-font-size` ([Themes](themes.md)) these
+sizes follow the app's base size by the same factor, and title, legend and labels keep their room when
+the text grows. The first and last label of a time axis are aligned inwards, so a tick at the edge of a
+narrow chart is not cut.
 
 In a row of a flex container (`New-UDStack -Direction row`), the items share the row with
 `-Style @{ flex = '1 1 0'; minWidth = 0 }` on their `New-UDPaper`.
