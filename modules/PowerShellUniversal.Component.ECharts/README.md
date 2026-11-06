@@ -126,7 +126,9 @@ commas; `` `n `` starts a new line. `-LabelColumn Name` is the short form of `-L
 their own (a tree's folders, aggregated nodes) keep their name. Values are HTML-escaped in tooltips.
 
 `-Legend Bottom | Top | Left | Right | None` places the legend; `-LegendType Scroll` (default) pages
-through entries that do not fit, `Plain` wraps them over several lines.
+through entries that do not fit, `Plain` wraps them over several lines. Labels inside a filled shape
+(funnel stages, pie slices with inside labels, treemap tiles, sunburst rings) are dark or white,
+whichever contrasts more with the fill; a `label.color` in `-Options` wins.
 
 ## Formats
 
@@ -171,7 +173,10 @@ New-UDEChart -Data $samples -Type line -X Time -Y ResponseMs -Breaks $breaks -Ma
 the container's width) size the chart; `-Id`, `-ClassName` and `-Style` work as on PSU's own components.
 The chart follows its container's size, also when it was created hidden and shown later: tested in
 `New-UDStack`, `New-UDGrid`, `New-UDPaper`, `New-UDTabs` (with and without `-RenderOnActive`),
-`New-UDExpansionPanel`, `Show-UDModal` and `New-UDDynamic -AutoRefresh` (showcase page "Layouts"). In a
+`New-UDExpansionPanel`, `Show-UDModal` and `New-UDDynamic -AutoRefresh` (showcase page "Layouts").
+Charts without a grid (funnel, treemap, pie, sunburst, gauge, polar, radialbar, radar) place their plot
+below the title and toolbox and above the legend for the size they have, also when a plain legend wraps
+in a narrow container; a position or size set in `-Options` (`top`, `bottom`, `center`, `radius`) wins. In a
 row of a flex container (`New-UDStack -Direction row`), the items share the row with
 `-Style @{ flex = '1 1 0'; minWidth = 0 }` on their `New-UDPaper` (as on the showcase page).
 

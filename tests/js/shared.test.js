@@ -114,3 +114,20 @@ test("pickColumns: only the named columns, case-insensitive; whole row without a
     assert.equal(pickColumns(row, undefined), row);
     assert.equal(pickColumns(undefined, ["Name"]), undefined);
 });
+
+test("textOn: the text colour with the higher WCAG contrast to the fill", async () => {
+    const { textOn, contrastRatio, parseColor, lighten, DARK_TEXT, LIGHT_TEXT } = await import("../../shared/js/contrast.js");
+    // the palette of the funnel report: dark and middle blue take white, the light grey dark text
+    assert.equal(textOn("#003452"), LIGHT_TEXT);
+    assert.equal(textOn("#4D7186"), LIGHT_TEXT);
+    assert.equal(textOn("#A8B7C4"), DARK_TEXT);
+    assert.equal(textOn("#ffd10a"), DARK_TEXT);
+    assert.equal(textOn("rgb(0, 52, 82)"), LIGHT_TEXT);
+    assert.equal(textOn("#fff"), DARK_TEXT);
+    // not a colour it can read: the label is left alone
+    assert.equal(textOn("steelblue"), undefined);
+    assert.equal(textOn({ type: "linear" }), undefined);
+    assert.ok(contrastRatio(parseColor("#000"), parseColor("#fff")) > 20.9);
+    // as ECharts' lift(): half way to white, rounded down
+    assert.equal(lighten("#003452", 0.5), "#7f99a8");
+});

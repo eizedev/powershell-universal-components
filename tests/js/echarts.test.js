@@ -512,3 +512,90 @@ test("aggregate: empty groups are gaps, large groups work, time axes combine equ
     const bump = buildOption({ chartType: "bump", data: [{ m: "Jan", c: "A", t: null }, { m: "Jan", c: "B", t: 5 }, { m: "Jan", c: "C", t: 4 }], x: "m", groupBy: "c", y: ["t"] }, {});
     assert.equal(bump.series.find((s) => s.name === "A").data[0].value, null, "no value, no rank");
 });
+
+// ---- layout.js: plots without a grid clear of title, toolbox and legend; labels on fills ----------
+
+const stages = [{ stage: "Leads", count: 1200 }, { stage: "Qualified", count: 640 }, { stage: "Offer", count: 310 }, { stage: "Won", count: 120 }];
+const exportIcons = { csv: "path://M0 0", xlsx: "path://M0 0", onCsv: () => {}, onXlsx: () => {}, onFullscreen: () => {} };
+
+test("fitPlot: a funnel starts below the toolbox and ends above a legend that wraps", async () => {
+    const { fitPlot, plotBands, legendRows } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/layout.js");
+    const many = ["Visitors", "Leads", "Qualified", "Demo", "Offer", "Negotiation", "Won"].map((stage, i) => ({ stage, count: 1000 - 100 * i }));
+    const o = buildOption({ chartType: "funnel", data: many, x: "Stage", y: ["Count"], legendType: "Plain" }, { locale: "en-US", exportIcons });
+    // a plain legend of seven stages takes more than one line at 416 px, one at 1400 px
+    assert.ok(legendRows(o, 416) >= 2);
+    assert.equal(legendRows(o, 1400), 1);
+    const bands = plotBands(o, 416);
+    const fitted = fitPlot(o, { width: 416, height: 340 }, undefined);
+    assert.ok(fitted.series[0].top >= bands.toolbox.y + bands.toolbox.h, "funnel below the toolbox");
+    assert.ok(fitted.series[0].bottom >= bands.bottom, "funnel above the legend lines");
+    assert.ok(bands.bottom > 40, "two legend lines need more than the builder's 40 px");
+    // the generated option itself is not changed
+    assert.equal(o.series[0].top, 20);
+    // what the user set in -Options stays
+    const user = { series: [{ top: 5 }] };
+    assert.equal(fitPlot({ ...o, series: [{ ...o.series[0], top: 5 }] }, { width: 416, height: 340 }, user).series[0].top, 5);
+});
+
+test("fitPlot: a sunburst under the toolbox moves down and shrinks, gauge rings move together", async () => {
+    const { fitPlot, plotBands } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/layout.js");
+    const tree = [{ team: "Network", p: "P1", n: 3 }, { team: "Network", p: "P2", n: 5 }, { team: "Desk", p: "P1", n: 4 }];
+    const o = buildOption({ chartType: "sunburst", data: tree, path: ["Team", "P"], y: ["N"] }, { locale: "en-US", exportIcons });
+    const size = { width: 416, height: 340 };
+    const s = fitPlot(o, size, undefined).series[0];
+    const bands = plotBands(o, size.width);
+    const [, cy] = s.center;
+    const r = s.radius[1];
+    assert.equal(typeof cy, "number");
+    assert.ok(cy - r >= bands.toolbox.y + bands.toolbox.h, "outer ring below the toolbox");
+    assert.ok(cy + r <= size.height, "and inside the chart");
+    // without a toolbox nothing is in the way: centre and radius stay as built
+    const free = buildOption({ chartType: "sunburst", data: tree, path: ["Team", "P"], y: ["N"], toolbox: false }, { locale: "en-US" });
+    assert.deepEqual(fitPlot(free, size, undefined).series[0].radius, free.series[0].radius);
+    // rings of a ring gauge share a centre: moved by the same amount, scaled by the same factor
+    // (a low chart with a title: the outer ring would reach into the title)
+    const rings = buildOption({ chartType: "gauge", gaugeStyle: "Ring", title: "Availability", data: [{ s: "A", v: 90 }, { s: "B", v: 70 }], x: "S", y: ["V"] }, { locale: "en-US", exportIcons });
+    const g = fitPlot(rings, { width: 300, height: 200 }, undefined).series;
+    assert.equal(typeof g[0].center[1], "number");
+    assert.equal(g[0].center[1], g[1].center[1]);
+    assert.ok(g[0].center[1] - g[0].radius[1] >= plotBands(rings, 300).top, "outer ring below the title");
+    const before = rings.series.map((x) => parseFloat(x.radius));
+    assert.ok(Math.abs(g[0].radius[1] / g[1].radius[1] - before[0] / before[1]) < 0.02);
+});
+
+test("fitPlot: a pie keeps its place when nothing is in the way, cartesian charts are not touched", async () => {
+    const { fitPlot } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/layout.js");
+    const pie = buildOption({ chartType: "pie", data: stages, x: "Stage", y: ["Count"] }, { locale: "en-US", exportIcons });
+    const p = fitPlot(pie, { width: 1300, height: 340 }, undefined).series[0];
+    assert.equal(p.top, pie.series[0].top);
+    const bar = buildOption({ chartType: "bar", data: stages, x: "Stage", y: ["Count"] }, { locale: "en-US", exportIcons });
+    assert.equal(fitPlot(bar, { width: 400, height: 300 }, undefined), bar);
+});
+
+test("insideLabelColors: labels on funnel stages, treemap tiles and sunburst rings contrast with their fill", async () => {
+    const { insideLabelColors } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/layout.js");
+    const palette = ["#003452", "#4D7186", "#A8B7C4"];
+    const funnel = insideLabelColors(buildOption({ chartType: "funnel", data: stages, x: "Stage", y: ["Count"], palette }, { locale: "en-US" }), ["#999999"]);
+    // -Palette wins over the theme's palette; the fourth stage takes the first colour again
+    assert.deepEqual(funnel.series[0].data.map((d) => d.label.color), ["#ffffff", "#ffffff", "#1f2430", "#ffffff"]);
+    // from the theme's palette when there is no -Palette
+    const themed = insideLabelColors(buildOption({ chartType: "funnel", data: stages, x: "Stage", y: ["Count"] }, { locale: "en-US" }), ["#ffd10a"]);
+    assert.equal(themed.series[0].data[0].label.color, "#1f2430");
+    // pie labels outside the slices keep the page's text colour
+    const pie = buildOption({ chartType: "pie", data: stages, x: "Stage", y: ["Count"] }, { locale: "en-US" });
+    assert.equal(insideLabelColors(pie, palette), pie);
+    const tree = [{ team: "Network", p: "P1", n: 3 }, { team: "Desk", p: "P1", n: 4 }];
+    const tm = insideLabelColors(buildOption({ chartType: "treemap", data: tree, path: ["Team", "P"], y: ["N"] }, { locale: "en-US" }), ["#A8B7C4", "#003452"]);
+    // group headers sit on the theme's gap colour, not on the tile: their colour stays the theme's
+    assert.equal(tm.series[0].data[0].upperLabel, undefined);
+    assert.equal(tm.series[0].data[0].children[0].label.color, "#1f2430");
+    assert.equal(tm.series[0].data[1].children[0].label.color, "#ffffff");
+    // sunburst: the outer ring is lighter (a quarter of the way to white, as ECharts draws it), here
+    // light enough for dark text
+    const sb = insideLabelColors(buildOption({ chartType: "sunburst", data: tree, path: ["Team", "P"], y: ["N"] }, { locale: "en-US" }), ["#4D7186"]);
+    assert.equal(sb.series[0].data[0].label.color, "#ffffff");
+    assert.equal(sb.series[0].data[0].children[0].label.color, "#1f2430");
+    // a label colour from -Options stays
+    const own = { ...funnel, series: [{ ...funnel.series[0], data: [{ name: "Leads", value: 1, label: { color: "red" } }] }] };
+    assert.equal(insideLabelColors(own, palette).series[0].data[0].label.color, "red");
+});
