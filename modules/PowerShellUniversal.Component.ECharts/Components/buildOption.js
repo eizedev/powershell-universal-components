@@ -3,7 +3,7 @@ import { formatter, labelFormatSpec } from "../../../shared/js/formatters.js";
 import { html, joinHtml, trusted } from "../../../shared/js/html.js";
 import { compileTemplate, columnsTemplate } from "../../../shared/js/template.js";
 import { applyColorMap } from "./colormap.js";
-import { timeAxisFormatter } from "./timeaxis.js";
+import { timeAxisLabel } from "./timeaxis.js";
 
 /*
  * Turns the simple parameters of New-UDEChart (chartType, x, y, groupBy, ...) and the rows into an
@@ -757,7 +757,7 @@ function cartesian(props_, rows, keys, ctx) {
         data: categories,
         boundaryGap: seriesType === "bar" || xType === "category" ? undefined : false,
         // -XFormat wins; a time axis without it gets dates at day boundaries (see timeaxis.js)
-        axisLabel: props.xFormat && xFmt ? { formatter: (v) => xFmt(v), hideOverlap: true } : xType === "time" ? { formatter: timeAxisFormatter(ctx.locale), hideOverlap: true } : { hideOverlap: true }
+        axisLabel: xType === "time" ? timeAxisLabel(ctx.locale, props.xFormat && xFmt ? (v) => xFmt(v) : undefined) : props.xFormat && xFmt ? { formatter: (v) => xFmt(v), hideOverlap: true } : { hideOverlap: true }
     };
     const yAxes = secondary.size > 0 ? [valueAxis(0), valueAxis(1)] : [valueAxis(0)];
     if (props.normalize) {
@@ -1633,7 +1633,7 @@ function gantt(props, rows, keys, ctx) {
         },
         // room for the zoom slider below the last lane
         grid: gridOf({ ...props, dataLabels: false, zoomAuto: true }, legend),
-        xAxis: { type: "time", position: "top", splitLine: { show: true }, axisLabel: { hideOverlap: true, formatter: timeAxisFormatter(ctx.locale) } },
+        xAxis: { type: "time", position: "top", splitLine: { show: true }, axisLabel: timeAxisLabel(ctx.locale) },
         yAxis: { type: "category", data: lanes, inverse: true, axisTick: { show: false }, splitLine: { show: true } },
         dataZoom: dataZoomOf({ ...props, zoomAuto: true }, false, legend.show && legend.bottom !== undefined),
         toolbox: toolboxOf(props, false, ctx.exportIcons),
@@ -1775,7 +1775,7 @@ function themeRiver(props, rows, keys, ctx) {
         legend: { ...legend, data: names },
         tooltip: { trigger: "axis", confine: true, axisPointer: { type: "line" }, valueFormatter: fmt || undefined },
         toolbox: toolboxOf(props, false, ctx.exportIcons),
-        singleAxis: { type: riverTime ? "time" : "category", axisLabel: riverTime ? { formatter: timeAxisFormatter(ctx.locale), hideOverlap: true } : undefined, top: props.title ? 70 : 40, bottom: legend.show && legend.bottom !== undefined ? 60 : 30, axisPointer: { animation: true, label: { show: true } }, splitLine: { show: true, lineStyle: { type: "dashed", opacity: 0.3 } } },
+        singleAxis: { type: riverTime ? "time" : "category", axisLabel: riverTime ? timeAxisLabel(ctx.locale) : undefined, top: props.title ? 70 : 40, bottom: legend.show && legend.bottom !== undefined ? 60 : 30, axisPointer: { animation: true, label: { show: true } }, splitLine: { show: true, lineStyle: { type: "dashed", opacity: 0.3 } } },
         series: [{
             type: "themeRiver",
             emphasis: { focus: "series" },

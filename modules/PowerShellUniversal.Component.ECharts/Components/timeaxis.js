@@ -57,3 +57,12 @@ export function timeAxisFormatter(locale) {
         return boundary === step ? label : `{primary|${label}}`;
     };
 }
+
+/*
+ * The axis label settings of a horizontal time axis: the labels above, and the first and last label
+ * aligned inwards. A tick at the very edge of the axis would otherwise be centred on it and cut by
+ * the chart's border in narrow charts ("07:0"). `format` (from -XFormat) replaces the labels above.
+ */
+export function timeAxisLabel(locale, format) {
+    return { formatter: format || timeAxisFormatter(locale), hideOverlap: true, alignMinLabel: "left", alignMaxLabel: "right" };
+}

@@ -10,9 +10,13 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
 - `-ColorMap @{ Failed = '#E3000F'; Success = '#287233' }`: a fixed colour per category name for series,
   data items and gantt groups of every chart type, optionally one per mode; the README lists the
   palette order per type.
+- `--psu-chart-font-size` in the app's stylesheet sets the base text size of every chart: axis labels,
+  legend, data labels, tooltips and titles grow or shrink by the same factor, also in narrow charts.
 
 ### Fixed
 
+- The first and last label of a time axis are aligned inwards: a tick at the edge of a narrow chart
+  is no longer cut ("07:0").
 - Radial bar values at the end of rings on the lower half of the circle read upright instead of upside
   down.
 - Time axes without `-XFormat` (line, area, bar, gantt, themeriver) write the date where a day starts

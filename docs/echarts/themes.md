@@ -35,8 +35,19 @@ per mode:
 :root[data-theme="dark"] { --psu-chart-1: #6fa8dc; --psu-chart-2: #f6b26b; --psu-chart-text: #e6e9ef; }
 ```
 
-They apply to the whole page, so this site shows no live example of them (it would recolour every
-chart here).
+`--psu-chart-font-size` sets the base text size of every chart (ECharts' own is 12 px), in `px`, a bare
+number or `rem`/`em`, between 8 and 32 px. Axis labels, legend, data labels, tooltips and titles grow
+or shrink by the same factor (14 px: titles 21 px instead of 18), also the smaller sizes of narrow
+charts ([Layout](layout.md)):
+
+```css
+:root { --psu-chart-font-size: 14px; }
+```
+
+The properties are read from the page root (`:root`), so they apply to every chart of the app. An app
+sets them in its stylesheet, or on the page with
+`New-UDHtml -Markup '<style>:root { --psu-chart-font-size: 14px; }</style>'`. They apply to the whole
+page, so this site shows no live example of them (it would restyle every chart here).
 
 ## Fixed colours per category
 

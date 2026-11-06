@@ -14,6 +14,8 @@ const LIGHT = { text: "#303133", muted: "#6e7079", axis: "#c9cdd4", split: "#e8e
 const DARK = { text: "#e5e7eb", muted: "#a3a8b3", axis: "#4b5058", split: "#2a2d33", tooltip: "#2c2f35", tooltipBorder: "#3a3d44", accent: "#64b5f6", palette: ["#5070dd", "#b6d634", "#9aa0d0", "#ff994d", "#0ca8df", "#ffd10a", "#fb628b", "#a58be0", "#3fbe95"] };
 
 // CSS custom properties read from <html>; --psu-chart-1 ... --psu-chart-12 are the series colours
+import { parseFontSize } from "./fonts.js";
+
 const TOKENS = { text: "--psu-chart-text", muted: "--psu-chart-muted", axis: "--psu-chart-axis", split: "--psu-chart-grid", tooltip: "--psu-chart-tooltip", tooltipBorder: "--psu-chart-tooltip-border", accent: "--psu-chart-accent" };
 
 export function readCssTokens(read) {
@@ -29,7 +31,15 @@ export function readCssTokens(read) {
         if (v) palette[i - 1] = v;
     }
     if (palette.length) out.palette = palette;
+    // --psu-chart-font-size: the base text size of every chart (see fonts.js)
+    const fontSize = parseFontSize(read("--psu-chart-font-size"), parseFloat(read("font-size")) || 16);
+    if (fontSize) out.fontSize = fontSize;
     return out;
+}
+
+// the base text size the page's stylesheet asks for, or undefined (ECharts' 12 px)
+export function pageFontSize(tokens = tokensOfPage()) {
+    return tokens.fontSize;
 }
 
 function tokensOfPage() {
@@ -63,7 +73,7 @@ function themeFor(c, psu) {
     return {
         color: c.palette,
         backgroundColor: "transparent",
-        textStyle: { color: text, fontFamily: psu && psu.fontFamily ? psu.fontFamily : undefined },
+        textStyle: { color: text, fontFamily: psu && psu.fontFamily ? psu.fontFamily : undefined, fontSize: c.fontSize },
         title: { textStyle: { color: text }, subtextStyle: { color: c.muted } },
         legend: { textStyle: { color: text }, pageTextStyle: { color: c.muted } },
         tooltip: { backgroundColor: c.tooltip, borderColor: c.tooltipBorder, textStyle: { color: text } },

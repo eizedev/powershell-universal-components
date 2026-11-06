@@ -742,3 +742,62 @@ test("time axes: dates at day boundaries, times between, in -Locale", async () =
     const own = buildOption({ chartType: "line", data: days, x: "day", y: ["opened"], xFormat: "date" }, { locale: "en-US" });
     assert.notEqual(own.xAxis.axisLabel.formatter(midnight, 1, hourStep("day")), "{primary|Nov 5}");
 });
+
+// #54: the first and last label of a time axis are aligned inwards, so a tick at the edge is not cut
+test("time axes: first and last label aligned inwards, also with -XFormat", () => {
+    const jobs = [{ Server: "srv-1", Start: "2026-11-04T22:00:00", End: "2026-11-05T07:00:00" }];
+    const axes = [
+        buildOption({ chartType: "line", data: days, x: "day", y: ["opened"] }, {}).xAxis,
+        buildOption({ chartType: "line", data: days, x: "day", y: ["opened"], xFormat: "date" }, {}).xAxis,
+        buildOption({ chartType: "gantt", data: jobs, x: "Server", start: "Start", end: "End" }, {}).xAxis
+    ];
+    for (const a of axes) {
+        assert.equal(a.axisLabel.alignMinLabel, "left");
+        assert.equal(a.axisLabel.alignMaxLabel, "right");
+        assert.equal(a.axisLabel.hideOverlap, true);
+    }
+    // a category axis keeps centred labels
+    const bars = buildOption({ chartType: "bar", data: [{ T: "A", N: 1 }], x: "T", y: ["N"] }, {});
+    assert.equal(bars.xAxis.axisLabel.alignMaxLabel, undefined);
+});
+
+// #34: the base text size from the app's stylesheet
+test("text sizes: --psu-chart-font-size scales every text, the option is unchanged without it", async () => {
+    const { scaleFonts, parseFontSize } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/fonts.js");
+    const { readCssTokens } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/themes.js");
+    const { responsive, optionForWidth } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js");
+    assert.equal(parseFontSize("14px"), 14);
+    assert.equal(parseFontSize(" 16 "), 16);
+    assert.equal(parseFontSize("0.875rem", 16), 14);
+    assert.equal(parseFontSize("large"), undefined);
+    assert.equal(parseFontSize("40px"), undefined);
+    assert.equal(readCssTokens((n) => ({ "--psu-chart-font-size": "1rem", "font-size": "15px" })[n] || "").fontSize, 15);
+    assert.equal(readCssTokens(() => "").fontSize, undefined);
+
+    const props = { chartType: "bar", data: [{ T: "A", N: 1 }, { T: "B", N: 2 }], x: "T", y: ["N"], title: "Tickets", dataLabels: true };
+    const o = buildOption(props, {});
+    // without the property, or at the base size: the same object, nothing changes
+    assert.equal(scaleFonts(o, undefined), o);
+    assert.equal(scaleFonts(o, 12), o);
+    const big = scaleFonts(o, 16);
+    assert.equal(big.textStyle.fontSize, 16);
+    assert.equal(big.title.textStyle.fontSize, 24);
+    assert.equal(big.xAxis.axisLabel.fontSize, 16);
+    assert.equal(big.series[0].label.fontSize, 16);
+    // the smaller sizes of the narrow rules grow by the same factor
+    const narrow = optionForWidth(o, responsive(o, props, {}), 400);
+    assert.equal(narrow.xAxis.axisLabel.fontSize, 10);
+    assert.equal(scaleFonts(narrow, 18).xAxis.axisLabel.fontSize, 15);
+    // the option itself is left alone (the component scales a copy on every width change)
+    assert.equal(o.xAxis.axisLabel.fontSize, undefined);
+    assert.deepEqual(big.series[0].data, o.series[0].data);
+});
+
+test("text sizes: the plot of a chart without a grid starts below a larger title", async () => {
+    const { plotBands } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/layout.js");
+    const { scaleFonts } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/fonts.js");
+    const o = buildOption({ chartType: "pie", data: [{ T: "A", N: 1 }, { T: "B", N: 2 }], x: "T", y: ["N"], title: "Share" }, {});
+    const normal = plotBands(o, 800).top;
+    assert.equal(normal, 35);
+    assert.ok(plotBands(scaleFonts(o, 18), 800).top > normal + 10);
+});
