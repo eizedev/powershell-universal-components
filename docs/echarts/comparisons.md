@@ -32,3 +32,6 @@ categories around a circle with `polar` and progress rings with `radialbar`.
 
 --8<-- "examples/progress-rings-radialbar.md"
 
+The value stands at the end of each ring, along the ring; on the lower half of the circle it is turned
+so it reads upright.
+

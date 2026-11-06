@@ -698,3 +698,47 @@ test("-ColorMap: only colour strings, and labels on a mapped fill contrast with 
     assert.equal(labelled.series[0].data.find((d) => d.name === "Running").label.color, "#1f2430");
     assert.equal(labelled.series[0].data.find((d) => d.name === "Failed").label.color, "#ffffff");
 });
+
+// #46: the value at a ring's end reads upright on the lower half of the circle
+test("radialbar: values ending on the lower half are turned upright, the others keep ECharts' rotation", () => {
+    const rings = [92, 81, 64, 57, 20].map((v, i) => ({ Customer: `C${i}`, Compliance: v }));
+    const o = buildOption({ chartType: "radialbar", data: rings, x: "Customer", y: ["Compliance"], max: 92 }, {});
+    const labels = o.series[0].data.map((d) => d.label);
+    // full value 92 fills three quarters (270 degrees, the left side): vertical, read bottom to top, as is
+    assert.equal(labels[0], undefined);
+    // 81 (238 degrees), 64 (188 degrees) and 57 (167 degrees) end on the lower half: turned by half a turn
+    for (const i of [1, 2, 3]) {
+        assert.ok(labels[i] && labels[i].align === "right", `ring ${i} aligned to the other side`);
+        assert.ok(labels[i].rotate > -Math.PI / 2 && labels[i].rotate < Math.PI / 2, `ring ${i} upright: ${labels[i].rotate}`);
+    }
+    // 20 (59 degrees, upper right) reads upright already
+    assert.equal(labels[4], undefined);
+    // stacked: a segment's label sits where its stack ends (20 of 120 is upper right, 80 of 120 lower left)
+    const stacked = buildOption({ chartType: "radialbar", data: [{ C: "A", X: 20, Y: 60 }], x: "C", y: ["X", "Y"], stacked: true, max: 90 }, {});
+    assert.equal(stacked.series[0].data[0].label, undefined);
+    assert.equal(stacked.series[1].data[0].label.align, "right");
+});
+
+// #50: a time axis over midnight says which day starts, in the chart's locale
+test("time axes: dates at day boundaries, times between, in -Locale", async () => {
+    const { timeAxisFormatter } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/timeaxis.js");
+    const midnight = new Date(2026, 10, 5).getTime();
+    const late = new Date(2026, 10, 4, 23).getTime();
+    const hourStep = (upper) => ({ time: { lowerTimeUnit: "hour", upperTimeUnit: upper, level: upper === "hour" ? 0 : 1 } });
+    const en = timeAxisFormatter("en-US");
+    const de = timeAxisFormatter("de-DE");
+    assert.equal(en(late, 0, hourStep("hour")), "23:00");
+    assert.equal(en(midnight, 1, hourStep("day")), "{primary|Nov 5}");
+    assert.equal(de(midnight, 1, hourStep("day")), "{primary|5. Nov.}");
+    // a year boundary on an hour axis keeps the year; a month boundary on a day axis is the month
+    assert.match(en(new Date(2027, 0, 1).getTime(), 2, hourStep("year")), /^\{primary\|Jan 1, 2027\}$/);
+    assert.equal(en(new Date(2026, 10, 1).getTime(), 3, { time: { lowerTimeUnit: "day", upperTimeUnit: "month" } }), "{primary|Nov}");
+    // the axes that use it: gantt, a cartesian time axis without -XFormat, themeriver
+    const jobs = [{ Server: "srv-1", Start: "2026-11-04T22:00:00", End: "2026-11-05T01:00:00" }];
+    const g = buildOption({ chartType: "gantt", data: jobs, x: "Server", start: "Start", end: "End", locale: "de-DE" }, { locale: "de-DE" });
+    assert.equal(g.xAxis.axisLabel.formatter(midnight, 1, hourStep("day")), "{primary|5. Nov.}");
+    const line = buildOption({ chartType: "line", data: days, x: "day", y: ["opened"] }, { locale: "en-US" });
+    assert.equal(typeof line.xAxis.axisLabel.formatter, "function");
+    const own = buildOption({ chartType: "line", data: days, x: "day", y: ["opened"], xFormat: "date" }, { locale: "en-US" });
+    assert.notEqual(own.xAxis.axisLabel.formatter(midnight, 1, hourStep("day")), "{primary|Nov 5}");
+});

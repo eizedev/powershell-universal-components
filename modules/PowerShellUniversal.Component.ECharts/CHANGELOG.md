@@ -13,6 +13,11 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
 
 ### Fixed
 
+- Radial bar values at the end of rings on the lower half of the circle read upright instead of upside
+  down.
+- Time axes without `-XFormat` (line, area, bar, gantt, themeriver) write the date where a day starts
+  ("5 Nov" in the chart's locale) instead of the bare day number, and times and month names in
+  `-Locale`.
 - Funnel stages too small for their label (the last stages, or all stages of a low chart with many of
   them) put the label on one line right of a narrower funnel, in the page's text colour, instead of
   letting it run out of the stage (dark text on the page background in dark mode) or over the
