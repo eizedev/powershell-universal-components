@@ -182,7 +182,8 @@ Describe 'Demo module' {
         $built = & (Join-Path $script:repo 'build' 'Build-Module.ps1') -Module 'PowerShellUniversal.Component.ECharts.Demo' -OutputPath (Join-Path $TestDrive 'out')
         $readme = Get-Content -LiteralPath (Join-Path $built.FullName 'README.md') -Raw
         $readme | Should -Not -Match '\]\(\.\./'
-        $readme | Should -Match '\]\(https://github\.com/[^)]+/blob/HEAD/modules/PowerShellUniversal\.Component\.ECharts/README\.md\)'
+        # the relative link to the app's source becomes a link into the repository
+        $readme | Should -Match '\]\(https://github\.com/[^)]+/blob/HEAD/modules/PowerShellUniversal\.Component\.ECharts\.Demo/Apps/Showcase\.ps1\)'
         Join-Path $built.FullName 'Apps' 'Showcase.ps1' | Should -Exist
     }
 }

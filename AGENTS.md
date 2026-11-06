@@ -56,6 +56,8 @@ rendering.
   (`echarts-for-react`, May 2026). Prefer a small own wrapper over a wrapper package.
 - Light and dark mode follow `<html data-theme>`; every visible colour must work on both.
 - PowerShell: approved verbs, advanced functions with comment-based help, ASCII-only `.ps1`/`.psm1`.
+- Behaviour is documented on the site pages in `docs/`; the root README and the module READMEs stay
+  short (what it is, install, a quick example, links to the pages).
 - Docs describe the current state; history belongs in `CHANGELOG.md`, commits and pull requests.
 - Conventional Commits; one change per pull request; every module keeps its own `CHANGELOG.md` and
   SemVer `ModuleVersion`.

@@ -7,16 +7,17 @@
 
 <p align="center">
   Custom components for <a href="https://devolutions.net/powershell-universal/">PowerShell Universal</a> apps,
-  each one a PowerShell module you install on its own - starting with interactive
-  <a href="https://echarts.apache.org/">Apache ECharts</a> charts fed straight from SQL, REST and PowerShell.
+  each one a PowerShell module you install on its own: interactive <a href="https://echarts.apache.org/">Apache ECharts</a>
+  charts and a <a href="https://perspective-dev.github.io/">Perspective</a> datagrid, pivot and chart, fed straight from SQL,
+  REST and PowerShell.
 </p>
 
 | Build | Platform | Project |
 | --- | --- | --- |
-| [![CI](https://github.com/eizedev/powershell-universal-components/actions/workflows/ci.yml/badge.svg)](https://github.com/eizedev/powershell-universal-components/actions/workflows/ci.yml) [![Docs site](https://github.com/eizedev/powershell-universal-components/actions/workflows/docs.yml/badge.svg)](https://github.com/eizedev/powershell-universal-components/actions/workflows/docs.yml) | ![PowerShell Universal 2026.2-2026.3](https://img.shields.io/badge/PowerShell%20Universal-2026.2%E2%80%932026.3-0078d4) ![PowerShell 7.4+](https://img.shields.io/badge/PowerShell-7.4%2B-5391fe) ![Apache ECharts 6.1](https://img.shields.io/badge/Apache%20ECharts-6.1-aa344d) ![Perspective 5.7](https://img.shields.io/badge/Perspective-5.7-242526) | [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE) [![Changelog](https://img.shields.io/badge/changelog-keep%20a%20changelog-orange)](modules/PowerShellUniversal.Component.ECharts/CHANGELOG.md) |
+| [![CI](https://github.com/eizedev/powershell-universal-components/actions/workflows/ci.yml/badge.svg)](https://github.com/eizedev/powershell-universal-components/actions/workflows/ci.yml) [![Docs site](https://github.com/eizedev/powershell-universal-components/actions/workflows/docs.yml/badge.svg)](https://github.com/eizedev/powershell-universal-components/actions/workflows/docs.yml) | ![PowerShell Universal 2026.2-2026.3](https://img.shields.io/badge/PowerShell%20Universal-2026.2%E2%80%932026.3-0078d4) ![PowerShell 7.4+](https://img.shields.io/badge/PowerShell-7.4%2B-5391fe) ![Apache ECharts 6.1](https://img.shields.io/badge/Apache%20ECharts-6.1-aa344d) ![Perspective 5.7](https://img.shields.io/badge/Perspective-5.7-242526) | [![PowerShell Gallery](https://img.shields.io/powershellgallery/v/PowerShellUniversal.Component.ECharts?label=ECharts)](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.ECharts) [![PowerShell Gallery](https://img.shields.io/powershellgallery/v/PowerShellUniversal.Component.Perspective?label=Perspective)](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Perspective) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE) [![Changelog](https://img.shields.io/badge/changelog-keep%20a%20changelog-orange)](modules/PowerShellUniversal.Component.ECharts/CHANGELOG.md) |
 
-**Documentation: [powershell-universal-components.eize.dev](https://powershell-universal-components.eize.dev/)** - every chart example as code next to
-the chart it draws, and the parameter reference.
+**Documentation: [powershell-universal-components.eize.dev](https://powershell-universal-components.eize.dev/)** - every module, every parameter and
+every chart type, with live examples next to their code.
 
 <p align="center">
   <img src="assets/screenshot-data-platform-dark.png" alt="Data platform page: coverage heatmap of source systems and assets per number of sources, dark theme" width="49%">
@@ -27,9 +28,9 @@ the chart it draws, and the parameter reference.
 
 | Module | What it adds |
 | --- | --- |
-| [PowerShellUniversal.Component.ECharts](modules/PowerShellUniversal.Component.ECharts/README.md) | `New-UDEChart`: 29 chart types, from bars and lines to gantt, rankings, radial bars, network graphs, trees and KPI matrices; zoom, range selection, click events that filter other elements, linked charts, trends with forecast, `-Aggregate`, `-EventColumns`, CSV/Excel/PNG export, full screen, light and dark theme, corporate themes (`-LightTheme`/`-DarkTheme`, CSS variables), fixed colours per category (`-ColorMap`). |
-| [PowerShellUniversal.Component.ECharts.Demo](modules/PowerShellUniversal.Component.ECharts.Demo/README.md) | `New-UDEChartShowcase`: the showcase app of the chart module as a module - 14 pages of examples with generated and public data, to try the charts or copy from. |
-| [PowerShellUniversal.Component.Perspective](modules/PowerShellUniversal.Component.Perspective/README.md) | `New-UDPerspective`: [Perspective](https://perspective-dev.github.io/) datagrid, pivot table and WebGL charts in one, which readers group, split, filter and sort themselves; WebAssembly engine for large row counts. |
+| [PowerShellUniversal.Component.ECharts](https://powershell-universal-components.eize.dev/echarts/) | `New-UDEChart`: 29 chart types, from bars and lines to gantt, rankings, radial bars, network graphs, trees and KPI matrices; zoom, range selection, click events that filter other elements, linked charts, trends with forecast, `-Aggregate`, `-EventColumns`, CSV/Excel/PNG export, full screen, light and dark theme, corporate themes (`-LightTheme`/`-DarkTheme`, CSS variables), fixed colours per category (`-ColorMap`). |
+| [PowerShellUniversal.Component.ECharts.Demo](https://powershell-universal-components.eize.dev/demo/) | `New-UDEChartShowcase`: the showcase app of the chart module as a module - 14 pages of examples with generated and public data, to try the charts or copy from. |
+| [PowerShellUniversal.Component.Perspective](https://powershell-universal-components.eize.dev/perspective/) | `New-UDPerspective`: [Perspective](https://perspective-dev.github.io/) datagrid, pivot table and WebGL charts in one, which readers group, split, filter and sort themselves; WebAssembly engine for large row counts. |
 
 Tested on PowerShell Universal 2026.2.5 and 2026.3.4 in Chromium, Firefox and WebKit (the engine of
 Safari; the Safari app and iOS are not tested).
@@ -77,62 +78,25 @@ DataTables, `Invoke-RestMethod` results and PowerShell objects go in as they are
 matched without regard to case. Empty data shows "No data" (`-EmptyText` for your own text), and a
 column name that matches no column shows the columns the data has instead of a chart.
 
-## Charts
-
-| Kind | Types |
-| --- | --- |
-| Comparison and time | `line`, `area`, `step`, `bar` (stacked, normalized, horizontal), `scatter` (bubbles), `bump` (rankings over time), `polar` (bars around a circle), small multiples, sparklines |
-| Distribution | `histogram`, `boxplot`, `heatmap`, `calendar` |
-| Share | `pie`, `donut` (rose), `funnel`, `treemap`, `sunburst` |
-| Finance | `waterfall`, `candlestick` with volume, `gauge`, `radialbar` (progress rings) |
-| Operations | `gantt`, trend to a limit (`-Trend Linear -TrendTarget 100`), thresholds, axis breaks for business hours |
-| Relations | `sankey`, `graph` (force, circular, layered network paths), `tree`, `chord` |
-| Many measures | `radar`, `parallel`, `themeriver`, `matrix` (sparklines per row and column) |
-
-Everything else in Apache ECharts is one `-Options` hashtable away; [what maps to what](modules/PowerShellUniversal.Component.ECharts/docs/gallery.md)
-lists the gallery examples.
+More in the documentation: [Getting started](https://powershell-universal-components.eize.dev/getting-started/) (your own data from SQL, REST and
+PowerShell), [chart types](https://powershell-universal-components.eize.dev/echarts/), [interaction and events](https://powershell-universal-components.eize.dev/echarts/interaction/),
+[themes and corporate design](https://powershell-universal-components.eize.dev/echarts/themes/), [Perspective](https://powershell-universal-components.eize.dev/perspective/) and the
+[showcase app](https://powershell-universal-components.eize.dev/demo/) with 14 pages of examples.
 
 <p align="center">
   <img src="assets/screenshot-ticket-report-dark.png" alt="Ticket report page: SLA gauge, opened per day against the previous period, lead time histogram with median and SLA, boxplot per team" width="80%">
 </p>
 
-## Documentation
+## Development
 
-- [ECharts module README](modules/PowerShellUniversal.Component.ECharts/README.md): data, chart types, interaction, formats, labels and tooltips, layout, themes, security notes.
-- [Demo module README](modules/PowerShellUniversal.Component.ECharts.Demo/README.md): installing the showcase app.
-- [Perspective module README](modules/PowerShellUniversal.Component.Perspective/README.md): data and types, the starting view, events, security notes.
-- [Documentation site](https://powershell-universal-components.eize.dev/): every ECharts example as code next to the chart it draws, plus the parameter
-  reference. How it is built: [Development](https://powershell-universal-components.eize.dev/development/).
-- [Showcase app](modules/PowerShellUniversal.Component.ECharts.Demo/Apps/Showcase.ps1) (module PowerShellUniversal.Component.ECharts.Demo): 14 pages - ticket report, finance, managed services, operations, a data platform that combines many source systems, layouts, live data.
-
-## Build
-
-Requires Node.js 22.18 or newer (Babel 8; CI tests the latest 22.x) and PowerShell 7.4+.
-
-```powershell
-npm ci; npm test
-./build/Build-Module.ps1 -Module <Module>   # any folder in modules/; output/<Module>/<Version>
-Invoke-Pester -Path ./tests/powershell
-# browser tests (Chromium, Firefox, WebKit) on the docs site, after building it (see the Development page)
-npx playwright install chromium firefox webkit; npm run test:browser
-# the showcase app on a PSU instance, in all three browsers
-$env:PSU_URL = '<app url>'; npm run test:browser -- psu
-```
-
-Releases (tag, PowerShell Gallery, GitHub release): [CONTRIBUTING.md](CONTRIBUTING.md).
-
-Each module is a React component registered with PSU and a PowerShell function returning the hashtable
-PSU renders. Code several modules need - the bridge to PSU's light/dark theme, column matching, number
-formats, HTML escaping, CSV/Excel export, data conversion - lives once in `shared/` and is compiled into
-every module, so component modules never depend on each other at runtime (the demo module requires
-the chart module). Contributors and coding agents:
-[AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md); security reports: [SECURITY.md](SECURITY.md).
+Build, tests and the documentation site: [Development](https://powershell-universal-components.eize.dev/development/); releases:
+[Releases](https://powershell-universal-components.eize.dev/development/release/). Contributors and coding agents: [AGENTS.md](AGENTS.md),
+[CONTRIBUTING.md](CONTRIBUTING.md); security reports: [SECURITY.md](SECURITY.md).
 
 ## License
 
 [MIT](LICENSE). Bundled libraries keep their own licenses (Apache ECharts: Apache-2.0, ZRender:
 BSD-3-Clause, fflate: MIT, tslib: 0BSD, Perspective and regular-table: Apache-2.0, PSU's universal-dashboard
-helper: ISC); the build writes their
-texts and notices into each module's `THIRD-PARTY-NOTICES.txt`. Icon, header and social preview in `assets/`
-are generated in [eizedev/brand](https://github.com/eizedev/brand) and licensed
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+helper: ISC); the build writes their texts and notices into each module's `THIRD-PARTY-NOTICES.txt`.
+Icon, header and social preview in `assets/` are generated in [eizedev/brand](https://github.com/eizedev/brand)
+and licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
