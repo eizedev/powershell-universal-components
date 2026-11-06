@@ -125,9 +125,12 @@ test("a mouse click on a bar gives the row, as $EventData would", async ({ page 
         return { x: box.left + x, y: box.top + y };
     });
     await page.mouse.click(point.x, point.y);
-    const toast = page.locator(".psu-toast");
-    await expect(toast).toContainText("-OnClick");
-    await expect(toast).toContainText('"Opened": 42');
+    // the payload shows right below the clicked example, not somewhere else on the page
+    const panel = page.locator('[data-example="click-and-range-selection"] + .psu-event');
+    await expect(panel).toContainText("-OnClick");
+    await expect(panel).toContainText('"Opened": 42');
+    await panel.getByRole("button", { name: "Close" }).click();
+    await expect(panel).toHaveCount(0);
 });
 
 test("narrow window: charts shrink with the page", async ({ page }) => {
