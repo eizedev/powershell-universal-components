@@ -599,3 +599,61 @@ test("insideLabelColors: labels on funnel stages, treemap tiles and sunburst rin
     const own = { ...funnel, series: [{ ...funnel.series[0], data: [{ name: "Leads", value: 1, label: { color: "red" } }] }] };
     assert.equal(insideLabelColors(own, palette).series[0].data[0].label.color, "red");
 });
+
+test("fitPlot: funnel labels too large for their stage go right of a narrower funnel on one line", async () => {
+    const { fitPlot, insideLabelColors } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/layout.js");
+    const many = ["Visitors", "Leads", "Qualified", "Demo", "Offer", "Negotiation", "Won"].map((Stage, i) => ({ Stage, Count: Math.round(1860 * 0.62 ** i) }));
+    const o = buildOption({ chartType: "funnel", data: many, x: "Stage", y: ["Count"], title: "Sales funnel" }, { locale: "en-US" });
+    // low chart: no two-line label fits a stage, every one goes outside
+    const low = fitPlot(o, { width: 403, height: 260 }, undefined).series[0];
+    assert.ok(low.data.every((d) => d.label && d.label.position === "right"), "every label outside");
+    assert.equal(low.data[5].label.formatter({ name: "Negotiation", value: 170, percent: 3.6 }), "Negotiation 170 (3.6%)");
+    assert.ok(typeof low.width === "number" && low.width < 403 * 0.8, "the funnel makes room on the right");
+    assert.deepEqual(low.labelLayout, { hideOverlap: true });
+    // taller: the wide first stage keeps its label inside, the narrow last one does not
+    const tall = fitPlot(o, { width: 403, height: 600 }, undefined).series[0];
+    assert.equal(tall.data[0].label, undefined);
+    assert.equal(tall.data[6].label.position, "right");
+    // outside labels sit on the page: its text colour, also for the label line
+    const coloured = insideLabelColors({ ...o, series: [tall] }, ["#003452"], "#e5e7eb").series[0];
+    assert.equal(coloured.data[0].label.color, "#ffffff");
+    assert.equal(coloured.data[6].label.color, "#e5e7eb");
+    assert.equal(coloured.data[6].labelLine.lineStyle.color, "#e5e7eb");
+    // wide and tall enough: nothing changes
+    const few = buildOption({ chartType: "funnel", data: many.slice(0, 3), x: "Stage", y: ["Count"] }, { locale: "en-US" });
+    assert.deepEqual(fitPlot(few, { width: 1300, height: 600 }, undefined).series[0].data, few.series[0].data);
+});
+
+test("fitPlot: a layered graph keeps its nodes and labels clear of legend and toolbox, round at any shape", async () => {
+    const { fitPlot, plotBands } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/layout.js");
+    const rows = [
+        { from: "fw", to: "core", g: "Firewall", tg: "Switch" }, { from: "core", to: "a1", g: "Switch", tg: "Switch" }, { from: "core", to: "a2", g: "Switch", tg: "Switch" },
+        { from: "a1", to: "esx1", g: "Switch", tg: "Host" }, { from: "a2", to: "esx2", g: "Switch", tg: "Host" }
+    ];
+    const o = buildOption({ chartType: "graph", data: rows, source: "from", target: "to", groupBy: "g", targetGroup: "tg", layout: "layered", title: "Path" }, {});
+    const size = { width: 403, height: 340 };
+    const s = fitPlot(o, size, undefined).series[0];
+    const bands = plotBands(o, size.width);
+    const symbol = Math.max(...s.data.map((d) => d.symbolSize));
+    assert.ok(s.top >= bands.toolbox.y + bands.toolbox.h + symbol / 2, "below the toolbox by half the largest node");
+    assert.ok(s.bottom >= symbol / 2 + 11, "room for the labels under the lowest nodes");
+    // the extents of the coordinates have the box's ratio, so ECharts stretches x and y alike
+    const extent = (k) => Math.max(...s.data.map((d) => d[k])) - Math.min(...s.data.map((d) => d[k]));
+    const boxW = size.width - s.left - s.right;
+    const boxH = size.height - s.top - s.bottom;
+    assert.ok(Math.abs(extent("y") / extent("x") - boxH / boxW) < 1e-9);
+    // a side set in -Options stays
+    const options = { series: [{ top: 3 }] };
+    const own = buildOption({ chartType: "graph", data: rows, source: "from", target: "to", layout: "layered", options }, {});
+    assert.equal(fitPlot(own, size, options).series[0].top, 3);
+});
+
+test("fitPlot: radial bar names keep clear of the rings' round caps", async () => {
+    const { fitPlot } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/layout.js");
+    const rings = ["A", "B", "C", "Northwind Traders"].map((Customer, i) => ({ Customer, Compliance: 90 - 10 * i }));
+    const o = buildOption({ chartType: "radialbar", data: rings, x: "Customer", y: ["Compliance"] }, {});
+    const fitted = fitPlot(o, { width: 403, height: 340 }, undefined);
+    // 4 rings between 18 % and 72 % of the radius (170 px): bands of 23 px, rings of 18 px, caps of 9 px
+    assert.ok(fitted.radiusAxis.axisLabel.margin >= 9 + 4, `margin ${fitted.radiusAxis.axisLabel.margin}`);
+    assert.equal(fitPlot(o, { width: 403, height: 340 }, { radiusAxis: { axisLabel: { margin: 2 } } }).radiusAxis.axisLabel.margin, o.radiusAxis.axisLabel.margin);
+});

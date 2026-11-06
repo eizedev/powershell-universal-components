@@ -179,8 +179,8 @@ export default function EChart(props) {
         const width = chart.getWidth();
         const sized = optionForWidth(option.value, option.rules, width);
         const placed = fitPlot(sized, { width, height: chart.getHeight() }, props.options);
-        const palette = themeObject(mode, psuTheme, customTheme).color;
-        chart.setOption(insideLabelColors(placed, palette), { replaceMerge: REPLACED });
+        const theme = themeObject(mode, psuTheme, customTheme);
+        chart.setOption(insideLabelColors(placed, theme.color, theme.textStyle && theme.textStyle.color), { replaceMerge: REPLACED });
     }, [option, layoutKey, mode, psuTheme.text, customKey]);
 
     // linked charts: same -Group share tooltip, zoom and legend; a removed group unlinks the chart

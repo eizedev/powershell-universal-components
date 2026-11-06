@@ -1283,8 +1283,8 @@ function graph(props, rows, keys, ctx) {
             if (!columns.has(d)) columns.set(d, []);
             columns.get(d).push(n);
         });
-        // coordinates in about the shape of a wide card (height / width 0.42): the box stretches
-        // them to fit, and a very different shape would turn the round nodes into ellipses
+        // coordinates in about the shape of a wide card (height / width 0.42): ECharts stretches them
+        // over the box; fitPlot() (layout.js) scales them to the box's own shape once its size is known
         const height = Math.max(1, columns.size - 1) * 200 * 0.42;
         columns.forEach((col, d) => col.forEach((n, i) => position.set(n, { x: d * 200, y: ((i + 0.5) * height) / col.length })));
     }

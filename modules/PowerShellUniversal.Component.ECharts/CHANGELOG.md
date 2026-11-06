@@ -5,6 +5,16 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
 
 ## [Unreleased]
 
+### Fixed
+
+- Funnel stages too small for their label (the last stages, or all stages of a low chart with many of
+  them) put the label on one line right of a narrower funnel, in the page's text colour, instead of
+  letting it run out of the stage (dark text on the page background in dark mode) or over the
+  neighbouring labels; hidden only when there is no room at all.
+- Layered network graphs (`-Layout Layered`) stay clear of legend and toolbox and keep their nodes and
+  labels inside the chart in narrow containers; their nodes stay round at every chart shape.
+- Radial bar names no longer run under the round ends of the rings.
+
 ## [0.1.0] - 2026-11-06
 
 ### Added

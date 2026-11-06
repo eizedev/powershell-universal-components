@@ -128,7 +128,11 @@ their own (a tree's folders, aggregated nodes) keep their name. Values are HTML-
 `-Legend Bottom | Top | Left | Right | None` places the legend; `-LegendType Scroll` (default) pages
 through entries that do not fit, `Plain` wraps them over several lines. Labels inside a filled shape
 (funnel stages, pie slices with inside labels, treemap tiles, sunburst rings) are dark or white,
-whichever contrasts more with the fill; a `label.color` in `-Options` wins.
+whichever contrasts more with the fill; a `label.color` in `-Options` wins. A funnel stage too small
+for its label (the last stages, or every stage of a low chart with many of them) gets the label on one
+line right of the funnel, with a line to the stage, in the page's text colour; the funnel gets narrower
+for it. Where even that leaves too little room, the label is hidden; the tooltip and the legend name the
+stage.
 
 ## Formats
 
@@ -174,9 +178,12 @@ the container's width) size the chart; `-Id`, `-ClassName` and `-Style` work as 
 The chart follows its container's size, also when it was created hidden and shown later: tested in
 `New-UDStack`, `New-UDGrid`, `New-UDPaper`, `New-UDTabs` (with and without `-RenderOnActive`),
 `New-UDExpansionPanel`, `Show-UDModal` and `New-UDDynamic -AutoRefresh` (showcase page "Layouts").
-Charts without a grid (funnel, treemap, pie, sunburst, gauge, polar, radialbar, radar) place their plot
-below the title and toolbox and above the legend for the size they have, also when a plain legend wraps
-in a narrow container; a position or size set in `-Options` (`top`, `bottom`, `center`, `radius`) wins. In a
+Charts without a grid (funnel, treemap, pie, sunburst, gauge, polar, radialbar, radar, layered graph)
+place their plot below the title and toolbox and above the legend for the size they have, also when a
+plain legend wraps in a narrow container; a position or size set in `-Options` (`top`, `bottom`,
+`left`, `right`, `center`, `radius`) wins. A layered graph keeps room for its largest node and the
+labels under the nodes, and its nodes stay round in a narrow or a wide chart; radial bar names keep
+clear of the rings' round ends. In a
 row of a flex container (`New-UDStack -Direction row`), the items share the row with
 `-Style @{ flex = '1 1 0'; minWidth = 0 }` on their `New-UDPaper` (as on the showcase page).
 
