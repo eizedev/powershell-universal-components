@@ -5,6 +5,8 @@ All notable changes to PowerShellUniversal.Component.ECharts.Demo. Format:
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-06
+
 ### Added
 
 - `New-UDEChartShowcase`: the showcase app of PowerShellUniversal.Component.ECharts as a module.
