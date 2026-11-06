@@ -55,6 +55,9 @@ rendering.
 - Docs describe the current state; history belongs in `CHANGELOG.md`, commits and pull requests.
 - Conventional Commits; one change per pull request; every module keeps its own `CHANGELOG.md` and
   SemVer `ModuleVersion`.
+- CI runs the browser tests in Playwright's container image: a new `@playwright/test` version (also a
+  Dependabot pull request) raises the image tag and digest in `ci.yml` with it; `tests/js/ci.test.js` fails
+  until both match.
 - The demo module requires a minimum chart module version: raise it when the showcase uses a new
   chart feature (a Pester test checks that the version exists).
 

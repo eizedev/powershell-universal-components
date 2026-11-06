@@ -74,10 +74,9 @@ jobs:
           $config.Output.Verbosity = 'Detailed'
           Invoke-Pester -Configuration $config
 
-  browser:
-    # the documentation site renders the module's own component: tested in Chromium, Firefox and WebKit
+  site:
+    # the documentation site the browser tests open (needs pwsh, which the Playwright image lacks)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -88,13 +87,31 @@ jobs:
       - name: Build the documentation site
         shell: pwsh
         run: ./docs/site/Build-Site.ps1
-      # the browsers belong to the pinned Playwright version: cached per lock file
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          name: site
+          path: output/site/
+
+  browser:
+    # the documentation site renders the module's own component: tested in Chromium, Firefox and WebKit.
+    # Playwright's own image carries the browsers and their system libraries, so nothing is installed
+    # with apt (the Ubuntu mirror made "playwright install --with-deps" run into the timeout). Its
+    # version must be the one of @playwright/test in package-lock.json; tests/js/ci.test.js checks that.
+    needs: site
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+      options: --user 1001
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: site
+          path: output/site/
       - name: Browser tests
         run: |
           npm ci --no-audit --no-fund --ignore-scripts
-          npx playwright install --with-deps chromium firefox webkit
           npm run test:browser
