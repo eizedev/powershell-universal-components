@@ -427,3 +427,7 @@ test("both themes carry a full palette", async () => {
         assert.ok(Array.isArray(registered[name].color) && registered[name].color.length >= 8, `${mode} palette`);
     }
 });
+
+test("-EventColumns with an unknown column is an error like the other column parameters", () => {
+    assert.throws(() => buildOption({ chartType: "bar", data: [{ name: "a", n: 1 }], x: "name", y: ["n"], eventColumns: ["Nmae"] }, {}), /-EventColumns Nmae/);
+});
