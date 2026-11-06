@@ -38,9 +38,33 @@ per mode:
 They apply to the whole page, so this site shows no live example of them (it would recolour every
 chart here).
 
+## Fixed colours per category
+
+Palette colours go by position, so a category's colour depends on which categories the data has.
+`-ColorMap` fixes a colour per name, for every chart type: series names (`-Y` columns, `-GroupBy`
+values, gantt groups) and data item names (pie, donut and funnel slices, treemap and sunburst nodes at
+every level, sankey and graph nodes, radar areas, the rings of a radial bar with one `-Y`). Names match
+without regard to case; categories not in the map keep the palette. Two colours give one per mode
+(light, dark).
+
+--8<-- "examples/fixed-colours-per-category.md"
+
+Colours are hex, `rgb()`, `rgba()`, `hsl()`, `hsla()` or CSS names; anything else is refused. A name
+that no category of the data has gives a warning that lists the categories. Labels on a mapped fill
+(funnel, pie with inside labels, treemap, sunburst) take the text colour with the better contrast to it.
+
+Without a map, palette colours follow the order of the series or items:
+
+| Types | Order |
+| --- | --- |
+| line, area, step, bar, scatter, boxplot, gantt, parallel, themeriver, polar, radialbar with `-GroupBy` | `-GroupBy` values in natural order (P1, P2 ... P10), independent of the row order |
+| the same types without `-GroupBy` | the `-Y` columns as given |
+| pie, donut, funnel, treemap, sunburst, radar, bump, sankey, graph; radialbar with one `-Y` | first appearance in the rows |
+| matrix | the `-GroupBy` columns in first appearance |
+
 ## Order
 
-The module's theme, then the CSS properties, then `-LightTheme`/`-DarkTheme`, then `-Palette` and
-`-Options` of the single chart. The chart's background always stays transparent (it sits on the card),
+The module's theme, then the CSS properties, then `-LightTheme`/`-DarkTheme`, then `-Palette`,
+`-ColorMap` and `-Options` of the single chart. The chart's background always stays transparent (it sits on the card),
 so a theme's `backgroundColor` has no effect. CSS properties follow the page's mode, also for a chart
 pinned with `-Theme Light` or `Dark`, and are read when the chart is created and when the mode changes.
