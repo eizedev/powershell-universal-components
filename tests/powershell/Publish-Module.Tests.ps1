@@ -50,3 +50,18 @@ Describe 'Publish-Module.ps1 prepare step' {
         finally { Remove-Item -LiteralPath $root -Recurse -Force }
     }
 }
+
+Describe 'Publish-Module.ps1 release notes' {
+    It 'keeps quotes, drops link references and can run twice' {
+        $root = Initialize-ReleaseFixture "## [1.2.3]`n`n- It's new, ""quoted"".`n`n[1.2.3]: https://example.com/compare`n"
+        try {
+            $script = Join-Path $root 'build' 'Publish-Module.ps1'
+            & $script -Module Demo.Module -Version 1.2.3 6>$null | Out-Null
+            & $script -Module Demo.Module -Version 1.2.3 6>$null | Out-Null
+            $notes = (Import-PowerShellDataFile (Join-Path $root 'output' 'Demo.Module' '1.2.3' 'Demo.Module.psd1')).PrivateData.PSData.ReleaseNotes
+            $notes | Should -Be "- It's new, ""quoted""."
+            Get-Content (Join-Path $root 'output' 'Demo.Module-1.2.3.notes.md') -Raw | Should -BeLike "*It's new*"
+        }
+        finally { Remove-Item -LiteralPath $root -Recurse -Force }
+    }
+}

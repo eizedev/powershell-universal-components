@@ -41,8 +41,9 @@ jobs:
         id: tag
         shell: pwsh
         run: |
-          if ($env:TAG -notmatch '^(?<module>[A-Za-z0-9.]+)-v(?<version>\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?)$') { throw "Tag '$env:TAG' is not <Module>-v<Version>." }
-          if (-not (Test-Path "modules/$($Matches.module)")) { throw "No module $($Matches.module) in this repository." }
+          if ($env:TAG -notmatch '^(?<module>[A-Za-z0-9.]+)-v(?<version>\d+\.\d+\.\d+(-[0-9A-Za-z]+)?)$') { throw "Tag '$env:TAG' is not <Module>-v<Version>." }
+          # the name of a module folder, not a path ("." or ".." would pass Test-Path)
+          if ($Matches.module -notin (Get-ChildItem modules -Directory).Name) { throw "No module $($Matches.module) in this repository." }
           "module=$($Matches.module)" >> $env:GITHUB_OUTPUT
           "version=$($Matches.version)" >> $env:GITHUB_OUTPUT
       - name: Tests
@@ -62,7 +63,7 @@ jobs:
           # every module: a module's RequiredModules (the demo needs the charts) must be there for the checks
           Get-ChildItem modules -Directory | ForEach-Object { ./build/Build-Module.ps1 -Module $_.Name | Out-Null }
           ./build/Publish-Module.ps1 -Module $env:MODULE -Version $env:VERSION
-      - uses: actions/upload-artifact@cf430e0b0dd8f7ec60e6e1cdd75f0ed2c7f8a1d1 # v7.0.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release
           path: output/
@@ -82,6 +83,7 @@ jobs:
         with:
           name: release
           path: output/
+      # both steps can run again ("re-run failed jobs"): each skips what already exists
       - name: Publish to the PowerShell Gallery
         shell: pwsh
         env:
@@ -96,7 +98,8 @@ jobs:
           MODULE: ${{ needs.prepare.outputs.module }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          $changelog = Get-Content "modules/$env:MODULE/CHANGELOG.md" -Raw
-          $notes = [regex]::Match($changelog, "(?ms)^## \[$([regex]::Escape($env:VERSION))\][^\r\n]*\r?\n(?<n>.*?)(?=^## \[|\z)").Groups['n'].Value.Trim()
-          Set-Content -Path release-notes.md -Value $notes
-          gh release create $env:GITHUB_REF_NAME "output/$env:MODULE-$env:VERSION.zip" --title "$env:MODULE $env:VERSION" --notes-file release-notes.md --verify-tag
+          gh release view $env:GITHUB_REF_NAME *> $null
+          if ($LASTEXITCODE -eq 0) { Write-Output "Release $env:GITHUB_REF_NAME exists already."; exit 0 }
+          # notes and zip were written by the prepare step (Publish-Module.ps1)
+          $prerelease = if ($env:VERSION -match '-') { @('--prerelease') } else { @() }
+          gh release create $env:GITHUB_REF_NAME "output/$env:MODULE-$env:VERSION.zip" --title "$env:MODULE $env:VERSION" --notes-file "output/$env:MODULE-$env:VERSION.notes.md" --verify-tag @prerelease

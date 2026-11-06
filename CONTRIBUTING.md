@@ -21,6 +21,11 @@ license of every library you add: permissive (MIT, Apache-2.0, BSD) and free for
 
 ## Releasing a module (maintainers)
 
+Once per repository: Settings > Environments > `psgallery` with yourself as required reviewer and
+deployment tags `*-v*`; in that environment (never as a repository secret) the secret
+`PSGALLERY_API_KEY`, a gallery key scoped to the repository's module names. When the repository is
+public, a ruleset lets only maintainers create `*-v*` tags.
+
 1. In the module's `CHANGELOG.md`, move the entries from `[Unreleased]` to `## [x.y.z] - YYYY-MM-DD`;
    set `ModuleVersion` in the manifest to `x.y.z`. Merge that pull request.
 2. Tag the merge commit: `git tag <Module>-vx.y.z && git push origin <Module>-vx.y.z`.
