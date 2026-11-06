@@ -16,7 +16,7 @@
   "devDependencies": {
     "@babel/core": "7.29.7",
     "@babel/preset-env": "7.29.2",
-    "@babel/preset-react": "7.28.5",
+    "@babel/preset-react": "8.0.1",
     "babel-loader": "10.1.1",
     "webpack": "5.112.2",
     "webpack-cli": "7.2.3"
