@@ -59,7 +59,8 @@ jobs:
           MODULE: ${{ steps.tag.outputs.module }}
           VERSION: ${{ steps.tag.outputs.version }}
         run: |
-          ./build/Build-Module.ps1 -Module $env:MODULE | Out-Null
+          # every module: a module's RequiredModules (the demo needs the charts) must be there for the checks
+          Get-ChildItem modules -Directory | ForEach-Object { ./build/Build-Module.ps1 -Module $_.Name | Out-Null }
           ./build/Publish-Module.ps1 -Module $env:MODULE -Version $env:VERSION
       - uses: actions/upload-artifact@cf430e0b0dd8f7ec60e6e1cdd75f0ed2c7f8a1d1 # v7.0.2
         with:

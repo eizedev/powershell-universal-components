@@ -71,6 +71,8 @@ $escaped = ($notes -replace "'", "''")
 $text = $text.Remove($link.Index, $link.Length).Insert($link.Index, "ReleaseNotes = '$escaped'")
 Set-Content -LiteralPath $manifestPath -Value $text -Encoding utf8NoBOM -NoNewline
 
+# modules in RequiredModules (the demo needs the chart module) are found among the built ones
+$env:PSModulePath = '{0}{1}{2}' -f $OutputPath, [System.IO.Path]::PathSeparator, $env:PSModulePath
 $manifest = Test-ModuleManifest -Path $manifestPath
 foreach ($required in 'LicenseUri', 'ProjectUri') {
     if (-not $manifest.PrivateData.PSData[$required]) { throw ('The manifest has no {0}.' -f $required) }

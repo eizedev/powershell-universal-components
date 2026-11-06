@@ -28,4 +28,6 @@ license of every library you add: permissive (MIT, Apache-2.0, BSD) and free for
    environment `psgallery`; after it, it publishes to the PowerShell Gallery and creates the GitHub
    release with the zip and the CHANGELOG section.
 
-"Run workflow" on `release.yml` with a tag name checks a release without publishing anything.
+"Run workflow" on `release.yml` with a tag name checks a release without publishing anything. A module
+that requires another one (the demo requires the charts) is released after it: the gallery checks that
+the required version is there.
