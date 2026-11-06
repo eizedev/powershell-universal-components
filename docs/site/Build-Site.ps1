@@ -93,6 +93,23 @@ function Format-Cell([string]$Text) {
     (($Text -replace '\r?\n+', ' ') -replace '\|', '\|').Trim()
 }
 
+# help text -> Markdown: parameter names and values as code, URLs as links, a blank line before a list
+# that follows a paragraph line (comment-based help writes "...they use:" directly above "- line, ...")
+function Format-HelpText([string]$Text) {
+    $out = [System.Collections.Generic.List[string]]::new()
+    $previous = ''
+    foreach ($line in ($Text -split '\r?\n')) {
+        if ($line -match '^\s*- ' -and $previous.Trim() -and $previous -notmatch '^\s*- |^\s{2,}\S') { $out.Add('') }
+        # -Name (a parameter) as code; not inside words like Invoke-RestMethod or ranges like 0-100
+        $line = $line -replace '(?<![\w`/-])(-[A-Z][A-Za-z]*)\b', '`$1`'
+        $line = $line -replace '(?<![<(\w])(https?://[^\s)]+[^\s).,;])', '<$1>'
+        $line = $line -replace '\((https?://[^\s)]+)\)', '(<$1>)'
+        $out.Add($line)
+        $previous = $line
+    }
+    $out -join "`n"
+}
+
 function Write-Generated([string]$Path, [string]$Content) {
     New-Item -ItemType Directory -Path (Split-Path $Path) -Force | Out-Null
     Set-Content -LiteralPath $Path -Value $Content -Encoding utf8NoBOM
@@ -131,13 +148,13 @@ foreach ($name in $moduleNames) {
         $lines = [System.Collections.Generic.List[string]]::new()
         $lines.Add(($help.Synopsis | Out-String).Trim())
         $lines.Add('')
-        $description = (($help.description | ForEach-Object { $_.Text }) -join "`n`n").Trim()
+        $description = Format-HelpText ((($help.description | ForEach-Object { $_.Text }) -join "`n`n").Trim())
         if ($description) { $lines.Add($description); $lines.Add('') }
         $lines.Add('| Parameter | Type | Description |')
         $lines.Add('| --- | --- | --- |')
         foreach ($p in $help.parameters.parameter) {
             $required = if ($p.required -eq 'true') { ' (required)' } else { '' }
-            $text = ($p.description | ForEach-Object { $_.Text }) -join ' '
+            $text = Format-HelpText (($p.description | ForEach-Object { $_.Text }) -join ' ')
             $lines.Add("| ``-$($p.name)``$required | ``$($p.type.name)`` | $(Format-Cell $text) |")
         }
         Write-Generated (Join-Path $generated 'reference' "$command.md") ($lines -join "`n")
