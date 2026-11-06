@@ -7,9 +7,11 @@
 .DESCRIPTION
     For modules/<Module>: installs the exact npm versions from package-lock.json (npm ci; npm install
     only when no lock file exists yet - commit it), runs webpack (shared/js is compiled into the
-    bundle), and assembles a clean folder with the bundle, the manifest, the module and
-    Private/ (shared/powershell/*.ps1). The version comes from the manifest. Old output is removed
-    first, so a failed build never leaves a stale bundle behind.
+    bundle), and assembles a clean folder with the bundle, the manifest, the module, Private/
+    (shared/powershell/*.ps1), Apps/ when the module has one, and THIRD-PARTY-NOTICES.txt. A module
+    without package.json (PowerShell only, e.g. a demo app) skips the JavaScript steps. The version
+    comes from the manifest. Old output is removed first, so a failed build never leaves a stale bundle
+    behind.
 
 .PARAMETER Module
     Folder name below modules/, e.g. PowerShellUniversal.Component.ECharts.
@@ -47,29 +49,39 @@ $version = (Import-PowerShellDataFile -LiteralPath $manifest).ModuleVersion
 $out = Join-Path $OutputPath $Module $version
 
 Remove-Item -LiteralPath (Join-Path $OutputPath $Module) -Recurse -Force -ErrorAction Ignore
-Push-Location $source
-try {
-    if (-not $SkipNpmInstall) {
-        if (Test-Path -LiteralPath (Join-Path $source 'package-lock.json')) { npm ci --no-audit --no-fund } else { npm install --no-audit --no-fund }
-        if ($LASTEXITCODE -ne 0) { throw ('npm install failed ({0})' -f $LASTEXITCODE) }
+# a component has a JavaScript bundle; a PowerShell-only module (a demo app) has no package.json
+$component = Test-Path -LiteralPath (Join-Path $source 'package.json')
+if ($component) {
+    Push-Location $source
+    try {
+        if (-not $SkipNpmInstall) {
+            if (Test-Path -LiteralPath (Join-Path $source 'package-lock.json')) { npm ci --no-audit --no-fund } else { npm install --no-audit --no-fund }
+            if ($LASTEXITCODE -ne 0) { throw ('npm install failed ({0})' -f $LASTEXITCODE) }
+        }
+        npm run build --silent
+        if ($LASTEXITCODE -ne 0) { throw ('webpack build failed ({0})' -f $LASTEXITCODE) }
     }
-    npm run build --silent
-    if ($LASTEXITCODE -ne 0) { throw ('webpack build failed ({0})' -f $LASTEXITCODE) }
-}
-finally {
-    Pop-Location
+    finally {
+        Pop-Location
+    }
 }
 
-New-Item -ItemType Directory -Path (Join-Path $out 'Private') -Force | Out-Null
+New-Item -ItemType Directory -Path $out -Force | Out-Null
 # the bundle and its licence banner; the source map is for development only (PSU never serves it)
-Copy-Item -Path (Join-Path $source 'public' '*') -Exclude '*.map' -Destination $out
+if ($component) { Copy-Item -Path (Join-Path $source 'public' '*') -Exclude '*.map' -Destination $out }
+if (Test-Path -LiteralPath (Join-Path $source 'Apps')) { Copy-Item -LiteralPath (Join-Path $source 'Apps') -Destination $out -Recurse }
 Copy-Item -LiteralPath $manifest, (Join-Path $source "$Module.psm1") -Destination $out
-Copy-Item -Path (Join-Path $repo 'shared' 'powershell' '*.ps1') -Destination (Join-Path $out 'Private')
+if ($component) {
+    New-Item -ItemType Directory -Path (Join-Path $out 'Private') -Force | Out-Null
+    Copy-Item -Path (Join-Path $repo 'shared' 'powershell' '*.ps1') -Destination (Join-Path $out 'Private')
+}
 foreach ($extra in 'README.md', 'CHANGELOG.md') {
     $file = Join-Path $source $extra
     if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $out }
 }
 Copy-Item -LiteralPath (Join-Path $repo 'LICENSE') -Destination $out
+
+if (-not $component) { return Get-Item -LiteralPath $out }
 
 # Bundled libraries keep their licences (Apache-2.0 and BSD ask for the text and NOTICE with every copy):
 # every runtime package in the lock file contributes its LICENSE and NOTICE files.

@@ -135,3 +135,16 @@ Describe 'Parameters for other chart types' {
         $w.Count | Should -Be 0
     }
 }
+
+Describe 'Demo module' {
+    It 'exports New-UDEChartShowcase and its app parses' {
+        $demo = Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.ECharts.Demo'
+        # read as data: Test-ModuleManifest would need the chart module installed (RequiredModules)
+        $manifest = Import-PowerShellDataFile -LiteralPath (Join-Path $demo 'PowerShellUniversal.Component.ECharts.Demo.psd1')
+        $manifest.FunctionsToExport | Should -Contain 'New-UDEChartShowcase'
+        $manifest.RequiredModules.ModuleName | Should -Contain 'PowerShellUniversal.Component.ECharts'
+        $errors = $null
+        [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $demo 'Apps' 'Showcase.ps1'), [ref]$null, [ref]$errors) | Out-Null
+        $errors | Should -BeNullOrEmpty
+    }
+}
