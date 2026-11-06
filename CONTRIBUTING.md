@@ -18,3 +18,14 @@ security reports privately (see [SECURITY.md](SECURITY.md)).
 Name it `PowerShellUniversal.Component.<Name>`, with `New-UD<Name>` and the type `ud-<name>`; reuse
 `shared/` instead of copying code; add a README, a CHANGELOG, an example app and tests. Check the
 license of every library you add: permissive (MIT, Apache-2.0, BSD) and free for companies.
+
+## Releasing a module (maintainers)
+
+1. In the module's `CHANGELOG.md`, move the entries from `[Unreleased]` to `## [x.y.z] - YYYY-MM-DD`;
+   set `ModuleVersion` in the manifest to `x.y.z`. Merge that pull request.
+2. Tag the merge commit: `git tag <Module>-vx.y.z && git push origin <Module>-vx.y.z`.
+3. The workflow `release.yml` tests, builds and checks the module, then waits for approval in the
+   environment `psgallery`; after it, it publishes to the PowerShell Gallery and creates the GitHub
+   release with the zip and the CHANGELOG section.
+
+"Run workflow" on `release.yml` with a tag name checks a release without publishing anything.

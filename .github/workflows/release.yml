@@ -1,0 +1,101 @@
+name: Release
+
+# A tag <Module>-v<Version> (e.g. PowerShellUniversal.Component.ECharts-v0.1.0) tests, builds and
+# checks that module (job "prepare", no secrets), then publishes it to the PowerShell Gallery and
+# creates a GitHub release with the zip and the CHANGELOG section (job "publish", in the environment
+# "psgallery" that holds the secret PSGALLERY_API_KEY and asks for approval).
+# "Run workflow" runs "prepare" only, for any tag name, without publishing.
+
+on:
+  push:
+    tags: ["*-v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag name to check, e.g. PowerShellUniversal.Component.ECharts-v0.1.0 (nothing is published)"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+    outputs:
+      module: ${{ steps.tag.outputs.module }}
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Module and version from the tag
+        id: tag
+        shell: pwsh
+        run: |
+          if ($env:TAG -notmatch '^(?<module>[A-Za-z0-9.]+)-v(?<version>\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?)$') { throw "Tag '$env:TAG' is not <Module>-v<Version>." }
+          if (-not (Test-Path "modules/$($Matches.module)")) { throw "No module $($Matches.module) in this repository." }
+          "module=$($Matches.module)" >> $env:GITHUB_OUTPUT
+          "version=$($Matches.version)" >> $env:GITHUB_OUTPUT
+      - name: Tests
+        shell: pwsh
+        run: |
+          npm ci --no-audit --no-fund --ignore-scripts
+          npm test
+          Install-PSResource -Name Pester -Version 6.2.0 -TrustRepository -Quiet
+          $result = Invoke-Pester -Path tests/powershell -PassThru -Output Detailed
+          if ($result.FailedCount -gt 0 -or $result.PassedCount -eq 0) { throw 'Pester failed.' }
+      - name: Build, check, pack
+        shell: pwsh
+        env:
+          MODULE: ${{ steps.tag.outputs.module }}
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          ./build/Build-Module.ps1 -Module $env:MODULE | Out-Null
+          ./build/Publish-Module.ps1 -Module $env:MODULE -Version $env:VERSION
+      - uses: actions/upload-artifact@cf430e0b0dd8f7ec60e6e1cdd75f0ed2c7f8a1d1 # v7.0.2
+        with:
+          name: release
+          path: output/
+
+  publish:
+    if: github.event_name == 'push'
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment: psgallery
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: output/
+      - name: Publish to the PowerShell Gallery
+        shell: pwsh
+        env:
+          PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
+          MODULE: ${{ needs.prepare.outputs.module }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: ./build/Publish-Module.ps1 -Module $env:MODULE -Version $env:VERSION -Publish
+      - name: GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODULE: ${{ needs.prepare.outputs.module }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          $changelog = Get-Content "modules/$env:MODULE/CHANGELOG.md" -Raw
+          $notes = [regex]::Match($changelog, "(?ms)^## \[$([regex]::Escape($env:VERSION))\][^\r\n]*\r?\n(?<n>.*?)(?=^## \[|\z)").Groups['n'].Value.Trim()
+          Set-Content -Path release-notes.md -Value $notes
+          gh release create $env:GITHUB_REF_NAME "output/$env:MODULE-$env:VERSION.zip" --title "$env:MODULE $env:VERSION" --notes-file release-notes.md --verify-tag
