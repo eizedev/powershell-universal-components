@@ -5,6 +5,12 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
 
 ## [Unreleased]
 
+### Added
+
+- `-ColorMap @{ Failed = '#E3000F'; Success = '#287233' }`: a fixed colour per category name for series,
+  data items and gantt groups of every chart type, optionally one per mode; the README lists the
+  palette order per type.
+
 ### Fixed
 
 - Funnel stages too small for their label (the last stages, or all stages of a low chart with many of

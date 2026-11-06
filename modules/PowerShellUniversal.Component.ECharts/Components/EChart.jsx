@@ -77,12 +77,12 @@ export default function EChart(props) {
                 onXlsx: props.export === false ? undefined : () => exportAs("xlsx"),
                 onFullscreen: props.fullscreen === false || !canFullscreen() ? undefined : () => toggleFullscreen()
             };
-            const base = buildOption(props, { locale, exportIcons });
+            const base = buildOption(props, { locale, exportIcons, mode });
             return { value: base, rules: responsive(base, props, { locale }) };
         } catch (e) {
             return { error: e.message };
         }
-    }, [props, locale]);
+    }, [props, locale, mode]);
 
     // CSV/Excel of the rows behind the chart, columns and types from -ExportColumns
     function exportAs(kind) {

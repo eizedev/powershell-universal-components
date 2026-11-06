@@ -291,6 +291,12 @@
             New-UDEChart -Data $quarters -Type bar -X Quarter -Y Managed, Projects, Licences -Stacked -LightTheme $light -DarkTheme $dark -Height 300px
         }
     }
+    @{ Section = 'Interaction'; Title = 'Fixed colours per category'; Text = '-ColorMap: Failed is always red and Success always green, whichever states the data has and in every chart type; two colours give one per mode.'; Code = {
+            $states = @{ Failed = '#E3000F', '#FF6B6B'; Warning = '#FB8C00'; Success = '#287233', '#4CAF50' }
+            $nights = 1..7 | ForEach-Object { [pscustomobject]@{ Night = "Day $_"; Success = 180 + 3 * $_; Warning = 12 + $_ % 4; Failed = $_ % 3 } }
+            New-UDEChart -Data $nights -Type bar -X Night -Y Success, Warning, Failed -Stacked -ColorMap $states -Height 300px
+        }
+    }
     @{ Section = 'Interaction'; Title = 'When there is nothing to show'; Text = 'Empty data shows "No data" in place of bare axes; -EmptyText says what it means for this chart.'; Code = {
             $jobs = 'Backup', 'Patch', 'Report' | ForEach-Object { [pscustomobject]@{ Job = $_; State = 'Completed'; Minutes = 5 * $_.Length } }
             $failed = @($jobs | Where-Object State -EQ 'Failed')

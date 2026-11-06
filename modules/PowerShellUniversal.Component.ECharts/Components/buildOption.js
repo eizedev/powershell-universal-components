@@ -2,6 +2,7 @@ import { columnsOf, getter, resolveColumn, resolveColumns } from "../../../share
 import { formatter, labelFormatSpec } from "../../../shared/js/formatters.js";
 import { html, joinHtml, trusted } from "../../../shared/js/html.js";
 import { compileTemplate, columnsTemplate } from "../../../shared/js/template.js";
+import { applyColorMap } from "./colormap.js";
 
 /*
  * Turns the simple parameters of New-UDEChart (chartType, x, y, groupBy, ...) and the rows into an
@@ -1905,8 +1906,10 @@ function polarChart(props, rows, keys, ctx) {
             label: type === "radialbar" ? { show: props.dataLabels !== false, position: "end", fontSize: 11, formatter: (p) => (fmt ? fmt(p.value) : String(p.value ?? "")) } : undefined,
             data: categories.map((c) => {
                 const g = byCat.get(c);
-                if (!g) return { value: null };
-                return { value: props.aggregate ? aggregate(g.values, props.aggregate) : g.values[g.values.length - 1], rowIndex: props.aggregate ? g.rowIndex : g.lastRowIndex };
+                // rings coloured per category: the category is the item's name, which -ColorMap matches
+                const named = type === "radialbar" && defs.length === 1 ? { name: c } : {};
+                if (!g) return { value: null, ...named };
+                return { value: props.aggregate ? aggregate(g.values, props.aggregate) : g.values[g.values.length - 1], ...named, rowIndex: props.aggregate ? g.rowIndex : g.lastRowIndex };
             })
         };
     });
@@ -2044,8 +2047,8 @@ function normalize(value) {
 }
 
 /*
- * ctx: { locale, exportIcons } - exportIcons { csv, xlsx (SVG paths), onCsv, onXlsx (handlers) } turn
- * on the CSV/Excel toolbox buttons.
+ * ctx: { locale, exportIcons, mode } - exportIcons { csv, xlsx (SVG paths), onCsv, onXlsx (handlers) }
+ * turn on the CSV/Excel toolbox buttons; mode ("light" or "dark") picks the -ColorMap colours.
  */
 export function buildOption(props, ctx = {}) {
     const rows = Array.isArray(props.data) ? props.data.filter((r) => r && typeof r === "object") : [];
@@ -2068,6 +2071,8 @@ export function buildOption(props, ctx = {}) {
     if (Array.isArray(props.palette) && props.palette.length) {
         option.color = props.palette;
     }
+    // fixed colours per category name, over the palette; -Options can still override them
+    option = applyColorMap(option, props.colorMap, ctx.mode === "dark" ? "dark" : "light");
     option.backgroundColor = "transparent";
     option.animation = rows.length <= LARGE;
     option.aria = { enabled: true, decal: { show: Boolean(props.decal) } };
