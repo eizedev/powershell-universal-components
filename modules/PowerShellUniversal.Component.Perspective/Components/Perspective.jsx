@@ -31,6 +31,9 @@ export default function Perspective(props) {
     const keys = prepared.columns;
     const latest = useRef(props);
     latest.current = props;
+    // the mode when a load finishes, not when it started: PSU's theme switch can come in between
+    const modeRef = useRef(mode);
+    modeRef.current = mode;
 
     // table: created once, replaced in place when the data changes (the view keeps its layout)
     useEffect(() => {
@@ -62,7 +65,7 @@ export default function Perspective(props) {
                         // first load, or other columns: the reader's layout may name columns that are
                         // gone, so the view starts again from the parameters
                         const problems = [];
-                        await viewerRef.current.restore(viewerConfig(latest.current, keys, mode, prepared.schema, problems));
+                        await viewerRef.current.restore(viewerConfig(latest.current, keys, modeRef.current, prepared.schema, problems));
                         if (problems.length && !cancelled) setError(problems.join("; "));
                     }
                 } finally {
