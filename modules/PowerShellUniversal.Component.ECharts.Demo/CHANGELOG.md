@@ -5,6 +5,15 @@ All notable changes to PowerShellUniversal.Component.ECharts.Demo. Format:
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-06
+
+### Changed
+
+- Requires PowerShellUniversal.Component.ECharts 0.2.0.
+- Charts of job and support states (backup nights, backup windows, jobs per hour, VMs by support
+  status) colour each state the same in every chart with `-ColorMap` instead of a palette in the order
+  the states happen to appear.
+
 ## [0.1.0] - 2026-11-06
 
 ### Added

@@ -38,6 +38,10 @@ if (-not $Cache:EChartsTickets) {
 }
 #endregion
 
+# one colour per state in every chart, whichever states the data of a chart has (-ColorMap)
+$stateColors = @{ Success = '#43a047'; Finished = '#43a047'; Warning = '#fb8c00'; Failed = '#e53935' }
+$supportColors = @{ 'Supported' = '#43a047'; 'Mainstream ended' = '#fdd835'; 'Extended support' = '#fb8c00'; 'End of life' = '#e53935' }
+
 New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
 
     #region Basics
@@ -476,7 +480,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                         @('Ubuntu 24.04', 'Supported', 460), @('Debian 12', 'Supported', 280), @('SLES 15', 'Supported', 150), @('CentOS 7', 'End of life', 96), @('Windows Server 2012 R2', 'End of life', 64)
                     ) | ForEach-Object { [pscustomobject]@{ OS = $_[0]; Support = $_[1]; VMs = $_[2] } } | Sort-Object VMs
                     New-UDEChart -Data $os -Type bar -Horizontal -X OS -Y VMs -GroupBy Support -Stacked -Height 380px `
-                        -Palette '#e53935', '#fb8c00', '#fdd835', '#43a047' -OnClick { Show-UDToast -Message ('{0}: {1} VMs ({2})' -f $EventData.name, $EventData.value, $EventData.seriesName) }
+                        -ColorMap $supportColors -OnClick { Show-UDToast -Message ('{0}: {1} VMs ({2})' -f $EventData.name, $EventData.value, $EventData.seriesName) }
                 }
             }
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
@@ -532,7 +536,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                         $failed = $rng.Next(0, 18); $warn = $rng.Next(10, 60)
                         [pscustomobject]@{ Night = (Get-Date).Date.AddDays($d); Success = $total - $failed - $warn; Warning = $warn; Failed = $failed }
                     }
-                    New-UDEChart -Data $nights -Type bar -X Night -Y Success, Warning, Failed -Stacked -Height 340px -Palette '#43a047', '#fb8c00', '#e53935' -YMin 1500
+                    New-UDEChart -Data $nights -Type bar -X Night -Y Success, Warning, Failed -Stacked -Height 340px -ColorMap $stateColors -YMin 1500
                 }
             }
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
@@ -592,7 +596,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                             $t = $t.AddMinutes($dur + $rng.Next(2, 20))
                         }
                     }
-                    New-UDEChart -Data $jobs -Type gantt -X Server -Start Start -End End -GroupBy Result -Value Job -Height 460px -Palette '#e53935', '#43a047', '#fb8c00' `
+                    New-UDEChart -Data $jobs -Type gantt -X Server -Start Start -End End -GroupBy Result -Value Job -Height 460px -ColorMap $stateColors `
                         -MarkArea @{ from = $night.AddHours(1).ToString('o'); to = $night.AddHours(1.5).ToString('o'); name = 'Storage maintenance' } `
                         -OnClick { Show-UDToast -Message ('{0} {1}: {2}' -f $EventData.row.server, $EventData.row.job, $EventData.row.result) }
                 }
@@ -781,7 +785,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                         [pscustomobject]@{ Hour = $t; Finished = $rng.Next(40, 260); Failed = $rng.Next(0, 6) }
                     }
                     $daytime = for ($d = $start; $d -lt (Get-Date).Date.AddDays(1); $d = $d.AddDays(1)) { @{ start = $d.AddHours(6).ToString('o'); end = $d.AddHours(22).ToString('o'); gap = '2%' } }
-                    New-UDEChart -Data $jobs -Type bar -X Hour -Y Finished, Failed -Stacked -Breaks $daytime -Height 340px -Palette '#43a047', '#e53935'
+                    New-UDEChart -Data $jobs -Type bar -X Hour -Y Finished, Failed -Stacked -Breaks $daytime -Height 340px -ColorMap $stateColors
                 }
             }
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {

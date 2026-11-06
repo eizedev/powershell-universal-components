@@ -5,11 +5,13 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-06
+
 ### Added
 
 - `-ColorMap @{ Failed = '#E3000F'; Success = '#287233' }`: a fixed colour per category name for series,
-  data items and gantt groups of every chart type, optionally one per mode; the README lists the
-  palette order per type.
+  data items and gantt groups of every chart type, optionally one per mode; the documentation lists
+  the palette order per type.
 - `--psu-chart-font-size` in the app's stylesheet sets the base text size of every chart: axis labels,
   legend, data labels, tooltips and titles grow or shrink by the same factor, also in narrow charts.
 
