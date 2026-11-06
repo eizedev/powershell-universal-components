@@ -5,7 +5,7 @@ import { test, expect } from "@playwright/test";
 const base = process.env.PSU_URL;
 // "public" calls public web APIs (slow, outside our control), "live" and "benchmark" redraw on a timer
 // or on demand - left out so a run is repeatable
-const pages = ["basics", "bars", "tickets", "finance", "msp", "operations", "calendar", "intraday", "dataplatform", "layouts", "technical"];
+const pages = ["basics", "bars", "tickets", "finance", "msp", "operations", "calendar", "intraday", "dataplatform", "public", "layouts", "technical", "live", "benchmark"];
 
 test.describe("showcase on PSU", () => {
     test.skip(!base, "set PSU_URL to the showcase app to run these");
