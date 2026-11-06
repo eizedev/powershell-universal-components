@@ -1,0 +1,55 @@
+/*
+ * PSU theme bridge: pivotkit's tokens (--pk-*) mapped to the colours PSU's own pages use, so the report
+ * looks like a part of the app. Measured on PSU 2026.3.4: light page rgb(240, 242, 245) with white
+ * cards and app bar, MUI's primary blue #1976d2; dark page black, app bar rgb(31, 31, 31), text white
+ * at 85 %, MUI's dark primary #90caf9. pivotkit's own defaults are tinted blue-grey; here the surfaces
+ * are PSU's neutral greys and the accent is MUI's primary. The report picks light or dark from
+ * <html data-theme> itself (data-pk-theme on its root).
+ *
+ * The selectors carry one class more than pivotkit's (zero specificity), so they win in any order.
+ */
+.ud-pivot-report .pk-root {
+    --pk-radius: 8px;
+    --pk-radius-sm: 4px;
+    --pk-surface: #ffffff;
+    --pk-surface-2: #f5f6f8;
+    --pk-surface-3: #eaecef;
+    --pk-surface-raised: #ffffff;
+    --pk-text: rgba(0, 0, 0, 0.87);
+    --pk-muted: rgba(0, 0, 0, 0.62);
+    --pk-border: #e0e0e0;
+    --pk-border-strong: #c4c4c4;
+    --pk-drop-border: #8a8a8a;
+    --pk-grid: #eeeeee;
+    --pk-accent: #1976d2;
+    --pk-accent-text: #ffffff;
+    --pk-accent-soft: #e3effb;
+    --pk-drop: #d6e7f9;
+    --pk-note: #eef5fc;
+    --pk-focus: #1976d2;
+    --pk-total: #f5f6f8;
+    --pk-total-strong: #eaecef;
+    /* scroll bars of the table and the field list in the report's colours (inherited) */
+    scrollbar-color: var(--pk-border-strong) transparent;
+}
+
+.ud-pivot-report .pk-root[data-pk-theme="dark"] {
+    --pk-surface: #121212;
+    --pk-surface-2: #1a1a1a;
+    --pk-surface-3: #262626;
+    --pk-surface-raised: #1f1f1f;
+    --pk-text: rgba(255, 255, 255, 0.87);
+    --pk-muted: rgba(255, 255, 255, 0.64);
+    --pk-border: #2e2e2e;
+    --pk-border-strong: #474747;
+    --pk-drop-border: #7a7a7a;
+    --pk-grid: #232323;
+    --pk-accent: #90caf9;
+    --pk-accent-text: #0b1a2a;
+    --pk-accent-soft: #1b2a38;
+    --pk-drop: #1e3a55;
+    --pk-note: #16212c;
+    --pk-focus: #90caf9;
+    --pk-total: #1a1a1a;
+    --pk-total-strong: #242424;
+}

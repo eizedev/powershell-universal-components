@@ -13,3 +13,6 @@ docs/site/generated/
 !.claude/settings.json
 test-results/
 playwright-report/
+
+# pivotkit tarballs while pivotkit is not on npm yet (file: dependencies of the Pivot module)
+modules/*/.local-packages/
