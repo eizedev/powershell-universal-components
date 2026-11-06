@@ -70,14 +70,26 @@ components.
 
 ## Size and limits
 
-- The bundle is about 8 MB: it carries Perspective's WebAssembly, so it works without internet access.
-  The browser downloads it once and caches it; PSU runs it for every Perspective component on a page,
-  and only the first run sets the engine up, the others share it (one Web Worker per page).
+- The bundle is about 6.7 MB: it carries Perspective's WebAssembly, so the engine needs no internet
+  access. The browser downloads it once and caches it; PSU runs it for every Perspective component on a
+  page, and only the first run sets the engine up, the others share it (one Web Worker per page).
 - All rows go to the browser: select the columns a reader may see first (`Select-Object`). Cell values
   are shown as text; a column formatted as a link (in the panel or through `-Config`) makes its values
   clickable URLs, so do not do that for data users can write.
 - Number formats follow Perspective (thousands separators also on id columns); adjust them in the
   configuration panel or through `-Config`.
+
+## Security notes
+
+- The engine, the data and every view stay in the browser and the PSU server; nothing is sent elsewhere
+  while a reader uses the datagrid, a pivot or a chart.
+- The map plugins of the configuration panel (Map Scatter, Map Line, Map Density and the other map
+  charts) draw on base map tiles that Perspective loads from `tile.openstreetmap.org` or
+  `tiles.versatiles.org` as soon as a reader picks one. The tile requests carry the browser's IP address
+  and the map area shown. Where that is not wanted, or the browser has no internet access, a
+  Content-Security-Policy without these hosts in `img-src` and `connect-src` blocks them; the map
+  plugins then show the points without a background map.
+- `$EventData` of `-OnClick` comes from the browser: treat it as user input on the server.
 
 ## Example
 
@@ -87,6 +99,6 @@ priority) and a chart.
 ## License
 
 MIT. Includes Perspective 5.7 (`@perspective-dev/*`, Apache-2.0) with regular-table (Apache-2.0); the
-licence texts of these and the other runtime packages are in `THIRD-PARTY-NOTICES.txt` of the built
-module. The bundle carries Perspective's WebAssembly binaries inline, so the browser loads nothing from
-other servers.
+other runtime packages are under MIT, ISC and, for two small helpers of Perspective's WebAssembly
+packaging (`buffer-pipe`, `leb128`), MPL-2.0. Their licence texts are in `THIRD-PARTY-NOTICES.txt` of the
+built module.
