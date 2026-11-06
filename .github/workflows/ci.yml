@@ -73,3 +73,22 @@ jobs:
           $config.Run.Exit = $true
           $config.Output.Verbosity = 'Detailed'
           Invoke-Pester -Configuration $config
+
+  browser:
+    # the documentation site renders the module's own component: tested in Chromium, Firefox and WebKit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Build the documentation site
+        shell: pwsh
+        run: ./docs/site/Build-Site.ps1
+      - name: Browser tests
+        run: |
+          npm ci --no-audit --no-fund --ignore-scripts
+          npx playwright install --with-deps chromium firefox webkit
+          npm run test:browser

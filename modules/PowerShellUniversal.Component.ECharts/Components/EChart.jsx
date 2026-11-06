@@ -125,12 +125,22 @@ export default function EChart(props) {
         chartRef.current = chart;
         // the ECharts instance on its element, for page scripts and tests: element.echarts.getOption()
         container.current.echarts = chart;
+        // resize in the next frame: resizing inside the observer's callback changes the layout it is
+        // reporting, and WebKit then reports "ResizeObserver loop completed with undelivered notifications"
+        let frame = 0;
         const resize = new ResizeObserver((entries) => {
-            chart.resize();
-            setWidthClass(classOf(entries[0].contentRect.width));
+            const width = entries[0].contentRect.width;
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(() => {
+                if (!chart.isDisposed()) {
+                    chart.resize();
+                    setWidthClass(classOf(width));
+                }
+            });
         });
         resize.observe(container.current);
         return () => {
+            cancelAnimationFrame(frame);
             resize.disconnect();
             chart.dispose();
             chartRef.current = null;

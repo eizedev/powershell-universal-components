@@ -32,3 +32,7 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
   multiples (`-Facet`); sparklines (`-Sparkline`).
 - `Set-UDEChartData` for live updates that keep zoom and hidden series.
 - `-Options` with the full Apache ECharts option, merged over the generated one.
+
+### Fixed
+
+- Resizing waits for the next frame, so WebKit (Safari) no longer reports a ResizeObserver loop.

@@ -2,11 +2,13 @@
   "name": "powershell-universal-components",
   "private": true,
   "type": "module",
-  "description": "Repository root: shared JavaScript is ESM; tests run with node --test. fflate is here so the tests resolve it the way each module's bundle does.",
+  "description": "Repository root: shared JavaScript is ESM; unit tests run with node --test, browser tests with Playwright against the built documentation site. fflate is here so the tests resolve it the way each module's bundle does.",
   "scripts": {
-    "test": "node --test \"tests/js/*.test.js\""
+    "test": "node --test \"tests/js/*.test.js\"",
+    "test:browser": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "fflate": "0.8.3"
   }
 }
