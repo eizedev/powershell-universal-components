@@ -34,7 +34,9 @@ module.exports = function config(moduleDir) {
                             configFile: false,
                             presets: [
                                 ["@babel/preset-env", { targets: "> 0.5%, last 2 Chrome versions, last 2 Firefox versions, last 2 Safari versions, not dead" }],
-                                "@babel/preset-react"
+                                // classic: JSX becomes React.createElement on PSU's React global (Babel 8 defaults
+                                // to the automatic runtime, which imports react/jsx-runtime)
+                                ["@babel/preset-react", { runtime: "classic" }]
                             ]
                         }
                     }

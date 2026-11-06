@@ -71,7 +71,7 @@ lists the gallery examples.
 
 ## Build
 
-Requires Node.js 22 and PowerShell 7.4+.
+Requires Node.js 22.18 or newer (Babel 8; CI tests the latest 22.x) and PowerShell 7.4+.
 
 ```powershell
 npm ci; npm test

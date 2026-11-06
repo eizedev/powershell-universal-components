@@ -22,6 +22,10 @@ updates:
     labels: ["dependencies"]
     commit-message:
       prefix: "build(deps)"
+    # Babel's core and presets move together (a major version mixed with the old presets breaks the build)
+    groups:
+      babel:
+        patterns: ["@babel/*", "babel-loader"]
     # React must stay at the version PSU provides at runtime (18.3.1 in PSU 2026.3)
     ignore:
       - dependency-name: "react"
