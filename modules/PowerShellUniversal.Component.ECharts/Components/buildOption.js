@@ -384,6 +384,43 @@ export function axisBreaks(list_, axisType) {
 
 // ---- cartesian: line, area, bar, scatter, step --------------------------------------------------
 
+// ---- -Aggregate: rows with the same key combined --------------------------------------------------
+
+const AGGREGATES = {
+    sum: (v) => v.reduce((a, b) => a + b, 0),
+    avg: (v) => (v.length ? v.reduce((a, b) => a + b, 0) / v.length : null),
+    count: (v) => v.length,
+    min: (v) => (v.length ? Math.min(...v) : null),
+    max: (v) => (v.length ? Math.max(...v) : null)
+};
+
+// values of the rows that share a key -> one value; without a mode the last row wins (as without -Aggregate)
+export function aggregate(values, mode) {
+    const fn = AGGREGATES[String(mode || "").toLowerCase()];
+    if (!fn) {
+        return values.length ? values[values.length - 1] : null;
+    }
+    // count counts rows; the others ignore empty values
+    return mode.toLowerCase() === "count" ? values.length : fn(values.filter((v) => v !== null && v !== undefined));
+}
+
+// rows grouped by key, in first-seen order: [{ key, values, rowIndex (first row), lastRowIndex }]
+function groupRows(rows, keyOf, valueOf, filter = () => true) {
+    const groups = new Map();
+    rows.forEach((r, rowIndex) => {
+        if (!filter(r)) return;
+        const key = keyOf(r);
+        let g = groups.get(key);
+        if (!g) {
+            g = { key, values: [], rowIndex, lastRowIndex: rowIndex };
+            groups.set(key, g);
+        }
+        g.values.push(valueOf(r));
+        g.lastRowIndex = rowIndex;
+    });
+    return groups;
+}
+
 // ---- small statistics helpers --------------------------------------------------------------------
 
 function toTime(v) {
@@ -462,13 +499,14 @@ function cartesian(props_, rows, keys, ctx) {
         let data;
         if (categories) {
             // aligned to the categories; missing combinations stay empty (null)
-            const byCat = new Map();
-            rows.forEach((r, rowIndex) => {
-                if (def.filter(r)) {
-                    byCat.set(String(r[xKey] ?? ""), { value: num(r[def.y]), rowIndex });
-                }
+            // one point per category and series; -Aggregate combines rows with the same category,
+            // otherwise the last row wins
+            const byCat = groupRows(rows, (r) => String(r[xKey] ?? ""), (r) => num(r[def.y]), def.filter);
+            data = categories.map((c) => {
+                const g = byCat.get(c);
+                if (!g) return { value: null };
+                return props.aggregate ? { value: aggregate(g.values, props.aggregate), rowIndex: g.rowIndex } : { value: g.values[g.values.length - 1], rowIndex: g.lastRowIndex };
             });
-            data = categories.map((c) => byCat.get(c) ?? { value: null });
             if (large) {
                 data = data.map((d) => d.value);
             }
@@ -837,7 +875,9 @@ function nameValue(props, rows, keys, ctx) {
     const nameKey = resolveColumn(props.x, keys) ?? keys[0];
     const valueKey = resolveColumns(props.y, keys)[0] ?? resolveColumn(props.value, keys) ?? keys.find((k) => k !== nameKey && rows.some((r) => typeof r[k] === "number"));
     const fmt = valueFormatter(props, ctx.locale);
-    const data = rows.map((r, rowIndex) => ({ name: String(r[nameKey] ?? ""), value: num(r[valueKey]), rowIndex }));
+    const data = props.aggregate
+        ? [...groupRows(rows, (r) => String(r[nameKey] ?? ""), (r) => num(r[valueKey])).values()].map((g) => ({ name: g.key, value: aggregate(g.values, props.aggregate), rowIndex: g.rowIndex }))
+        : rows.map((r, rowIndex) => ({ name: String(r[nameKey] ?? ""), value: num(r[valueKey]), rowIndex }));
     const legend = legendOf(props, true);
     const pct = new Intl.NumberFormat(ctx.locale, { style: "percent", maximumFractionDigits: 1 });
     const lfmt = labelFormatter(props, ctx.locale);
@@ -1799,6 +1839,121 @@ function checkColumns(props, rows, keys) {
     }
 }
 
+/*
+ * polar: categories around a circle (hours of the day, weekdays, months), bars outward; -Y columns or
+ * -GroupBy give series, -Stacked stacks them. radialbar: one ring per category, its length the value
+ * (-Max is the longest ring, three quarters of the circle; default the largest value) - progress per
+ * service or customer.
+ */
+function ringMax(series) {
+    return Math.max(1, ...series.flatMap((s) => s.data.map((d) => num(d.value) || 0)));
+}
+
+function polarChart(props, rows, keys, ctx) {
+    const type = String(props.chartType).toLowerCase();
+    const xKey = resolveColumn(props.x, keys) ?? keys[0];
+    const groupKey = resolveColumn(props.groupBy, keys);
+    let yKeys = resolveColumns(props.y, keys);
+    if (yKeys.length === 0) yKeys = keys.filter((k) => k !== xKey && k !== groupKey && rows.some((r) => typeof r[k] === "number"));
+    const categories = unique(rows.map((r) => String(r[xKey] ?? "")));
+    const defs = groupKey
+        ? unique(rows.map((r) => String(r[groupKey] ?? ""))).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map((g) => ({ name: g, y: yKeys[0], filter: (r) => String(r[groupKey] ?? "") === g }))
+        : yKeys.map((y) => ({ name: displayName(y, props.y), y, filter: () => true }));
+    const fmt = valueFormatter(props, ctx.locale);
+    const series = defs.map((def) => {
+        const byCat = groupRows(rows, (r) => String(r[xKey] ?? ""), (r) => num(r[def.y]), def.filter);
+        return {
+            type: "bar",
+            name: def.name,
+            coordinateSystem: "polar",
+            stack: props.stacked ? "total" : undefined,
+            roundCap: type === "radialbar" && !props.stacked,
+            emphasis: { focus: "series" },
+            // radialbar: one colour per ring, the value at the ring's end
+            colorBy: type === "radialbar" && defs.length === 1 ? "data" : undefined,
+            label: type === "radialbar" ? { show: props.dataLabels !== false, position: "end", fontSize: 11, formatter: (p) => (fmt ? fmt(p.value) : String(p.value ?? "")) } : undefined,
+            data: categories.map((c) => {
+                const g = byCat.get(c);
+                if (!g) return { value: null };
+                return { value: props.aggregate ? aggregate(g.values, props.aggregate) : g.values[g.values.length - 1], rowIndex: props.aggregate ? g.rowIndex : g.lastRowIndex };
+            })
+        };
+    });
+    const legend = legendOf(props, series.length > 1);
+    const center = ["50%", props.title ? "55%" : "52%"];
+    const valueAxis = { type: "value", max: props.max, min: props.min, axisLabel: fmt ? { formatter: (v) => fmt(v) } : {}, splitLine: { show: true } };
+    const categoryAxis = { type: "category", data: categories, axisLabel: { interval: 0 } };
+    return {
+        title: titleOf(props),
+        legend,
+        tooltip: { trigger: "item", confine: true, valueFormatter: fmt || undefined },
+        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        polar: { center, radius: type === "radialbar" ? ["18%", "72%"] : ["12%", "70%"] },
+        // radialbar: categories are the rings, the value runs around; the full value (-Max) fills three
+        // quarters of the circle, so the ring names fit into the free quarter next to where the rings start.
+        // polar: categories around, value outward
+        angleAxis: type === "radialbar" ? { type: "value", min: 0, max: (props.max ?? ringMax(series)) * 4 / 3, startAngle: 90, show: false } : { ...categoryAxis, startAngle: 90 },
+        radiusAxis: type === "radialbar" ? { ...categoryAxis, z: 10, axisLabel: { interval: 0, align: "right", margin: 10, fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } } : valueAxis,
+        series
+    };
+}
+
+/*
+ * bump: the rank of each item (-GroupBy) per period (-X) by its value (-Y, highest first), as lines
+ * that cross when items overtake each other - top customers by tickets per month, busiest hosts per
+ * week. The tooltip shows rank and value.
+ */
+function bump(props, rows, keys, ctx) {
+    const xKey = resolveColumn(props.x, keys) ?? keys[0];
+    const groupKey = resolveColumn(props.groupBy, keys) ?? keys[1];
+    const yKey = resolveColumns(props.y, keys)[0] ?? keys.find((k) => k !== xKey && k !== groupKey && rows.some((r) => typeof r[k] === "number"));
+    const periods = unique(rows.map((r) => String(r[xKey] ?? "")));
+    const items = unique(rows.map((r) => String(r[groupKey] ?? "")));
+    const fmt = valueFormatter(props, ctx.locale);
+    // value and first row per period and item
+    const cell = new Map();
+    rows.forEach((r, rowIndex) => {
+        const k = `${r[xKey]}\u0000${r[groupKey]}`;
+        const v = num(r[yKey]);
+        const c = cell.get(k);
+        if (c) c.values.push(v);
+        else cell.set(k, { values: [v], rowIndex });
+    });
+    const rank = new Map();
+    periods.forEach((p) => {
+        const ranked = items
+            .map((item) => ({ item, c: cell.get(`${p}\u0000${item}`) }))
+            .filter((x) => x.c)
+            .map((x) => ({ ...x, value: aggregate(x.c.values, props.aggregate || "sum") }))
+            .filter((x) => x.value !== null)
+            .sort((a, b) => b.value - a.value);
+        ranked.forEach((x, i) => rank.set(`${p}\u0000${x.item}`, { rank: i + 1, value: x.value, rowIndex: x.c.rowIndex }));
+    });
+    const series = items.map((item) => ({
+        type: "line",
+        name: item,
+        smooth: true,
+        symbolSize: 10,
+        emphasis: { focus: "series" },
+        endLabel: { show: true, formatter: (p) => p.seriesName, distance: 8 },
+        data: periods.map((p) => {
+            const r = rank.get(`${p}\u0000${item}`);
+            return r ? { value: r.rank, raw: r.value, rowIndex: r.rowIndex } : { value: null };
+        })
+    }));
+    const legend = legendOf(props, true);
+    return {
+        title: titleOf(props),
+        legend,
+        grid: { ...gridOf(props, legend), right: 24 + 7 * Math.min(24, Math.max(0, ...items.map((i) => i.length))) },
+        tooltip: { trigger: "item", confine: true, formatter: (p) => html`${p.seriesName} · ${p.name}<br/>#${p.value}: <b>${fmt ? fmt(p.data.raw) : p.data.raw}</b>` },
+        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        xAxis: { type: "category", data: periods, boundaryGap: false, axisLabel: { hideOverlap: true } },
+        yAxis: { type: "value", inverse: true, min: 1, max: Math.max(1, items.length), interval: 1, axisLabel: { formatter: (v) => `#${v}` }, splitLine: { show: true } },
+        series
+    };
+}
+
 // ---- entry point ---------------------------------------------------------------------------------
 
 const BUILDERS = {
@@ -1822,7 +1977,10 @@ const BUILDERS = {
     chord,
     parallel,
     themeriver: themeRiver,
-    matrix: matrixChart
+    matrix: matrixChart,
+    polar: polarChart,
+    radialbar: polarChart,
+    bump
 };
 
 export const CHART_TYPES = [...CARTESIAN, ...Object.keys(BUILDERS)];

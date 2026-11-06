@@ -61,6 +61,9 @@ function New-UDEChart {
         - themeriver: -X (date), -GroupBy (category), -Y (value) - how a mix changes over time
         - matrix: -Y (rows, e.g. customer), -GroupBy (columns, e.g. KPI), -X (time inside a cell),
           -Value, -CellType - a table of sparklines with one scale per column
+        - polar: -X (categories around the circle, e.g. hours), -Y or -GroupBy, -Stacked
+        - radialbar: -X (one ring per category), -Y, -Max (the longest ring, three quarters of the circle)
+        - bump: -X (period), -GroupBy (item), -Y (value) - the rank of each item per period
 
     .PARAMETER Id
         Component id for Get-UDElement, Set-UDElement, Sync-UDElement and Set-UDEChartData.
@@ -195,6 +198,12 @@ function New-UDEChart {
         Upper bound of the value axis.
     .PARAMETER Bins
         Number of histogram bins. Default: from the number of values (Sturges).
+    .PARAMETER Aggregate
+        Combine rows with the same category (and group): Sum, Avg, Count, Min or Max (line, area, bar,
+        step, scatter on a category axis, pie, donut, funnel, polar, radialbar; bump ranks by Sum by
+        default). Without it the last row wins.
+    .PARAMETER EmptyText
+        Text shown when -Data has no rows. Default: No data.
     .PARAMETER Stacked
         Stack the series (line, area, bar).
     .PARAMETER Horizontal
@@ -335,7 +344,7 @@ function New-UDEChart {
     param(
         [string]$Id = [guid]::NewGuid().ToString(),
         [Parameter(Mandatory)][AllowNull()][object]$Data,
-        [ValidateSet('line', 'area', 'bar', 'scatter', 'step', 'pie', 'donut', 'funnel', 'heatmap', 'calendar', 'boxplot', 'histogram', 'candlestick', 'gauge', 'radar', 'sankey', 'treemap', 'sunburst', 'waterfall', 'gantt', 'graph', 'tree', 'chord', 'parallel', 'themeriver', 'matrix')]
+        [ValidateSet('line', 'area', 'bar', 'scatter', 'step', 'pie', 'donut', 'funnel', 'heatmap', 'calendar', 'boxplot', 'histogram', 'candlestick', 'gauge', 'radar', 'sankey', 'treemap', 'sunburst', 'waterfall', 'gantt', 'graph', 'tree', 'chord', 'parallel', 'themeriver', 'matrix', 'polar', 'radialbar', 'bump')]
         [string]$Type = 'line',
         [string]$X,
         [string[]]$Y,
@@ -402,6 +411,8 @@ function New-UDEChart {
         [Nullable[double]]$YMin,
         [Nullable[double]]$YMax,
         [ValidateRange(1, 500)][int]$Bins,
+        [ValidateSet('Sum', 'Avg', 'Count', 'Min', 'Max')][string]$Aggregate,
+        [string]$EmptyText,
         [switch]$Stacked,
         [switch]$Horizontal,
         [switch]$Normalize,
@@ -493,6 +504,20 @@ function New-UDEChart {
         if ($PSBoundParameters.ContainsKey($name)) { $props[$name.Substring(0, 1).ToLowerInvariant() + $name.Substring(1)] = ConvertTo-UDEChartTheme -Theme $PSBoundParameters[$name] }
     }
     if ($PSBoundParameters.ContainsKey('LegendType')) { $props['legendType'] = $LegendType.ToLowerInvariant() }
+    if ($PSBoundParameters.ContainsKey('Aggregate')) { $props['aggregate'] = $Aggregate.ToLowerInvariant() }
+    if ($PSBoundParameters.ContainsKey('EmptyText')) { $props['emptyText'] = $EmptyText }
+    # parameters that only one family of chart types reads: say so instead of ignoring them silently
+    $onlyFor = @{
+        Source = 'sankey', 'graph', 'chord'; Target = 'sankey', 'graph', 'chord'; TargetGroup = 'graph'; Layout = 'graph'; EdgeLabel = 'graph'; Undirected = 'graph'
+        Path = 'treemap', 'sunburst', 'tree'; Orient = 'tree'; Depth = 'tree'; RootName = 'tree'
+        Open = 'candlestick'; Close = 'candlestick'; Low = 'candlestick'; High = 'candlestick'; Volume = 'candlestick'
+        Start = 'gantt'; End = 'gantt'; Bins = 'histogram'; GaugeStyle = 'gauge'; Rose = 'pie', 'donut'; Totals = 'waterfall'; CellType = 'matrix'
+    }
+    foreach ($name in $onlyFor.Keys) {
+        if ($PSBoundParameters.ContainsKey($name) -and $Type -notin $onlyFor[$name]) {
+            Write-Warning ('New-UDEChart: -{0} is used by -Type {1} only; -Type {2} ignores it.' -f $name, ($onlyFor[$name] -join ', '), $Type)
+        }
+    }
     if ($PSBoundParameters.ContainsKey('Layout')) { $props['layout'] = $Layout.ToLowerInvariant() }
     if ($PSBoundParameters.ContainsKey('Trend')) { $props['trend'] = $Trend.ToLowerInvariant() }
     if ($PSBoundParameters.ContainsKey('Legend')) { $props['legend'] = $Legend.ToLowerInvariant() }

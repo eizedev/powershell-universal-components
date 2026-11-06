@@ -29,11 +29,13 @@ case, so `-X Team` finds `team`.
 
 Wide data has one column per series (`-Y Opened, Closed`); long data has one row per series and point
 (`-Y Tickets -GroupBy Team` draws one series per team). On a category axis each x value is one point
-per series: rows with the same x (and group) are not added up - the last one wins. Aggregate first
-(`Group-Object`, SQL `GROUP BY`).
+per series: rows with the same x (and group) are combined with `-Aggregate Sum | Avg | Count | Min | Max`
+(also for pie, donut, funnel and polar), or the last one wins. `-Aggregate Count` counts raw rows, so
+`-Data $tickets -X Team -Y Id -Aggregate Count` needs no `Group-Object`.
 
 A column parameter that matches no column (`-Y Tickts`) shows an error in place of the chart, with the
-columns the data has. Empty data shows "No data". Numbers on axes, labels and tooltips follow `-Locale` or, without it, the browser's
+columns the data has. Empty data shows "No data" (`-EmptyText` for your own). A parameter that only another chart type reads
+(`-Source` on a bar chart) gives a warning naming the types that use it. Numbers on axes, labels and tooltips follow `-Locale` or, without it, the browser's
 language - two readers can see `1,200` and `1.200` for the same chart.
 
 ## Chart types
@@ -59,6 +61,9 @@ language - two readers can see `1,200` and `1.200` for the same chart.
 | `parallel` | `-Y` (axes), `-X` (name), `-GroupBy` | many items across many measures; drag along an axis to filter |
 | `themeriver` | `-X` (date), `-GroupBy`, `-Y` | how a mix of categories changes over time |
 | `matrix` | `-Y` (rows), `-GroupBy` (columns), `-X` (inside a cell), `-Value`, `-CellType` | a table of sparklines, e.g. KPIs per customer; one scale per column |
+| `polar` | `-X` (around the circle), `-Y` or `-GroupBy` | hours of the day, weekdays; `-Stacked` |
+| `radialbar` | `-X` (one ring each), `-Y`, `-Max` | progress per customer or service; the longest ring is three quarters of the circle |
+| `bump` | `-X` (period), `-GroupBy` (item), `-Y` (value) | the rank of each item per period, highest value first |
 
 More: `-Facet <column>` draws one small chart per value with a shared scale (small multiples),
 `-Sparkline` a tiny trend without axes for tiles (line, area, bar), `-Breaks`/`-YBreaks` cut ranges out
