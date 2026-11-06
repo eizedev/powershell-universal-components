@@ -13,6 +13,9 @@ New-UDPerspective -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -GroupBy 
 Requires PowerShell Universal 2026 (PowerShell 7.4+). Tested on PSU 2026.3.4 and 2026.2.5 in Chromium, Firefox and
 WebKit (Safari's engine).
 
+**Documentation: [powershell-universal-components.eize.dev](https://powershell-universal-components.eize.dev/perspective/)** - data and types, the
+starting view, events, security notes, with live examples.
+
 ## Install
 
 ```powershell
@@ -22,79 +25,21 @@ Install-PSResource -Name PowerShellUniversal.Component.Perspective
 or copy the built module folder into `Modules/PowerShellUniversal.Component.Perspective/<version>/` of
 your PSU repository.
 
-## Data
+## Where to read on
 
-`-Data` takes a DataTable, DataRows, PSCustomObjects, hashtables or a script block, like the other
-modules of this repository. Column names keep their PowerShell spelling in the grid. Every column gets
-a type from its values: ISO dates and times become dates (sortable and filterable as dates), whole
-numbers up to 2,147,483,647 integers (Perspective's integers are 32 bit), other numbers floats,
-`$true`/`$false` booleans, everything else text. New data for the same component replaces the rows and
-keeps the reader's layout; when the columns or their types change, the table is built anew and the
-view starts again from the parameters.
-
-## The starting view
-
-| Parameter | Effect |
+| Topic | Page |
 | --- | --- |
-| `-Plugin` | `Datagrid` (default); charts (WebGL): `X Bar`, `Y Bar`, `Y Line`, `Y Area`, `Y Scatter`, `X/Y Scatter`, `X/Y Line`, `Density`, `Treemap`, `Sunburst`, `Heatmap`, `Candlestick`, `OHLC`, `Map Scatter`, `Map Line`, `Map Density` (maps need longitude and latitude columns) |
-| `-Columns` | columns to show, in order |
-| `-GroupBy`, `-SplitBy` | pivot rows and columns |
-| `-Aggregates` | `@{ Tickets = 'sum'; LeadHours = 'avg' }` (Perspective's names: sum, avg, count, distinct count, min, max, median, first, last, ...) |
-| `-Sort` | `'Created desc'`, `'Team'` |
-| `-Filter` | `'Status == Open'`, `'LeadHours > 48'`, `'Team contains Net'` |
-| `-Settings` | open the configuration panel at the start |
-| `-Config` | Perspective's full viewer configuration (the viewer's "copy" button gives it), merged over the parameters |
-
-Column names in these parameters are matched without regard to case; names with spaces work
-(`'Lead Hours > 48'`). Filter values take the column's type (`'Code == 007'` stays text in a text
-column, a number column takes only numbers, a boolean column `true`/`false`); `in` and `not in` take a
-comma-separated list (values themselves cannot contain a comma). A name that matches no column, a
-value of the wrong type or a malformed `-Sort`/`-Filter` entry is reported above the grid and left
-out; names of expression columns from `-Config` count as columns.
-
-## Events
-
-`-OnClick` runs on the server when a cell is clicked; `$EventData.row` holds the values of the clicked
-row (or of the group in a pivot), `$EventData.filter` the group and split values that lead to the cell
-as `[column, operator, value]`.
-
-```powershell
-New-UDPerspective -Data $tickets -OnClick { Show-UDToast -Message "Ticket $($EventData.row.Id)" }
-```
-
-## Theme and layout
-
-Light and dark follow the app's switch (Perspective's "Pro Light" and "Pro Dark"); `-Theme Light` or
-`Dark` pins one. `-Height` (default `480px`), `-Width`, `-Id`, `-ClassName` and `-Style` as on PSU's own
-components.
-
-## Size and limits
-
-- The bundle is about 6.7 MB: it carries Perspective's WebAssembly, so the engine needs no internet
-  access. The browser downloads it once and caches it; PSU runs it for every Perspective component on a
-  page, and only the first run sets the engine up, the others share it (one Web Worker per page).
-- All rows go to the browser: select the columns a reader may see first (`Select-Object`). Cell values
-  are shown as text; a column formatted as a link (in the panel or through `-Config`) makes its values
-  clickable URLs, so do not do that for data users can write.
-- Number formats follow Perspective (thousands separators also on id columns); adjust them in the
-  configuration panel or through `-Config`.
+| Data, column types, size and limits | [Overview and data](https://powershell-universal-components.eize.dev/perspective/) |
+| `-GroupBy`, `-SplitBy`, `-Columns`, `-Filter`, `-Sort`, `-Plugin`, `-Config` | [The starting view](https://powershell-universal-components.eize.dev/perspective/view/) |
+| `-OnClick`, map plugins and their tiles, security | [Events, security and limits](https://powershell-universal-components.eize.dev/perspective/events/) |
+| Parameters | [Reference](https://powershell-universal-components.eize.dev/perspective/reference/) |
 
 ## Security notes
 
-- The engine, the data and every view stay in the browser and the PSU server; nothing is sent elsewhere
-  while a reader uses the datagrid, a pivot or a chart.
-- The map plugins of the configuration panel (Map Scatter, Map Line, Map Density and the other map
-  charts) draw on base map tiles that Perspective loads from `tile.openstreetmap.org` or
-  `tiles.versatiles.org` as soon as a reader picks one. The tile requests carry the browser's IP address
-  and the map area shown. Where that is not wanted, or the browser has no internet access, a
-  Content-Security-Policy without these hosts in `img-src` and `connect-src` blocks them; the map
-  plugins then show the points without a background map.
-- `$EventData` of `-OnClick` comes from the browser: treat it as user input on the server.
-
-## Example
-
-[examples/smoke.ps1](examples/smoke.ps1): 5000 generated tickets as a datagrid, a pivot (team x
-priority) and a chart.
+All rows go to the browser: select the columns a reader may see first. The map plugins of the
+configuration panel load base map tiles from OpenStreetMap or VersaTiles when a reader picks one.
+`$EventData` comes from the browser: treat it like user input. Details:
+[Events, security and limits](https://powershell-universal-components.eize.dev/perspective/events/).
 
 ## License
 

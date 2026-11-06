@@ -1,6 +1,6 @@
 # PowerShellUniversal.Component.ECharts.Demo
 
-The showcase app of [PowerShellUniversal.Component.ECharts](../PowerShellUniversal.Component.ECharts/README.md)
+The showcase app of [PowerShellUniversal.Component.ECharts](https://powershell-universal-components.eize.dev/echarts/)
 as a module: install it and an app needs one line.
 
 ```powershell
@@ -22,3 +22,5 @@ live data and a benchmark. All data is generated with a fixed seed; "Public data
 APIs from the PSU server.
 
 The source of the app is [Apps/Showcase.ps1](Apps/Showcase.ps1); copy parts of it into your own apps.
+
+Documentation: [Demo](https://powershell-universal-components.eize.dev/demo/).
