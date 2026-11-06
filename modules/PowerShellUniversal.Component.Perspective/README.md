@@ -29,6 +29,7 @@ your PSU repository.
 
 | Topic | Page |
 | --- | --- |
+| Edit view, Table/Chart, building a chart in three steps | [Using the viewer](https://powershell-universal-components.eize.dev/perspective/using/) |
 | Data, column types, size and limits | [Overview and data](https://powershell-universal-components.eize.dev/perspective/) |
 | `-GroupBy`, `-SplitBy`, `-Columns`, `-Filter`, `-Sort`, `-Plugin`, `-Config` | [The starting view](https://powershell-universal-components.eize.dev/perspective/view/) |
 | `-OnClick`, map plugins and their tiles, security | [Events, security and limits](https://powershell-universal-components.eize.dev/perspective/events/) |

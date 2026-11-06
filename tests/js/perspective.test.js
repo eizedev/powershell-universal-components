@@ -72,3 +72,24 @@ test("viewerConfig: wrong value types, unknown names and malformed sorts are rep
     assert.doesNotMatch(text, /ratio/, "expression columns from -Config are known");
     assert.equal(problems.length, 8);
 });
+
+test("toolbar labels: -Labels replaces single labels, keys without regard to case", () => {
+    assert.deepEqual(mod.toolbarLabels(undefined), mod.LABELS);
+    // PSU camelCases hashtable keys; a German app passes its own words
+    const de = mod.toolbarLabels({ editview: "Ansicht bearbeiten", Chart: "Diagramm", unknown: "x", table: "  " });
+    assert.equal(de.editView, "Ansicht bearbeiten");
+    assert.equal(de.chart, "Diagramm");
+    assert.equal(de.table, mod.LABELS.table, "an empty label keeps the default");
+    assert.equal(Object.keys(de).length, Object.keys(mod.LABELS).length, "unknown keys are ignored");
+});
+
+test("Table/Chart switch: back to the table, or to the chart the reader used last", () => {
+    assert.equal(mod.switchTarget("table", "Y Bar"), "Datagrid");
+    assert.equal(mod.switchTarget("table", "Datagrid"), null, "already the table");
+    assert.equal(mod.switchTarget("chart", "Datagrid"), "Y Bar", "default chart");
+    assert.equal(mod.switchTarget("chart", "Datagrid", undefined, "Y Line"), "Y Line", "-ChartPlugin");
+    assert.equal(mod.switchTarget("chart", "Datagrid", "Treemap", "Y Line"), "Treemap", "the reader's last chart wins");
+    assert.equal(mod.switchTarget("chart", "X Bar", "Treemap"), null, "already a chart");
+    assert.equal(mod.isChartPlugin("Datagrid"), false);
+    assert.equal(mod.isChartPlugin("Heatmap"), true);
+});

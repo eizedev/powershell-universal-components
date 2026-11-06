@@ -48,6 +48,7 @@ nav = [
   ] },
   { "Perspective" = [
     { "Overview" = "perspective/index.md" },
+    { "Using the viewer" = "perspective/using.md" },
     { "The starting view" = "perspective/view.md" },
     { "Events, security and limits" = "perspective/events.md" },
     { "Commands and parameters" = "perspective/reference.md" },

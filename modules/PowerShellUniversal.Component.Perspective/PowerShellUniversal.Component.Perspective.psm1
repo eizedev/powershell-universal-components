@@ -42,7 +42,16 @@ function New-UDPerspective {
     .PARAMETER Filter
         'Column == value', 'Column > 5', 'Column contains text', one or more.
     .PARAMETER Settings
-        Open the configuration panel at the start (readers can open it any time).
+        Open the configuration panel at the start (readers open and close it with "Edit view").
+    .PARAMETER ChartPlugin
+        The chart the toolbar's "Chart" button shows while the reader has not picked one in the panel:
+        Y Bar (default), X Bar, Y Line, Y Area, Treemap, Heatmap, ... (any chart of -Plugin).
+    .PARAMETER Labels
+        Words of the toolbar in another language, any of: @{ EditView = 'Ansicht bearbeiten';
+        Table = 'Tabelle'; Chart = 'Diagramm' }. Missing keys keep the English label.
+    .PARAMETER NoToolbar
+        No toolbar above the viewer ("Edit view" and the Table/Chart switch); the configuration panel
+        then opens only through the small arrow in the viewer's status bar.
     .PARAMETER Config
         Perspective's full viewer configuration (as from the viewer's "copy config"), merged over the
         one the parameters built.
@@ -83,6 +92,10 @@ function New-UDPerspective {
         [string[]]$Sort,
         [string[]]$Filter,
         [switch]$Settings,
+        [ValidateSet('X Bar', 'Y Bar', 'Y Line', 'Y Area', 'Y Scatter', 'X/Y Scatter', 'X/Y Line', 'Density', 'Treemap', 'Sunburst', 'Heatmap', 'Candlestick', 'OHLC', 'Map Scatter', 'Map Line', 'Map Density')]
+        [string]$ChartPlugin = 'Y Bar',
+        [hashtable]$Labels,
+        [switch]$NoToolbar,
         [hashtable]$Config,
         [string]$Height = '480px',
         [string]$Width,
@@ -110,10 +123,12 @@ function New-UDPerspective {
         columnNames = @($rows | Select-Object -First 1 | ForEach-Object { $_.PSObject.Properties.Name })
         plugin   = $Plugin
         settings = [bool]$Settings
+        chartPlugin = $ChartPlugin
+        toolbar  = -not $NoToolbar
         height   = $Height
         theme    = $Theme.ToLowerInvariant()
     }
-    $map = [ordered]@{ Columns = 'columns'; GroupBy = 'groupBy'; SplitBy = 'splitBy'; Aggregates = 'aggregates'; Sort = 'sort'; Filter = 'filter'; Config = 'config'; Width = 'width'; ClassName = 'className'; Style = 'style' }
+    $map = [ordered]@{ Labels = 'labels'; Columns = 'columns'; GroupBy = 'groupBy'; SplitBy = 'splitBy'; Aggregates = 'aggregates'; Sort = 'sort'; Filter = 'filter'; Config = 'config'; Width = 'width'; ClassName = 'className'; Style = 'style' }
     foreach ($name in $map.Keys) {
         if ($PSBoundParameters.ContainsKey($name)) { $props[$map[$name]] = $PSBoundParameters[$name] }
     }

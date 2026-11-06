@@ -5,6 +5,18 @@ All notable changes to PowerShellUniversal.Component.Perspective. Format:
 
 ## [Unreleased]
 
+### Added
+
+- A toolbar above every viewer: **Edit view** opens and closes the editor, **Table** and **Chart** switch
+  between the grid and the chart the reader picked last (`-ChartPlugin`, Y Bar by default). `-Labels`
+  translates it, `-NoToolbar` hides it.
+- `examples/showcase.ps1`: an app with pages for tickets, assets across source systems and costs, and
+  one that explains the three steps of the editor.
+
+### Fixed
+
+- In dark mode, the chart picker at the top of the editor no longer turns white under the mouse.
+
 ## [0.1.0] - 2026-11-06
 
 ### Added

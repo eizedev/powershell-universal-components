@@ -139,3 +139,35 @@ export function prepareRows(rows, columnNames) {
     });
     return { rows: out, schema, columns: keys.map(name) };
 }
+
+// ---- toolbar -----------------------------------------------------------------------------------
+
+// the labels of the toolbar; -Labels replaces any of them (keys without regard to case, since PSU
+// camelCases the keys of a hashtable on the way)
+export const LABELS = { editView: "Edit view", table: "Table", chart: "Chart" };
+
+export function toolbarLabels(labels) {
+    const out = { ...LABELS };
+    if (labels && typeof labels === "object" && !Array.isArray(labels)) {
+        for (const [key, value] of Object.entries(labels)) {
+            const known = Object.keys(LABELS).find((k) => k.toLowerCase() === String(key).toLowerCase());
+            if (known && value !== null && value !== undefined && String(value).trim()) out[known] = String(value);
+        }
+    }
+    return out;
+}
+
+export const TABLE_PLUGIN = "Datagrid";
+export const DEFAULT_CHART = "Y Bar";
+
+export function isChartPlugin(name) {
+    return Boolean(name) && name !== TABLE_PLUGIN;
+}
+
+// the plugin the Table/Chart switch selects: the table, or the chart the reader used last (else
+// -ChartPlugin, else Y Bar); null when the view shows that kind already
+export function switchTarget(target, current, lastChart, chartPlugin) {
+    if (target === "table") return isChartPlugin(current) ? TABLE_PLUGIN : null;
+    if (isChartPlugin(current)) return null;
+    return lastChart || chartPlugin || DEFAULT_CHART;
+}
