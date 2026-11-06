@@ -31,7 +31,7 @@ pwsh ./build/Build-Module.ps1 -Module PowerShellUniversal.Component.ECharts   # 
 pwsh ./docs/site/Build-Site.ps1                      # output/site/index.html
 pwsh ./build/Publish-Module.ps1 -Module <Module> -Version x.y.z   # release check and zip (CI publishes)
 pwsh -c 'Invoke-Pester -Path tests/powershell'       # Pester 5 or 6
-pwsh -c 'Get-ChildItem modules, shared, build, tests -Recurse -Include *.ps1, *.psm1, *.psd1 | Where-Object FullName -NotMatch "node_modules|public|output" | ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -Severity Warning, Error }'   # as CI
+pwsh -c 'foreach ($f in "modules", "shared", "build", "tests") { Invoke-ScriptAnalyzer -Path $f -Recurse -Severity Warning, Error | Where-Object ScriptPath -NotMatch "node_modules|public|output" }'   # as CI
 ```
 
 A change to a component is checked on a PSU test instance in a browser (light and dark theme, a
