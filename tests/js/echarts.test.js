@@ -451,3 +451,13 @@ test("corporate design: CSS tokens and a custom theme over the module's theme", 
     assert.equal(ensureTheme(fake, "dark", {}, undefined, {}), "psu-dark");
     assert.notEqual(ensureTheme(fake, "dark", {}, custom, {}), "psu-dark", "a custom variant gets its own name");
 });
+
+test("a custom theme cannot reach the prototype chain", async () => {
+    const { themeObject } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/themes.js");
+    const hostile = JSON.parse('{"__proto__": {"polluted": 1}, "title": {"constructor": {"x": 1}, "textStyle": {"color": "#123"}}}');
+    const t = themeObject("light", {}, hostile, {});
+    assert.equal({}.polluted, undefined);
+    assert.equal(t.polluted, undefined);
+    assert.equal(t.title.textStyle.color, "#123");
+    assert.equal(Object.getPrototypeOf(t), Object.prototype);
+});

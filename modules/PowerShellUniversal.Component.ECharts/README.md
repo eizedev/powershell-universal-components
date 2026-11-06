@@ -192,7 +192,10 @@ A corporate design comes in two ways, both optional:
   ```
 
 Order: the module's theme, then the CSS properties, then `-LightTheme`/`-DarkTheme`, then `-Palette`
-and `-Options` of the single chart.
+and `-Options` of the single chart. The chart's background always stays transparent (it sits on the
+card), so a theme's `backgroundColor` has no effect. CSS properties follow the page's mode, also for a
+chart pinned with `-Theme Light` or `Dark`, and are read when the chart is created and when the mode
+changes.
 
 ## Everything else: -Options
 
@@ -239,8 +242,9 @@ public APIs, PowerShell and DataTable data, live data and a benchmark.
   it, never pass it to a query or command unchecked. A parallel selection sends at most 1000 rows; a
   click sends the one row. `-EventColumns Name, Id` limits those rows to the columns the script block
   needs, which keeps messages small with wide rows.
-- `-Options`, `-MarkLine`, `-MarkArea`, `-Thresholds` and the templates are configuration for the app
-  author; do not build them from what a user typed. Values from the data are HTML-escaped in tooltips;
+- `-Options`, `-MarkLine`, `-MarkArea`, `-Thresholds`, the templates and `-LightTheme`/`-DarkTheme`
+  are configuration for the app author; do not build them from what a user typed. A theme path is read
+  on the PSU server on every render and its content goes to every viewer. Values from the data are HTML-escaped in tooltips;
   in CSV export, text starting with `=`, `+`, `-` or `@` gets a leading `'` so spreadsheets do not run it
   as a formula (Excel export writes text cells, which are never evaluated).
 
