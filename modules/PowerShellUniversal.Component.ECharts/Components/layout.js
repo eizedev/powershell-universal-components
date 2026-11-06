@@ -170,10 +170,157 @@ function fitCentered(items, bands, width, height) {
     }
 }
 
+// ---- text ---------------------------------------------------------------------------------------
+
+// estimated size of a label in px: 0.6 em per character (on the safe side for proportional fonts),
+// 1.25 em per line
+function textSize(text, font) {
+    const lines = String(text ?? "").split("\n");
+    return { w: Math.max(...lines.map((l) => l.length)) * font * 0.6, h: lines.length * font * 1.25 };
+}
+
+// ---- funnel labels -------------------------------------------------------------------------------
+
+/*
+ * The stages of a vertical funnel as ECharts lays them out (funnelLayout: the value range [min, max]
+ * maps to [minSize, maxSize] of the box width; a stage runs from its own width at the top to the next
+ * stage's width at the bottom, the last one to the smallest size).
+ */
+export function funnelStages(s, width, height, left = pct(s.left, width) ?? 0, boxW = pct(s.width, width) ?? width - left - (pct(s.right, width) ?? 0)) {
+    const data = list(s.data).map((d) => (d && typeof d === "object" ? d : { value: d }));
+    const value = (d) => (typeof d.value === "number" ? d.value : 0);
+    const order = data.map((d, i) => i);
+    if (s.sort !== "none") order.sort((a, b) => (s.sort === "ascending" ? value(data[a]) - value(data[b]) : value(data[b]) - value(data[a])));
+    const values = data.map(value);
+    const min = s.min ?? Math.min(0, ...values);
+    const max = s.max ?? Math.max(...values);
+    const lo = pct(s.minSize ?? "0%", boxW) ?? 0;
+    const hi = pct(s.maxSize ?? "100%", boxW) ?? boxW;
+    const size = (v) => (max > min ? lo + ((Math.min(Math.max(v, min), max) - min) / (max - min)) * (hi - lo) : hi);
+    const top = pct(s.top, height) ?? 0;
+    const boxH = height - top - (pct(s.bottom, height) ?? 0);
+    const gap = s.gap || 0;
+    const stageH = (boxH - gap * (data.length - 1)) / Math.max(1, data.length);
+    // ascending: the smallest stage on top, the funnel widens downwards
+    const next = (i) => (i + 1 < order.length ? size(value(data[order[i + 1]])) : lo);
+    return order.map((index, i) => ({ index, top: size(value(data[index])), bottom: next(i), height: stageH }));
+}
+
+function labelText(s, d, sum) {
+    const f = d.label && d.label.formatter !== undefined ? d.label.formatter : s.label && s.label.formatter;
+    const p = { name: d.name, value: d.value, percent: sum ? (d.value / sum) * 100 : 0, data: d };
+    if (typeof f === "function") return String(f(p));
+    if (typeof f === "string") return f.replace(/\{b\}/g, String(d.name ?? "")).replace(/\{c\}/g, String(d.value ?? "")).replace(/\{d\}/g, p.percent.toFixed(2));
+    return String(d.name ?? "");
+}
+
+/*
+ * Labels inside funnel stages that are too small for them (the last stages, or every stage of a low
+ * chart with many of them) go to the right of the funnel on one line, with a label line; the funnel
+ * gets narrower to make room. When even that leaves no room, they are hidden (the tooltip and the
+ * legend still name the stage). A label that sticks out of its stage would otherwise be dark text on
+ * the page background in dark mode, or cover the neighbouring labels.
+ */
+export function fitFunnelLabels(s, width, height) {
+    if (s.orient === "horizontal" || !isInside(s.label) || !Array.isArray(s.data)) return s;
+    const font = s.label.fontSize || 12;
+    const data = s.data.map((d) => (d && typeof d === "object" ? d : { value: d }));
+    const sum = data.reduce((a, d) => a + (typeof d.value === "number" ? d.value : 0), 0);
+    const texts = data.map((d) => labelText(s, d, sum));
+    const fits = (stage) => {
+        const t = textSize(texts[stage.index], font);
+        if (t.h > stage.height - 2) return false;
+        // the width at the lower edge of the text (stages narrow downwards)
+        const at = stage.top + (stage.bottom - stage.top) * Math.min(1, (stage.height + t.h) / 2 / stage.height);
+        return t.w + 8 <= Math.min(at, stage.top);
+    };
+    let misfits = funnelStages(s, width, height).filter((st) => !fits(st)).map((st) => st.index);
+    if (!misfits.length) return s;
+    const oneLine = (t) => t.replace(/\n/g, " ");
+    const lineLength = 20;
+    const room = Math.max(...misfits.map((i) => textSize(oneLine(texts[i]), font).w)) + lineLength + 5 + GAP;
+    const left = Math.max(8, Math.round(width * 0.04));
+    const boxW = width - left - room - GAP;
+    const out = { ...s };
+    if (boxW >= width * 0.45) {
+        out.left = left;
+        out.width = Math.round(boxW);
+        // narrower: a stage that fitted may not fit any more
+        misfits = funnelStages(out, width, height).filter((st) => !fits(st)).map((st) => st.index);
+        const base = s.label.formatter;
+        const single = typeof base === "function" ? (p) => oneLine(String(base(p))) : base;
+        out.data = data.map((d, i) => (misfits.includes(i) ? { ...d, label: { ...(d.label || {}), position: "right", formatter: single }, labelLine: { show: true, length: lineLength, ...(d.labelLine || {}) } } : d));
+        // outside labels of thin neighbouring stages may still touch
+        out.labelLayout = { hideOverlap: true, ...(s.labelLayout || {}) };
+    } else {
+        out.data = data.map((d, i) => (misfits.includes(i) ? { ...d, label: { ...(d.label || {}), show: false } } : d));
+    }
+    return out;
+}
+
+// ---- layered network graph -----------------------------------------------------------------------
+
+function isPlacedGraph(s) {
+    return s.type === "graph" && s.layout === "none" && list(s.data).some((d) => d && typeof d.x === "number");
+}
+
+/*
+ * A layered graph's box below title, legend and toolbox and above the bottom, with room for the
+ * largest node and the labels under the nodes; the node coordinates rescaled to the box's ratio.
+ */
+function fitGraph(s, bands, width, height, mine) {
+    const data = list(s.data);
+    const symbol = Math.max(10, ...data.map((d) => (typeof d.symbolSize === "number" ? d.symbolSize : 10)));
+    const font = (s.label && s.label.fontSize) || 12;
+    const labelled = s.label && s.label.show !== false;
+    const longest = labelled ? Math.max(0, ...data.map((d) => textSize(d.name, font).w)) : 0;
+    const reach = bands.toolbox ? Math.max(bands.top, bands.toolbox.y + bands.toolbox.h) : bands.top;
+    const side = Math.round(Math.max(symbol / 2, longest / 2) + GAP);
+    if (!setsAny(mine, ["top"])) s.top = Math.round(reach + symbol / 2 + GAP);
+    if (!setsAny(mine, ["bottom"])) s.bottom = Math.round(bands.bottom + symbol / 2 + (labelled ? font * 1.25 + 5 : 0) + GAP);
+    if (!setsAny(mine, ["left"])) s.left = side;
+    if (!setsAny(mine, ["right"])) s.right = side;
+    const boxW = width - pct(s.left, width) - pct(s.right, width);
+    const boxH = height - pct(s.top, height) - pct(s.bottom, height);
+    // ECharts maps the extent of the coordinates onto the box: scaled so that the extents have the
+    // box's ratio, x and y stretch alike and the nodes stay round
+    const span = (key) => {
+        const v = data.map((d) => d[key]).filter((n) => typeof n === "number");
+        return Math.max(...v) - Math.min(...v);
+    };
+    const spanX = span("x");
+    const spanY = span("y");
+    if (boxW > 0 && boxH > 0 && spanX > 0 && spanY > 0 && !setsAny(mine, ["data"])) {
+        const k = (boxH / boxW) * (spanX / spanY);
+        s.data = data.map((d) => (typeof d.y === "number" ? { ...d, y: d.y * k } : d));
+    }
+}
+
+// ---- radial bars ---------------------------------------------------------------------------------
+
+/*
+ * radialbar: the ring names sit right-aligned next to where the rings start (12 o'clock); the round
+ * cap of each ring reaches half the ring's width past that line, so the names keep that distance.
+ * A ring is at most 80 % of its band (ECharts' barCategoryGap of 20 %).
+ */
+function fitRingNames(option, width, height, user) {
+    const axis = option.radiusAxis;
+    if (!axis || axis.type !== "category" || !option.angleAxis || option.angleAxis.type !== "value") return;
+    if (setsAny(userPart(user, "radiusAxis", 0).axisLabel || {}, ["margin"])) return;
+    const polar = list(option.polar)[0] || {};
+    const size = Math.min(width, height) / 2;
+    const r = Array.isArray(polar.radius) ? polar.radius : [0, polar.radius ?? "75%"];
+    const inner = pct(r[0], size) || 0;
+    const outer = pct(r[1], size) || size;
+    const rings = Math.max(1, list(axis.data).length);
+    const cap = ((outer - inner) / rings) * 0.8 / 2;
+    option.radiusAxis = { ...axis, axisLabel: { ...(axis.axisLabel || {}), margin: Math.round(cap + GAP) } };
+}
+
 // charts whose plot fitPlot() places: their layout depends on the chart's size, so the component
 // applies the option again when the size changes noticeably
 export function needsFit(option) {
-    return Boolean(option && (option.polar || option.radar || list(option.series).some((s) => RECT_BOX.has(s.type) || PIE_BOX.has(s.type) || CENTERED.has(s.type))));
+    return Boolean(option && (option.polar || option.radar || list(option.series).some((s) => RECT_BOX.has(s.type) || PIE_BOX.has(s.type) || CENTERED.has(s.type) || isPlacedGraph(s))));
 }
 
 /*
@@ -196,6 +343,9 @@ export function fitPlot(option, size, user) {
             const reach = bands.toolbox ? Math.max(bands.top, bands.toolbox.y + bands.toolbox.h) : bands.top;
             if (!setsAny(mine, ["top"])) s.top = Math.max(pct(s.top, height) || 0, reach + GAP);
             if (!setsAny(mine, ["bottom"])) s.bottom = Math.max(pct(s.bottom, height) || 0, bands.bottom + GAP);
+            if (s.type === "funnel") Object.assign(s, fitFunnelLabels(s, width, height));
+        } else if (isPlacedGraph(s)) {
+            fitGraph(s, bands, width, height, mine);
         } else if (PIE_BOX.has(s.type)) {
             if (setsAny(mine, ["top", "bottom", "center", "radius"])) return;
             // the pie sits in its box (top/bottom); centre and radius relative to that box
@@ -221,6 +371,7 @@ export function fitPlot(option, size, user) {
         out[key] = Array.isArray(option[key]) ? parts : parts[0];
     }
     fitCentered(centered, bands, width, height);
+    fitRingNames(out, width, height, user);
     return out;
 }
 
@@ -252,13 +403,19 @@ function isInside(label) {
     return Boolean(label && label.show !== false && (String(label.position).startsWith("inside") || label.position === "center"));
 }
 
+// the label of one data item: its own position wins over the series'
+function itemLabel(series, item) {
+    const own = item && typeof item === "object" && item.label;
+    return own ? { ...(series.label || {}), ...own } : series.label;
+}
+
 /*
  * Labels drawn on a fill (funnel stages, pie slices with inside labels, treemap tiles,
  * sunburst rings) get the text colour with the higher contrast to that fill. The fills are the
  * palette colours ECharts assigns: per data item for funnel and pie, per top-level node for treemap
  * (children keep it) and sunburst (deeper rings lighter, as ECharts draws them).
  */
-export function insideLabelColors(option, palette) {
+export function insideLabelColors(option, palette, text) {
     const colors = Array.isArray(option && option.color) && option.color.length ? option.color : palette;
     if (!option || !Array.isArray(colors) || !colors.length) return option;
     let changed = false;
@@ -267,7 +424,16 @@ export function insideLabelColors(option, palette) {
             if (!isInside(s.label)) return s;
             const pick = paletteByName(colors);
             changed = true;
-            return { ...s, data: s.data.map((d) => withLabelColor(d, textOn(itemColor(d) || pick(String(d && typeof d === "object" ? d.name : d))))) };
+            return {
+                ...s,
+                data: s.data.map((d) => {
+                    const fill = itemColor(d) || pick(String(d && typeof d === "object" ? d.name : d));
+                    // a label moved out of its stage (fitFunnelLabels) sits on the page: page text colour
+                    if (isInside(itemLabel(s, d))) return withLabelColor(d, textOn(fill));
+                    const item = withLabelColor(d, text);
+                    return text && item.labelLine && item.labelLine.show ? { ...item, labelLine: { ...item.labelLine, lineStyle: { color: text, opacity: 0.5, ...((item.labelLine && item.labelLine.lineStyle) || {}) } } } : item;
+                })
+            };
         }
         if (s.type === "treemap" || s.type === "sunburst") {
             const pick = paletteByName(colors);
