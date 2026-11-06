@@ -81,7 +81,7 @@ components.
 
 ## Example
 
-[examples/smoke.ps1](https://github.com/eizedev/powershell-universal-components/blob/main/modules/PowerShellUniversal.Component.Perspective/examples/smoke.ps1): 5000 generated tickets as a datagrid, a pivot (team x
+[examples/smoke.ps1](examples/smoke.ps1): 5000 generated tickets as a datagrid, a pivot (team x
 priority) and a chart.
 
 ## License

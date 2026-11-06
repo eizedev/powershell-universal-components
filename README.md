@@ -26,6 +26,7 @@
 | --- | --- |
 | [PowerShellUniversal.Component.ECharts](modules/PowerShellUniversal.Component.ECharts/README.md) | `New-UDEChart`: 29 chart types, from bars and lines to gantt, rankings, radial bars, network graphs, trees and KPI matrices; zoom, range selection, click events that filter other elements, linked charts, trends with forecast, CSV/Excel/PNG export, full screen, light and dark theme. |
 | [PowerShellUniversal.Component.ECharts.Demo](modules/PowerShellUniversal.Component.ECharts.Demo/README.md) | `New-UDEChartShowcase`: the showcase app of the chart module as a module - 14 pages of examples with generated and public data, to try the charts or copy from. |
+| [PowerShellUniversal.Component.Perspective](modules/PowerShellUniversal.Component.Perspective/README.md) | `New-UDPerspective`: [Perspective](https://perspective-dev.github.io/) datagrid, pivot table and WebGL charts in one, which readers group, split, filter and sort themselves; WebAssembly engine for large row counts. |
 
 ## Quick start
 
@@ -89,7 +90,8 @@ every module, so modules never depend on each other at runtime. Contributors and
 ## License
 
 [MIT](LICENSE). Bundled libraries keep their own licenses (Apache ECharts: Apache-2.0, ZRender:
-BSD-3-Clause, fflate: MIT, tslib: 0BSD, PSU's universal-dashboard helper: ISC); the build writes their
+BSD-3-Clause, fflate: MIT, tslib: 0BSD, Perspective and regular-table: Apache-2.0, PSU's universal-dashboard
+helper: ISC); the build writes their
 texts and notices into each module's `THIRD-PARTY-NOTICES.txt`. Icon, header and social preview in `assets/`
 are generated in [eizedev/brand](https://github.com/eizedev/brand) and licensed
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
