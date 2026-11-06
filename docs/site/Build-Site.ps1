@@ -2,35 +2,40 @@
 
 <#
 .SYNOPSIS
-    Builds the documentation site into output/site: examples run with the real New-UDEChart, the
-    reference from the comment-based help, the charts drawn by the module's own React component.
+    Prepares the live parts of the documentation site: the examples, the command reference and the
+    script that draws the charts. Zensical then builds the site from docs/ (zensical build).
 .DESCRIPTION
-    Runs every example in examples.ps1 outside PSU (PSU's [Endpoint] type is replaced by a stub),
-    takes the hashtable New-UDEChart returns as the chart's props and the script block's text as the
-    code shown, reads the help of the module's commands, writes index.html with that data and builds
-    site.js with webpack (npm ci in this folder). Open output/site/index.html directly or serve the
-    folder.
-.PARAMETER OutputPath
-    Folder for the site. Default: output/site in the repository.
+    Runs every example in examples.ps1 outside PSU (PSU's [Endpoint] type is replaced by a stub) with
+    the real New-UDEChart or New-UDPerspective and writes, all of it generated and not committed:
+
+    - docs/site/generated/examples/<id>.md: the placeholder the chart is drawn into and the example's
+      code; the pages in docs/ include it with --8<-- "examples/<id>.md".
+    - docs/site/generated/reference/<command>.md: the parameters of every exported command, from the
+      comment-based help; included by the reference pages.
+    - docs/assets/charts/: charts.js (webpack, the modules' own React components), its lazy
+      Perspective chunk and examples.json (the props of every example).
+    - docs/assets/images/: the screenshots from assets/ that the pages show.
+
+    Fails when an example is included by no page, so examples.ps1 and the pages stay in step.
 .PARAMETER SkipNpmInstall
     Use the installed node_modules (faster when building repeatedly).
 .EXAMPLE
-    ./docs/site/Build-Site.ps1
+    ./docs/site/Build-Site.ps1; uv run --with zensical zensical serve
 #>
 [CmdletBinding()]
 param(
-    [string]$OutputPath,
     [switch]$SkipNpmInstall
 )
 
 $ErrorActionPreference = 'Stop'
 $site = $PSScriptRoot
-$repo = Resolve-Path (Join-Path $site '..' '..')
-if (-not $OutputPath) { $OutputPath = Join-Path $repo 'output' 'site' }
-# absolute now: the build changes into this folder later
-$OutputPath = [System.IO.Path]::GetFullPath($OutputPath, (Get-Location).Path)
-$moduleName = 'PowerShellUniversal.Component.ECharts'
-$moduleDir = Join-Path $repo 'modules' $moduleName
+$repo = (Resolve-Path (Join-Path $site '..' '..')).Path
+$docs = Join-Path $repo 'docs'
+$generated = Join-Path $site 'generated'
+$charts = Join-Path $docs 'assets' 'charts'
+$modulesDir = Join-Path $repo 'modules'
+# the modules whose commands the site documents and whose examples it runs
+$moduleNames = 'PowerShellUniversal.Component.ECharts', 'PowerShellUniversal.Component.Perspective', 'PowerShellUniversal.Component.ECharts.Demo'
 
 # PSU's endpoint type, as in the Pester tests: event script blocks become a marker the page replaces
 if (-not ('Endpoint' -as [type])) {
@@ -42,9 +47,18 @@ public class Endpoint {
 }
 '@
 }
-$module = Import-Module (Join-Path $moduleDir "$moduleName.psm1") -Force -PassThru
-& $module { $Script:AssetId = 'site' }
-$manifest = Import-PowerShellDataFile -LiteralPath (Join-Path $moduleDir "$moduleName.psd1")
+$manifests = [ordered]@{}
+foreach ($name in $moduleNames) {
+    $dir = Join-Path $modulesDir $name
+    # the demo requires the chart module by name; it is imported above it already
+    $module = Import-Module (Join-Path $dir "$name.psm1") -Force -PassThru -DisableNameChecking
+    & $module { $Script:AssetId = 'site' }
+    $manifests[$name] = Import-PowerShellDataFile -LiteralPath (Join-Path $dir "$name.psd1")
+}
+
+function Get-Slug([string]$Text) {
+    ($Text.ToLowerInvariant() -replace '[^a-z0-9]+', '-').Trim('-')
+}
 
 # the code as written in examples.ps1, without the indentation of the file
 function Format-ExampleCode([scriptblock]$Code) {
@@ -74,60 +88,73 @@ function ConvertTo-SiteValue([object]$Value) {
     return [string]$Value
 }
 
-$examples = foreach ($example in & (Join-Path $site 'examples.ps1')) {
+# text for a Markdown table cell
+function Format-Cell([string]$Text) {
+    (($Text -replace '\r?\n+', ' ') -replace '\|', '\|').Trim()
+}
+
+function Write-Generated([string]$Path, [string]$Content) {
+    New-Item -ItemType Directory -Path (Split-Path $Path) -Force | Out-Null
+    Set-Content -LiteralPath $Path -Value $Content -Encoding utf8NoBOM
+}
+
+if (Test-Path $generated) { Remove-Item $generated -Recurse -Force }
+
+# ---- examples ----------------------------------------------------------------------------------------
+$examples = [ordered]@{}
+foreach ($example in & (Join-Path $site 'examples.ps1')) {
+    $id = Get-Slug $example.Title
+    if ($examples.Contains($id)) { throw "Two examples are titled '$($example.Title)'." }
     $props = & $example.Code
+    $component = if ($props.type -eq 'ud-perspective') { 'perspective' } else { 'echarts' }
     foreach ($key in 'assetId', 'isPlugin', 'type') { $props.Remove($key) }
     # a fixed id per example, so the page is the same on every build
-    $props['id'] = 'example-' + ($example.Title.ToLowerInvariant() -replace '[^a-z0-9]+', '-').Trim('-')
-    [ordered]@{
-        section = $example.Section
-        title   = $example.Title
-        text    = $example.Text
-        code    = Format-ExampleCode $example.Code
-        props   = ConvertTo-SiteValue $props
+    $props['id'] = "example-$id"
+    $examples[$id] = [ordered]@{ title = $example.Title; component = $component; props = ConvertTo-SiteValue $props }
+    $text = if ($example.Text) { "$($example.Text)`n`n" } else { '' }
+    $snippet = "$text<div class=`"psu-example`" data-example=`"$id`"></div>`n`n``````powershell`n$(Format-ExampleCode $example.Code)`n```````n"
+    Write-Generated (Join-Path $generated 'examples' "$id.md") $snippet
+}
+
+# every example appears on a page, and only once
+$pages = Get-ChildItem -Path $docs -Recurse -Filter '*.md' | Where-Object FullName -NotLike "$site*"
+$included = $pages | Select-String -Pattern '--8<-- "examples/([a-z0-9-]+)\.md"' -AllMatches | ForEach-Object { $_.Matches } | ForEach-Object { $_.Groups[1].Value }
+$unused = $examples.Keys | Where-Object { $_ -notin $included }
+if ($unused) { throw "Examples on no page (include them with --8<-- `"examples/<id>.md`"): $($unused -join ', ')" }
+$twice = $included | Group-Object | Where-Object Count -GT 1 | ForEach-Object Name
+if ($twice) { throw "Examples included more than once: $($twice -join ', ')" }
+
+# ---- reference ---------------------------------------------------------------------------------------
+foreach ($name in $moduleNames) {
+    foreach ($command in $manifests[$name].FunctionsToExport) {
+        $help = Get-Help $command -Full
+        $lines = [System.Collections.Generic.List[string]]::new()
+        $lines.Add(($help.Synopsis | Out-String).Trim())
+        $lines.Add('')
+        $description = (($help.description | ForEach-Object { $_.Text }) -join "`n`n").Trim()
+        if ($description) { $lines.Add($description); $lines.Add('') }
+        $lines.Add('| Parameter | Type | Description |')
+        $lines.Add('| --- | --- | --- |')
+        foreach ($p in $help.parameters.parameter) {
+            $required = if ($p.required -eq 'true') { ' (required)' } else { '' }
+            $text = ($p.description | ForEach-Object { $_.Text }) -join ' '
+            $lines.Add("| ``-$($p.name)``$required | ``$($p.type.name)`` | $(Format-Cell $text) |")
+        }
+        Write-Generated (Join-Path $generated 'reference' "$command.md") ($lines -join "`n")
     }
 }
 
-$commands = foreach ($name in $manifest.FunctionsToExport) {
-    $help = Get-Help $name -Full
-    [ordered]@{
-        name        = $name
-        synopsis    = ($help.Synopsis | Out-String).Trim()
-        description = (($help.description | ForEach-Object { $_.Text }) -join "`n").Trim()
-        parameters  = @(foreach ($p in $help.parameters.parameter) {
-                [ordered]@{
-                    name        = $p.name
-                    type        = $p.type.name
-                    required    = $p.required -eq 'true'
-                    description = (($p.description | ForEach-Object { $_.Text }) -join ' ').Trim()
-                }
-            })
-    }
-}
-
-$data = [ordered]@{
-    title      = 'ECharts for PowerShell Universal'
-    version    = $manifest.ModuleVersion
-    repository = $manifest.PrivateData.PSData.ProjectUri
-    intro      = $manifest.Description
-    install    = "Install-PSResource -Name $moduleName"
-    examples   = @($examples)
-    commands   = @($commands)
-}
-# "</" would end the script element early
-$json = ($data | ConvertTo-Json -Depth 30 -Compress) -replace '</', '<\/'
-
-New-Item -ItemType Directory -Path $OutputPath -Force | Out-Null
-$template = Get-Content -LiteralPath (Join-Path $site 'index.html') -Raw
-Set-Content -LiteralPath (Join-Path $OutputPath 'index.html') -Value ($template.Replace('{{DATA}}', $json).Replace('{{TITLE}}', $data.title)) -Encoding utf8NoBOM -NoNewline
-
+# ---- the script that draws the charts ----------------------------------------------------------------
 Push-Location $site
 try {
     if (-not $SkipNpmInstall) {
         npm ci --no-audit --no-fund --ignore-scripts
         if ($LASTEXITCODE -ne 0) { throw ('npm ci failed ({0})' -f $LASTEXITCODE) }
+        # Perspective resolves from its module's node_modules (its pinned versions, see webpack.config.cjs)
+        npm ci --no-audit --no-fund --ignore-scripts --prefix (Join-Path $modulesDir 'PowerShellUniversal.Component.Perspective')
+        if ($LASTEXITCODE -ne 0) { throw ('npm ci (Perspective) failed ({0})' -f $LASTEXITCODE) }
     }
-    $env:SITE_OUT = $OutputPath
+    $env:SITE_OUT = $charts
     npx webpack --config webpack.config.cjs
     if ($LASTEXITCODE -ne 0) { throw ('webpack failed ({0})' -f $LASTEXITCODE) }
 }
@@ -135,4 +162,10 @@ finally {
     Remove-Item Env:SITE_OUT -ErrorAction Ignore
     Pop-Location
 }
-Get-Item -LiteralPath $OutputPath
+# the screenshots of the repository's README, for the pages (one copy in assets/, not committed here)
+$images = Join-Path $docs 'assets' 'images'
+New-Item -ItemType Directory -Path $images -Force | Out-Null
+Copy-Item -Path (Join-Path $repo 'assets' 'screenshot-*.png') -Destination $images -Force
+# after webpack, which empties its output folder
+Write-Generated (Join-Path $charts 'examples.json') ($examples | ConvertTo-Json -Depth 30 -Compress)
+Get-Item -LiteralPath $charts

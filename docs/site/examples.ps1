@@ -305,4 +305,40 @@
         }
     }
     #endregion
+
+    #region Perspective
+    @{ Section = 'Perspective'; Title = 'Datagrid that readers rearrange'; Text = 'Sort, filter, group and switch to a chart in the configuration panel (the button at the top right). A click on a cell gives the row, as $EventData would.'; Code = {
+            $rng = [System.Random]::new(42)
+            $tickets = foreach ($i in 1..800) {
+                [pscustomobject]@{
+                    Id        = 10000 + $i
+                    Created   = ([datetime]'2026-10-01').AddDays($rng.Next(0, 30)).AddHours($rng.Next(7, 19))
+                    Team      = ('Service Desk', 'Network', 'Server', 'Applications')[$rng.Next(0, 4)]
+                    Priority  = 'P{0}' -f $rng.Next(1, 5)
+                    Status    = ('Open', 'Waiting', 'Closed', 'Closed')[$rng.Next(0, 4)]
+                    LeadHours = [math]::Round(2 + 40 * $rng.NextDouble(), 1)
+                }
+            }
+            New-UDPerspective -Data $tickets -Sort 'Created desc' -Height 420px -OnClick {
+                Show-UDToast -Message ('Ticket {0}, {1}' -f $EventData.row.Id, $EventData.row.Team)
+            }
+        }
+    }
+    @{ Section = 'Perspective'; Title = 'Pivot: tickets per team and priority'; Text = '-GroupBy rows, -SplitBy columns, -Aggregates per column; the reader can change all of it.'; Code = {
+            $rng = [System.Random]::new(7)
+            $tickets = foreach ($i in 1..800) {
+                [pscustomobject]@{ Id = $i; Team = ('Service Desk', 'Network', 'Server', 'Applications')[$rng.Next(0, 4)]; Priority = 'P{0}' -f $rng.Next(1, 5); LeadHours = [math]::Round(2 + 40 * $rng.NextDouble(), 1) }
+            }
+            New-UDPerspective -Data $tickets -GroupBy Team -SplitBy Priority -Columns Id, LeadHours -Aggregates @{ Id = 'count'; LeadHours = 'avg' } -Height 320px
+        }
+    }
+    @{ Section = 'Perspective'; Title = 'Perspective chart: open tickets per team'; Text = 'A chart plugin with a filter; the WebGL charts redraw as the reader changes the grouping.'; Code = {
+            $rng = [System.Random]::new(3)
+            $tickets = foreach ($i in 1..800) {
+                [pscustomobject]@{ Id = $i; Team = ('Service Desk', 'Network', 'Server', 'Applications')[$rng.Next(0, 4)]; Customer = 'Customer {0}' -f [char](65 + $rng.Next(0, 5)); Status = ('Open', 'Closed', 'Closed')[$rng.Next(0, 3)] }
+            }
+            New-UDPerspective -Data $tickets -Plugin 'Y Bar' -GroupBy Customer -SplitBy Team -Columns Id -Aggregates @{ Id = 'count' } -Filter 'Status == Open' -Height 360px
+        }
+    }
+    #endregion
 )

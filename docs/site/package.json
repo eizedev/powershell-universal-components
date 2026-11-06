@@ -2,7 +2,7 @@
   "name": "powershell-universal-components-site",
   "version": "0.1.0",
   "private": true,
-  "description": "Static documentation site: the modules' own React components rendered with example data",
+  "description": "Live examples of the documentation site: the modules' own React components drawn into the Zensical pages",
   "license": "MIT",
   "scripts": {
     "build": "webpack"

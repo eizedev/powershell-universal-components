@@ -102,7 +102,7 @@ lists the gallery examples.
 - [Demo module README](modules/PowerShellUniversal.Component.ECharts.Demo/README.md): installing the showcase app.
 - [Perspective module README](modules/PowerShellUniversal.Component.Perspective/README.md): data and types, the starting view, events, security notes.
 - [Documentation site](https://powershell-universal-components.eize.dev/): every ECharts example as code next to the chart it draws, plus the parameter
-  reference. `./docs/site/Build-Site.ps1` builds the same page into `output/site/`.
+  reference. How it is built: [Development](https://powershell-universal-components.eize.dev/development/).
 - [Showcase app](modules/PowerShellUniversal.Component.ECharts.Demo/Apps/Showcase.ps1) (module PowerShellUniversal.Component.ECharts.Demo): 14 pages - ticket report, finance, managed services, operations, a data platform that combines many source systems, layouts, live data.
 
 ## Build
@@ -113,7 +113,7 @@ Requires Node.js 22.18 or newer (Babel 8; CI tests the latest 22.x) and PowerShe
 npm ci; npm test
 ./build/Build-Module.ps1 -Module <Module>   # any folder in modules/; output/<Module>/<Version>
 Invoke-Pester -Path ./tests/powershell
-# browser tests (Chromium, Firefox, WebKit) on the docs site, after ./docs/site/Build-Site.ps1
+# browser tests (Chromium, Firefox, WebKit) on the docs site, after building it (see the Development page)
 npx playwright install chromium firefox webkit; npm run test:browser
 # the showcase app on a PSU instance, in all three browsers
 $env:PSU_URL = '<app url>'; npm run test:browser -- psu
