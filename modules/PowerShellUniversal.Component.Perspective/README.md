@@ -29,7 +29,8 @@ modules of this repository. Column names keep their PowerShell spelling in the g
 a type from its values: ISO dates and times become dates (sortable and filterable as dates), whole
 numbers up to 2,147,483,647 integers (Perspective's integers are 32 bit), other numbers floats,
 `$true`/`$false` booleans, everything else text. New data for the same component replaces the rows and
-keeps the reader's layout; when the columns or their types change, the table is built anew.
+keeps the reader's layout; when the columns or their types change, the table is built anew and the
+view starts again from the parameters.
 
 ## The starting view
 
@@ -46,8 +47,10 @@ keeps the reader's layout; when the columns or their types change, the table is 
 
 Column names in these parameters are matched without regard to case; names with spaces work
 (`'Lead Hours > 48'`). Filter values take the column's type (`'Code == 007'` stays text in a text
-column); `in` and `not in` take a comma-separated list. An entry that names no column of the data is
-reported above the grid.
+column, a number column takes only numbers, a boolean column `true`/`false`); `in` and `not in` take a
+comma-separated list (values themselves cannot contain a comma). A name that matches no column, a
+value of the wrong type or a malformed `-Sort`/`-Filter` entry is reported above the grid and left
+out; names of expression columns from `-Config` count as columns.
 
 ## Events
 

@@ -39,6 +39,7 @@ export default function Perspective(props) {
             try {
                 const worker = await sharedWorker();
                 if (cancelled) return;
+                setError(null);
                 const schemaKey = JSON.stringify(prepared.schema);
                 // same columns and types: replace the rows in place, the view keeps its layout
                 if (tableRef.current && tableRef.current.schemaKey === schemaKey) {
@@ -55,15 +56,19 @@ export default function Perspective(props) {
                 }
                 const previous = tableRef.current;
                 tableRef.current = { table, schemaKey };
-                if (viewerRef.current) {
-                    await viewerRef.current.load(table);
-                    if (!previous) {
+                try {
+                    if (viewerRef.current) {
+                        await viewerRef.current.load(table);
+                        // first load, or other columns: the reader's layout may name columns that are
+                        // gone, so the view starts again from the parameters
                         const problems = [];
                         await viewerRef.current.restore(viewerConfig(latest.current, keys, mode, prepared.schema, problems));
-                        if (problems.length) setError(problems.join("; "));
+                        if (problems.length && !cancelled) setError(problems.join("; "));
                     }
+                } finally {
+                    // the old table goes even when loading the new one failed
+                    if (previous) await previous.table.delete().catch(() => {});
                 }
-                if (previous) await previous.table.delete();
             } catch (e) {
                 if (!cancelled) setError(String(e && e.message ? e.message : e));
             }

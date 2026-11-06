@@ -6,8 +6,14 @@ import { resolveColumn, columnsOf, camelCase } from "../../../shared/js/columns.
 export const THEMES = { light: "Pro Light", dark: "Pro Dark" };
 
 // column names from PowerShell are matched like everywhere else (case-insensitive) against the data
-function mapColumns(list, keys) {
-    return (Array.isArray(list) ? list : list ? [list] : []).map((c) => resolveColumn(c, keys) ?? c);
+// expression columns from -Config (`extra`) count as names; a name that matches none is reported and
+// left out (the viewer refuses a whole configuration that names an unknown column)
+function mapColumns(list, keys, parameter, problems, extra = []) {
+    return (Array.isArray(list) ? list : list ? [list] : []).map((c) => {
+        const known = resolveColumn(c, keys) ?? (extra.includes(c) ? c : undefined);
+        if (known === undefined) problems.push(`${parameter} "${c}": no column of that name`);
+        return known;
+    }).filter((c) => c !== undefined);
 }
 
 // a column name at the start of a -Sort or -Filter entry: the longest known name that matches (case
@@ -23,11 +29,25 @@ function leadingColumn(text, keys) {
 const OPERATORS = ["not in", "is not null", "is null", "begins with", "ends with", "contains", "==", "!=", "<=", ">=", "<", ">", "in"];
 
 // a filter value of the column's type: a number only for number columns ("007" stays text in a text
-// column), lists for in / not in, quotes removed
+// column), lists for in / not in (split at commas), quotes removed. Throws for a value the column's
+// type cannot take.
 function filterValue(raw, operator, type) {
     if (operator === "is null" || operator === "is not null") return null;
     const unquote = (v) => v.trim().replace(/^(['"])(.*)\1$/, "$2");
-    const typed = (v) => (type === "integer" || type === "float" ? Number(unquote(v)) : type === "boolean" ? /^(true|\$true|1)$/i.test(unquote(v)) : unquote(v));
+    const typed = (v) => {
+        const text = unquote(v);
+        if (type === "integer" || type === "float") {
+            // Number() would read "" as 0 and "0x10" as 16
+            if (!/^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(text)) throw new Error(`"${text}" is not a number`);
+            return Number(text);
+        }
+        if (type === "boolean") {
+            if (/^(true|\$true|1)$/i.test(text)) return true;
+            if (/^(false|\$false|0)$/i.test(text)) return false;
+            throw new Error(`"${text}" is not true or false`);
+        }
+        return text;
+    };
     if (operator === "in" || operator === "not in") return raw.split(",").map(typed);
     return typed(raw);
 }
@@ -40,18 +60,24 @@ export function viewerConfig(props, keys, mode, schema = {}, problems = []) {
         theme: THEMES[mode] || THEMES.light,
         settings: Boolean(props.settings)
     };
-    if (props.columns) config.columns = mapColumns(props.columns, keys);
-    if (props.groupBy) config.group_by = mapColumns(props.groupBy, keys);
-    if (props.splitBy) config.split_by = mapColumns(props.splitBy, keys);
+    // expression columns defined in -Config are valid names too
+    const expressions = props.config && props.config.expressions && typeof props.config.expressions === "object" ? Object.keys(props.config.expressions) : [];
+    if (props.columns) config.columns = mapColumns(props.columns, keys, "-Columns", problems, expressions);
+    if (props.groupBy) config.group_by = mapColumns(props.groupBy, keys, "-GroupBy", problems, expressions);
+    if (props.splitBy) config.split_by = mapColumns(props.splitBy, keys, "-SplitBy", problems, expressions);
     if (props.sort) {
         // "Column desc" / "Column" (asc)
         config.sort = (Array.isArray(props.sort) ? props.sort : [props.sort]).map((s) => {
             const parsed = leadingColumn(String(s).trim(), keys);
-            return parsed ? [parsed.column, /^desc/i.test(parsed.rest) ? "desc" : "asc"] : null;
+            if (!parsed || !/^(asc|desc)?$/i.test(parsed.rest) || (!keys.includes(parsed.column) && !expressions.includes(parsed.column))) {
+                problems.push(`-Sort "${s}": expected "<column>", "<column> asc" or "<column> desc" with a column of the data`);
+                return null;
+            }
+            return [parsed.column, /^desc$/i.test(parsed.rest) ? "desc" : "asc"];
         }).filter(Boolean);
     }
     if (props.aggregates && typeof props.aggregates === "object") {
-        config.aggregates = Object.fromEntries(Object.entries(props.aggregates).map(([k, v]) => [resolveColumn(k, keys) ?? k, String(v)]));
+        config.aggregates = Object.fromEntries(Object.entries(props.aggregates).map(([k, v]) => [mapColumns(k, keys, "-Aggregates", problems, expressions)[0], String(v)]).filter(([k]) => k !== undefined));
     }
     if (props.filter) {
         // "Column == value" / "Column > 5": column, operator, value
@@ -62,7 +88,12 @@ export function viewerConfig(props, keys, mode, schema = {}, problems = []) {
                 problems.push(`-Filter "${f}": expected "<column> <operator> <value>" with a column of the data`);
                 return null;
             }
-            return [parsed.column, op, filterValue(parsed.rest.slice(op.length), op, schema[parsed.column])];
+            try {
+                return [parsed.column, op, filterValue(parsed.rest.slice(op.length), op, schema[parsed.column])];
+            } catch (e) {
+                problems.push(`-Filter "${f}": ${e.message} (column ${parsed.column} is ${schema[parsed.column]})`);
+                return null;
+            }
         }).filter(Boolean);
     }
     return props.config && typeof props.config === "object" ? { ...config, ...props.config } : config;

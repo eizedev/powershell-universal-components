@@ -47,3 +47,28 @@ test("viewerConfig: names with spaces, values of the column's type, lists, probl
     assert.equal(problems.length, 1);
     assert.match(problems[0], /Nope == 1/);
 });
+
+test("viewerConfig: wrong value types, unknown names and malformed sorts are reported and left out", () => {
+    const keys = ["Id", "Open", "Team", "Team Lead"];
+    const schema = { Id: "integer", Open: "boolean", Team: "string", "Team Lead": "string" };
+    const problems = [];
+    const c = mod.viewerConfig({
+        columns: ["Id", "Nope", "ratio"],
+        groupBy: "team",
+        sort: ["Team Leadx desc", "Id descending", "Id DESC"],
+        filter: ["Id > abc", "Id == ", "Id == 0x10", "Id in 1, 2", "Open == maybe", "Open == $false"],
+        aggregates: { Nope: "sum" },
+        config: { expressions: { ratio: '"Id" / 2' } }
+    }, keys, "light", schema, problems);
+    assert.deepEqual(c.columns, ["Id", "ratio"], "unknown names are left out, expression columns stay");
+    assert.deepEqual(c.aggregates, {});
+    assert.deepEqual(c.group_by, ["Team"]);
+    assert.deepEqual(c.sort, [["Id", "desc"]]);
+    assert.deepEqual(c.filter, [["Id", "in", [1, 2]], ["Open", "==", false]]);
+    const text = problems.join("\n");
+    for (const expected of [/-Columns "Nope"/, /-Aggregates "Nope"/, /-Sort "Team Leadx desc"/, /-Sort "Id descending"/, /-Filter "Id > abc"/, /-Filter "Id == "/, /-Filter "Id == 0x10"/, /-Filter "Open == maybe"/]) {
+        assert.match(text, expected);
+    }
+    assert.doesNotMatch(text, /ratio/, "expression columns from -Config are known");
+    assert.equal(problems.length, 8);
+});
