@@ -291,6 +291,12 @@
             New-UDEChart -Data $quarters -Type bar -X Quarter -Y Managed, Projects, Licences -Stacked -LightTheme $light -DarkTheme $dark -Height 300px
         }
     }
+    @{ Section = 'Interaction'; Title = 'When there is nothing to show'; Text = 'Empty data shows "No data" in place of bare axes; -EmptyText says what it means for this chart.'; Code = {
+            $jobs = 'Backup', 'Patch', 'Report' | ForEach-Object { [pscustomobject]@{ Job = $_; State = 'Completed'; Minutes = 5 * $_.Length } }
+            $failed = @($jobs | Where-Object State -EQ 'Failed')
+            New-UDEChart -Data $failed -Type bar -X Job -Y Minutes -EmptyText 'No failed jobs today' -Height 240px
+        }
+    }
     @{ Section = 'Interaction'; Title = 'Anything else: -Options'; Text = 'The full Apache ECharts option, merged over what the parameters built.'; Code = {
             $months = 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun' | ForEach-Object -Begin { $i = 0 } -Process { $i++; [pscustomobject]@{ Month = $_; Tickets = 300 + 20 * $i; SLA = 96 + $i / 2 } }
             New-UDEChart -Data $months -Type bar -X Month -Y Tickets, SLA -SecondaryY SLA -SecondaryTitle 'SLA %' -Height 320px -Options @{

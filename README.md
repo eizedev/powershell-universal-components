@@ -37,17 +37,42 @@ Safari; the Safari app and iOS are not tested).
 Install-PSResource -Name PowerShellUniversal.Component.ECharts   # or copy the built module into Modules/
 ```
 
+A first app that runs on any PSU server, without a database or an API: the PowerShell commands of the
+server per verb, split into cmdlets and functions. A click on a bar shows a toast. The same app is in
+[examples/quickstart.ps1](modules/PowerShellUniversal.Component.ECharts/examples/quickstart.ps1).
+
 ```powershell
-New-UDApp -Title 'Tickets' -Content {
-    $byTeam = Invoke-Sqlcmd -Query 'SELECT Team, Priority, COUNT(*) AS Tickets FROM Tickets GROUP BY Team, Priority'
-    New-UDEChart -Data $byTeam -Type bar -X Team -Y Tickets -GroupBy Priority -Stacked -OnClick {
-        Show-UDToast -Message "$($EventData.name), $($EventData.seriesName): $($EventData.value)"
+New-UDApp -Title 'Commands' -Content {
+    New-UDCard -Title 'PowerShell commands per verb' -Content {
+        $commands = Get-Command -CommandType Cmdlet, Function | Where-Object Verb
+        $top = $commands | Group-Object Verb | Sort-Object Count -Descending | Select-Object -First 10 -ExpandProperty Name
+        $rows = $commands | Where-Object Verb -In $top | Group-Object Verb, CommandType | ForEach-Object {
+            [pscustomobject]@{ Verb = $_.Group[0].Verb; Type = "$($_.Group[0].CommandType)"; Commands = $_.Count }
+        } | Sort-Object { [array]::IndexOf($top, $_.Verb) }   # most commands first
+        New-UDEChart -Data $rows -Type bar -X Verb -Y Commands -GroupBy Type -Stacked -Height 360px -OnClick {
+            Show-UDToast -Message "$($EventData.name): $($EventData.value) $($EventData.seriesName)s"
+        }
     }
 }
 ```
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/screenshot-quickstart-dark.png">
+    <img src="assets/screenshot-quickstart-light.png" alt="The quick start app: stacked bars of PowerShell commands per verb, cmdlets and functions" width="80%">
+  </picture>
+</p>
+
+With your own data it is the same call. From SQL Server, for example:
+
+```powershell
+$byTeam = Invoke-Sqlcmd -Query 'SELECT Team, Priority, COUNT(*) AS Tickets FROM Tickets GROUP BY Team, Priority'
+New-UDEChart -Data $byTeam -Type bar -X Team -Y Tickets -GroupBy Priority -Stacked
+```
+
 DataTables, `Invoke-RestMethod` results and PowerShell objects go in as they are; column names are
-matched without regard to case.
+matched without regard to case. Empty data shows "No data" (`-EmptyText` for your own text), and a
+column name that matches no column shows the columns the data has instead of a chart.
 
 ## Charts
 

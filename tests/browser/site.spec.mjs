@@ -13,7 +13,9 @@ function chartsState(page) {
             width: d.clientWidth,
             canvasWidth: c.getWidth(),
             series: (o.series || []).length,
-            colors: (o.color || []).length
+            colors: (o.color || []).length,
+            // the text an empty chart shows in place of series (-EmptyText)
+            empty: [].concat(o.graphic || []).flatMap((g) => [].concat(g.elements || g)).map((g) => g.style && g.style.text).find(Boolean) || null
         };
     }));
 }
@@ -37,7 +39,9 @@ test("every example renders without errors", async ({ page }) => {
     await expect(page.locator("[role=alert]")).toHaveCount(0);
     const charts = await chartsState(page);
     for (const c of charts) {
-        expect(c.series, c.id).toBeGreaterThan(0);
+        // an example without rows shows its -EmptyText instead of series
+        if (c.id === "when-there-is-nothing-to-show") expect(c.empty, c.id).toBe("No failed jobs today");
+        else expect(c.series, c.id).toBeGreaterThan(0);
         expect(Math.abs(c.width - c.canvasWidth), `${c.id} canvas follows its container`).toBeLessThanOrEqual(2);
     }
     expect(errors).toEqual([]);
