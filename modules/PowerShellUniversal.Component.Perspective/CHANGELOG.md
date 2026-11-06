@@ -7,7 +7,7 @@ All notable changes to PowerShellUniversal.Component.Perspective. Format:
 
 ### Added
 
-- `New-UDPerspective` on FINOS Perspective 3.8: datagrid, pivot (`-GroupBy`, `-SplitBy`,
+- `New-UDPerspective` on Perspective 5.7 (`@perspective-dev`): datagrid, pivot (`-GroupBy`, `-SplitBy`,
   `-Aggregates`) and charts, starting view from `-Plugin`, `-Columns`, `-Sort`, `-Filter`, `-Config`;
   readers rearrange it in the configuration panel.
 - Data straight from DataTables, REST results and PowerShell objects with the original column names

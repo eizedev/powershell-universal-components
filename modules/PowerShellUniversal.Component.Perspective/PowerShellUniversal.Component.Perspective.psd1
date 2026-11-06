@@ -5,7 +5,7 @@
     Author            = 'eizedev'
     CompanyName       = 'eizedev'
     Copyright         = '(c) 2026 eizedev. MIT License.'
-    Description       = 'FINOS Perspective for PowerShell Universal apps: a datagrid, pivot table and chart in one, which users group, split, filter and sort themselves; WebAssembly engine for large row counts, light and dark theme, fed straight from SQL DataTables, REST results and PowerShell objects.'
+    Description       = 'Perspective for PowerShell Universal apps: a datagrid, pivot table and chart in one, which users group, split, filter and sort themselves; WebAssembly engine for large row counts, light and dark theme, fed straight from SQL DataTables, REST results and PowerShell objects.'
     PowerShellVersion = '7.4'
     FunctionsToExport = @('New-UDPerspective')
     CmdletsToExport   = @()

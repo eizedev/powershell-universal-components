@@ -1,6 +1,6 @@
 # PowerShellUniversal.Component.Perspective
 
-[FINOS Perspective](https://perspective.finos.org/) for PowerShell Universal apps: a datagrid, pivot
+[Perspective](https://perspective-dev.github.io/) for PowerShell Universal apps: a datagrid, pivot
 table and chart in one. Readers group, split, filter, sort and aggregate the data themselves in the
 configuration panel and switch between the grid and the charts; the parameters set the view it starts
 with. The data is held by Perspective's WebAssembly engine in a Web Worker in the browser, so tens of
@@ -36,7 +36,7 @@ view starts again from the parameters.
 
 | Parameter | Effect |
 | --- | --- |
-| `-Plugin` | `Datagrid` (default), `X Bar`, `Y Bar`, `Y Line`, `Y Area`, `Y Scatter`, `XY Scatter`, `Treemap`, `Sunburst`, `Heatmap` |
+| `-Plugin` | `Datagrid` (default); charts (WebGL): `X Bar`, `Y Bar`, `Y Line`, `Y Area`, `Y Scatter`, `X/Y Scatter`, `X/Y Line`, `Density`, `Treemap`, `Sunburst`, `Heatmap`, `Candlestick`, `OHLC`, `Map Scatter`, `Map Line`, `Map Density` (maps need longitude and latitude columns) |
 | `-Columns` | columns to show, in order |
 | `-GroupBy`, `-SplitBy` | pivot rows and columns |
 | `-Aggregates` | `@{ Tickets = 'sum'; LeadHours = 'avg' }` (Perspective's names: sum, avg, count, distinct count, min, max, median, first, last, ...) |
@@ -86,5 +86,7 @@ priority) and a chart.
 
 ## License
 
-MIT. Includes FINOS Perspective (Apache-2.0) and its dependencies; their licence texts are in
-`THIRD-PARTY-NOTICES.txt` of the built module.
+MIT. Includes Perspective 5.7 (`@perspective-dev/*`, Apache-2.0) with regular-table (Apache-2.0); the
+licence texts of these and the other runtime packages are in `THIRD-PARTY-NOTICES.txt` of the built
+module. The bundle carries Perspective's WebAssembly binaries inline, so the browser loads nothing from
+other servers.

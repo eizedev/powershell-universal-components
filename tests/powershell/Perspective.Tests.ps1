@@ -29,6 +29,10 @@ Describe 'New-UDPerspective' {
         $c.groupBy | Should -Be @('Team')
         $c.plugin | Should -Be 'Datagrid'
     }
+    It 'takes the chart names of Perspective 5 (measured in the browser)' {
+        (New-UDPerspective -Data @([pscustomobject]@{ A = 1 }) -Plugin 'X/Y Scatter').plugin | Should -Be 'X/Y Scatter'
+        { New-UDPerspective -Data @() -Plugin 'XY Scatter' } | Should -Throw
+    }
     It 'converts a DataTable' {
         $t = [System.Data.DataTable]::new()
         [void]$t.Columns.Add('Name'); [void]$t.Columns.Add('Count', [int])

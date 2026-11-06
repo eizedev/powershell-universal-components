@@ -2,16 +2,17 @@
   "name": "powershelluniversal-component-perspective",
   "version": "0.1.0",
   "private": true,
-  "description": "FINOS Perspective component for PowerShell Universal apps",
+  "description": "Perspective component for PowerShell Universal apps",
   "license": "MIT",
   "scripts": {
     "build": "webpack"
   },
   "dependencies": {
-    "@finos/perspective": "3.8.0",
-    "@finos/perspective-viewer": "3.8.0",
-    "@finos/perspective-viewer-d3fc": "3.8.0",
-    "@finos/perspective-viewer-datagrid": "3.8.0",
+    "@perspective-dev/client": "5.7.0",
+    "@perspective-dev/server": "5.7.0",
+    "@perspective-dev/viewer": "5.7.0",
+    "@perspective-dev/viewer-charts": "5.7.0",
+    "@perspective-dev/viewer-datagrid": "5.7.0",
     "universal-dashboard": "1.1.2"
   },
   "devDependencies": {

@@ -12,7 +12,7 @@ $Script:AssetId = Register-PSUComponentAsset -Path $PSScriptRoot
 function New-UDPerspective {
     <#
     .SYNOPSIS
-        A FINOS Perspective datagrid, pivot table and chart in one, for PowerShell Universal apps.
+        A Perspective datagrid, pivot table and chart in one, for PowerShell Universal apps.
     .DESCRIPTION
         Pass the data as it comes - a DataTable from SQL, objects from Invoke-RestMethod or any
         PowerShell command. Readers rearrange the view themselves in the configuration panel: group
@@ -25,8 +25,9 @@ function New-UDPerspective {
     .PARAMETER Data
         Rows: a DataTable, objects, hashtables, or a script block returning them.
     .PARAMETER Plugin
-        The view to start with: Datagrid (default), X Bar, Y Bar, Y Line, Y Area, Y Scatter,
-        XY Scatter, Treemap, Sunburst, Heatmap.
+        The view to start with: Datagrid (default) or a chart: X Bar, Y Bar, Y Line, Y Area,
+        Y Scatter, X/Y Scatter, X/Y Line, Density, Treemap, Sunburst, Heatmap, Candlestick, OHLC,
+        Map Scatter, Map Line, Map Density (the map charts need longitude and latitude columns).
     .PARAMETER Columns
         Columns to show, in this order. Default: all.
     .PARAMETER GroupBy
@@ -73,7 +74,7 @@ function New-UDPerspective {
     param(
         [string]$Id = [guid]::NewGuid().ToString(),
         [Parameter(Mandatory)][AllowNull()][object]$Data,
-        [ValidateSet('Datagrid', 'X Bar', 'Y Bar', 'Y Line', 'Y Area', 'Y Scatter', 'XY Scatter', 'Treemap', 'Sunburst', 'Heatmap')]
+        [ValidateSet('Datagrid', 'X Bar', 'Y Bar', 'Y Line', 'Y Area', 'Y Scatter', 'X/Y Scatter', 'X/Y Line', 'Density', 'Treemap', 'Sunburst', 'Heatmap', 'Candlestick', 'OHLC', 'Map Scatter', 'Map Line', 'Map Density')]
         [string]$Plugin = 'Datagrid',
         [string[]]$Columns,
         [string[]]$GroupBy,
