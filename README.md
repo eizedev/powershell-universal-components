@@ -24,7 +24,7 @@
 
 | Module | What it adds |
 | --- | --- |
-| [PowerShellUniversal.Component.ECharts](modules/PowerShellUniversal.Component.ECharts/README.md) | `New-UDEChart`: 26 chart types, from bars and lines to gantt, network graphs, trees and KPI matrices; zoom, range selection, click events that filter other elements, linked charts, trends with forecast, CSV/Excel/PNG export, full screen, light and dark theme. |
+| [PowerShellUniversal.Component.ECharts](modules/PowerShellUniversal.Component.ECharts/README.md) | `New-UDEChart`: 29 chart types, from bars and lines to gantt, rankings, radial bars, network graphs, trees and KPI matrices; zoom, range selection, click events that filter other elements, linked charts, trends with forecast, CSV/Excel/PNG export, full screen, light and dark theme. |
 
 ## Quick start
 
@@ -48,10 +48,10 @@ matched without regard to case.
 
 | Kind | Types |
 | --- | --- |
-| Comparison and time | `line`, `area`, `step`, `bar` (stacked, normalized, horizontal), `scatter` (bubbles), small multiples, sparklines |
+| Comparison and time | `line`, `area`, `step`, `bar` (stacked, normalized, horizontal), `scatter` (bubbles), `bump` (rankings over time), `polar` (bars around a circle), small multiples, sparklines |
 | Distribution | `histogram`, `boxplot`, `heatmap`, `calendar` |
 | Share | `pie`, `donut` (rose), `funnel`, `treemap`, `sunburst` |
-| Finance | `waterfall`, `candlestick` with volume, `gauge` |
+| Finance | `waterfall`, `candlestick` with volume, `gauge`, `radialbar` (progress rings) |
 | Operations | `gantt`, trend to a limit (`-Trend Linear -TrendTarget 100`), thresholds, axis breaks for business hours |
 | Relations | `sankey`, `graph` (force, circular, layered network paths), `tree`, `chord` |
 | Many measures | `radar`, `parallel`, `themeriver`, `matrix` (sparklines per row and column) |

@@ -7,17 +7,19 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
 
 ### Added
 
-- `New-UDEChart` with 26 chart types on Apache ECharts 6.1: line, area, step, bar, scatter, pie, donut,
+- `New-UDEChart` with 29 chart types on Apache ECharts 6.1: line, area, step, bar, scatter, pie, donut,
   funnel, heatmap, calendar, boxplot, histogram, candlestick, gauge, radar, sankey, treemap, sunburst,
   waterfall, gantt, graph (force, circular or layered, with edge labels), tree, chord, parallel,
-  themeriver, matrix (sparklines per row and column).
+  themeriver, matrix (sparklines per row and column), polar, radialbar, bump.
 - Labels and tooltips from the row behind a point (`-LabelColumn`, `-LabelTemplate`,
   `-TooltipColumns`, `-TooltipTemplate`) with named formats; tooltip values HTML-escaped.
 - Pins (`-MarkPoint`), linear trends with forecast and target date (`-Trend`, `-Forecast`,
   `-TrendTarget`), shaded bands (`-Band`), time windows (`-MarkArea`), gauge styles and thresholds,
   rose charts, bubble size (`-Size`), legend placement and type (`-Legend`, `-LegendType`),
   `-Thresholds` colouring line stretches, `-ClassName` and `-Style`, a full screen button.
-- An error naming the data's columns when a column parameter matches none; "No data" for empty data.
+- An error naming the data's columns when a column parameter matches none; "No data" for empty data
+  (`-EmptyText`); a warning for parameters the chart type does not read.
+- Chart types `polar`, `radialbar` and `bump`; `-Aggregate Sum | Avg | Count | Min | Max`.
 - `-EventColumns`: only these columns of a row travel back with click and selection events.
 - Corporate design: `-LightTheme`/`-DarkTheme` (hashtable or theme builder JSON) and CSS custom
   properties `--psu-chart-*`.

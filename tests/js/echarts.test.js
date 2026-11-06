@@ -461,3 +461,54 @@ test("a custom theme cannot reach the prototype chain", async () => {
     assert.equal(t.title.textStyle.color, "#123");
     assert.equal(Object.getPrototypeOf(t), Object.prototype);
 });
+
+test("-Aggregate combines rows with the same category; without it the last row wins", () => {
+    const rows = [{ team: "A", n: 1 }, { team: "A", n: 5 }, { team: "B", n: 2 }];
+    const last = buildOption({ chartType: "bar", data: rows, x: "team", y: ["n"] }, {});
+    assert.deepEqual(last.series[0].data.map((d) => d.value), [5, 2]);
+    const sum = buildOption({ chartType: "bar", data: rows, x: "team", y: ["n"], aggregate: "sum" }, {});
+    assert.deepEqual(sum.series[0].data.map((d) => d.value), [6, 2]);
+    const count = buildOption({ chartType: "pie", data: rows, x: "team", y: ["n"], aggregate: "count" }, {});
+    assert.deepEqual(count.series[0].data.map((d) => [d.name, d.value]), [["A", 2], ["B", 1]]);
+    const avg = buildOption({ chartType: "bar", data: rows, x: "team", y: ["n"], aggregate: "avg" }, {});
+    assert.equal(avg.series[0].data[0].value, 3);
+});
+
+test("polar and radialbar put bars on a polar coordinate system", () => {
+    const rows = [0, 1, 2].map((h) => ({ hour: `0${h}`, tickets: 10 + h }));
+    const p = buildOption({ chartType: "polar", data: rows, x: "hour", y: ["tickets"] }, {});
+    assert.equal(p.series[0].coordinateSystem, "polar");
+    assert.equal(p.angleAxis.type, "category");
+    assert.deepEqual(p.angleAxis.data, ["00", "01", "02"]);
+    const r = buildOption({ chartType: "radialbar", data: rows, x: "hour", y: ["tickets"], max: 100 }, {});
+    assert.equal(r.radiusAxis.type, "category");
+    // the full value (-Max 100) fills three quarters of the circle
+    assert.ok(Math.abs(r.angleAxis.max - 100 * 4 / 3) < 1e-9);
+    assert.equal(r.series[0].roundCap, true);
+});
+
+test("bump ranks items per period by value", () => {
+    const rows = [
+        { m: "Jan", c: "A", t: 10 }, { m: "Jan", c: "B", t: 20 },
+        { m: "Feb", c: "A", t: 30 }, { m: "Feb", c: "B", t: 5 }
+    ];
+    const o = buildOption({ chartType: "bump", data: rows, x: "m", groupBy: "c", y: ["t"] }, {});
+    const a = o.series.find((s) => s.name === "A");
+    assert.deepEqual(a.data.map((d) => d.value), [2, 1], "A climbs from #2 to #1");
+    assert.equal(a.data[1].raw, 30);
+    assert.equal(o.yAxis.inverse, true);
+});
+
+test("aggregate: empty groups are gaps, large groups work, time axes combine equal timestamps", () => {
+    const empty = buildOption({ chartType: "bar", data: [{ k: "a", v: null }, { k: "a", v: null }, { k: "b", v: 2 }], x: "k", y: ["v"], aggregate: "sum" }, {});
+    assert.equal(empty.series[0].data[0].value, null, "sum of no values is a gap");
+    const big = Array.from({ length: 300000 }, (_, i) => ({ k: "a", v: i }));
+    const max = buildOption({ chartType: "bar", data: big, x: "k", y: ["v"], aggregate: "max" }, {});
+    const first = max.series[0].data[0];
+    assert.equal(first && typeof first === "object" ? first.value : first, 299999);
+    const t = [{ d: "2026-11-01T00:00:00Z", n: 1 }, { d: "2026-11-01T00:00:00Z", n: 2 }, { d: "2026-11-02T00:00:00Z", n: 5 }];
+    const line = buildOption({ chartType: "line", data: t, x: "d", y: ["n"], aggregate: "sum" }, {});
+    assert.deepEqual(line.series[0].data.map((p) => p.value[1]), [3, 5]);
+    const bump = buildOption({ chartType: "bump", data: [{ m: "Jan", c: "A", t: null }, { m: "Jan", c: "B", t: 5 }, { m: "Jan", c: "C", t: 4 }], x: "m", groupBy: "c", y: ["t"] }, {});
+    assert.equal(bump.series.find((s) => s.name === "A").data[0].value, null, "no value, no rank");
+});

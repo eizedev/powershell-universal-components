@@ -253,6 +253,26 @@
     }
     #endregion
 
+    @{ Section = 'Comparisons'; Title = 'Rank over time (bump)'; Text = 'The rank of each item per period by its value; lines cross when one overtakes another.'; Code = {
+            $months = 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'
+            $ranking = foreach ($i in 0..5) { foreach ($c in 'Customer A', 'Customer B', 'Customer C', 'Customer D') { [pscustomobject]@{ Month = $months[$i]; Customer = $c; Tickets = 50 + (($i + 1) * $c.Length * 7) % 90 } } }
+            New-UDEChart -Data $ranking -Type bump -X Month -GroupBy Customer -Y Tickets -Height 320px
+        }
+    }
+    @{ Section = 'Comparisons'; Title = 'Around the clock (polar)'; Text = 'Categories around a circle; -Aggregate Count counts raw rows per category.'; Code = {
+            $calls = foreach ($i in 1..400) { [pscustomobject]@{ Id = $i; Hour = '{0:00}' -f [int](8 + 4 * [math]::Sin($i) + ($i % 7)) } }
+            New-UDEChart -Data ($calls | Sort-Object Hour) -Type polar -X Hour -Y Id -Aggregate Count -Legend None -Height 340px
+        }
+    }
+    @{ Section = 'Comparisons'; Title = 'Progress rings (radialbar)'; Text = 'One ring per category; -Max is three quarters of the circle, the names sit in the free quarter.'; Code = {
+            $compliance = @(
+                [pscustomobject]@{ Customer = 'Customer A'; Compliance = 96 }
+                [pscustomobject]@{ Customer = 'Customer B'; Compliance = 88 }
+                [pscustomobject]@{ Customer = 'Customer D'; Compliance = 61 }
+            )
+            New-UDEChart -Data $compliance -Type radialbar -X Customer -Y Compliance -Min 0 -Max 100 -Format 'percent100:0' -Legend None -Height 300px
+        }
+    }
     #region Interaction
     @{ Section = 'Interaction'; Title = 'Click and range selection'; Text = 'In an app these script blocks run on the server; here the page shows the $EventData they would get.'; Code = {
             $daily = 0..29 | ForEach-Object { [pscustomobject]@{ Day = ([datetime]'2026-10-01').AddDays($_); Opened = 30 + ($_ % 7) * 4 } }

@@ -22,11 +22,11 @@ series type and option is available through `-Options`; the parameters cover wha
 | intraday with breaks | Parameter: `-Breaks`, `New-UDEChartTimeBreak` |
 | several y axes (multiple-y-axis) | Parameter: `-SecondaryY` (two axes) |
 | sparklines in a table (matrix-sparkline) | Parameter: `-Type matrix` |
-| bump chart (rank over time) | -Options: `yAxis = @{ inverse = $true }` |
+| bump chart (rank over time) | Parameter: `-Type bump` |
 | line on a category y axis (line-y-category) | -Options |
 | two grids linked (grid-multiple), several x axes | Parameter: two charts with the same `-Group` |
 | dynamic data, line race | Parameter: `Set-UDEChartData` (live updates); the race animation via -Options |
-| polar lines (line-polar) | -Options (polar coordinate system) |
+| polar lines (line-polar) | -Options (polar coordinate system); polar bars: `-Type polar` |
 | line-function, line-draggable, line-pen, fisheye, easing, line-graphic | Not included: drawing and animation demos, no data use in an app |
 
 ## Bar
@@ -44,7 +44,7 @@ series type and option is available through `-Options`; the parameters cover wha
 | drill-down (bar-drilldown, bar-multi-drilldown) | Server side: `-OnClick` plus `Set-UDEChartData` with the level below |
 | rich text labels, rounded stacks, gradient | -Options (`itemStyle`, `label.rich`); rounded bars tested |
 | bar race | -Options (`realtimeSort`) with `Set-UDEChartData` |
-| polar and radial bars (bar-polar-*, polar-roundCap) | -Options (polar coordinate system); `-GaugeStyle Ring` covers progress rings |
+| polar and radial bars (bar-polar-*, polar-roundCap) | Parameter: `-Type polar` (categories around), `-Type radialbar` (rings with round caps) |
 | animation delay, watermark, timeline finance | Not included as parameters: decoration; timeline via -Options |
 
 ## Pie, funnel, gauge

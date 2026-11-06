@@ -123,3 +123,15 @@ Describe 'Corporate themes' {
         { New-UDEChart -Data @() -LightTheme '/does/not/exist.json' } | Should -Throw '*Theme file not found*'
     }
 }
+
+Describe 'Parameters for other chart types' {
+    It 'warns when a parameter only another chart type reads is given' {
+        $null = New-UDEChart -Data @([pscustomobject]@{ A = 1 }) -Type bar -X A -Source A -WarningVariable w -WarningAction SilentlyContinue
+        $w.Count | Should -Be 1
+        "$w" | Should -BeLike '*-Source*sankey*'
+    }
+    It 'stays quiet for the right chart type' {
+        $null = New-UDEChart -Data @([pscustomobject]@{ A = 1; B = 2 }) -Type sankey -Source A -Target B -WarningVariable w -WarningAction SilentlyContinue
+        $w.Count | Should -Be 0
+    }
+}

@@ -245,6 +245,12 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                 }
             }
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Created per hour of the day (polar; counted from the raw tickets with -Aggregate Count)' -Content {
+                    $perHour = $tickets | Sort-Object { $_.Created.Hour } | Select-Object Id, @{ n = 'Hour'; e = { '{0:00}' -f $_.Created.Hour } }
+                    New-UDEChart -Data $perHour -Type polar -X Hour -Y Id -Aggregate Count -Height 340px -Legend None
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
                 New-UDCard -Title 'Created: weekday x hour' -Content {
                     # every weekday x hour, also the empty ones: the axes take their order from the rows
                     $days = 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
@@ -441,6 +447,16 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                         }
                     }
                     New-UDEChart -Data $review -Type matrix -Y Customer -GroupBy Kpi -X Week -Value Value -CellType Area -Height 420px
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Top customers by tickets per month (bump: rank over time)' -Content {
+                    $brng = [System.Random]::new(19)
+                    $ranking = foreach ($m in -5..0) {
+                        $month = (Get-Date -Day 1).AddMonths($m).ToString('yyyy-MM')
+                        foreach ($c in 'Customer A', 'Customer B', 'Customer C', 'Customer D', 'Customer E') { [pscustomobject]@{ Month = $month; Customer = $c; Tickets = $brng.Next(40, 160) } }
+                    }
+                    New-UDEChart -Data $ranking -Type bump -X Month -GroupBy Customer -Y Tickets -Height 340px
                 }
             }
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
@@ -641,6 +657,18 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                     New-UDEChart -Data $lat -Type area -X Time -Y 'Latency ms' -Height 320px -MarkLine @{ value = 250; name = 'SLA'; color = '#e53935' } `
                         -Thresholds @{ value = 250; color = '#43a047' }, @{ value = 100000; color = '#e53935' } `
                         -MarkArea @{ from = $t0.AddMinutes(650).ToString('o'); to = $t0.AddMinutes(755).ToString('o'); name = 'Incident INC-4711'; color = 'rgba(229,57,53,0.15)' }
+                }
+            }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
+                New-UDCard -Title 'Patch compliance per customer (radial bars; 100 % = three quarters of the circle)' -Content {
+                    $patchCompliance = @(
+                        [pscustomobject]@{ Customer = 'Customer A'; Compliance = 96 }
+                        [pscustomobject]@{ Customer = 'Customer B'; Compliance = 88 }
+                        [pscustomobject]@{ Customer = 'Customer C'; Compliance = 74 }
+                        [pscustomobject]@{ Customer = 'Customer D'; Compliance = 61 }
+                        [pscustomobject]@{ Customer = 'Customer E'; Compliance = 92 }
+                    )
+                    New-UDEChart -Data $patchCompliance -Type radialbar -X Customer -Y Compliance -Min 0 -Max 100 -Format 'percent100:0' -Height 340px -Legend None
                 }
             }
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
