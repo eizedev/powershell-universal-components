@@ -265,6 +265,10 @@ function New-UDEChart {
         @{ field = 'leadTime'; title = 'Lead time (h)'; type = 'number'; format = 'number:1' }
         with type text, number, integer, currency, percent, date, datetime or boolean. Default: all
         columns of -Data with their types guessed.
+    .PARAMETER EventColumns
+        Columns of the data row that events send back to the server ($EventData.row of a click, the rows
+        of a parallel selection). Default: the whole row. Keeps messages small with wide rows; it does
+        not hide data - everything in -Data is in the browser anyway.
     .PARAMETER ExportFileName
         File name without extension for PNG, CSV and Excel. Default: the title.
     .PARAMETER Group
@@ -409,6 +413,7 @@ function New-UDEChart {
         [switch]$NoExport,
         [switch]$NoFullscreen,
         [object[]]$ExportColumns,
+        [string[]]$EventColumns,
         [string]$ExportFileName,
         [string]$Group,
         [switch]$Decal,
@@ -463,7 +468,7 @@ function New-UDEChart {
         Title = 'title'; Subtitle = 'subtitle'; Width = 'width'; ClassName = 'className'; Style = 'style'; Palette = 'palette'; Format = 'format'; LabelFormat = 'labelFormat'; XFormat = 'xFormat'
         Locale = 'locale'; XTitle = 'xTitle'; YTitle = 'yTitle'; SecondaryY = 'secondaryY'; SecondaryTitle = 'secondaryTitle'
         Min = 'min'; Max = 'max'; YMin = 'yMin'; YMax = 'yMax'; Bins = 'bins'; MarkLine = 'markLine'
-        NegativeColor = 'negativeColor'; PositiveColor = 'positiveColor'; ExportColumns = 'exportColumns'
+        NegativeColor = 'negativeColor'; PositiveColor = 'positiveColor'; ExportColumns = 'exportColumns'; EventColumns = 'eventColumns'
         ExportFileName = 'exportFileName'; Group = 'group'; Options = 'options'
         Breaks = 'breaks'; YBreaks = 'yBreaks'; Facet = 'facet'; FacetColumns = 'facetColumns'
         Start = 'start'; End = 'end'; Size = 'size'; Band = 'band'; BandName = 'bandName'; MarkArea = 'markArea'; Thresholds = 'thresholds'; TargetGroup = 'targetGroup'

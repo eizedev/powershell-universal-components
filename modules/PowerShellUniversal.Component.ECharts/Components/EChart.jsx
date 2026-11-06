@@ -6,6 +6,7 @@ import { registerLocales, echartsLocale } from "./locales";
 import { usePsuTheme, effectiveMode } from "../../../shared/js/psuTheme";
 import { defaultLocale } from "../../../shared/js/formatters";
 import { toCsv, toXlsxBytes, download, safeFileName } from "../../../shared/js/exporter";
+import { pickColumns } from "../../../shared/js/columns";
 
 // components replaced (not merged) on every update, so a live update that changes the shape of the
 // chart leaves no stale axes or coordinate systems behind; zoom and legend state are kept
@@ -189,7 +190,7 @@ export default function EChart(props) {
                 dataIndex: p.dataIndex,
                 name: p.name,
                 value: Array.isArray(p.value) ? p.value.map((v, i) => (i === 0 ? axisValue(chart, 0, v) : v)) : p.value,
-                row: rowOf(data, p)
+                row: pickColumns(rowOf(data, p), latest.current.eventColumns)
             };
             latest.current.setState({ selected: payload });
             call("onClick", payload);
@@ -232,7 +233,7 @@ export default function EChart(props) {
                     filtered = filtered || inactive.length > 0;
                     series.getRawIndicesByActiveState("active").forEach((i) => {
                         const item = raw.getRawDataItem(i);
-                        if (item && item.rowIndex !== undefined && data[item.rowIndex]) rows.push(data[item.rowIndex]);
+                        if (item && item.rowIndex !== undefined && data[item.rowIndex]) rows.push(pickColumns(data[item.rowIndex], latest.current.eventColumns));
                     });
                 });
                 // rows: the selected data rows (all rows when nothing is selected); at most 1000
