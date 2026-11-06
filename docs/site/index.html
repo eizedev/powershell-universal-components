@@ -33,7 +33,7 @@
     .toast { position: fixed; right: 16px; bottom: 16px; max-width: min(480px, calc(100vw - 32px)); max-height: 50vh; overflow: auto; padding: 12px 14px; background: var(--surface); border: 1px solid var(--accent); border-radius: 8px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25); font-size: 13px; }
     .toast pre { margin: 6px 0 0; white-space: pre-wrap; font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; }
     @media (max-width: 800px) {
-        .layout { grid-template-columns: 1fr; }
+        .layout { grid-template-columns: minmax(0, 1fr); }
         nav { position: static; height: auto; flex-direction: row; flex-wrap: wrap; gap: 4px 12px; border-right: 0; border-bottom: 1px solid var(--line); }
         nav .brand { width: 100%; margin: 0; }
         main { padding: 16px; }

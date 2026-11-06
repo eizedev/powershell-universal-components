@@ -16,12 +16,16 @@ hashtable PSU renders; see [README.md](README.md).
 - `docs/site/` - the documentation site: `examples.ps1` (code and chart from one source, run with the
   real `New-UDEChart` by `Build-Site.ps1`), the page (`src/main.jsx`, `index.html`) and its own
   `package.json`. A new parameter or chart type gets an example there.
-- `tests/js/` (node --test, no dependencies beyond the root `package.json`), `tests/powershell/` (Pester).
+- `tests/js/` (node --test), `tests/browser/` (Playwright: the documentation site in Chromium, Firefox and
+  WebKit; `psu.spec.mjs` runs the showcase app on a PSU instance when `PSU_URL` is set),
+  `tests/powershell/` (Pester).
 
 ## Commands
 
 ```bash
 npm ci && npm test                                   # JavaScript unit tests (repository root)
+npx playwright install chromium firefox webkit && npm run test:browser   # after Build-Site.ps1
+PSU_URL=<app url> npm run test:browser -- psu         # the showcase app on a PSU instance, all browsers
 pwsh ./build/Build-Module.ps1 -Module PowerShellUniversal.Component.ECharts   # output/<Module>/<Version>
 pwsh ./docs/site/Build-Site.ps1                      # output/site/index.html
 pwsh -c 'Invoke-Pester -Path tests/powershell'       # Pester 5 or 6
