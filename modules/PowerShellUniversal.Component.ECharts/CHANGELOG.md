@@ -19,6 +19,8 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
   `-Thresholds` colouring line stretches, `-ClassName` and `-Style`, a full screen button.
 - An error naming the data's columns when a column parameter matches none; "No data" for empty data.
 - `-EventColumns`: only these columns of a row travel back with click and selection events.
+- Corporate design: `-LightTheme`/`-DarkTheme` (hashtable or theme builder JSON) and CSS custom
+  properties `--psu-chart-*`.
 - Data straight from DataTables (DBNull as null), PowerShell objects, REST results and script blocks;
   column names matched without regard to case.
 - Zoom (wheel, box, slider; on the value axis with `-ZoomAxis`), range selection (`-Brush`), linked

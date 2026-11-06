@@ -170,6 +170,30 @@ row of a flex container (`New-UDStack -Direction row`), the items share the row 
 Light and dark follow the app's theme switch (`Theme Auto`); `-Theme Light` or `Dark` pins one.
 `-Palette` sets the series colours, `-Decal` adds patterns for colour-blind readers and print.
 
+A corporate design comes in two ways, both optional:
+
+- **An ECharts theme per mode:** `-LightTheme` and `-DarkTheme` take a hashtable or the path of a theme
+  JSON file as the [Apache ECharts theme builder](https://echarts.apache.org/en/theme-builder.html)
+  downloads it. It is merged over the module's own theme: what it sets wins, the rest stays (so a
+  palette-only theme keeps the readable axes). For every chart of an app:
+
+  ```powershell
+  $PSDefaultParameterValues['New-UDEChart:LightTheme'] = "/path/on/the/psu/server/corporate-light.json"
+  $PSDefaultParameterValues['New-UDEChart:DarkTheme'] = "/path/on/the/psu/server/corporate-dark.json"
+  ```
+
+- **CSS custom properties** in the app's stylesheet: `--psu-chart-1` ... `--psu-chart-12` (the N-th
+  series colour; positions without a property keep theirs), `--psu-chart-text`, `--psu-chart-muted`, `--psu-chart-axis`, `--psu-chart-grid`,
+  `--psu-chart-tooltip`, `--psu-chart-tooltip-border`, `--psu-chart-accent`. Set them per mode:
+
+  ```css
+  :root { --psu-chart-1: #003b6f; --psu-chart-2: #f28c28; --psu-chart-text: #1f2430; }
+  :root[data-theme="dark"] { --psu-chart-1: #6fa8dc; --psu-chart-2: #f6b26b; --psu-chart-text: #e6e9ef; }
+  ```
+
+Order: the module's theme, then the CSS properties, then `-LightTheme`/`-DarkTheme`, then `-Palette`
+and `-Options` of the single chart.
+
 ## Everything else: -Options
 
 `-Options` takes any [Apache ECharts option](https://echarts.apache.org/en/option.html) and is merged

@@ -149,6 +149,14 @@ function New-UDEChart {
         CSS styles of the chart's outer element, e.g. @{ marginTop = '8px'; border = '1px solid #ccc' }.
     .PARAMETER Theme
         Auto (follows the app's light/dark switch), Light or Dark.
+    .PARAMETER LightTheme
+        Corporate design for the light mode: an Apache ECharts theme as a hashtable, or the path of a
+        theme JSON file as the ECharts theme builder downloads it (a builder configuration with
+        version, themeName and theme works too). Merged over the module's own theme: what the theme
+        sets wins, the rest stays. For every chart of an app at once:
+        $PSDefaultParameterValues['New-UDEChart:LightTheme'] = '/path/on/the/psu/server/corporate-light.json'
+    .PARAMETER DarkTheme
+        Corporate design for the dark mode, as -LightTheme.
     .PARAMETER Palette
         Series colours, e.g. '#5470c6', '#91cc75'.
     .PARAMETER Legend
@@ -375,6 +383,8 @@ function New-UDEChart {
         [string]$ClassName,
         [hashtable]$Style,
         [ValidateSet('Auto', 'Light', 'Dark')][string]$Theme = 'Auto',
+        [object]$LightTheme,
+        [object]$DarkTheme,
         [string[]]$Palette,
         [ValidateSet('Bottom', 'Top', 'Left', 'Right', 'None')][string]$Legend,
         [ValidateSet('Scroll', 'Plain')][string]$LegendType,
@@ -479,6 +489,9 @@ function New-UDEChart {
     }
     if ($PSBoundParameters.ContainsKey('CellType')) { $props['cellType'] = $CellType.ToLowerInvariant() }
     if ($Undirected) { $props['directed'] = $false }
+    foreach ($name in 'LightTheme', 'DarkTheme') {
+        if ($PSBoundParameters.ContainsKey($name)) { $props[$name.Substring(0, 1).ToLowerInvariant() + $name.Substring(1)] = ConvertTo-UDEChartTheme -Theme $PSBoundParameters[$name] }
+    }
     if ($PSBoundParameters.ContainsKey('LegendType')) { $props['legendType'] = $LegendType.ToLowerInvariant() }
     if ($PSBoundParameters.ContainsKey('Layout')) { $props['layout'] = $Layout.ToLowerInvariant() }
     if ($PSBoundParameters.ContainsKey('Trend')) { $props['trend'] = $Trend.ToLowerInvariant() }
@@ -488,6 +501,29 @@ function New-UDEChart {
     if ($OnZoom) { $props['onZoom'] = $OnZoom }
     if ($OnLegendChange) { $props['onLegendChange'] = $OnLegendChange }
     $props
+}
+
+function ConvertTo-UDEChartTheme {
+    <#
+    .SYNOPSIS
+        Turns a theme parameter (hashtable, object or JSON file path) into the theme object the chart uses.
+    #>
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param([Parameter(Mandatory)][AllowNull()][object]$Theme)
+
+    if ($null -eq $Theme) { return $null }
+    if ($Theme -is [string]) {
+        if (-not (Test-Path -LiteralPath $Theme -PathType Leaf)) { throw ('Theme file not found: {0}' -f $Theme) }
+        $Theme = Get-Content -LiteralPath $Theme -Raw | ConvertFrom-Json -AsHashtable
+    }
+    elseif ($Theme -is [System.Management.Automation.PSCustomObject]) {
+        $Theme = $Theme | ConvertTo-Json -Depth 30 | ConvertFrom-Json -AsHashtable
+    }
+    if ($Theme -isnot [System.Collections.IDictionary]) { throw 'A theme is a hashtable, an object or the path of a theme JSON file.' }
+    # a theme builder configuration carries the theme in "theme"
+    if ($Theme.Contains('theme') -and $Theme.Contains('themeName')) { $Theme = $Theme['theme'] }
+    $Theme
 }
 
 function New-UDEChartTimeBreak {
