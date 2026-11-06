@@ -25,6 +25,7 @@
 | Module | What it adds |
 | --- | --- |
 | [PowerShellUniversal.Component.ECharts](modules/PowerShellUniversal.Component.ECharts/README.md) | `New-UDEChart`: 29 chart types, from bars and lines to gantt, rankings, radial bars, network graphs, trees and KPI matrices; zoom, range selection, click events that filter other elements, linked charts, trends with forecast, CSV/Excel/PNG export, full screen, light and dark theme. |
+| [PowerShellUniversal.Component.ECharts.Demo](modules/PowerShellUniversal.Component.ECharts.Demo/README.md) | `New-UDEChartShowcase`: the showcase app of the chart module as a module - 14 pages of examples with generated and public data, to try the charts or copy from. |
 
 ## Quick start
 
@@ -67,7 +68,7 @@ lists the gallery examples.
 
 - [Module README](modules/PowerShellUniversal.Component.ECharts/README.md): data, chart types, interaction, formats, labels and tooltips, layout, security notes.
 - Documentation site: `./docs/site/Build-Site.ps1` builds every example as code next to the chart it draws, plus the parameter reference, into `output/site/`.
-- [Showcase app](modules/PowerShellUniversal.Component.ECharts/examples/showcase.ps1): 14 pages - ticket report, finance, managed services, operations, a data platform that combines many source systems, layouts, live data.
+- [Showcase app](modules/PowerShellUniversal.Component.ECharts.Demo/Apps/Showcase.ps1) (module PowerShellUniversal.Component.ECharts.Demo): 14 pages - ticket report, finance, managed services, operations, a data platform that combines many source systems, layouts, live data.
 
 ## Build
 
