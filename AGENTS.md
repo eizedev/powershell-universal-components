@@ -8,6 +8,7 @@ hashtable PSU renders; see [README.md](README.md).
 
 - `modules/<Module>/` - one component module: `Components/` (React/JavaScript), `<Module>.psm1`,
   `<Module>.psd1`, `package.json` + `package-lock.json`, `examples/`, `README.md`, `CHANGELOG.md`.
+  A module without `package.json` is PowerShell only (the demo module with its app in `Apps/`).
 - `shared/js/` - JavaScript used by several modules (PSU theme bridge, column matching, formats,
   CSV/XLSX export). Compiled into each module's bundle; never a runtime dependency between modules.
 - `shared/powershell/` - PowerShell used by several modules (data conversion); copied into each built
@@ -54,6 +55,8 @@ rendering.
 - Docs describe the current state; history belongs in `CHANGELOG.md`, commits and pull requests.
 - Conventional Commits; one change per pull request; every module keeps its own `CHANGELOG.md` and
   SemVer `ModuleVersion`.
+- The demo module requires a minimum chart module version: raise it when the showcase uses a new
+  chart feature (a Pester test checks that the version exists).
 
 ## Do not
 

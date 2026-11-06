@@ -229,7 +229,9 @@ New-UDElement -Tag div -AutoRefresh -RefreshInterval 5 -Endpoint {
 
 ## Examples
 
-[examples/showcase.ps1](examples/showcase.ps1) is a complete app: basics, every bar variant, a ticket
+The showcase app, [PowerShellUniversal.Component.ECharts.Demo](../PowerShellUniversal.Component.ECharts.Demo/README.md)
+(`Install-PSResource PowerShellUniversal.Component.ECharts.Demo`, then `New-UDEChartShowcase` as an app's
+content; source: [Apps/Showcase.ps1](../PowerShellUniversal.Component.ECharts.Demo/Apps/Showcase.ps1)), is a complete app: basics, every bar variant, a ticket
 report (lead time distribution with SLA, boxplots per team, previous period, calendar, weekday x hour,
 sankey, click and range filters on a table), finance (waterfall, plan vs actual, YTD, treemap,
 candlestick), managed services (VMware, storage, network, backup, availability), operations (backup

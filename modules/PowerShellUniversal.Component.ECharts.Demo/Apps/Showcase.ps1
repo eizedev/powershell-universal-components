@@ -4,8 +4,8 @@
     updates and a benchmark. Ticket and finance data are generated with a fixed seed, so every load shows
     the same numbers; the public APIs need internet access from the PSU server.
 
-    Deploy: copy into an app (admin console) or with PSUTools: Set-PSUTestApp -Name EChartsShowcase
-    -BaseUrl /echarts -ScriptPath ./examples/showcase.ps1
+    Use it through the module (an app's content is then: New-UDEChartShowcase), or copy this file into
+    an app as it is.
 #>
 
 #region Generated ticket data (2000 tickets, last 120 days)

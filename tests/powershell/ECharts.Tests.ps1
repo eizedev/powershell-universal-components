@@ -135,3 +135,27 @@ Describe 'Parameters for other chart types' {
         $w.Count | Should -Be 0
     }
 }
+
+Describe 'Demo module' {
+    It 'exports New-UDEChartShowcase and its app parses' {
+        $demo = Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.ECharts.Demo'
+        # read as data: Test-ModuleManifest would need the chart module installed (RequiredModules)
+        $manifest = Import-PowerShellDataFile -LiteralPath (Join-Path $demo 'PowerShellUniversal.Component.ECharts.Demo.psd1')
+        $manifest.FunctionsToExport | Should -Contain 'New-UDEChartShowcase'
+        $manifest.RequiredModules.ModuleName | Should -Contain 'PowerShellUniversal.Component.ECharts'
+        # the minimum version the demo asks for must exist: raise it when the showcase uses a new chart feature
+        $charts = Import-PowerShellDataFile -LiteralPath (Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.ECharts' 'PowerShellUniversal.Component.ECharts.psd1')
+        $required = $manifest.RequiredModules | Where-Object ModuleName -EQ 'PowerShellUniversal.Component.ECharts'
+        [version]$required.ModuleVersion | Should -BeLessOrEqual ([version]$charts.ModuleVersion)
+        $errors = $null
+        [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $demo 'Apps' 'Showcase.ps1'), [ref]$null, [ref]$errors) | Out-Null
+        $errors | Should -BeNullOrEmpty
+    }
+    It 'is built with links that work outside the repository' {
+        $built = & (Join-Path $script:repo 'build' 'Build-Module.ps1') -Module 'PowerShellUniversal.Component.ECharts.Demo' -OutputPath (Join-Path $TestDrive 'out')
+        $readme = Get-Content -LiteralPath (Join-Path $built.FullName 'README.md') -Raw
+        $readme | Should -Not -Match '\]\(\.\./'
+        $readme | Should -Match '\]\(https://github\.com/[^)]+/blob/HEAD/modules/PowerShellUniversal\.Component\.ECharts/README\.md\)'
+        Join-Path $built.FullName 'Apps' 'Showcase.ps1' | Should -Exist
+    }
+}
