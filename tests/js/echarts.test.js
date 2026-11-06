@@ -431,3 +431,33 @@ test("both themes carry a full palette", async () => {
 test("-EventColumns with an unknown column is an error like the other column parameters", () => {
     assert.throws(() => buildOption({ chartType: "bar", data: [{ name: "a", n: 1 }], x: "name", y: ["n"], eventColumns: ["Nmae"] }, {}), /-EventColumns Nmae/);
 });
+
+test("corporate design: CSS tokens and a custom theme over the module's theme", async () => {
+    const { themeObject, readCssTokens, ensureTheme } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/themes.js");
+    const css = { "--psu-chart-1": "#003366", "--psu-chart-3": "#ff6600", "--psu-chart-text": "#111111" };
+    const tokens = readCssTokens((name) => css[name] || "");
+    const t = themeObject("light", { text: "#999999" }, undefined, tokens);
+    assert.deepEqual(t.color.slice(0, 3), ["#003366", "#b6d634", "#ff6600"], "CSS colours replace their positions, the others stay");
+    assert.equal(t.color.length, 9);
+    assert.equal(t.textStyle.color, "#111111", "CSS text colour wins over the page's");
+    const custom = { color: ["#123456"], title: { textStyle: { fontWeight: "bold" } } };
+    const c = themeObject("dark", {}, custom, {});
+    assert.deepEqual(c.color, ["#123456"]);
+    assert.equal(c.title.textStyle.fontWeight, "bold");
+    assert.ok(c.title.textStyle.color, "keys the custom theme does not set stay");
+    assert.equal(c.line.label.textBorderWidth, 0, "line labels keep their style (no duplicate key)");
+    const names = new Set();
+    const fake = { registerTheme: (n) => names.add(n) };
+    assert.equal(ensureTheme(fake, "dark", {}, undefined, {}), "psu-dark");
+    assert.notEqual(ensureTheme(fake, "dark", {}, custom, {}), "psu-dark", "a custom variant gets its own name");
+});
+
+test("a custom theme cannot reach the prototype chain", async () => {
+    const { themeObject } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/themes.js");
+    const hostile = JSON.parse('{"__proto__": {"polluted": 1}, "title": {"constructor": {"x": 1}, "textStyle": {"color": "#123"}}}');
+    const t = themeObject("light", {}, hostile, {});
+    assert.equal({}.polluted, undefined);
+    assert.equal(t.polluted, undefined);
+    assert.equal(t.title.textStyle.color, "#123");
+    assert.equal(Object.getPrototypeOf(t), Object.prototype);
+});

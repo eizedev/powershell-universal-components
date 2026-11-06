@@ -264,6 +264,13 @@
             } -Height 320px
         }
     }
+    @{ Section = 'Interaction'; Title = 'Corporate design'; Text = 'An ECharts theme per mode - a hashtable, or the JSON the ECharts theme builder downloads - merged over the module''s own. Set it once for an app with $PSDefaultParameterValues.'; Code = {
+            $quarters = 'Q1', 'Q2', 'Q3', 'Q4' | ForEach-Object -Begin { $q = 0 } -Process { $q++; [pscustomobject]@{ Quarter = $_; Managed = 300 + 40 * $q; Projects = 180 + 25 * $q; Licences = 90 + 10 * $q } }
+            $light = @{ color = @('#003b6f', '#f28c28', '#6c8ebf'); title = @{ textStyle = @{ color = '#003b6f' } } }
+            $dark = @{ color = @('#6fa8dc', '#f6b26b', '#9fc5e8'); title = @{ textStyle = @{ color = '#9fc5e8' } } }
+            New-UDEChart -Data $quarters -Type bar -X Quarter -Y Managed, Projects, Licences -Stacked -LightTheme $light -DarkTheme $dark -Height 300px
+        }
+    }
     @{ Section = 'Interaction'; Title = 'Anything else: -Options'; Text = 'The full Apache ECharts option, merged over what the parameters built.'; Code = {
             $months = 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun' | ForEach-Object -Begin { $i = 0 } -Process { $i++; [pscustomobject]@{ Month = $_; Tickets = 300 + 20 * $i; SLA = 96 + $i / 2 } }
             New-UDEChart -Data $months -Type bar -X Month -Y Tickets, SLA -SecondaryY SLA -SecondaryTitle 'SLA %' -Height 320px -Options @{

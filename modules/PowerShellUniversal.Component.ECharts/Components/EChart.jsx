@@ -60,6 +60,9 @@ export default function EChart(props) {
     const psuTheme = usePsuTheme();
     const mode = effectiveMode(props.theme, psuTheme);
     const locale = defaultLocale(props.locale);
+    // -LightTheme / -DarkTheme: the corporate ECharts theme for the current mode
+    const customTheme = mode === "dark" ? props.darkTheme : props.lightTheme;
+    const customKey = customTheme ? JSON.stringify(customTheme) : "";
     const rows = Array.isArray(props.data) ? props.data : [];
     // the latest props for event handlers registered once
     const latest = useRef(props);
@@ -122,7 +125,7 @@ export default function EChart(props) {
     // create once, dispose on unmount; follow the container's size
     useEffect(() => {
         registerLocales(echarts);
-        const chart = echarts.init(container.current, ensureTheme(echarts, mode, psuTheme), { renderer: props.renderer === "svg" ? "svg" : "canvas", locale: echartsLocale(locale) });
+        const chart = echarts.init(container.current, ensureTheme(echarts, mode, psuTheme, customTheme), { renderer: props.renderer === "svg" ? "svg" : "canvas", locale: echartsLocale(locale) });
         chartRef.current = chart;
         // the ECharts instance on its element, for page scripts and tests: element.echarts.getOption()
         container.current.echarts = chart;
@@ -152,9 +155,9 @@ export default function EChart(props) {
     useEffect(() => {
         const chart = chartRef.current;
         if (chart) {
-            chart.setTheme(ensureTheme(echarts, mode, psuTheme));
+            chart.setTheme(ensureTheme(echarts, mode, psuTheme, customTheme));
         }
-    }, [mode, psuTheme.text]);
+    }, [mode, psuTheme.text, customKey]);
 
     // option: series, axes and datasets are replaced, zoom and legend state survive data updates
     useEffect(() => {

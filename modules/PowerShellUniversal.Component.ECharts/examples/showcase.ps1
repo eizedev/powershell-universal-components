@@ -48,6 +48,14 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
         }
         New-UDTypography -Variant h5 -Text 'Basics: two lines of PowerShell each'
         New-UDGrid -Container -Content {
+            New-UDGrid -Item -ExtraSmallSize 12 -Content {
+                New-UDCard -Title 'Corporate design: own palette and title style per mode (-LightTheme, -DarkTheme)' -Content {
+                    # in an app usually set once: $PSDefaultParameterValues['New-UDEChart:LightTheme'] = '<path>/corporate-light.json'
+                    $corporateLight = @{ color = @('#003b6f', '#f28c28', '#6c8ebf', '#9bbb59', '#7f7f7f'); title = @{ textStyle = @{ color = '#003b6f' } } }
+                    $corporateDark = @{ color = @('#6fa8dc', '#f6b26b', '#9fc5e8', '#b6d7a8', '#cccccc'); title = @{ textStyle = @{ color = '#9fc5e8' } } }
+                    New-UDEChart -Data $sales -Type bar -X Month -Y Online, Store, Partner -Stacked -Height 300px -LightTheme $corporateLight -DarkTheme $corporateDark
+                }
+            }
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
                 New-UDCard -Title 'Bar' -Content { New-UDEChart -Data $sales -Type bar -X Month -Y Online, Store, Partner -Height 320px }
             }
