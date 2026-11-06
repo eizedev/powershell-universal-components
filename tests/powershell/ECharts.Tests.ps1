@@ -143,6 +143,10 @@ Describe 'Demo module' {
         $manifest = Import-PowerShellDataFile -LiteralPath (Join-Path $demo 'PowerShellUniversal.Component.ECharts.Demo.psd1')
         $manifest.FunctionsToExport | Should -Contain 'New-UDEChartShowcase'
         $manifest.RequiredModules.ModuleName | Should -Contain 'PowerShellUniversal.Component.ECharts'
+        # the minimum version the demo asks for must exist: raise it when the showcase uses a new chart feature
+        $charts = Import-PowerShellDataFile -LiteralPath (Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.ECharts' 'PowerShellUniversal.Component.ECharts.psd1')
+        $required = $manifest.RequiredModules | Where-Object ModuleName -EQ 'PowerShellUniversal.Component.ECharts'
+        [version]$required.ModuleVersion | Should -BeLessOrEqual ([version]$charts.ModuleVersion)
         $errors = $null
         [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $demo 'Apps' 'Showcase.ps1'), [ref]$null, [ref]$errors) | Out-Null
         $errors | Should -BeNullOrEmpty

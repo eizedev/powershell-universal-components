@@ -55,7 +55,9 @@ if ($component) {
     Push-Location $source
     try {
         if (-not $SkipNpmInstall) {
-            if (Test-Path -LiteralPath (Join-Path $source 'package-lock.json')) { npm ci --no-audit --no-fund } else { npm install --no-audit --no-fund }
+            # no package needs an install script; skipping them keeps a compromised dependency from
+            # running code on the build machine (CI installs the same way)
+            if (Test-Path -LiteralPath (Join-Path $source 'package-lock.json')) { npm ci --no-audit --no-fund --ignore-scripts } else { npm install --no-audit --no-fund --ignore-scripts }
             if ($LASTEXITCODE -ne 0) { throw ('npm install failed ({0})' -f $LASTEXITCODE) }
         }
         npm run build --silent
@@ -75,9 +77,26 @@ if ($component) {
     New-Item -ItemType Directory -Path (Join-Path $out 'Private') -Force | Out-Null
     Copy-Item -Path (Join-Path $repo 'shared' 'powershell' '*.ps1') -Destination (Join-Path $out 'Private')
 }
+# README and CHANGELOG travel with the module (PowerShell Gallery, an installed copy), where links
+# relative to the repository lead nowhere: they become links to the same file on the default branch
+$projectUri = (Import-PowerShellDataFile -LiteralPath $manifest).PrivateData.PSData.ProjectUri
 foreach ($extra in 'README.md', 'CHANGELOG.md') {
     $file = Join-Path $source $extra
-    if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $out }
+    if (-not (Test-Path -LiteralPath $file)) { continue }
+    $text = Get-Content -LiteralPath $file -Raw
+    if ($projectUri) {
+        $text = [regex]::Replace($text, '\]\((?![a-z][a-z0-9+.-]*:|#|/)(?<path>[^)\s]+)\)', {
+                param($m)
+                # resolve ../ against modules/<Module>/ without touching the file system
+                $parts = [System.Collections.Generic.List[string]]@('modules', $Module)
+                foreach ($part in $m.Groups['path'].Value -split '/') {
+                    if ($part -eq '..') { if ($parts.Count) { $parts.RemoveAt($parts.Count - 1) } }
+                    elseif ($part -and $part -ne '.') { $parts.Add($part) }
+                }
+                '](' + $projectUri.TrimEnd('/') + '/blob/HEAD/' + ($parts -join '/') + ')'
+            })
+    }
+    Set-Content -LiteralPath (Join-Path $out $extra) -Value $text -NoNewline -Encoding utf8NoBOM
 }
 Copy-Item -LiteralPath (Join-Path $repo 'LICENSE') -Destination $out
 
