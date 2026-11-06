@@ -37,33 +37,33 @@ function syncTheme() {
     document.documentElement.setAttribute("data-theme", scheme === "slate" ? "dark" : "light");
 }
 
-let toastTimer = null;
-function showEvent(name, data) {
-    let toast = document.querySelector(".psu-toast");
-    if (!toast) {
-        toast = document.createElement("div");
-        toast.className = "psu-toast";
-        toast.setAttribute("role", "status");
-        document.body.appendChild(toast);
+// the $EventData an event would send to PowerShell, shown right below the example that fired it
+function showEvent(el, name, data) {
+    let panel = el.nextElementSibling && el.nextElementSibling.classList.contains("psu-event") ? el.nextElementSibling : null;
+    if (!panel) {
+        panel = document.createElement("div");
+        panel.className = "psu-event";
+        panel.setAttribute("role", "status");
+        el.after(panel);
     }
-    toast.replaceChildren();
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "psu-event-close";
+    close.setAttribute("aria-label", "Close");
+    close.textContent = "\u00d7";
+    close.addEventListener("click", () => panel.remove());
     const title = document.createElement("strong");
     title.textContent = name;
     const pre = document.createElement("pre");
     pre.textContent = JSON.stringify(data, null, 2);
-    toast.append(title, document.createTextNode(" would run on the server with $EventData:"), pre);
-    toast.hidden = false;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-        toast.hidden = true;
-    }, 6000);
+    panel.replaceChildren(close, title, document.createTextNode(" would run on the server with $EventData:"), pre);
 }
 
-function propsOf(example) {
+function propsOf(example, el) {
     const props = { ...example.props, setState: () => {} };
     for (const [key, name] of Object.entries(EVENTS)) {
         if (props[key] === "__event__") {
-            props[key] = (data) => showEvent(name, data);
+            props[key] = (data) => showEvent(el, name, data);
         }
     }
     return props;
@@ -86,9 +86,9 @@ async function mount(el) {
         }
         if (example.component === "perspective") {
             const { default: Perspective } = await import(/* webpackChunkName: "perspective" */ "./perspective.js");
-            root.render(<Perspective {...propsOf(example)} />);
+            root.render(<Perspective {...propsOf(example, el)} />);
         } else {
-            root.render(<EChart {...propsOf(example)} />);
+            root.render(<EChart {...propsOf(example, el)} />);
         }
     } catch (e) {
         root.render(<div role="alert" className="psu-example-error">Example {id}: {String(e && e.message ? e.message : e)}</div>);
