@@ -13,7 +13,7 @@
 
 | Build | Platform | Project |
 | --- | --- | --- |
-| [![CI](https://github.com/eizedev/powershell-universal-components/actions/workflows/ci.yml/badge.svg)](https://github.com/eizedev/powershell-universal-components/actions/workflows/ci.yml) [![Docs site](https://github.com/eizedev/powershell-universal-components/actions/workflows/docs.yml/badge.svg)](https://github.com/eizedev/powershell-universal-components/actions/workflows/docs.yml) | ![PowerShell Universal 2026.3](https://img.shields.io/badge/PowerShell%20Universal-2026.3-0078d4) ![PowerShell 7.4+](https://img.shields.io/badge/PowerShell-7.4%2B-5391fe) ![Apache ECharts 6.1](https://img.shields.io/badge/Apache%20ECharts-6.1-aa344d) | [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE) [![Changelog](https://img.shields.io/badge/changelog-keep%20a%20changelog-orange)](modules/PowerShellUniversal.Component.ECharts/CHANGELOG.md) |
+| [![CI](https://github.com/eizedev/powershell-universal-components/actions/workflows/ci.yml/badge.svg)](https://github.com/eizedev/powershell-universal-components/actions/workflows/ci.yml) [![Docs site](https://github.com/eizedev/powershell-universal-components/actions/workflows/docs.yml/badge.svg)](https://github.com/eizedev/powershell-universal-components/actions/workflows/docs.yml) | ![PowerShell Universal 2026.2-2026.3](https://img.shields.io/badge/PowerShell%20Universal-2026.2%E2%80%932026.3-0078d4) ![PowerShell 7.4+](https://img.shields.io/badge/PowerShell-7.4%2B-5391fe) ![Apache ECharts 6.1](https://img.shields.io/badge/Apache%20ECharts-6.1-aa344d) ![Perspective 5.7](https://img.shields.io/badge/Perspective-5.7-242526) | [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE) [![Changelog](https://img.shields.io/badge/changelog-keep%20a%20changelog-orange)](modules/PowerShellUniversal.Component.ECharts/CHANGELOG.md) |
 
 <p align="center">
   <img src="assets/screenshot-data-platform-dark.png" alt="Data platform page: coverage heatmap of source systems and assets per number of sources, dark theme" width="49%">
@@ -24,8 +24,12 @@
 
 | Module | What it adds |
 | --- | --- |
-| [PowerShellUniversal.Component.ECharts](modules/PowerShellUniversal.Component.ECharts/README.md) | `New-UDEChart`: 29 chart types, from bars and lines to gantt, rankings, radial bars, network graphs, trees and KPI matrices; zoom, range selection, click events that filter other elements, linked charts, trends with forecast, CSV/Excel/PNG export, full screen, light and dark theme. |
+| [PowerShellUniversal.Component.ECharts](modules/PowerShellUniversal.Component.ECharts/README.md) | `New-UDEChart`: 29 chart types, from bars and lines to gantt, rankings, radial bars, network graphs, trees and KPI matrices; zoom, range selection, click events that filter other elements, linked charts, trends with forecast, `-Aggregate`, `-EventColumns`, CSV/Excel/PNG export, full screen, light and dark theme, corporate themes (`-LightTheme`/`-DarkTheme`, CSS variables). |
 | [PowerShellUniversal.Component.ECharts.Demo](modules/PowerShellUniversal.Component.ECharts.Demo/README.md) | `New-UDEChartShowcase`: the showcase app of the chart module as a module - 14 pages of examples with generated and public data, to try the charts or copy from. |
+| [PowerShellUniversal.Component.Perspective](modules/PowerShellUniversal.Component.Perspective/README.md) | `New-UDPerspective`: [Perspective](https://perspective-dev.github.io/) datagrid, pivot table and WebGL charts in one, which readers group, split, filter and sort themselves; WebAssembly engine for large row counts. |
+
+Tested on PowerShell Universal 2026.2.5 and 2026.3.4 in Chromium, Firefox and WebKit (the engine of
+Safari; the Safari app and iOS are not tested).
 
 ## Quick start
 
@@ -66,7 +70,9 @@ lists the gallery examples.
 
 ## Documentation
 
-- [Module README](modules/PowerShellUniversal.Component.ECharts/README.md): data, chart types, interaction, formats, labels and tooltips, layout, security notes.
+- [ECharts module README](modules/PowerShellUniversal.Component.ECharts/README.md): data, chart types, interaction, formats, labels and tooltips, layout, themes, security notes.
+- [Demo module README](modules/PowerShellUniversal.Component.ECharts.Demo/README.md): installing the showcase app.
+- [Perspective module README](modules/PowerShellUniversal.Component.Perspective/README.md): data and types, the starting view, events, security notes.
 - Documentation site: `./docs/site/Build-Site.ps1` builds every example as code next to the chart it draws, plus the parameter reference, into `output/site/`.
 - [Showcase app](modules/PowerShellUniversal.Component.ECharts.Demo/Apps/Showcase.ps1) (module PowerShellUniversal.Component.ECharts.Demo): 14 pages - ticket report, finance, managed services, operations, a data platform that combines many source systems, layouts, live data.
 
@@ -76,20 +82,28 @@ Requires Node.js 22.18 or newer (Babel 8; CI tests the latest 22.x) and PowerShe
 
 ```powershell
 npm ci; npm test
-./build/Build-Module.ps1 -Module PowerShellUniversal.Component.ECharts   # output/<Module>/<Version>
+./build/Build-Module.ps1 -Module <Module>   # any folder in modules/; output/<Module>/<Version>
 Invoke-Pester -Path ./tests/powershell
+# browser tests (Chromium, Firefox, WebKit) on the docs site, after ./docs/site/Build-Site.ps1
+npx playwright install chromium firefox webkit; npm run test:browser
+# the showcase app on a PSU instance, in all three browsers
+$env:PSU_URL = '<app url>'; npm run test:browser -- psu
 ```
+
+Releases (tag, PowerShell Gallery, GitHub release): [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Each module is a React component registered with PSU and a PowerShell function returning the hashtable
 PSU renders. Code several modules need - the bridge to PSU's light/dark theme, column matching, number
 formats, HTML escaping, CSV/Excel export, data conversion - lives once in `shared/` and is compiled into
-every module, so modules never depend on each other at runtime. Contributors and coding agents:
+every module, so component modules never depend on each other at runtime (the demo module requires
+the chart module). Contributors and coding agents:
 [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md); security reports: [SECURITY.md](SECURITY.md).
 
 ## License
 
 [MIT](LICENSE). Bundled libraries keep their own licenses (Apache ECharts: Apache-2.0, ZRender:
-BSD-3-Clause, fflate: MIT, tslib: 0BSD, PSU's universal-dashboard helper: ISC); the build writes their
+BSD-3-Clause, fflate: MIT, tslib: 0BSD, Perspective and regular-table: Apache-2.0, PSU's universal-dashboard
+helper: ISC); the build writes their
 texts and notices into each module's `THIRD-PARTY-NOTICES.txt`. Icon, header and social preview in `assets/`
 are generated in [eizedev/brand](https://github.com/eizedev/brand) and licensed
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).

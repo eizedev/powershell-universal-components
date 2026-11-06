@@ -1,0 +1,29 @@
+{
+  "name": "powershelluniversal-component-perspective",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Perspective component for PowerShell Universal apps",
+  "license": "MIT",
+  "scripts": {
+    "build": "webpack"
+  },
+  "dependencies": {
+    "@perspective-dev/client": "5.7.0",
+    "@perspective-dev/server": "5.7.0",
+    "@perspective-dev/viewer": "5.7.0",
+    "@perspective-dev/viewer-charts": "5.7.0",
+    "@perspective-dev/viewer-datagrid": "5.7.0",
+    "universal-dashboard": "1.1.2"
+  },
+  "devDependencies": {
+    "@babel/core": "8.0.9",
+    "@babel/preset-env": "8.0.7",
+    "@babel/preset-react": "8.0.1",
+    "babel-loader": "10.1.1",
+    "css-loader": "7.1.5",
+    "react": "18.3.1",
+    "style-loader": "4.0.0",
+    "webpack": "5.112.2",
+    "webpack-cli": "7.2.3"
+  }
+}

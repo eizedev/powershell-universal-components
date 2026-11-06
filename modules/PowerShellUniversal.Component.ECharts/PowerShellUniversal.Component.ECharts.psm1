@@ -7,15 +7,8 @@ $private = Join-Path $PSScriptRoot 'Private'
 if (-not (Test-Path -LiteralPath $private)) { $private = Join-Path $PSScriptRoot '..' '..' 'shared' 'powershell' }
 foreach ($file in Get-ChildItem -LiteralPath $private -Filter '*.ps1' -File) { . $file.FullName }
 
-# PSU serves every registered file; the hashtable points at the main bundle by asset id. Only
-# index.<hash>.bundle.js counts (never a ._index... file macOS may leave behind).
-$Script:AssetId = $null
-if ('UniversalDashboard.Services.AssetService' -as [type]) {
-    foreach ($file in Get-ChildItem -Path $PSScriptRoot -Filter '*.js' -File) {
-        $asset = [UniversalDashboard.Services.AssetService]::Instance.RegisterAsset($file.FullName)
-        if ($file.Name -match '^index\.[0-9a-f]+\.bundle\.js$') { $Script:AssetId = $asset }
-    }
-}
+# the bundle's asset id for the hashtable PSU renders (shared/powershell/Register-PSUComponentAsset.ps1)
+$Script:AssetId = Register-PSUComponentAsset -Path $PSScriptRoot
 #endregion
 
 
