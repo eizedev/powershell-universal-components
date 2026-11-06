@@ -1,8 +1,9 @@
 name: Docs site
 
 # Builds the documentation site on every pull request (so it never breaks unnoticed) and publishes it
-# to GitHub Pages from main. Publishing runs only when the repository variable PAGES_ENABLED is
-# "true", after Pages was switched on (Settings > Pages > Source: GitHub Actions).
+# to GitHub Pages from main: Build-Site.ps1 runs the examples and builds the script that draws them,
+# then Zensical builds the pages with the shared design of eizedev/brand. Publishing runs only when the
+# repository variable PAGES_ENABLED is "true" (Settings > Pages > Source: GitHub Actions).
 
 on:
   pull_request:
@@ -28,12 +29,14 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
-      - name: Build site
+      - name: Examples, reference and the charts script
         shell: pwsh
-        run: ./docs/site/Build-Site.ps1 -OutputPath ./output/site
+        run: ./docs/site/Build-Site.ps1
+      # the shared design and the pinned Zensical version (eizedev/brand, docs-site/); the site lands in site/
+      - uses: eizedev/brand/docs-site@8d8d554bf72868842330a40a61e843ec631edcf5 # v1.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: output/site
+          path: site
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.PAGES_ENABLED == 'true'

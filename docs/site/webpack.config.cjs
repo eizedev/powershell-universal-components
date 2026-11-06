@@ -1,21 +1,26 @@
 const path = require("path");
 
 /*
- * The documentation site renders the modules' own React components (the same files PSU loads), with
- * React and ReactDOM bundled here - in PSU they come from the page. Packages resolve from this
- * folder first, so the site builds without installing the modules.
+ * The live examples of the documentation site: charts.js mounts the modules' own React components (the
+ * same files PSU loads) into the Zensical pages, with React and ReactDOM bundled here - in PSU they come
+ * from the page. Perspective is a lazy chunk (perspective.js), loaded only by a page that shows it.
+ * Packages resolve from this folder first, then from the modules' own node_modules (Perspective, its
+ * CSS loaders), so every package keeps the version pinned in its module's lock file.
  */
 const repoRoot = path.resolve(__dirname, "..", "..");
 const siteModules = path.join(__dirname, "node_modules");
+const perspectiveModules = path.join(repoRoot, "modules", "PowerShellUniversal.Component.Perspective", "node_modules");
 
 module.exports = {
     mode: "production",
     devtool: false,
     context: __dirname,
-    entry: { site: path.join(__dirname, "src", "main.jsx") },
+    entry: { charts: path.join(__dirname, "src", "charts.jsx") },
     output: {
-        path: process.env.SITE_OUT || path.join(repoRoot, "output", "site"),
-        filename: "[name].js"
+        path: process.env.SITE_OUT || path.join(repoRoot, "docs", "assets", "charts"),
+        filename: "[name].js",
+        chunkFilename: "[name].js",
+        clean: true
     },
     module: {
         rules: [
@@ -35,10 +40,14 @@ module.exports = {
                     }
                 }
             },
-            { test: /\.(js|jsx|mjs)$/, resolve: { fullySpecified: false } }
+            { test: /\.(js|jsx|mjs)$/, resolve: { fullySpecified: false } },
+            // Perspective: its WebAssembly inline (Components/engine.js decodes it), its themes as CSS
+            { test: /\.wasm$/, type: "asset/inline" },
+            { test: /\.css$/, use: ["style-loader", "css-loader"] }
         ]
     },
-    resolve: { extensions: [".js", ".jsx", ".mjs"], modules: [siteModules, "node_modules"] },
-    resolveLoader: { modules: [siteModules, "node_modules"] },
+    experiments: { asyncWebAssembly: false, syncWebAssembly: false },
+    resolve: { extensions: [".js", ".jsx", ".mjs"], modules: [siteModules, perspectiveModules, "node_modules"] },
+    resolveLoader: { modules: [siteModules, perspectiveModules, "node_modules"] },
     performance: { hints: false }
 };

@@ -2,6 +2,11 @@ node_modules/
 public/
 output/
 /site/
+# the documentation site: the shared design (eizedev/brand) and what docs/site/Build-Site.ps1 generates
+docs/assets/site.css
+docs/assets/charts/
+docs/assets/images/
+docs/site/generated/
 .DS_Store
 ._*
 .claude/*

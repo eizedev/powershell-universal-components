@@ -1,0 +1,96 @@
+# The documentation site: Zensical with the shared design of eizedev/brand (docs-site/). The live
+# examples and the reference are generated first by docs/site/Build-Site.ps1 (see docs/development/).
+[project]
+site_name = "powershell-universal-components"
+site_description = "Custom components for PowerShell Universal apps: Apache ECharts charts and a Perspective datagrid, pivot and charts"
+site_url = "https://powershell-universal-components.eize.dev/"
+repo_url = "https://github.com/eizedev/powershell-universal-components"
+repo_name = "eizedev/powershell-universal-components"
+edit_uri = "edit/main/docs/"
+copyright = "MIT licensed · Not affiliated with Devolutions"
+extra_css = ["assets/site.css", "assets/examples.css"]
+extra_javascript = ["assets/charts/charts.js"]
+# the build tooling of the site lives in docs/site/; only its generated snippets are included
+exclude_docs = """
+site/
+"""
+nav = [
+  { "Overview" = "index.md" },
+  { "Getting started" = "getting-started.md" },
+  { "ECharts" = [
+    { "Overview" = "echarts/index.md" },
+    { "Data" = "echarts/data.md" },
+    { "Bars" = "echarts/bars.md" },
+    { "Lines and time" = "echarts/lines-and-time.md" },
+    { "Distributions" = "echarts/distributions.md" },
+    { "Shares" = "echarts/shares.md" },
+    { "Heatmaps and calendars" = "echarts/heatmaps.md" },
+    { "Finance" = "echarts/finance.md" },
+    { "Operations" = "echarts/operations.md" },
+    { "Relations and hierarchies" = "echarts/relations.md" },
+    { "Comparisons" = "echarts/comparisons.md" },
+    { "Interaction and events" = "echarts/interaction.md" },
+    { "Labels and tooltips" = "echarts/labels.md" },
+    { "Formats" = "echarts/formats.md" },
+    { "Themes and corporate design" = "echarts/themes.md" },
+    { "Layout" = "echarts/layout.md" },
+    { "Everything else: -Options" = "echarts/options.md" },
+    { "Apache ECharts gallery" = "echarts/gallery.md" },
+    { "Live updates" = "echarts/live-updates.md" },
+    { "Security and limits" = "echarts/security.md" },
+    { "Reference" = "echarts/reference.md" },
+  ] },
+  { "Perspective" = [
+    { "Overview" = "perspective/index.md" },
+    { "The starting view" = "perspective/view.md" },
+    { "Events, security and limits" = "perspective/events.md" },
+    { "Reference" = "perspective/reference.md" },
+  ] },
+  { "Demo" = "demo.md" },
+  { "Development" = [
+    { "Build and test" = "development/index.md" },
+    { "Releases" = "development/release.md" },
+  ] },
+]
+
+[project.theme]
+language = "en"
+logo = "assets/icon.svg"
+favicon = "assets/icon.svg"
+# Fonts come from the system; nothing is loaded from Google.
+font = false
+features = [
+  "content.action.edit",
+  "content.code.copy",
+  "navigation.footer",
+  "navigation.instant",
+  "navigation.sections",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+  "toc.follow",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/moon"
+toggle.name = "Dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/sun"
+toggle.name = "Light mode"
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+md_in_html = {}
+tables = {}
+toc.permalink = true
+pymdownx.highlight = {}
+pymdownx.superfences = {}
+pymdownx.inlinehilite = {}
+# the generated examples and reference (docs/site/Build-Site.ps1); a missing one fails the build
+pymdownx.snippets = { base_path = ["docs/site/generated"], check_paths = true }

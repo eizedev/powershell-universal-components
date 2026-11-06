@@ -14,9 +14,12 @@ hashtable PSU renders; see [README.md](README.md).
 - `shared/powershell/` - PowerShell used by several modules (data conversion, asset registration);
   copied into each built module's `Private/`.
 - `build/` - `Build-Module.ps1` and the shared webpack configuration.
-- `docs/site/` - the documentation site: `examples.ps1` (code and chart from one source, run with the
-  real `New-UDEChart` by `Build-Site.ps1`), the page (`src/main.jsx`, `index.html`) and its own
-  `package.json`. A new parameter or chart type gets an example there.
+- `docs/` - the documentation site (Zensical, `zensical.toml`, shared design of eizedev/brand): the pages
+  as Markdown, the complete documentation of every module. `docs/site/` builds its live parts:
+  `examples.ps1` (code and chart from one source, run with the real `New-UDEChart`/`New-UDPerspective`
+  by `Build-Site.ps1`, which writes the snippets the pages include with `--8<-- "examples/<id>.md"`),
+  `src/charts.jsx` (draws the modules' own components into the pages) and its own `package.json`. A new
+  parameter or chart type gets its description on the matching page and an example there.
 - `tests/js/` (node --test), `tests/browser/` (Playwright: the documentation site in Chromium, Firefox and
   WebKit; `psu.spec.mjs` runs the showcase app on a PSU instance when `PSU_URL` is set),
   `tests/powershell/` (Pester).
@@ -25,10 +28,11 @@ hashtable PSU renders; see [README.md](README.md).
 
 ```bash
 npm ci && npm test                                   # JavaScript unit tests (repository root)
-npx playwright install chromium firefox webkit && npm run test:browser   # after Build-Site.ps1
+npx playwright install chromium firefox webkit && npm run test:browser   # after building the site
 PSU_URL=<app url> npm run test:browser -- psu         # the showcase app on a PSU instance, all browsers
 pwsh ./build/Build-Module.ps1 -Module PowerShellUniversal.Component.ECharts   # output/<Module>/<Version>
-pwsh ./docs/site/Build-Site.ps1                      # output/site/index.html
+pwsh ./docs/site/Build-Site.ps1                      # examples, reference, charts script for the site
+uv run --with-requirements <eizedev/brand>/docs-site/requirements.txt zensical build   # site/ (copy site.css from there into docs/assets/ first)
 pwsh ./build/Publish-Module.ps1 -Module <Module> -Version x.y.z   # release check and zip (CI publishes)
 pwsh -c 'Invoke-Pester -Path tests/powershell'       # Pester 5 or 6
 pwsh -c 'foreach ($f in "modules", "shared", "build", "tests") { Invoke-ScriptAnalyzer -Path $f -Recurse -Severity Warning, Error | Where-Object ScriptPath -NotMatch "node_modules|public|output" }'   # as CI

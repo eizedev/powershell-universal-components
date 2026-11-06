@@ -80,7 +80,8 @@ jobs:
           Invoke-Pester -Configuration $config
 
   site:
-    # the documentation site the browser tests open (needs pwsh, which the Playwright image lacks)
+    # the documentation site the browser tests open (Build-Site.ps1 needs pwsh, which the Playwright
+    # image lacks; Zensical with the shared design of eizedev/brand)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -90,13 +91,14 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
-      - name: Build the documentation site
+      - name: Examples, reference and the charts script
         shell: pwsh
         run: ./docs/site/Build-Site.ps1
+      - uses: eizedev/brand/docs-site@8d8d554bf72868842330a40a61e843ec631edcf5 # v1.0.0
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: site
-          path: output/site/
+          path: site/
 
   browser:
     # the documentation site renders the module's own component: tested in Chromium, Firefox and WebKit.
@@ -116,7 +118,7 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: site
-          path: output/site/
+          path: site/
       - name: Browser tests
         run: |
           npm ci --no-audit --no-fund --ignore-scripts
