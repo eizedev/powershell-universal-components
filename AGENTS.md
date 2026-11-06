@@ -10,7 +10,7 @@ hashtable PSU renders; see [README.md](README.md).
   `<Module>.psd1`, `package.json` + `package-lock.json`, `examples/`, `README.md`, `CHANGELOG.md`.
   A module without `package.json` is PowerShell only (the demo module with its app in `Apps/`).
 - `shared/js/` - JavaScript used by several modules (PSU theme bridge, column matching, formats,
-  CSV/XLSX export). Compiled into each module's bundle; never a runtime dependency between modules.
+  CSV/XLSX export, text contrast on fills). Compiled into each module's bundle; never a runtime dependency between modules.
 - `shared/powershell/` - PowerShell used by several modules (data conversion, asset registration);
   copied into each built module's `Private/`.
 - `build/` - `Build-Module.ps1` and the shared webpack configuration.
