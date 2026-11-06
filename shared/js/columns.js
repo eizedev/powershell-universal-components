@@ -77,3 +77,20 @@ export function pickColumns(row, columns) {
     }
     return out;
 }
+
+/*
+ * The original spelling of every key of the rows. PSU camelCases the keys of the rows on their way to
+ * the browser; a component that shows column names sends the original names along as values (which PSU
+ * leaves alone) and maps them back here: key -> original name. Keys without an original stay as they are.
+ */
+export function originalNames(keys, columnNames) {
+    const original = new Map();
+    for (const name of Array.isArray(columnNames) ? columnNames : []) {
+        const text = String(name);
+        const key = keys.includes(text) ? text : keys.find((k) => k === camelCase(text)) ?? keys.find((k) => k.toLowerCase() === text.toLowerCase());
+        if (key !== undefined && !original.has(key)) {
+            original.set(key, text);
+        }
+    }
+    return original;
+}

@@ -1,7 +1,7 @@
 /*
  * Pure helpers of the Perspective component (no React, no browser APIs), so node --test covers them.
  */
-import { resolveColumn, columnsOf, camelCase } from "../../../shared/js/columns.js";
+import { resolveColumn, columnsOf, originalNames } from "../../../shared/js/columns.js";
 
 export const THEMES = { light: "Pro Light", dark: "Pro Dark" };
 
@@ -109,11 +109,7 @@ const DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d
  */
 export function prepareRows(rows, columnNames) {
     const keys = columnsOf(rows);
-    const original = new Map();
-    for (const name of Array.isArray(columnNames) ? columnNames : []) {
-        const key = keys.includes(name) ? name : keys.find((k) => k === camelCase(name)) ?? keys.find((k) => k.toLowerCase() === String(name).toLowerCase());
-        if (key !== undefined) original.set(key, String(name));
-    }
+    const original = originalNames(keys, columnNames);
     // every column's type from its values: Perspective would otherwise guess from the first rows
     const types = {};
     for (const key of keys) {
