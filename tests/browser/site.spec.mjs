@@ -46,11 +46,15 @@ test("every example renders without errors", async ({ page }) => {
 test("both themes keep a palette and switch live", async ({ page }) => {
     await openSite(page);
     const before = await page.evaluate(() => document.documentElement.dataset.theme);
+    const textColor = () => page.evaluate(() => [...document.querySelectorAll("div")].find((d) => d.echarts).echarts.getOption().textStyle.color);
+    const textBefore = await textColor();
     // a palette is always there (a chart with -Palette brings its own, shorter one)
     for (const c of await chartsState(page)) expect(c.colors, c.id).toBeGreaterThan(0);
     await page.locator("nav .theme").click();
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).not.toBe(before);
     for (const c of await chartsState(page)) expect(c.colors, `${c.id} after the switch`).toBeGreaterThan(0);
+    // the charts follow: the text colour of the theme changes with the mode
+    await expect.poll(textColor).not.toBe(textBefore);
 });
 
 test("a mouse click on a bar gives the row, as $EventData would", async ({ page }) => {
