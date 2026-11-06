@@ -15,6 +15,9 @@
 | --- | --- | --- |
 | [![CI](https://github.com/eizedev/powershell-universal-components/actions/workflows/ci.yml/badge.svg)](https://github.com/eizedev/powershell-universal-components/actions/workflows/ci.yml) [![Docs site](https://github.com/eizedev/powershell-universal-components/actions/workflows/docs.yml/badge.svg)](https://github.com/eizedev/powershell-universal-components/actions/workflows/docs.yml) | ![PowerShell Universal 2026.2-2026.3](https://img.shields.io/badge/PowerShell%20Universal-2026.2%E2%80%932026.3-0078d4) ![PowerShell 7.4+](https://img.shields.io/badge/PowerShell-7.4%2B-5391fe) ![Apache ECharts 6.1](https://img.shields.io/badge/Apache%20ECharts-6.1-aa344d) ![Perspective 5.7](https://img.shields.io/badge/Perspective-5.7-242526) | [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE) [![Changelog](https://img.shields.io/badge/changelog-keep%20a%20changelog-orange)](modules/PowerShellUniversal.Component.ECharts/CHANGELOG.md) |
 
+**Documentation: [powershell-universal-components.eize.dev](https://powershell-universal-components.eize.dev/)** - every chart example as code next to
+the chart it draws, and the parameter reference.
+
 <p align="center">
   <img src="assets/screenshot-data-platform-dark.png" alt="Data platform page: coverage heatmap of source systems and assets per number of sources, dark theme" width="49%">
   <img src="assets/screenshot-service-review-light.png" alt="Service review page: KPI matrix of sparklines per customer, light theme" width="49%">
@@ -98,7 +101,8 @@ lists the gallery examples.
 - [ECharts module README](modules/PowerShellUniversal.Component.ECharts/README.md): data, chart types, interaction, formats, labels and tooltips, layout, themes, security notes.
 - [Demo module README](modules/PowerShellUniversal.Component.ECharts.Demo/README.md): installing the showcase app.
 - [Perspective module README](modules/PowerShellUniversal.Component.Perspective/README.md): data and types, the starting view, events, security notes.
-- Documentation site: `./docs/site/Build-Site.ps1` builds every example as code next to the chart it draws, plus the parameter reference, into `output/site/`.
+- [Documentation site](https://powershell-universal-components.eize.dev/): every ECharts example as code next to the chart it draws, plus the parameter
+  reference. `./docs/site/Build-Site.ps1` builds the same page into `output/site/`.
 - [Showcase app](modules/PowerShellUniversal.Component.ECharts.Demo/Apps/Showcase.ps1) (module PowerShellUniversal.Component.ECharts.Demo): 14 pages - ticket report, finance, managed services, operations, a data platform that combines many source systems, layouts, live data.
 
 ## Build

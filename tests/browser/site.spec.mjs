@@ -13,6 +13,8 @@ function chartsState(page) {
             width: d.clientWidth,
             canvasWidth: c.getWidth(),
             series: (o.series || []).length,
+            // values the series draw: their own data, or the rows of a dataset they read
+            points: (o.series || []).reduce((n, s) => n + [].concat(s.data || []).length, 0) + [].concat(o.dataset || []).reduce((n, d) => n + [].concat(d.source || []).length, 0),
             colors: (o.color || []).length,
             // the text an empty chart shows in place of series (-EmptyText)
             empty: [].concat(o.graphic || []).flatMap((g) => [].concat(g.elements || g)).map((g) => g.style && g.style.text).find(Boolean) || null
@@ -41,7 +43,10 @@ test("every example renders without errors", async ({ page }) => {
     for (const c of charts) {
         // an example without rows shows its -EmptyText instead of series
         if (c.id === "when-there-is-nothing-to-show") expect(c.empty, c.id).toBe("No failed jobs today");
-        else expect(c.series, c.id).toBeGreaterThan(0);
+        else {
+            expect(c.series, c.id).toBeGreaterThan(0);
+            expect(c.points, `${c.id} draws values`).toBeGreaterThan(0);
+        }
         expect(Math.abs(c.width - c.canvasWidth), `${c.id} canvas follows its container`).toBeLessThanOrEqual(2);
     }
     expect(errors).toEqual([]);

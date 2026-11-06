@@ -69,7 +69,8 @@ function ConvertTo-SiteValue([object]$Value) {
         foreach ($p in $Value.PSObject.Properties) { $out[$p.Name] = ConvertTo-SiteValue $p.Value }
         return $out
     }
-    if ($Value -is [System.Collections.IEnumerable]) { return @($Value | ForEach-Object { ConvertTo-SiteValue $_ }) }
+    # the comma keeps a one-element array an array (a function's output is unrolled otherwise)
+    if ($Value -is [System.Collections.IEnumerable]) { return , @($Value | ForEach-Object { ConvertTo-SiteValue $_ }) }
     return [string]$Value
 }
 
