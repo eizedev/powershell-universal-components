@@ -498,3 +498,17 @@ test("bump ranks items per period by value", () => {
     assert.equal(a.data[1].raw, 30);
     assert.equal(o.yAxis.inverse, true);
 });
+
+test("aggregate: empty groups are gaps, large groups work, time axes combine equal timestamps", () => {
+    const empty = buildOption({ chartType: "bar", data: [{ k: "a", v: null }, { k: "a", v: null }, { k: "b", v: 2 }], x: "k", y: ["v"], aggregate: "sum" }, {});
+    assert.equal(empty.series[0].data[0].value, null, "sum of no values is a gap");
+    const big = Array.from({ length: 300000 }, (_, i) => ({ k: "a", v: i }));
+    const max = buildOption({ chartType: "bar", data: big, x: "k", y: ["v"], aggregate: "max" }, {});
+    const first = max.series[0].data[0];
+    assert.equal(first && typeof first === "object" ? first.value : first, 299999);
+    const t = [{ d: "2026-11-01T00:00:00Z", n: 1 }, { d: "2026-11-01T00:00:00Z", n: 2 }, { d: "2026-11-02T00:00:00Z", n: 5 }];
+    const line = buildOption({ chartType: "line", data: t, x: "d", y: ["n"], aggregate: "sum" }, {});
+    assert.deepEqual(line.series[0].data.map((p) => p.value[1]), [3, 5]);
+    const bump = buildOption({ chartType: "bump", data: [{ m: "Jan", c: "A", t: null }, { m: "Jan", c: "B", t: 5 }, { m: "Jan", c: "C", t: 4 }], x: "m", groupBy: "c", y: ["t"] }, {});
+    assert.equal(bump.series.find((s) => s.name === "A").data[0].value, null, "no value, no rank");
+});

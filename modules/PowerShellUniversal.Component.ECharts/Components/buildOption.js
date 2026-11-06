@@ -386,22 +386,27 @@ export function axisBreaks(list_, axisType) {
 
 // ---- -Aggregate: rows with the same key combined --------------------------------------------------
 
+// every function gets the non-empty values and returns null for none (a gap, not a 0); loops instead of
+// Math.min(...v), which overflows the call stack for groups of a few hundred thousand rows
 const AGGREGATES = {
-    sum: (v) => v.reduce((a, b) => a + b, 0),
+    sum: (v) => (v.length ? v.reduce((a, b) => a + b, 0) : null),
     avg: (v) => (v.length ? v.reduce((a, b) => a + b, 0) / v.length : null),
-    count: (v) => v.length,
-    min: (v) => (v.length ? Math.min(...v) : null),
-    max: (v) => (v.length ? Math.max(...v) : null)
+    min: (v) => (v.length ? v.reduce((a, b) => (b < a ? b : a)) : null),
+    max: (v) => (v.length ? v.reduce((a, b) => (b > a ? b : a)) : null)
 };
 
 // values of the rows that share a key -> one value; without a mode the last row wins (as without -Aggregate)
 export function aggregate(values, mode) {
-    const fn = AGGREGATES[String(mode || "").toLowerCase()];
+    const name = String(mode || "").toLowerCase();
+    // count counts rows, also those without a value
+    if (name === "count") {
+        return values.length;
+    }
+    const fn = AGGREGATES[name];
     if (!fn) {
         return values.length ? values[values.length - 1] : null;
     }
-    // count counts rows; the others ignore empty values
-    return mode.toLowerCase() === "count" ? values.length : fn(values.filter((v) => v !== null && v !== undefined));
+    return fn(values.filter((v) => v !== null && v !== undefined));
 }
 
 // rows grouped by key, in first-seen order: [{ key, values, rowIndex (first row), lastRowIndex }]
@@ -512,15 +517,32 @@ function cartesian(props_, rows, keys, ctx) {
             }
         } else {
             data = [];
+            const timeGroups = new Map();
             rows.forEach((r, rowIndex) => {
                 if (def.filter(r)) {
                     const point = horizontal ? [num(r[def.y]), r[xKey]] : [xType === "value" ? num(r[xKey]) : r[xKey], num(r[def.y])];
+                    // -Aggregate on a time or value axis: rows with the same x become one point
+                    // (bucket dates first, e.g. to the day, when events should be counted per day)
+                    if (props.aggregate && !horizontal && !sizeKey) {
+                        const key = String(point[0]);
+                        const seen = timeGroups.get(key);
+                        if (seen) {
+                            seen.values.push(point[1]);
+                            return;
+                        }
+                        timeGroups.set(key, { point, values: [point[1]], rowIndex });
+                        return;
+                    }
                     if (sizeKey) {
                         point.push(num(r[sizeKey]));
                     }
                     data.push(large ? point : { value: point, rowIndex });
                 }
             });
+            for (const g of timeGroups.values()) {
+                const point = [g.point[0], aggregate(g.values, props.aggregate)];
+                data.push(large ? point : { value: point, rowIndex: g.rowIndex });
+            }
         }
         const s = {
             type: seriesType,
@@ -1845,8 +1867,16 @@ function checkColumns(props, rows, keys) {
  * (-Max is the longest ring, three quarters of the circle; default the largest value) - progress per
  * service or customer.
  */
-function ringMax(series) {
-    return Math.max(1, ...series.flatMap((s) => s.data.map((d) => num(d.value) || 0)));
+// the longest ring: the largest value, or the largest stack total when the series are stacked
+function ringMax(series, stacked) {
+    const length = series.length ? series[0].data.length : 0;
+    let max = 0;
+    for (let i = 0; i < length; i++) {
+        const values = series.map((s) => num(s.data[i] && s.data[i].value) || 0);
+        const v = stacked ? values.reduce((a, b) => a + b, 0) : values.reduce((a, b) => (b > a ? b : a), 0);
+        if (v > max) max = v;
+    }
+    return max > 0 ? max : 1;
 }
 
 function polarChart(props, rows, keys, ctx) {
@@ -1892,7 +1922,7 @@ function polarChart(props, rows, keys, ctx) {
         // radialbar: categories are the rings, the value runs around; the full value (-Max) fills three
         // quarters of the circle, so the ring names fit into the free quarter next to where the rings start.
         // polar: categories around, value outward
-        angleAxis: type === "radialbar" ? { type: "value", min: 0, max: (props.max ?? ringMax(series)) * 4 / 3, startAngle: 90, show: false } : { ...categoryAxis, startAngle: 90 },
+        angleAxis: type === "radialbar" ? { type: "value", min: 0, max: (props.max ?? ringMax(series, props.stacked)) * 4 / 3, startAngle: 90, show: false } : { ...categoryAxis, startAngle: 90 },
         radiusAxis: type === "radialbar" ? { ...categoryAxis, z: 10, axisLabel: { interval: 0, align: "right", margin: 10, fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } } : valueAxis,
         series
     };
@@ -1901,7 +1931,8 @@ function polarChart(props, rows, keys, ctx) {
 /*
  * bump: the rank of each item (-GroupBy) per period (-X) by its value (-Y, highest first), as lines
  * that cross when items overtake each other - top customers by tickets per month, busiest hosts per
- * week. The tooltip shows rank and value.
+ * week. Periods keep the order of the data; equal values rank in the order the items first appear;
+ * an item without a value in a period leaves a gap. The tooltip shows rank and value.
  */
 function bump(props, rows, keys, ctx) {
     const xKey = resolveColumn(props.x, keys) ?? keys[0];

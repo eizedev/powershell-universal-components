@@ -31,7 +31,9 @@ Wide data has one column per series (`-Y Opened, Closed`); long data has one row
 (`-Y Tickets -GroupBy Team` draws one series per team). On a category axis each x value is one point
 per series: rows with the same x (and group) are combined with `-Aggregate Sum | Avg | Count | Min | Max`
 (also for pie, donut, funnel and polar), or the last one wins. `-Aggregate Count` counts raw rows, so
-`-Data $tickets -X Team -Y Id -Aggregate Count` needs no `Group-Object`.
+`-Data $tickets -X Team -Y Id -Aggregate Count` needs no `Group-Object`. On a time axis only identical
+timestamps combine: round dates first (`$_.Created.Date`) to count per day. Empty values are left out;
+a group with none is a gap, not a 0.
 
 A column parameter that matches no column (`-Y Tickts`) shows an error in place of the chart, with the
 columns the data has. Empty data shows "No data" (`-EmptyText` for your own). A parameter that only another chart type reads

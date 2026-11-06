@@ -63,7 +63,8 @@ function New-UDEChart {
           -Value, -CellType - a table of sparklines with one scale per column
         - polar: -X (categories around the circle, e.g. hours), -Y or -GroupBy, -Stacked
         - radialbar: -X (one ring per category), -Y, -Max (the longest ring, three quarters of the circle)
-        - bump: -X (period), -GroupBy (item), -Y (value) - the rank of each item per period
+        - bump: -X (period, in the order of the data), -GroupBy (item), -Y (value) - the rank of each
+          item per period; equal values rank in the order the items first appear
 
     .PARAMETER Id
         Component id for Get-UDElement, Set-UDElement, Sync-UDElement and Set-UDEChartData.
@@ -199,9 +200,11 @@ function New-UDEChart {
     .PARAMETER Bins
         Number of histogram bins. Default: from the number of values (Sturges).
     .PARAMETER Aggregate
-        Combine rows with the same category (and group): Sum, Avg, Count, Min or Max (line, area, bar,
-        step, scatter on a category axis, pie, donut, funnel, polar, radialbar; bump ranks by Sum by
-        default). Without it the last row wins.
+        Combine rows with the same x (and group): Sum, Avg, Count, Min or Max (line, area, bar, step,
+        scatter, pie, donut, funnel, polar, radialbar; bump ranks by Sum by default). Without it the last
+        row wins. Count counts rows; the others ignore empty values and leave a gap when there is none.
+        On a time axis only rows with exactly the same timestamp combine: round dates first (to the day,
+        the hour) to count events per day.
     .PARAMETER EmptyText
         Text shown when -Data has no rows. Default: No data.
     .PARAMETER Stacked
