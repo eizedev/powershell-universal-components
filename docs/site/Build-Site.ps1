@@ -6,14 +6,14 @@
     script that draws the charts. Zensical then builds the site from docs/ (zensical build).
 .DESCRIPTION
     Runs every example in examples.ps1 outside PSU (PSU's [Endpoint] type is replaced by a stub) with
-    the real New-UDEChart or New-UDPerspective and writes, all of it generated and not committed:
+    the real New-UDEChart, New-UDPerspective or New-UDPivotReport and writes, all of it generated and not committed:
 
     - docs/site/generated/examples/<id>.md: the placeholder the chart is drawn into and the example's
       code; the pages in docs/ include it with --8<-- "examples/<id>.md".
     - docs/site/generated/reference/<command>.md: the parameters of every exported command, from the
       comment-based help; included by the reference pages.
     - docs/assets/charts/: charts.js (webpack, the modules' own React components), its lazy
-      Perspective chunk and examples.json (the props of every example).
+      Perspective and pivot chunks and examples.json (the props of every example).
     - docs/assets/images/: the screenshots from assets/ that the pages show.
 
     Fails when an example is included by no page, so examples.ps1 and the pages stay in step.
@@ -35,7 +35,7 @@ $generated = Join-Path $site 'generated'
 $charts = Join-Path $docs 'assets' 'charts'
 $modulesDir = Join-Path $repo 'modules'
 # the modules whose commands the site documents and whose examples it runs
-$moduleNames = 'PowerShellUniversal.Component.ECharts', 'PowerShellUniversal.Component.Perspective', 'PowerShellUniversal.Component.ECharts.Demo'
+$moduleNames = 'PowerShellUniversal.Component.ECharts', 'PowerShellUniversal.Component.Perspective', 'PowerShellUniversal.Component.Pivot', 'PowerShellUniversal.Component.ECharts.Demo'
 
 # PSU's endpoint type, as in the Pester tests: event script blocks become a marker the page replaces
 if (-not ('Endpoint' -as [type])) {
@@ -123,7 +123,7 @@ foreach ($example in & (Join-Path $site 'examples.ps1')) {
     $id = Get-Slug $example.Title
     if ($examples.Contains($id)) { throw "Two examples are titled '$($example.Title)'." }
     $props = & $example.Code
-    $component = if ($props.type -eq 'ud-perspective') { 'perspective' } else { 'echarts' }
+    $component = switch ($props.type) { 'ud-perspective' { 'perspective' } 'ud-pivot-report' { 'pivot' } default { 'echarts' } }
     foreach ($key in 'assetId', 'isPlugin', 'type') { $props.Remove($key) }
     # a fixed id per example, so the page is the same on every build
     $props['id'] = "example-$id"
@@ -170,6 +170,9 @@ try {
         # Perspective resolves from its module's node_modules (its pinned versions, see webpack.config.cjs)
         npm ci --no-audit --no-fund --ignore-scripts --prefix (Join-Path $modulesDir 'PowerShellUniversal.Component.Perspective')
         if ($LASTEXITCODE -ne 0) { throw ('npm ci (Perspective) failed ({0})' -f $LASTEXITCODE) }
+        # pivotkit the same way, from the pivot module's node_modules
+        npm ci --no-audit --no-fund --ignore-scripts --prefix (Join-Path $modulesDir 'PowerShellUniversal.Component.Pivot')
+        if ($LASTEXITCODE -ne 0) { throw ('npm ci (Pivot) failed ({0})' -f $LASTEXITCODE) }
     }
     $env:SITE_OUT = $charts
     npx webpack --config webpack.config.cjs

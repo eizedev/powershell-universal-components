@@ -3,13 +3,15 @@ const path = require("path");
 /*
  * The live examples of the documentation site: charts.js mounts the modules' own React components (the
  * same files PSU loads) into the Zensical pages, with React and ReactDOM bundled here - in PSU they come
- * from the page. Perspective is a lazy chunk (perspective.js), loaded only by a page that shows it.
- * Packages resolve from this folder first, then from the modules' own node_modules (Perspective, its
- * CSS loaders), so every package keeps the version pinned in its module's lock file.
+ * from the page. Perspective and the pivot report are lazy chunks (perspective.js, pivot.js), loaded only
+ * by a page that shows them. Packages resolve from this folder first, then from the modules' own
+ * node_modules (Perspective and its CSS loaders, pivotkit), so every package keeps the version pinned in
+ * its module's lock file.
  */
 const repoRoot = path.resolve(__dirname, "..", "..");
 const siteModules = path.join(__dirname, "node_modules");
 const perspectiveModules = path.join(repoRoot, "modules", "PowerShellUniversal.Component.Perspective", "node_modules");
+const pivotModules = path.join(repoRoot, "modules", "PowerShellUniversal.Component.Pivot", "node_modules");
 
 module.exports = {
     mode: "production",
@@ -47,7 +49,7 @@ module.exports = {
         ]
     },
     experiments: { asyncWebAssembly: false, syncWebAssembly: false },
-    resolve: { extensions: [".js", ".jsx", ".mjs"], modules: [siteModules, perspectiveModules, "node_modules"] },
+    resolve: { extensions: [".js", ".jsx", ".mjs"], modules: [siteModules, perspectiveModules, pivotModules, "node_modules"] },
     resolveLoader: { modules: [siteModules, perspectiveModules, "node_modules"] },
     performance: { hints: false }
 };

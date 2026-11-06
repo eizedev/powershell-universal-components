@@ -347,4 +347,41 @@
         }
     }
     #endregion
+
+    #region Pivot
+    @{ Section = 'Pivot'; Title = 'Pivot report from a DataTable'; Text = 'Drag fields from the list into Rows, Columns and Values, switch to Chart, click a number for its rows. Saving a template and clicking a value show the $EventData the server would get.'; Code = {
+            # what a SQL query returns: a DataTable with dates, numbers, text and DBNull
+            $rng = [System.Random]::new(5)
+            $tickets = [System.Data.DataTable]::new()
+            foreach ($c in @(@('Ticket', [int]), @('Created', [datetime]), @('Team', [string]), @('Priority', [string]), @('Lead hours', [double]))) { [void]$tickets.Columns.Add($c[0], $c[1]) }
+            foreach ($i in 1..1200) {
+                $open = $rng.NextDouble() -lt 0.2
+                [void]$tickets.Rows.Add(10000 + $i, ([datetime]'2026-10-31').AddDays(-$rng.Next(0, 300)).AddHours($rng.Next(7, 19)),
+                    ('Service Desk', 'Network', 'Server', 'Applications')[$rng.Next(0, 4)], 'P{0}' -f $rng.Next(1, 5),
+                    $(if ($open) { [DBNull]::Value } else { [math]::Round(2 + 40 * $rng.NextDouble(), 1) }))
+            }
+            $view = @{ rows = @('Team'); cols = @('Priority'); values = @(@{ field = 'Ticket'; agg = 'count' }) }
+            New-UDPivotReport -Data $tickets -View $view -Height 620px -TimeZone UTC -Templates @(
+                @{ Name = 'Tickets per team and priority'; View = $view }
+                @{ Name = 'Lead time per month'; View = @{ rows = @('Created'); values = @(@{ field = 'Lead hours'; agg = 'average'; format = 'number:1' }); display = 'chart'; chart = @{ type = 'line' } } }
+            ) -OnCellClick {
+                Show-UDToast -Message ('{0} tickets' -f $EventData.count)
+            } -OnSaveTemplate {
+                # checked before it is stored anywhere (see "Views and templates")
+                $json = ConvertFrom-UDPivotView -InputObject $EventData.view -AsJson
+                Show-UDToast -Message ('{0} saved ({1} characters)' -f $EventData.name, $json.Length)
+            }
+        }
+    }
+    @{ Section = 'Pivot'; Title = 'Pivot report in German'; Text = '-Locale de-DE: German labels, numbers and dates; -FieldDefaults gives Lead hours an average with one decimal when it is put into Values.'; Code = {
+            $rng = [System.Random]::new(9)
+            $rows = foreach ($i in 1..600) {
+                [pscustomobject]@{ Ticket = $i; Team = ('Service Desk', 'Netzwerk', 'Server')[$rng.Next(0, 3)]; Kunde = 'Kunde {0}' -f [char](65 + $rng.Next(0, 4)); 'Lead hours' = [math]::Round(2 + 30 * $rng.NextDouble(), 1) }
+            }
+            New-UDPivotReport -Data $rows -Locale de-DE -Height 560px -TimeZone UTC -FieldDefaults @{ 'Lead hours' = @{ Agg = 'average'; Format = 'number:1' } } -View @{
+                rows = @('Kunde'); cols = @('Team'); values = @(@{ field = 'Lead hours'; agg = 'average'; format = 'number:1' })
+            }
+        }
+    }
+    #endregion
 )

@@ -15,6 +15,10 @@ function examplesState(page) {
         if (el.querySelector("perspective-viewer")) {
             return { id, perspective: true };
         }
+        // the pivot report: rendered once its table or chart region is there
+        if (el.querySelector(".pk-root .pk-result")) {
+            return { id, pivot: true, cells: el.querySelectorAll(".pk-result td").length, chart: Boolean(el.querySelector(".pk-result canvas")) };
+        }
         const d = [...el.querySelectorAll("div")].find((x) => x.echarts);
         if (!d) {
             return { id, error: el.querySelector(".psu-example-error") ? el.textContent : null, pending: true };
@@ -62,6 +66,33 @@ test("the site has its pages", () => {
     expect(pages.length).toBeGreaterThan(20);
     expect(pages).toContain("/echarts/");
     expect(pages).toContain("/perspective/");
+    expect(pages).toContain("/pivot/");
+});
+
+test("Pivot: the report holds the DataTable, follows the switch and shows the $EventData of a save", async ({ page }) => {
+    const errors = collectErrors(page);
+    await openPage(page, "/pivot/");
+    const example = page.locator('[data-example="pivot-report-from-a-datatable"]');
+    const report = example.locator(".pk-root");
+    // 1200 rows: the grand total of the count
+    await expect(report.getByRole("region", { name: "Table" })).toContainText("1,200");
+    const theme = await report.getAttribute("data-pk-theme");
+    await page.locator("[data-md-component=palette] label:visible").first().click();
+    await expect(report).not.toHaveAttribute("data-pk-theme", theme);
+    // in the page's content column the report is medium wide: Templates may sit in the More menu
+    const more = report.locator("[data-testid=more]");
+    if (await more.count()) {
+        await more.click();
+        await page.getByRole("menuitem", { name: "Templates" }).click();
+    } else {
+        await report.getByRole("button", { name: "Templates" }).click();
+    }
+    await page.getByRole("textbox", { name: "Template name" }).fill("Mine");
+    await page.getByRole("textbox", { name: "Template name" }).press("Enter");
+    await expect(page.locator(".psu-event")).toContainText("-OnSaveTemplate");
+    await expect(page.locator(".psu-event")).toContainText('"name": "Mine"');
+    await expect(report.getByRole("status").first()).toContainText("saved");
+    expect(errors).toEqual([]);
 });
 
 test("every example on every page renders and draws values, without errors", async ({ page }) => {
@@ -72,6 +103,10 @@ test("every example on every page renders and draws values, without errors", asy
         total += await openPage(page, path);
         for (const e of await examplesState(page)) {
             if (e.perspective) continue;
+            if (e.pivot) {
+                expect(e.cells + (e.chart ? 1 : 0), `${path} ${e.id} draws values`).toBeGreaterThan(0);
+                continue;
+            }
             // an example without rows shows its -EmptyText instead of series
             if (e.id === "when-there-is-nothing-to-show") expect(e.empty, e.id).toBe("No failed jobs today");
             else {

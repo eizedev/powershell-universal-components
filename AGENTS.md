@@ -16,12 +16,13 @@ hashtable PSU renders; see [README.md](README.md).
 - `build/` - `Build-Module.ps1` and the shared webpack configuration.
 - `docs/` - the documentation site (Zensical, `zensical.toml`, shared design of eizedev/brand): the pages
   as Markdown, the complete documentation of every module. `docs/site/` builds its live parts:
-  `examples.ps1` (code and chart from one source, run with the real `New-UDEChart`/`New-UDPerspective`
+  `examples.ps1` (code and chart from one source, run with the real `New-UDEChart`/`New-UDPerspective`/`New-UDPivotReport`
   by `Build-Site.ps1`, which writes the snippets the pages include with `--8<-- "examples/<id>.md"`),
   `src/charts.jsx` (draws the modules' own components into the pages) and its own `package.json`. A new
   parameter or chart type gets its description on the matching page and an example there.
 - `tests/js/` (node --test), `tests/browser/` (Playwright: the documentation site in Chromium, Firefox and
-  WebKit; `psu.spec.mjs` runs the showcase app on a PSU instance when `PSU_URL` is set),
+  WebKit; `psu.spec.mjs` runs the showcase app on a PSU instance when `PSU_URL` is set, `psu-pivot.spec.mjs`
+  the pivot module's showcase when `PSU_PIVOT_URL` is set),
   `tests/powershell/` (Pester).
 
 ## Commands
@@ -29,7 +30,8 @@ hashtable PSU renders; see [README.md](README.md).
 ```bash
 npm ci && npm test                                   # JavaScript unit tests (repository root)
 npx playwright install chromium firefox webkit && npm run test:browser   # after building the site
-PSU_URL=<app url> npm run test:browser -- psu         # the showcase app on a PSU instance, all browsers
+PSU_URL=<app url> npm run test:browser -- tests/browser/psu.spec   # the showcase app on a PSU instance, all browsers
+PSU_PIVOT_URL=<app url> npm run test:browser -- tests/browser/psu-pivot.spec   # the pivot module's showcase
 pwsh ./build/Build-Module.ps1 -Module PowerShellUniversal.Component.ECharts   # output/<Module>/<Version>
 pwsh ./docs/site/Build-Site.ps1                      # examples, reference, charts script for the site
 uv run --with-requirements <eizedev/brand>/docs-site/requirements.txt zensical build   # site/ (copy site.css from there into docs/assets/ first)

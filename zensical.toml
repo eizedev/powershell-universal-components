@@ -2,7 +2,7 @@
 # examples and the reference are generated first by docs/site/Build-Site.ps1 (see docs/development/).
 [project]
 site_name = "powershell-universal-components"
-site_description = "Custom components for PowerShell Universal apps: Apache ECharts charts and a Perspective datagrid, pivot and charts"
+site_description = "Custom components for PowerShell Universal apps: Apache ECharts charts, a Perspective datagrid, pivot and charts, and a pivot report builder"
 site_url = "https://powershell-universal-components.eize.dev/"
 repo_url = "https://github.com/eizedev/powershell-universal-components"
 repo_name = "eizedev/powershell-universal-components"
@@ -52,6 +52,12 @@ nav = [
     { "The starting view" = "perspective/view.md" },
     { "Events, security and limits" = "perspective/events.md" },
     { "Commands and parameters" = "perspective/reference.md" },
+  ] },
+  { "Pivot" = [
+    { "Overview" = "pivot/index.md" },
+    { "Views and templates" = "pivot/views.md" },
+    { "Events, security and limits" = "pivot/events.md" },
+    { "Commands and parameters" = "pivot/reference.md" },
   ] },
   { "Demo" = "demo.md" },
   { "Development" = [

@@ -25,8 +25,8 @@ wide window, the events it fires - before it is called done; unit tests do not c
 
 The pages are Markdown in `docs/`, built with [Zensical](https://zensical.org/) and the shared design of
 [eizedev/brand](https://github.com/eizedev/brand). The examples are the single source in
-`docs/site/examples.ps1`: `docs/site/Build-Site.ps1` runs each one with the real `New-UDEChart` or
-`New-UDPerspective`, writes its code and a placeholder into `docs/site/generated/examples/<id>.md`
+`docs/site/examples.ps1`: `docs/site/Build-Site.ps1` runs each one with the real `New-UDEChart`,
+`New-UDPerspective` or `New-UDPivotReport`, writes its code and a placeholder into `docs/site/generated/examples/<id>.md`
 (pages include it with `--8<-- "examples/<id>.md"`), the props into `examples.json` and builds
 `charts.js`, which draws the modules' own components into the placeholders. The reference comes from
 the comment-based help the same way.
@@ -44,8 +44,13 @@ to; the build fails for an example that no page includes.
 ## Browser tests on PSU
 
 ```powershell
-$env:PSU_URL = '<app url>'; npm run test:browser -- psu   # the showcase app, all three browsers
+$env:PSU_URL = '<app url>'; npm run test:browser -- tests/browser/psu.spec   # the chart showcase app, all three browsers
+$env:PSU_PIVOT_URL = '<app url>'; npm run test:browser -- tests/browser/psu-pivot.spec   # the pivot showcase app
 ```
+
+The pivot tests (`examples/showcase.ps1` of the pivot module deployed as an app) drag a field, export a
+workbook, run `-OnCellClick` and `-OnViewChange` on the server, save, refuse and delete a template of
+the anonymous user, switch PSU's theme and open the report at phone width.
 
 ## Adding a module
 
