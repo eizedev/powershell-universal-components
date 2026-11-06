@@ -26,3 +26,8 @@ through entries that do not fit, `Plain` wraps them over several lines.
 
 Labels inside a filled shape (funnel stages, pie slices with inside labels, treemap tiles, sunburst
 rings) are dark or white, whichever contrasts more with the fill; a `label.color` in `-Options` wins.
+
+A funnel stage too small for its label (the last stages, or every stage of a low chart with many of
+them) gets the label on one line right of the funnel, with a line to the stage, in the page's text
+colour; the funnel gets narrower for it. Where even that leaves too little room, the label is hidden;
+the tooltip and the legend name the stage.
