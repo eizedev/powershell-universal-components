@@ -174,7 +174,7 @@ A corporate design comes in two ways, both optional:
 
 - **An ECharts theme per mode:** `-LightTheme` and `-DarkTheme` take a hashtable or the path of a theme
   JSON file as the [Apache ECharts theme builder](https://echarts.apache.org/en/theme-builder.html)
-  downloads it. It is merged over the module's own theme: what it sets wins, the rest stays (so a
+  downloads it ("Download theme", then JSON; the builder's project export is a different format). It is merged over the module's own theme: what it sets wins, the rest stays (so a
   palette-only theme keeps the readable axes). For every chart of an app:
 
   ```powershell

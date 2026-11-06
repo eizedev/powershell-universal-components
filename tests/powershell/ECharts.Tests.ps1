@@ -104,10 +104,10 @@ Describe 'Set-UDEChartData' {
 }
 
 Describe 'Corporate themes' {
-    It 'reads a theme JSON file, unwraps a theme builder configuration and passes hashtables on' {
+    It 'reads a theme JSON file and passes hashtables on' {
         $file = Join-Path ([System.IO.Path]::GetTempPath()) ('theme-{0}.json' -f [guid]::NewGuid())
         try {
-            '{"version":1,"themeName":"corp","theme":{"color":["#003366","#ff6600"],"backgroundColor":"transparent"}}' | Set-Content -LiteralPath $file
+            '{"color":["#003366","#ff6600"],"backgroundColor":"transparent"}' | Set-Content -LiteralPath $file
             $c = New-UDEChart -Data @([pscustomobject]@{ A = 1 }) -Type bar -X A -LightTheme $file -DarkTheme @{ color = @('#ffffff') }
             $c.lightTheme.color | Should -Be @('#003366', '#ff6600')
             $c.darkTheme.color | Should -Be @('#ffffff')
@@ -115,6 +115,9 @@ Describe 'Corporate themes' {
         finally {
             Remove-Item -LiteralPath $file -ErrorAction Ignore
         }
+    }
+    It 'refuses a theme builder project file' {
+        { New-UDEChart -Data @() -LightTheme @{ version = 1; themeName = 'corp'; theme = @{ seriesCnt = 4 } } } | Should -Throw '*project file*'
     }
     It 'fails clearly for a missing file' {
         { New-UDEChart -Data @() -LightTheme '/does/not/exist.json' } | Should -Throw '*Theme file not found*'

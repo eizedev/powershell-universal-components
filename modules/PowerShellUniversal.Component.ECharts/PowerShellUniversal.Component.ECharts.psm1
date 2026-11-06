@@ -151,8 +151,8 @@ function New-UDEChart {
         Auto (follows the app's light/dark switch), Light or Dark.
     .PARAMETER LightTheme
         Corporate design for the light mode: an Apache ECharts theme as a hashtable, or the path of a
-        theme JSON file as the ECharts theme builder downloads it (a builder configuration with
-        version, themeName and theme works too). Merged over the module's own theme: what the theme
+        theme JSON file as the ECharts theme builder downloads it ("Download theme", JSON; the builder's
+        project file is refused). Merged over the module's own theme: what the theme
         sets wins, the rest stays. For every chart of an app at once:
         $PSDefaultParameterValues['New-UDEChart:LightTheme'] = '/path/on/the/psu/server/corporate-light.json'
     .PARAMETER DarkTheme
@@ -521,8 +521,11 @@ function ConvertTo-UDEChartTheme {
         $Theme = $Theme | ConvertTo-Json -Depth 30 | ConvertFrom-Json -AsHashtable
     }
     if ($Theme -isnot [System.Collections.IDictionary]) { throw 'A theme is a hashtable, an object or the path of a theme JSON file.' }
-    # a theme builder configuration carries the theme in "theme"
-    if ($Theme.Contains('theme') -and $Theme.Contains('themeName')) { $Theme = $Theme['theme'] }
+    # the theme builder's project file ("Export config", *.project.json) holds the builder's own
+    # settings, not an ECharts theme (apache/echarts-theme-builder, src/stores/theme.ts)
+    if ($Theme.Contains('themeName') -and $Theme.Contains('version') -and $Theme.Contains('theme')) {
+        throw 'This is an ECharts theme builder project file. Use "Download theme" in the builder and choose JSON.'
+    }
     $Theme
 }
 
