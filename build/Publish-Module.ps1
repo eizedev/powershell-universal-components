@@ -41,6 +41,9 @@ $built = Join-Path $OutputPath $Module ($Version -replace '-.*$', '')
 if (-not (Test-Path -LiteralPath $built)) { throw ('No built module at {0}; run Build-Module.ps1 first.' -f $built) }
 
 $manifestPath = Join-Path $built "$Module.psd1"
+# modules in RequiredModules (the demo needs the chart module) are found among the built ones, for the
+# checks below and for Publish-PSResource, which runs Test-ModuleManifest on the manifest as well
+$env:PSModulePath = '{0}{1}{2}' -f $OutputPath, [System.IO.Path]::PathSeparator, $env:PSModulePath
 if ($Publish) {
     if (-not $env:PSGALLERY_API_KEY) { throw 'PSGALLERY_API_KEY is not set.' }
     # a run repeated after a failure later in the job: the gallery has the version already
@@ -69,9 +72,6 @@ if (-not $match.Success -or -not $match.Groups['notes'].Value.Trim()) {
 }
 # without Keep a Changelog's link references ("[1.2.3]: https://...") at the end of the file
 $notes = ($match.Groups['notes'].Value -replace '(?m)^\[[^\]]+\]:\s*\S+\s*$', '').Trim()
-
-# modules in RequiredModules (the demo needs the chart module) are found among the built ones
-$env:PSModulePath = '{0}{1}{2}' -f $OutputPath, [System.IO.Path]::PathSeparator, $env:PSModulePath
 
 # the built manifest carries the notes (the gallery shows them); the source keeps its link.
 # Update-ModuleManifest writes them safely (quotes, several lines) and can run again.
