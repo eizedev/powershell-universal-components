@@ -5,6 +5,8 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-06
+
 ### Added
 
 - `New-UDEChart` with 29 chart types on Apache ECharts 6.1: line, area, step, bar, scatter, pie, donut,

@@ -5,6 +5,8 @@ All notable changes to PowerShellUniversal.Component.Perspective. Format:
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-06
+
 ### Added
 
 - `New-UDPerspective` on Perspective 5.7 (`@perspective-dev`): datagrid, pivot (`-GroupBy`, `-SplitBy`,
