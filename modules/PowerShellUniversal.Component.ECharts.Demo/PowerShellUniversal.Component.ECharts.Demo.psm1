@@ -15,6 +15,8 @@ function New-UDEChartShowcase {
     .OUTPUTS
         The app PSU renders (New-UDApp).
     #>
+    # returns the app for PSU to render; changes no state, so no ShouldProcess (as New-UDEChart)
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding()]
     param()
 
