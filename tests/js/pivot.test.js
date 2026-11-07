@@ -151,6 +151,58 @@ test("stored view: comes back for the same -View, page and id; another -View win
     assert.equal(mod.readStoredView(storage, key, server), undefined);
 });
 
+test("view in the address bar: one entry per report, other fragment parts kept, untrusted input refused", () => {
+    const view = { rows: ["Team"], cols: ["Priority"], display: "chart", filters: [{ field: "Status", type: "include", items: ["Offen ü €"] }] };
+    const hash = mod.writeLinkView("#section", "tickets", view);
+    assert.match(hash, /^#section&pivot-tickets=[A-Za-z0-9_-]+$/);
+    assert.deepEqual(mod.readLinkView(hash, "tickets"), view, "UTF-8 round trip");
+    // a second report on the page, then the first one back to -View
+    const both = mod.writeLinkView(hash, "auto-0011", { rows: ["Category"] });
+    assert.deepEqual(mod.readLinkView(both, "auto-0011"), { rows: ["Category"] });
+    assert.deepEqual(mod.readLinkView(both, "tickets"), view);
+    const rest = mod.writeLinkView(both, "tickets", undefined);
+    assert.equal(mod.readLinkView(rest, "tickets"), undefined);
+    assert.ok(rest.startsWith("#section&pivot-auto-0011="));
+    assert.equal(mod.writeLinkView(mod.writeLinkView("", "t", view), "t", undefined), "");
+    // keys with characters of their own; a prefix of another key is not that key
+    assert.deepEqual(mod.readLinkView(mod.writeLinkView("", "a&b=c", view), "a&b=c"), view);
+    assert.equal(mod.readLinkView(mod.writeLinkView("", "tickets-2", view), "tickets"), undefined);
+    // broken, foreign or oversized input: no view
+    for (const bad of ["#pivot-t=", "#pivot-t=%%%", "#pivot-t=bm90IGpzb24", "#pivot-t=WyJhIl0", `#pivot-t=${"A".repeat(mod.MAX_LINK_VIEW_LENGTH + 4)}`, "#pivot-t=/w"]) {
+        assert.equal(mod.readLinkView(bad, "t"), undefined, bad);
+    }
+    // a view too long for an address bar stays out of it
+    const big = { rows: ["x".repeat(mod.MAX_LINK_VIEW_LENGTH)] };
+    assert.equal(mod.encodeLinkView(big), undefined);
+    assert.equal(mod.writeLinkView("#keep", "t", big), "#keep");
+});
+
+test("start view of a tab: its own view first, -SavedView only without one, else -View", () => {
+    const storage = fakeStorage();
+    const key = mod.viewStoreKey("/pivot-report/tickets", "tickets");
+    const server = JSON.stringify({ rows: ["Team"] });
+    const own = { rows: ["Team"], display: "chart" };
+    // what another tab of the same PSU session stored on the server
+    const saved = { rows: ["Priority"], cols: ["Team"] };
+    assert.equal(mod.startViewOf(storage, key, server, undefined), undefined, "nothing: -View");
+    assert.deepEqual(mod.startViewOf(storage, key, server, saved), { view: saved, from: "saved", inStorage: false }, "a new tab starts with -SavedView");
+    assert.deepEqual(mod.startViewOf(storage, key, server, JSON.stringify(saved)), { view: saved, from: "saved", inStorage: false }, "-SavedView as JSON");
+    mod.writeStoredView(storage, key, server, own);
+    assert.deepEqual(mod.startViewOf(storage, key, server, saved), { view: own, from: "tab", inStorage: true }, "the tab's own view wins over -SavedView");
+    // empty, broken or oversized -SavedView: -View
+    for (const bad of [{}, "", "not json", "x".repeat(mod.MAX_VIEW_LENGTH + 1), ["rows"]]) {
+        assert.equal(mod.startViewOf(fakeStorage(), key, server, bad), undefined);
+    }
+    // a new -View from the app still wins over the tab's view; -SavedView then starts the tab again
+    assert.deepEqual(mod.startViewOf(storage, key, JSON.stringify({ rows: ["Status"] }), saved), { view: saved, from: "saved", inStorage: false });
+    assert.equal(mod.startViewOf(null, key, server, undefined), undefined, "blocked storage");
+    // the address bar (this tab's view, or a shared link) comes before everything else
+    assert.deepEqual(mod.startViewOf(storage, key, server, saved, { rows: ["Status"] }), { view: { rows: ["Status"] }, from: "link", inStorage: false });
+    mod.writeStoredView(storage, key, server, own);
+    assert.deepEqual(mod.startViewOf(storage, key, server, saved, own), { view: own, from: "link", inStorage: true }, "the same view in both places");
+    assert.deepEqual(mod.startViewOf(storage, key, server, saved, {}), { view: own, from: "tab", inStorage: true }, "an empty link view counts as none");
+});
+
 test("stored view: capped by entries and size, keys from storage never reach a prototype", () => {
     const storage = fakeStorage();
     for (let i = 0; i < mod.VIEW_STORE_ENTRIES + 5; i++) mod.writeStoredView(storage, `/p#${i}`, "null", { rows: [String(i)] }, i);

@@ -32,7 +32,7 @@ templates saved per user, a language switch, the events and the report in page l
 | --- | --- |
 | What readers can do, data, dates and time zones, language, theme and height, the placeholder while the data loads, performance | [Overview](https://powershell-universal-components.eize.dev/pivot/) |
 | Corporate design from the app's stylesheet, shared with the ECharts module | [Themes and corporate design](https://powershell-universal-components.eize.dev/pivot/themes/) |
-| `-View`, `-Templates`, saving templates, `ConvertFrom-UDPivotView` | [Views and templates](https://powershell-universal-components.eize.dev/pivot/views/) |
+| `-View`, `-SavedView`, several tabs, `-Templates`, saving templates, `ConvertFrom-UDPivotView` | [Views and templates](https://powershell-universal-components.eize.dev/pivot/views/) |
 | `-OnViewChange`, `-OnCellClick`, `-OnSaveTemplate`, `-OnDeleteTemplate`, security | [Events, security and limits](https://powershell-universal-components.eize.dev/pivot/events/) |
 | Parameters | [Reference](https://powershell-universal-components.eize.dev/pivot/reference/) |
 

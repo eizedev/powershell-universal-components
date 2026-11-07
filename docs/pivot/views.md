@@ -1,6 +1,6 @@
 ---
 title: Views and templates
-description: "The start view of New-UDPivotReport, templates in the Templates menu, and how readers save their own templates - stored by your app, checked with ConvertFrom-UDPivotView."
+description: "The start view of New-UDPivotReport, views per browser tab and -SavedView, templates in the Templates menu, and how readers save their own templates - stored by your app, checked with ConvertFrom-UDPivotView."
 ---
 
 # Views and templates
@@ -39,13 +39,59 @@ The simplest way to a view is to build it in the report, save it as a template a
 shows another view (the reader can undo it), and `(Get-UDElement -Id <id>).view` is the view the reader
 has now.
 
-The browser tab keeps the reader's view (sessionStorage, per page and report): PSU builds the report
-anew when the app switches between light and dark, and the report comes back with the same fields,
-table or chart, chart type and collapsed groups. Undo and redo start over then; `Reset` still goes back
-to `-View`, and from then on the tab keeps `-View`. The kept view also returns after a reload of the tab
-as long as the page sends the same `-View`; a different `-View` from the server (another start view, or
-`-View $Session:PivotView` from [-OnViewChange](events.md)) wins. Closing the tab, or a browser that
-blocks storage, starts from `-View`.
+The browser tab keeps the reader's view: PSU builds the report anew when the app switches between
+light and dark, and the report comes back with the same fields, table or chart, chart type and
+collapsed groups. Undo and redo start over then; `Reset` still goes back to `-View`, and from then on
+the tab keeps `-View`. The view is kept in two places of the tab:
+
+- **The address bar.** Every change writes the view into the URL fragment, one entry per report:
+  `#pivot-<id>=...` (the `-Id`, or the key the module derives without one), several joined with `&`.
+  It is written in place (no new history entry: one step back leaves the page). A reload keeps it,
+  and a copied address opens the same views for someone else - with their own data and permissions,
+  since only the layout is in the link. A view in the address bar wins over `-View`; a view too long
+  for it (more than 8000 characters) stays out. The view includes filter values (a customer name in
+  a filter is in the address), so it ends up in the browser history, and PSU's own requests carry the
+  page address to the server (header `windowlocation`, measured on PSU 2026.3.4).
+- **sessionStorage** (per page and report), for a view that is not in the address bar. It returns
+  after a reload as long as the page sends the same `-View`; a different `-View` from the server (the
+  app chose another start view) wins. Closing the tab, or a browser that blocks storage, starts from
+  `-View`.
+
+The view in a link is input like any other: the report checks it against the data and drops what does
+not fit, and nothing in it runs as code.
+
+## Several tabs and keeping the reader's view
+
+Every browser tab keeps its own view, also two tabs on the same page: nothing needs to be stored on
+the server for a reload, a light/dark switch, a `Sync-UDElement` of a surrounding `New-UDDynamic` or a
+shared link.
+
+To keep the reader's view beyond the tab (a new tab, another day, another device), store it in
+`-OnViewChange` and pass it back as `-SavedView`, never as `-View`:
+
+```powershell
+New-UDPivotReport -Id 'tickets' -Data $tickets -View $startView -SavedView $Session:PivotView -OnViewChange {
+    Import-Module PowerShellUniversal.Component.Pivot
+    $Session:PivotView = ConvertFrom-UDPivotView -InputObject $EventData.json
+}
+```
+
+`-SavedView` starts a tab that has no view of its own yet; a tab that already shows a view keeps it,
+and `Reset` goes back to `-View`. The difference matters because PSU's scopes are not per tab
+(measured on PSU 2026.3.4):
+
+| Scope | Shared by | Lifetime |
+| --- | --- | --- |
+| `$Session:` | all tabs of one browser (one session cookie) | until the session ends (idle timeout) |
+| `$Page:` | one tab | until the tab reloads or closes; survives the light/dark switch and `Sync-UDElement` |
+| a file or table per `$User` | all browsers and devices of the reader | until the app removes it |
+
+`-View $Session:PivotView` would hand the last change of one tab to every other tab on its next
+reload. `$Page:` is per tab but gone after a reload, which the address bar and the tab's storage
+already cover.
+For a view that follows the reader to other devices, store it per `$User` (as the
+[templates](#templates-readers-save) below), either on every change or with an explicit "save as my
+default", and pass it as `-SavedView`.
 
 Without `-Id` the report is identified by its page and its place in the app script (the line of the
 `New-UDPivotReport` call) together with its column names, so two reports on one page keep their own

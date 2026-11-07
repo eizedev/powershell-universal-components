@@ -47,9 +47,21 @@ Describe 'New-UDPivotReport' {
         $c.storageKey | Should -Be 'p1'
         $c.fileName | Should -Be 'pivot'
         $c.drillDown | Should -BeTrue
-        foreach ($key in 'view', 'templates', 'height', 'labels', 'fieldDefaults', 'onViewChange', 'onCellClick', 'onSaveTemplate', 'onDeleteTemplate') {
+        foreach ($key in 'view', 'savedView', 'templates', 'height', 'labels', 'fieldDefaults', 'onViewChange', 'onCellClick', 'onSaveTemplate', 'onDeleteTemplate') {
             $c.ContainsKey($key) | Should -BeFalse -Because "$key was not passed"
         }
+    }
+
+    It '-SavedView: checked like -View, sent as savedView; a broken one is left out with a warning' {
+        $rows = @([pscustomobject]@{ Team = 'Ops'; Priority = 'High' })
+        $c = New-UDPivotReport -Id 'p1' -Data $rows -View @{ rows = @('Team') } -SavedView '{"rows":["Priority"],"evil":"x"}'
+        $c.savedView.rows | Should -Be @('Priority')
+        $c.savedView.PSObject.Properties.Name | Should -Not -Contain 'evil'
+        $c.view.rows | Should -Be @('Team')
+        (New-UDPivotReport -Id 'p1' -Data $rows -SavedView $null).ContainsKey('savedView') | Should -BeFalse
+        $broken = New-UDPivotReport -Id 'p1' -Data $rows -SavedView '{not json' -WarningVariable warned -WarningAction SilentlyContinue
+        $broken.ContainsKey('savedView') | Should -BeFalse
+        "$warned" | Should -Match '-SavedView left out'
     }
 
     It 'converts a DataTable: DBNull to null, dates to ISO text without offset, numbers stay numbers' {

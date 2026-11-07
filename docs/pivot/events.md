@@ -27,8 +27,10 @@ A grouped date has its group as value: `202605` for May 2026 by month, `2026` by
 the source rows opens on every click; `-NoDrillDown` turns it off, `-OnCellClick` still runs.
 
 `-OnViewChange` can keep the reader's layout, for example for the session:
-`$Session:PivotView = ConvertFrom-UDPivotView -InputObject $EventData.json`, then `-View $Session:PivotView`
-when the page is built again. Saving and deleting templates: [Views and templates](views.md).
+`$Session:PivotView = ConvertFrom-UDPivotView -InputObject $EventData.json`, then `-SavedView $Session:PivotView`
+when the page is built again (not `-View`: `$Session` is shared by all tabs of a browser, see
+[several tabs](views.md#several-tabs-and-keeping-the-readers-view)). Saving and deleting templates:
+[Views and templates](views.md).
 
 ## Security notes
 
@@ -37,6 +39,9 @@ when the page is built again. Saving and deleting templates: [Views and template
 - `$EventData` comes from the browser: treat it as user input. Check views with
   `ConvertFrom-UDPivotView` before storing them, never build file paths or queries from names or values
   without checking them, and never pass any of it to `Invoke-Expression`.
+- The reader's view, filter values included, is written into the address bar
+  ([views](views.md#the-start-view-view)): it is in the browser history and in a copied link, and PSU
+  sends the page address with its requests. A view from a link is checked like every other view.
 - Views are data. The report checks them against the data and runs nothing from them; formats are
   names, not code. The table and the drill-down show values as text, never as HTML.
 - Exports are made in the browser from what the reader sees; nothing is sent to a server. The CSV

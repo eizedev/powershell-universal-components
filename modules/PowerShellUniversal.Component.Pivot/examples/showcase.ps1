@@ -175,10 +175,11 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
             New-UDPivotReportPlaceholder -Locale $(if ($Session:PivotLocale) { $Session:PivotLocale } else { 'en-US' })
         } -Content {
             $locale = if ($Session:PivotLocale) { $Session:PivotLocale } else { 'en-US' }
-            # the last view of this session, so a change of language keeps the layout
-            $view = if ($Session:PivotView) { $Session:PivotView } else { $startView }
             $templates = @($builtInTemplates) + @(& $TemplateStore -Action List -Settings $TemplateSettings)
-            New-UDPivotReport -Id 'tickets' -Data $tickets -View $view -Templates $templates -FieldDefaults $fieldDefaults `
+            # the tab keeps its own view (also over a change of language); $Session is shared by all tabs
+            # of the browser, so the last view stored there only starts a new tab (-SavedView), and never
+            # replaces what another tab shows (as -View would)
+            New-UDPivotReport -Id 'tickets' -Data $tickets -View $startView -SavedView $Session:PivotView -Templates $templates -FieldDefaults $fieldDefaults `
                 -Locale $locale -FileName 'tickets' -OnViewChange {
                 Import-Module PowerShellUniversal.Component.Pivot
                 $Session:PivotView = ConvertFrom-UDPivotView -InputObject $EventData.json

@@ -151,6 +151,92 @@ export function writeStoredView(storage, key, serverKey, view, now = Date.now())
 }
 
 /*
+ * The reader's view in the address bar: one entry per report in the URL fragment,
+ * #pivot-<storageKey>=<view>, several joined with "&"; other parts of the fragment stay as they are.
+ * The fragment belongs to the tab (a reload and PSU's light/dark switch keep it, measured on PSU
+ * 2026.3.4) and travels with a copied link, so the address bar shares the report. The view is compact
+ * JSON as base64url (UTF-8); a view longer than MAX_LINK_VIEW_LENGTH stays out of the address bar
+ * (the tab's sessionStorage still keeps it). What comes from a link is untrusted: it goes through
+ * parseView like every view, and the report checks it against the data.
+ */
+export const LINK_PREFIX = "pivot-";
+export const MAX_LINK_VIEW_LENGTH = 8000;
+
+function toBase64Url(text) {
+    const bytes = new TextEncoder().encode(text);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function fromBase64Url(text) {
+    if (!/^[A-Za-z0-9_-]*$/.test(text)) return undefined;
+    try {
+        const binary = atob(text.replace(/-/g, "+").replace(/_/g, "/"));
+        return new TextDecoder("utf-8", { fatal: true }).decode(Uint8Array.from(binary, (c) => c.charCodeAt(0)));
+    } catch {
+        return undefined;
+    }
+}
+
+// the view as it goes into the fragment, or undefined when it is too long for an address bar
+export function encodeLinkView(view) {
+    const text = toBase64Url(JSON.stringify(view));
+    return text.length <= MAX_LINK_VIEW_LENGTH ? text : undefined;
+}
+
+export function decodeLinkView(text) {
+    if (typeof text !== "string" || !text || text.length > MAX_LINK_VIEW_LENGTH) return undefined;
+    const json = fromBase64Url(text);
+    return json === undefined ? undefined : parseView(json);
+}
+
+function linkName(key) {
+    return LINK_PREFIX + encodeURIComponent(key || "");
+}
+
+// the view of report `key` in a fragment ("#a&pivot-x=..."), or undefined
+export function readLinkView(hash, key) {
+    const name = linkName(key) + "=";
+    const part = String(hash || "").replace(/^#/, "").split("&").find((p) => p.startsWith(name));
+    return part === undefined ? undefined : decodeLinkView(part.slice(name.length));
+}
+
+// the fragment with the view of report `key` set (undefined removes it), other parts kept in place
+export function writeLinkView(hash, key, view) {
+    const name = linkName(key) + "=";
+    const parts = String(hash || "").replace(/^#/, "").split("&").filter((p) => p !== "");
+    const text = view === undefined ? undefined : encodeLinkView(view);
+    const at = parts.findIndex((p) => p.startsWith(name));
+    if (text === undefined) {
+        if (at >= 0) parts.splice(at, 1);
+    } else if (at >= 0) {
+        parts[at] = name + text;
+    } else {
+        parts.push(name + text);
+    }
+    return parts.length ? "#" + parts.join("&") : "";
+}
+
+/*
+ * The view a report starts with in this tab, or undefined for -View, in this order: the view in the
+ * address bar (from: "link" - this tab's own, or a link someone shared), the tab's sessionStorage
+ * (kept under the -View it was mounted with, from: "tab"), the reader's view the server sent as
+ * -SavedView (from: "saved"). A -SavedView is only a starting point for a tab without a view of its
+ * own: PSU's $Session belongs to the browser, not the tab, so a view stored there may come from
+ * another tab and must never replace the view this tab shows. An empty view counts as none.
+ */
+export function startViewOf(storage, key, serverKey, savedView, linkView) {
+    const usable = (v) => Boolean(v && typeof v === "object" && Object.keys(v).length > 0);
+    const stored = readStoredView(storage, key, serverKey);
+    // inStorage: sessionStorage holds this view already (nothing to write)
+    if (usable(linkView)) return { view: linkView, from: "link", inStorage: usable(stored) && JSON.stringify(stored) === JSON.stringify(linkView) };
+    if (usable(stored)) return { view: stored, from: "tab", inStorage: true };
+    const saved = parseView(savedView);
+    return usable(saved) ? { view: saved, from: "saved", inStorage: false } : undefined;
+}
+
+/*
  * The templates of -Templates: { name, view, deletable }, keys in any case (PSU camelCases them), the
  * view an object or JSON. Entries without a name or a usable view are left out; the first of two
  * entries with the same name wins.

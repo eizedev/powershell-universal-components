@@ -3,7 +3,7 @@ import { PivotReport as Report } from "pivotkit-react";
 import "pivotkit-react/styles.css";
 import "./psu.css";
 import { useNarrowWindow } from "./hooks";
-import { callEndpoint, cellEvent, heightOf, mergeTemplates, parseView, readStoredView, readTemplates, restoreRows, themeOf, VIEW_EVENT_DELAY_MS, viewStoreKey, writeStoredView } from "./prepare";
+import { callEndpoint, cellEvent, heightOf, mergeTemplates, parseView, readLinkView, readTemplates, restoreRows, startViewOf, themeOf, VIEW_EVENT_DELAY_MS, viewStoreKey, writeLinkView, writeStoredView } from "./prepare";
 
 // sessionStorage, or null where the browser blocks it (the accessor itself can throw)
 function sessionStorageOrNull() {
@@ -30,31 +30,61 @@ export default function PsuPivotReport(props) {
     // ---- the view: the server's start view, then the user's ----------------------------------------
     const serverViewKey = JSON.stringify(parseView(props.view) ?? null);
     // the reader's view of this tab survives PSU mounting the component anew (its light/dark switch)
-    const store = useRef({ storage: sessionStorageOrNull(), key: null, mountedWith: serverViewKey });
+    // and a reload: in the address bar (#pivot-<key>=...) and in sessionStorage, the fallback for a
+    // view too long for the address bar
+    const store = useRef({ storage: sessionStorageOrNull(), key: null, linkKey: null, path: null, mountedWith: serverViewKey });
+    // written at once, not debounced: a reload right after a change must not find an older view in
+    // the address bar than in sessionStorage (the address bar wins on mount)
+    const showInLink = useCallback((next) => {
+        const s = store.current;
+        // only on the page the report was mounted on (PSU's menu may have moved on already)
+        if (!s.linkKey || typeof window === "undefined" || window.location.pathname !== s.path) return;
+        try {
+            const hash = writeLinkView(window.location.hash, s.linkKey, next);
+            if (hash === window.location.hash || (hash === "" && !window.location.hash)) return;
+            // replaceState: no navigation, no new history entry, PSU's router does not react (measured)
+            window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search + hash);
+        } catch {
+            // a browser that refuses (Safari limits replaceState calls): sessionStorage still has it
+        }
+    }, []);
     const remember = useCallback((next) => {
         const s = store.current;
-        if (s.key) writeStoredView(s.storage, s.key, s.mountedWith, next);
-    }, []);
+        if (!s.key) return;
+        writeStoredView(s.storage, s.key, s.mountedWith, next);
+        showInLink(next);
+    }, [showInLink]);
     // pivotkit's Reset goes back to the view of the first render: always -View, never a restored one
     const [view, setView] = useState(() => parseView(props.view) ?? {});
     const shownKey = useRef(serverViewKey);
     const lastServerKey = useRef(serverViewKey);
     useLayoutEffect(() => {
-        // the restored view replaces the start view before the browser paints; storageKey is -Id, or
-        // without one the module's key from the call site and the columns (the id is a new GUID per build)
+        // the view in the address bar, else the tab's sessionStorage, else -SavedView replaces the
+        // start view before the browser paints;
+        // storageKey is -Id, or without one the module's key from the call site and the columns (the
+        // id is a new GUID per build). -SavedView is read only here: a later one (a new render of the
+        // page with $Session from another tab) never replaces what this tab shows.
         const s = store.current;
-        s.key = viewStoreKey(typeof window !== "undefined" ? window.location.pathname : "", props.storageKey || props.id);
-        const restored = readStoredView(s.storage, s.key, s.mountedWith);
-        if (restored && JSON.stringify(restored) !== serverViewKey) {
-            shownKey.current = JSON.stringify(restored);
-            setView(restored);
+        const id = props.storageKey || props.id;
+        s.linkKey = id;
+        s.path = typeof window !== "undefined" ? window.location.pathname : "";
+        s.key = viewStoreKey(s.path, id);
+        const link = typeof window !== "undefined" ? readLinkView(window.location.hash, id) : undefined;
+        const start = startViewOf(s.storage, s.key, s.mountedWith, props.savedView, link);
+        if (start && JSON.stringify(start.view) !== serverViewKey) {
+            shownKey.current = JSON.stringify(start.view);
+            setView(start.view);
+            // from now on the tab keeps it in both places, whatever -SavedView a later render of the
+            // page brings; storage that has it already is left as it is
+            if (start.inStorage) showInLink(start.view);
+            else remember(start.view);
             // Get-UDElement reads the restored view too
-            if (typeof latest.current.setState === "function") latest.current.setState({ view: restored });
+            if (typeof latest.current.setState === "function") latest.current.setState({ view: start.view });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     useEffect(() => {
-        // a new view from the server that differs from the one shown (PSU echoes the view setState sent)
+        // a new -View from the server that differs from the one shown (PSU echoes the view setState sent)
         if (serverViewKey === lastServerKey.current) return;
         lastServerKey.current = serverViewKey;
         if (serverViewKey !== shownKey.current) {

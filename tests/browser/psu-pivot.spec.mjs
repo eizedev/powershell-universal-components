@@ -236,6 +236,113 @@ test.describe("pivot showcase on PSU", () => {
         await expect(second.getByRole("region", { name: "Columns" })).toContainText("Category");
     });
 
+    // PSU's $Session belongs to the browser (one cookie for all tabs); the Tickets page stores the last
+    // view there and passes it as -SavedView, which must only start a new tab, never replace another's
+    test("two tabs of one browser keep their own views over reloads, theme and language switches", async ({ page, browser }) => {
+        const viewSaved = (p) => p.waitForResponse((r) => /tickets-onViewChange/.test(r.url()) && r.request().method() === "POST", { timeout: 15000 });
+        const shows = async (p, { chart, columns }) => {
+            const report = p.locator(REPORT);
+            await expect(report.locator(`[data-testid=${chart ? "show-chart" : "show-table"}]`)).toHaveAttribute("aria-pressed", "true");
+            await expect(report.getByRole("region", { name: /^(Columns|Spalten)$/ })).toContainText(columns);
+        };
+        const reload = async (p) => {
+            await p.reload();
+            await expect(p.locator(REPORT)).toBeVisible({ timeout: 30000 });
+        };
+        const a = page;
+        const b = await page.context().newPage();
+        await open(a, "tickets");
+        await open(b, "tickets");
+        // tab A: a chart; tab B: rows and columns swapped, a table; both reach the server's $Session
+        let saved = viewSaved(a);
+        await a.locator(`${REPORT} [data-testid=show-chart]`).click();
+        await saved;
+        saved = viewSaved(b);
+        await b.locator(`${REPORT} [data-testid=swap]`).click();
+        await saved;
+        await reload(a);
+        await shows(a, { chart: true, columns: "Priority" });
+        await reload(b);
+        await shows(b, { chart: false, columns: "Team" });
+        for (const mode of ["dark", "light"]) {
+            await setTheme(a, mode);
+            await shows(a, { chart: true, columns: "Priority" });
+        }
+        // the language select rebuilds the report on the server (Sync-UDElement)
+        await a.getByRole("combobox", { name: "Language" }).click();
+        await a.getByRole("option", { name: "Deutsch" }).click();
+        await expect(a.locator(REPORT).getByRole("region", { name: "Spalten" })).toBeVisible({ timeout: 30000 });
+        await shows(a, { chart: true, columns: "Priority" });
+        await a.getByRole("combobox", { name: "Language" }).click();
+        await a.getByRole("option", { name: "English" }).click();
+        await expect(a.locator(REPORT).getByRole("region", { name: "Columns" })).toBeVisible({ timeout: 30000 });
+        await reload(b);
+        await shows(b, { chart: false, columns: "Team" });
+        // a new tab starts with the last view of the session (B's), and Reset there goes to -View
+        const c = await page.context().newPage();
+        await open(c, "tickets");
+        await shows(c, { chart: false, columns: "Team" });
+        await c.locator(`${REPORT} [data-testid=reset]`).click();
+        await shows(c, { chart: false, columns: "Priority" });
+        await expect(c.locator(REPORT).getByRole("region", { name: "Rows" })).toContainText("Team");
+        // another browser (another PSU session) knows nothing of these views
+        const other = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+        try {
+            const d = await other.newPage();
+            await open(d, "tickets");
+            await shows(d, { chart: false, columns: "Priority" });
+            await expect(d.locator(`${REPORT} [data-testid=reset]`)).toBeDisabled();
+        } finally {
+            await other.close();
+        }
+        await reload(a);
+        await shows(a, { chart: true, columns: "Priority" });
+    });
+
+    test("the address bar carries the view: a copied link opens it elsewhere, no history entries", async ({ page, browser }) => {
+        await page.goto(`${base}/events`);
+        await expect(page.locator(REPORT)).toBeVisible({ timeout: 30000 });
+        await open(page, "without-id");
+        const historyBefore = await page.evaluate(() => history.length);
+        const first = page.locator(REPORT).nth(0);
+        const second = page.locator(REPORT).nth(1);
+        const mounted = await first.elementHandle();
+        await first.locator("[data-testid=show-chart]").click();
+        await second.locator("[data-testid=swap]").click();
+        // one entry per report, written without a navigation or a new history entry
+        await expect.poll(() => page.evaluate(() => location.hash.slice(1).split("&").filter((p) => p.startsWith("pivot-auto-")).length)).toBe(2);
+        expect(await page.evaluate(() => history.length)).toBe(historyBefore);
+        expect(await mounted.evaluate((e) => e.isConnected)).toBe(true);
+        const link = page.url();
+        // another browser (no sessionStorage, another PSU session) opens the same views from the link
+        const other = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+        try {
+            const p = await other.newPage();
+            await p.goto(link);
+            await expect(p.locator(REPORT).nth(0).locator("[data-testid=show-chart]")).toHaveAttribute("aria-pressed", "true", { timeout: 30000 });
+            await expect(p.locator(REPORT).nth(1).getByRole("region", { name: "Columns" })).toContainText("Category");
+            expect(p.url()).toBe(link);
+        } finally {
+            await other.close();
+        }
+        // the light/dark switch mounts the reports anew and keeps the address bar
+        await setTheme(page, "dark");
+        await expect(first).toHaveAttribute("data-pk-theme", "dark");
+        expect(page.url()).toBe(link);
+        await setTheme(page, "light");
+        // Reset: -View, also in the address bar, at once (a reload right after it keeps -View)
+        await first.locator("[data-testid=reset]").click();
+        await expect(first.locator("[data-testid=show-table]")).toHaveAttribute("aria-pressed", "true");
+        await page.reload();
+        await expect(first).toBeVisible({ timeout: 30000 });
+        await expect(first.locator("[data-testid=show-table]")).toHaveAttribute("aria-pressed", "true");
+        await expect(first.locator("[data-testid=reset]")).toBeDisabled();
+        await expect(second.getByRole("region", { name: "Columns" })).toContainText("Category");
+        // one step back leaves the page: the changes made no history entries
+        await page.goBack();
+        await expect(page).toHaveURL(new RegExp(`${base}/events$`));
+    });
+
     test("fits a phone-sized window without a horizontal page scroll", async ({ page }) => {
         await page.setViewportSize({ width: 390, height: 844 });
         await open(page, "tickets");

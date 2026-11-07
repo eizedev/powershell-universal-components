@@ -269,7 +269,14 @@ function New-UDPivotReport {
         Keys: rows, cols (field names), values (field, agg: sum, count, average, min, max, ...;
         format: a format name), filters, sort, totals, display (table or chart), chart (type: bar, line,
         area, pie, heatmap). A saved template's view goes in as it is. Default: an empty report with the
-        hint where to start.
+        hint where to start. A view in the address bar (#pivot-<id>=..., written by the report on every
+        change, so a copied link opens the same layout) wins over it.
+    .PARAMETER SavedView
+        The reader's own view stored by the app (from -OnViewChange or a "save as my default" action),
+        a hashtable or JSON. A browser tab without a view of its own (in its address bar or its
+        sessionStorage) starts with it; a tab that already shows a view keeps that one, so a view stored
+        for the whole PSU session (shared by all tabs of the browser) never takes over another tab. Reset still goes back to -View. A view that does not
+        pass ConvertFrom-UDPivotView is left out with a warning.
     .PARAMETER Templates
         Views offered in the Templates menu (the first three also on the empty report): a list of
         @{ Name = 'Tickets per team'; View = <view>; Deletable = $false }. Deletable entries get a delete
@@ -338,6 +345,12 @@ function New-UDPivotReport {
             # store $EventData.name and $view (a file per user, a database table), then:
             Show-UDToast -Message "Saved $($EventData.name)"
         }
+    .EXAMPLE
+        # a new tab continues with the reader's last view; open tabs keep their own
+        New-UDPivotReport -Id 'tickets' -Data $tickets -View $startView -SavedView $Session:PivotView -OnViewChange {
+            Import-Module PowerShellUniversal.Component.Pivot
+            $Session:PivotView = ConvertFrom-UDPivotView -InputObject $EventData.json
+        }
     .OUTPUTS
         System.Collections.Hashtable
     .LINK
@@ -351,6 +364,7 @@ function New-UDPivotReport {
         [string]$Id = [guid]::NewGuid().ToString(),
         [Parameter(Mandatory)][AllowNull()][object]$Data,
         [object]$View,
+        [object]$SavedView,
         [AllowEmptyCollection()][object[]]$Templates,
         [hashtable]$FieldDefaults,
         [hashtable]$Labels,
@@ -400,6 +414,11 @@ function New-UDPivotReport {
     if ($PSBoundParameters.ContainsKey('View') -and $null -ne $View) {
         try { $props['view'] = ConvertFrom-UDPivotView -InputObject $View }
         catch { throw ('-View: {0}' -f $_.Exception.Message) }
+    }
+    if ($PSBoundParameters.ContainsKey('SavedView') -and $null -ne $SavedView) {
+        # the reader's stored view is user data: a broken one must not break the page
+        try { $props['savedView'] = ConvertFrom-UDPivotView -InputObject $SavedView }
+        catch { Write-Warning ('-SavedView left out: {0}' -f $_.Exception.Message) }
     }
     if ($PSBoundParameters.ContainsKey('Templates')) { $props['templates'] = @(ConvertTo-UDPivotTemplate -Template $Templates) }
     if ($FieldDefaults) {
