@@ -5,12 +5,13 @@
 # of input the modules promise.
 
 BeforeAll {
+    # the implementation and the oracle each in a module of their own, as in a built component module:
+    # every call and every change of their state goes into the module (& $module { ... })
     $script:repo = Resolve-Path (Join-Path $PSScriptRoot '..' '..')
-    . (Join-Path $script:repo 'shared' 'powershell' 'ConvertTo-PSUComponentData.ps1')
-    # the oracle in a module of its own, so its functions do not replace the ones under test
-    $referencePath = Join-Path $PSScriptRoot 'Reference' 'ConvertTo-PSUComponentData.ps1'
-    $script:reference = New-Module -Name ComponentDataReference -ScriptBlock ([scriptblock]::Create(
-            ('. ''{0}''; Export-ModuleMember -Function ConvertTo-PSUComponentData' -f $referencePath)))
+    $load = { param($Path) [scriptblock]::Create(('. ''{0}''; Export-ModuleMember' -f $Path)) }
+    $script:subject = New-Module -Name ComponentDataSubject -ScriptBlock (& $load (Join-Path $script:repo 'shared' 'powershell' 'ConvertTo-PSUComponentData.ps1'))
+    $script:reference = New-Module -Name ComponentDataReference -ScriptBlock (& $load (Join-Path $PSScriptRoot 'Reference' 'ConvertTo-PSUComponentData.ps1'))
+    $script:convert = { param($Data) , (ConvertTo-PSUComponentData -InputObject $Data) }
 
     if (-not ('ComponentDataProbe' -as [type])) {
         # PowerShell unwraps a PSObject when it passes it to a .NET method, so only C# sees whether a
@@ -31,7 +32,7 @@ public static class ComponentDataProbe {
         $lines = [System.Collections.Generic.List[string]]::new()
         $lines.Add(('result {0} count {1}' -f $Result.GetType().FullName, @($Result).Count))
         foreach ($row in $Result) {
-            $lines.Add(('row {0}' -f $row.GetType().FullName))
+            $lines.Add(('row {0} [{1}]' -f $row.GetType().FullName, ($row.PSObject.TypeNames -join ', ')))
             foreach ($property in $row.PSObject.Properties) {
                 $value = $property.Value
                 $type = if ($null -eq $value) { 'null' } else { $value.GetType().FullName }
@@ -102,6 +103,15 @@ Describe 'ConvertTo-PSUComponentData returns what the original implementation re
             @{ Name = 'empty array'; Build = { , @() } }
             @{ Name = 'ticket DataTable (300 rows)'; Build = { Get-TicketTable -Count 300 } }
             @{ Name = 'DataTable with every column type'; Build = { Get-AllTypesTable } }
+            @{ Name = 'DataTable with TimeSpan and DateTimeOffset columns'; Build = {
+                    $t = [System.Data.DataTable]::new()
+                    [void]$t.Columns.Add('Span', [timespan]); [void]$t.Columns.Add('Offset', [datetimeoffset]); [void]$t.Columns.Add('Id', [guid]); [void]$t.Columns.Add('F', [single])
+                    [void]$t.Rows.Add([timespan]::FromMilliseconds(1500), [datetimeoffset]::new(2026, 3, 4, 10, 30, 0, [timespan]::FromHours(2)), [guid]::Empty, [single]0.1)
+                    [void]$t.Rows.Add([DBNull]::Value, [DBNull]::Value, [DBNull]::Value, [DBNull]::Value); , $t
+                }
+            }
+            @{ Name = 'empty DataView'; Build = { $v = [System.Data.DataView]::new((Get-TicketTable -Count 5)); $v.RowFilter = 'Ticket < 0'; , $v } }
+            @{ Name = 'DataView with one row'; Build = { $v = [System.Data.DataView]::new((Get-TicketTable -Count 5)); $v.RowFilter = 'Ticket = 40003'; , $v } }
             @{ Name = 'empty DataTable'; Build = { $t = [System.Data.DataTable]::new(); [void]$t.Columns.Add('A'); , $t } }
             @{ Name = 'DataTable with case-different column names'; Build = {
                     $t = [System.Data.DataTable]::new(); $t.CaseSensitive = $true
@@ -150,9 +160,68 @@ Describe 'ConvertTo-PSUComponentData returns what the original implementation re
         )
     }
 
-    It '<Name>' -ForEach $script:fixtures {
-        $expected = Get-Shape -Result (& $script:reference { param($Data) ConvertTo-PSUComponentData -InputObject $Data } (& $Build))
-        $actual = Get-Shape -Result (ConvertTo-PSUComponentData -InputObject (& $Build))
-        $actual | Should -BeExactly $expected
+    # every DataTable once through the compiled converter (from the first row on) and once through
+    # PowerShell alone; other inputs take the PowerShell path either way
+    Context '<_> path' -ForEach 'compiled', 'PowerShell' {
+        BeforeAll {
+            $script:path = $_
+            & $script:subject {
+                param($Path)
+                $Script:PSUComponentCompileMinRows = if ($Path -eq 'compiled') { 0 } else { 1000 }
+                $Script:PSUComponentRowCompiled = if ($Path -eq 'compiled') { $null } else { $false }
+            } $_
+        }
+        AfterAll {
+            & $script:subject { $Script:PSUComponentCompileMinRows = 1000; $Script:PSUComponentRowCompiled = $null }
+        }
+
+        It '<Name>' -ForEach $script:fixtures {
+            $expected = Get-Shape -Result (& $script:reference $script:convert (& $Build))
+            $actual = Get-Shape -Result (& $script:subject $script:convert (& $Build))
+            $actual | Should -BeExactly $expected
+        }
+
+        It 'took the <_> path' {
+            $null = & $script:subject $script:convert (Get-TicketTable -Count 3)
+            & $script:subject { $Script:PSUComponentRowCompiled } | Should -Be ($script:path -eq 'compiled')
+        }
+    }
+}
+
+Describe 'ConvertTo-PSUComponentData speed' {
+    BeforeAll {
+        $script:table = Get-TicketTable -Count 3000
+        $script:objects = foreach ($row in $script:table.Rows) {
+            [pscustomobject]@{ Ticket = $row['Ticket']; Created = $row['Created']; Team = $row['Team']; Cost = $row['Cost']; Reopened = $row['Reopened'] }
+        }
+        function Measure-Conversion {
+            # the median of five runs, after one to warm up (the first call includes compiling the function)
+            param([scriptblock]$Script)
+            $null = & $Script
+            $times = foreach ($i in 1..5) { (Measure-Command $Script).TotalMilliseconds }
+            @($times | Sort-Object)[2]
+        }
+    }
+    AfterAll { & $script:subject { $Script:PSUComponentRowCompiled = $null } }
+
+    # The bounds compare with the per-cell original on the same machine, so a slow CI runner does not
+    # matter; they only catch a return to a function call per cell (measured: about ten times faster in
+    # PowerShell, forty times compiled).
+    It 'converts a DataTable several times faster than the original, compiled and in PowerShell alone' {
+        $original = Measure-Conversion { $null = & $script:reference $script:convert $script:table }
+        & $script:subject { $Script:PSUComponentRowCompiled = $null }
+        $compiled = Measure-Conversion { $null = & $script:subject $script:convert $script:table }
+        & $script:subject { $Script:PSUComponentRowCompiled } | Should -BeTrue
+        & $script:subject { $Script:PSUComponentRowCompiled = $false }
+        $powershell = Measure-Conversion { $null = & $script:subject $script:convert $script:table }
+        $because = 'original {0:n0} ms, compiled {1:n0} ms, PowerShell {2:n0} ms' -f $original, $compiled, $powershell
+        $compiled * 5 | Should -BeLessThan $original -Because $because
+        $powershell * 3 | Should -BeLessThan $original -Because $because
+    }
+
+    It 'converts PSCustomObjects several times faster than the original' {
+        $original = Measure-Conversion { $null = & $script:reference $script:convert $script:objects }
+        $fast = Measure-Conversion { $null = & $script:subject $script:convert $script:objects }
+        $fast * 3 | Should -BeLessThan $original -Because ('original {0:n0} ms, new {1:n0} ms' -f $original, $fast)
     }
 }

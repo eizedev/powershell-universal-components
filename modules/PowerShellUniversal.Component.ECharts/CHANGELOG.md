@@ -5,6 +5,13 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
 
 ## [Unreleased]
 
+### Changed
+
+- Data conversion is about ten times faster (a DataTable of 5000 rows and 12 columns: 2.4 to 2.9 s
+  before, about 40 ms now, measured on a PSU test instance): no function call per cell, and large
+  DataTables go through a small class compiled on first use (Add-Type, once per PSU process). The rows
+  the component gets are the same as before.
+
 ## [0.2.0] - 2026-11-06
 
 ### Added
