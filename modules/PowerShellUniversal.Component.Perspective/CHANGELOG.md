@@ -7,6 +7,8 @@ All notable changes to PowerShellUniversal.Component.Perspective. Format:
 
 ### Added
 
+- `Private/SHARED.txt` in the built module: the content hashes of the repository's `shared/` code it was
+  built from, to compare two builds or releases.
 - A toolbar above every viewer: **Edit view** opens and closes the editor, **Table** and **Chart** switch
   between the grid and the chart the reader picked last (`-ChartPlugin`, Y Bar by default). `-Labels`
   translates it, `-NoToolbar` hides it.

@@ -24,6 +24,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   German, default en-US), `-Theme`, `-Height` (default: the window's height), `-FileName`, `-NoDrillDown`, `-NoAddressBar`.
 - `-OnViewChange`, `-OnCellClick`, `-OnSaveTemplate` and `-OnDeleteTemplate`; saving and deleting show
   in the report once the server confirmed them, and a server's refusal shows its message.
+- `Private/SHARED.txt`: the content hashes of the repository's `shared/` code the module was built from.
 - `ConvertFrom-UDPivotView`: checks a view from the browser (size, depth, shape, known keys only) before
   it is stored.
 - Light and dark theme in PSU's colours, following the app's switch; a corporate design from the app's

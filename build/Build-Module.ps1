@@ -8,7 +8,8 @@
     For modules/<Module>: installs the exact npm versions from package-lock.json (npm ci; npm install
     only when no lock file exists yet - commit it), runs webpack (shared/js is compiled into the
     bundle), and assembles a clean folder with the bundle, the manifest, the module, Private/
-    (shared/powershell/*.ps1), Apps/ when the module has one, and THIRD-PARTY-NOTICES.txt. A module
+    (shared/powershell/*.ps1 and SHARED.txt, the state of shared/ it was built from), Apps/ when the
+    module has one, and THIRD-PARTY-NOTICES.txt. A module
     without package.json (PowerShell only, e.g. a demo app) skips the JavaScript steps. The version
     comes from the manifest. Old output is removed first, so a failed build never leaves a stale bundle
     behind.
@@ -73,10 +74,7 @@ New-Item -ItemType Directory -Path $out -Force | Out-Null
 if ($component) { Copy-Item -Path (Join-Path $source 'public' '*') -Exclude '*.map' -Destination $out }
 if (Test-Path -LiteralPath (Join-Path $source 'Apps')) { Copy-Item -LiteralPath (Join-Path $source 'Apps') -Destination $out -Recurse }
 Copy-Item -LiteralPath $manifest, (Join-Path $source "$Module.psm1") -Destination $out
-if ($component) {
-    New-Item -ItemType Directory -Path (Join-Path $out 'Private') -Force | Out-Null
-    Copy-Item -Path (Join-Path $repo 'shared' 'powershell' '*.ps1') -Destination (Join-Path $out 'Private')
-}
+if ($component) { $null = & (Join-Path $PSScriptRoot 'Copy-SharedCode.ps1') -Destination (Join-Path $out 'Private') -SharedPath (Join-Path $repo 'shared') }
 # README and CHANGELOG travel with the module (PowerShell Gallery, an installed copy), where links
 # relative to the repository lead nowhere: they become links to the same file on the default branch
 # (images to the raw file). Code spans and fenced code blocks stay as they are.

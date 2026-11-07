@@ -5,6 +5,11 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
 
 ## [Unreleased]
 
+### Added
+
+- `Private/SHARED.txt` in the built module: the content hashes of the repository's `shared/` code it was
+  built from, to compare two builds or releases.
+
 ### Changed
 
 - Data conversion is about ten times faster (a DataTable of 5000 rows and 12 columns: 2.4 to 2.9 s

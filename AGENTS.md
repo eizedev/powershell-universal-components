@@ -12,7 +12,8 @@ hashtable PSU renders; see [README.md](README.md).
 - `shared/js/` - JavaScript used by several modules (PSU theme bridge, column matching, formats,
   CSV/XLSX export, text contrast on fills). Compiled into each module's bundle; never a runtime dependency between modules.
 - `shared/powershell/` - PowerShell used by several modules (data conversion, asset registration);
-  copied into each built module's `Private/`.
+  copied into each built module's `Private/` by `build/Copy-SharedCode.ps1`, which also writes
+  `Private/SHARED.txt`: the content hashes of `shared/` the module was built from.
 - `build/` - `Build-Module.ps1` and the shared webpack configuration.
 - `docs/` - the documentation site (Zensical, `zensical.toml`, shared design of eizedev/brand): the pages
   as Markdown, the complete documentation of every module. `docs/site/` builds its live parts:
@@ -63,6 +64,14 @@ rendering.
 - Docs describe the current state; history belongs in `CHANGELOG.md`, commits and pull requests.
 - Conventional Commits; one change per pull request; every module keeps its own `CHANGELOG.md` and
   SemVer `ModuleVersion`.
+- A change in `shared/` reaches every module that uses it only with that module's next release: give
+  each of them a CHANGELOG entry, and a patch release for a fix. Code moves into `shared/` only once a
+  second module needs it; until then it stays in its module. No common runtime module: each module
+  stays installable on its own.
+- The theme tokens (`--psu-chart-*`, read by `shared/js/psuTheme.js` and documented on
+  `docs/echarts/themes.md`) are the contract between the modules and an app's stylesheet: a token is
+  added to the page and the reader together, and renaming or removing one is a breaking change in
+  every module.
 - CI runs the browser tests in Playwright's container image: a new `@playwright/test` version (also a
   Dependabot pull request) raises the image tag and digest in `ci.yml` with it; `tests/js/ci.test.js` fails
   until both match.
