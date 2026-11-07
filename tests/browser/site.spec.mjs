@@ -16,7 +16,7 @@ function examplesState(page) {
             return { id, perspective: true };
         }
         // the pivot report's placeholder: the report's frame, busy
-        if (el.querySelector(".ud-pivot-placeholder .pk-root[aria-busy=true]")) {
+        if (el.querySelector(".ud-pivot-placeholder .pk-skeleton")) {
             return { id, placeholder: true };
         }
         // the pivot report: rendered once its table or chart region is there
@@ -99,17 +99,14 @@ test("Pivot: the report holds the DataTable, follows the switch and shows the $E
     expect(errors).toEqual([]);
 });
 
-test("Pivot: the placeholder shows the report's frame, tells screen readers it is loading and follows the switch", async ({ page }) => {
+test("Pivot: the placeholder shows the report's skeleton, tells screen readers it is loading and follows the switch", async ({ page }) => {
     const errors = collectErrors(page);
     await openPage(page, "/pivot/");
     const root = page.locator('[data-example="placeholder-while-the-data-loads"] .pk-root');
-    await expect(root).toHaveAttribute("role", "status");
-    await expect(root).toHaveAttribute("aria-busy", "true");
-    await expect(root).toContainText("Loading report");
-    // pivotkit's own frame: field list, four zones, a result area
-    await expect(root.locator(".pk-panel-slot")).toHaveCount(1);
-    await expect(root.locator(".pk-zone")).toHaveCount(4);
-    await expect(root.locator(".pk-result")).toHaveCount(1);
+    await expect(root.getByRole("status")).toContainText("Loading the report");
+    // pivotkit's own skeleton: field list, toolbar, four zones
+    await expect(root.locator(".pk-skel-panel")).toHaveCount(1);
+    await expect(root.locator(".pk-skel-zone")).toHaveCount(4);
     const box = await root.boundingBox();
     expect(Math.round(box.height)).toBe(420);
     const theme = await root.getAttribute("data-pk-theme");
@@ -123,8 +120,11 @@ test.describe("for readers who asked for reduced motion", () => {
 
     test("Pivot: the placeholder keeps still", async ({ page }) => {
         await openPage(page, "/pivot/");
-        const bone = page.locator('[data-example="placeholder-while-the-data-loads"] .ud-pivot-bone').first();
-        expect(await bone.evaluate((el) => getComputedStyle(el).animationName)).toBe("none");
+        const bone = page.locator('[data-example="placeholder-while-the-data-loads"] .pk-skel').first();
+        // pivotkit's rule for reduced motion: one run of a millisecond, then still
+        const style = await bone.evaluate((el) => ({ duration: getComputedStyle(el).animationDuration, count: getComputedStyle(el).animationIterationCount }));
+        expect(parseFloat(style.duration)).toBeLessThanOrEqual(0.001);
+        expect(style.count).toBe("1");
     });
 });
 
