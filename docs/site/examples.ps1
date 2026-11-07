@@ -373,7 +373,7 @@
             }
         }
     }
-    @{ Section = 'Pivot'; Title = 'Placeholder while the data loads'; Text = 'What New-UDPivotReportPlaceholder shows in New-UDDynamic -LoadingComponent until the report arrives: the report''s frame in its colours and layout, pulsing unless the reader asked for reduced motion.'; Code = {
+    @{ Section = 'Pivot'; Title = 'Placeholder while the data loads'; Text = 'What New-UDPivotReportPlaceholder shows in New-UDDynamic -LoadingComponent until the report arrives: pivotkit''s own skeleton of the report in its colours, moving unless the reader asked for reduced motion.'; Code = {
             New-UDPivotReportPlaceholder -Height 420px
         }
     }
@@ -385,6 +385,32 @@
             New-UDPivotReport -Id 'pivot-german' -Data $rows -Locale de-DE -Height 560px -TimeZone UTC -FieldDefaults @{ 'Lead hours' = @{ Agg = 'average'; Format = 'number:1' } } -View @{
                 rows = @('Kunde'); cols = @('Team'); values = @(@{ field = 'Lead hours'; agg = 'average'; format = 'number:1' })
             }
+        }
+    }
+    @{ Section = 'Pivot'; Title = 'Field names and descriptions'; Text = 'Labels, descriptions with a link, the order of Status and the type of Created from a JSON Schema; one description from -FieldDescriptions (as Get-UDPivotSqlColumnDescription returns them), aggregator and format from -FieldDefaults. Hover or tap the "i" next to a field.'; Code = {
+            $rng = [System.Random]::new(13)
+            $rows = foreach ($i in 1..500) {
+                [pscustomobject]@{
+                    Id        = 20000 + $i
+                    Created   = ([datetime]'2026-10-31').AddDays(-$rng.Next(0, 200)).ToString('yyyy-MM-dd')
+                    Team      = ('Service Desk', 'Network', 'Server')[$rng.Next(0, 3)]
+                    Status    = ('Open', 'Waiting', 'Closed', 'Closed')[$rng.Next(0, 4)]
+                    LeadHours = [math]::Round(2 + 30 * $rng.NextDouble(), 1)
+                }
+            }
+            $schema = @{
+                type       = 'object'
+                properties = @{
+                    Id        = @{ type = 'integer'; title = 'Ticket number' }
+                    Created   = @{ type = 'string'; format = 'date'; description = 'The day the customer reported it.' }
+                    Status    = @{ type = 'string'; enum = @('Open', 'Waiting', 'Closed'); description = 'Open, waiting for the customer, or closed.' }
+                    LeadHours = @{ type = 'number'; title = 'Lead time (h)'; externalDocs = @{ url = 'https://powershell-universal-components.eize.dev/pivot/fields/' } }
+                }
+            }
+            New-UDPivotReport -Id 'pivot-fields' -Data $rows -Schema $schema -Height 560px -TimeZone UTC `
+                -FieldDescriptions @{ Team = 'The team the ticket is assigned to.' } `
+                -FieldDefaults @{ LeadHours = @{ Agg = 'average'; Format = 'number:1'; Description = 'Hours from creation to closing.' } } `
+                -View @{ rows = @('Team'); cols = @('Status'); values = @(@{ field = 'LeadHours'; agg = 'average'; format = 'number:1' }) }
         }
     }
     #endregion

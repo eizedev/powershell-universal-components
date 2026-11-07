@@ -44,7 +44,11 @@ when the page is built again (not `-View`: `$Session` is shared by all tabs of a
   sends the page address with its requests. `-NoAddressBar` keeps it out for sensitive data. A view
   from a link is checked like every other view.
 - Views are data. The report checks them against the data and runs nothing from them; formats are
-  names, not code. The table and the drill-down show values as text, never as HTML.
+  names, not code. The table and the drill-down show values as text, never as HTML, and so are field
+  labels and descriptions; a description's link must be `https://`.
+- `-Schema` with a URL is fetched by the server (https only, 15 seconds, at most 1 MB), never by the
+  browser; pass only addresses you trust, never one a reader typed. `-ChartOptions` is plain JSON:
+  pivotkit drops options that are markup or addresses.
 - Exports are made in the browser from what the reader sees; nothing is sent to a server. The CSV
   export guards against formulas (a value starting with `=`, `+`, `-` or `@` is not run by Excel).
 - The report loads nothing from the internet.

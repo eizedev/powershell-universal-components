@@ -26,6 +26,26 @@ async function setTheme(page, mode) {
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe(mode);
 }
 
+// Reset in the toolbar, or in its More menu where the toolbar has no room for it (WebKit's wider font)
+async function resetButton(report) {
+    const button = report.locator("[data-testid=reset]");
+    if (await button.isVisible()) return { button, close: async () => {} };
+    await report.getByRole("button", { name: "More" }).click();
+    const page = report.page();
+    return { button: page.locator("[data-testid=more-reset]"), close: () => page.keyboard.press("Escape") };
+}
+
+async function reset(report) {
+    await (await resetButton(report)).button.click();
+}
+
+// Reset is disabled while the report shows its start view
+async function expectAtStart(report) {
+    const { button, close } = await resetButton(report);
+    await expect(button).toBeDisabled();
+    await close();
+}
+
 test.describe("pivot showcase on PSU", () => {
     test.skip(!base, "set PSU_PIVOT_URL to the pivot showcase app to run these");
 
@@ -51,9 +71,9 @@ test.describe("pivot showcase on PSU", () => {
         await page.goto(`${base}/tickets`);
         const placeholder = page.locator(".ud-pivot-placeholder .pk-root");
         await expect(placeholder).toBeVisible({ timeout: 30000 });
-        await expect(placeholder).toHaveAttribute("role", "status");
-        await expect(placeholder).toHaveAttribute("aria-busy", "true");
-        await expect(placeholder.locator(".pk-zone")).toHaveCount(4);
+        // pivotkit's own skeleton: a status screen readers hear once
+        await expect(placeholder.getByRole("status")).toContainText("Loading the report");
+        await expect(placeholder.locator(".pk-skel-zone")).toHaveCount(4);
         const before = await placeholder.boundingBox();
         const report = page.locator(REPORT);
         await expect(report.getByRole("region", { name: "Table" })).toContainText("5,000", { timeout: 30000 });
@@ -61,6 +81,41 @@ test.describe("pivot showcase on PSU", () => {
         // the report takes the placeholder's place and size: nothing on the page moves
         const after = await report.boundingBox();
         for (const key of ["x", "y", "width", "height"]) expect(Math.round(after[key]), key).toBe(Math.round(before[key]));
+        expect(errors).toEqual([]);
+    });
+
+    test("field names, descriptions, links and orders from -Schema, -FieldDescriptions and -FieldDefaults", async ({ page }) => {
+        const warnings = [];
+        page.on("console", (m) => {
+            if (m.type() === "warning" && /New-UDPivotReport|pivotkit/.test(m.text())) warnings.push(m.text());
+        });
+        const errors = await open(page, "fields");
+        const report = page.locator(REPORT);
+        await expect(report).toHaveAttribute("aria-label", "Tickets with field descriptions");
+        // the schema's title is the name the reader sees; the data keeps the column's name
+        const list = report.getByRole("complementary", { name: "Field list" });
+        await expect(list.getByRole("button", { name: "Drag Support team" })).toBeVisible();
+        await expect(list.getByRole("button", { name: "Drag Lead time (h)" })).toBeVisible();
+        // the description of each source behind the field's "i": schema with its https link, -FieldDescriptions (SQL), -FieldDefaults
+        const dialog = page.getByRole("dialog");
+        const about = async (field, text, href) => {
+            // found through the field search, which also searches labels and descriptions
+            await list.getByRole("searchbox", { name: "Search fields" }).fill(text.slice(0, 12));
+            await list.getByRole("button", { name: `About ${field}`, exact: true }).click();
+            await expect(dialog).toContainText(text);
+            if (href) await expect(dialog.getByRole("link", { name: "Learn more" })).toHaveAttribute("href", href);
+            // closed before the next one: an open description covers the fields below it
+            await page.keyboard.press("Escape");
+            await expect(dialog).toHaveCount(0);
+        };
+        await about("Support team", "The team the ticket is assigned to.", "https://powershell-universal-components.eize.dev/pivot/fields/");
+        await about("Customer", "The customer who reported the ticket.");
+        await about("Priority", "P1 is the most urgent.");
+        // the schema's enum orders Status on Columns: Open, Waiting, Closed (not A to Z)
+        const head = await report.getByRole("region", { name: "Table" }).locator("thead").innerText();
+        expect(head.indexOf("Open")).toBeLessThan(head.indexOf("Waiting"));
+        expect(head.indexOf("Waiting")).toBeLessThan(head.indexOf("Closed"));
+        expect(warnings).toEqual([]);
         expect(errors).toEqual([]);
     });
 
@@ -227,12 +282,12 @@ test.describe("pivot showcase on PSU", () => {
         await expect(first).toBeVisible({ timeout: 30000 });
         await check();
         // Reset goes back to the server's -View, and that is what the tab keeps from now on
-        await first.locator("[data-testid=reset]").click();
+        await reset(first);
         await pressed(first, "show-table");
         await page.reload();
         await expect(first).toBeVisible({ timeout: 30000 });
         await pressed(first, "show-table");
-        await expect(first.locator("[data-testid=reset]")).toBeDisabled();
+        await expectAtStart(first);
         await expect(second.getByRole("region", { name: "Columns" })).toContainText("Category");
     });
 
@@ -282,7 +337,7 @@ test.describe("pivot showcase on PSU", () => {
         const c = await page.context().newPage();
         await open(c, "tickets");
         await shows(c, { chart: false, columns: "Team" });
-        await c.locator(`${REPORT} [data-testid=reset]`).click();
+        await reset(c.locator(REPORT));
         await shows(c, { chart: false, columns: "Priority" });
         await expect(c.locator(REPORT).getByRole("region", { name: "Rows" })).toContainText("Team");
         // another browser (another PSU session) knows nothing of these views
@@ -291,7 +346,7 @@ test.describe("pivot showcase on PSU", () => {
             const d = await other.newPage();
             await open(d, "tickets");
             await shows(d, { chart: false, columns: "Priority" });
-            await expect(d.locator(`${REPORT} [data-testid=reset]`)).toBeDisabled();
+            await expectAtStart(d.locator(REPORT));
         } finally {
             await other.close();
         }
@@ -331,12 +386,12 @@ test.describe("pivot showcase on PSU", () => {
         expect(page.url()).toBe(link);
         await setTheme(page, "light");
         // Reset: -View, also in the address bar, at once (a reload right after it keeps -View)
-        await first.locator("[data-testid=reset]").click();
+        await reset(first);
         await expect(first.locator("[data-testid=show-table]")).toHaveAttribute("aria-pressed", "true");
         await page.reload();
         await expect(first).toBeVisible({ timeout: 30000 });
         await expect(first.locator("[data-testid=show-table]")).toHaveAttribute("aria-pressed", "true");
-        await expect(first.locator("[data-testid=reset]")).toBeDisabled();
+        await expectAtStart(first);
         await expect(second.getByRole("region", { name: "Columns" })).toContainText("Category");
         // one step back leaves the page: the changes made no history entries
         await page.goBack();

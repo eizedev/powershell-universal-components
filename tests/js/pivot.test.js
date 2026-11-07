@@ -6,29 +6,21 @@ import { contrastRatio, parseColor } from "../../shared/js/contrast.js";
 
 const mod = await import("../../modules/PowerShellUniversal.Component.Pivot/Components/prepare.js");
 
-test("restoreRows: PowerShell's column names back, dates readable and still ISO", () => {
+test("restoreRows: PowerShell's column names back, values as they are", () => {
     // as PSU sends them: keys camelCased, the original names in columnNames
     const rows = [
-        { ticket: 1, "lead hours": 2.5, created: "2026-08-16T17:31:00.0000000", day: "2026-08-16T00:00:00.0000000", agent: null },
-        { ticket: 2, "lead hours": null, created: "2026-08-17T09:00:00.0000000+02:00", day: "2026-08-17T00:00:00.0000000", agent: "Kim" }
+        { ticket: 1, "lead hours": 2.5, created: "2026-08-16T17:31:00.0000000", agent: null },
+        { ticket: 2, "lead hours": null, created: "2026-08-17T09:00:00.0000000+02:00", agent: "Kim" }
     ];
-    const out = mod.restoreRows(rows, ["Ticket", "Lead hours", "Created", "Day", "Agent"]);
-    assert.deepEqual(Object.keys(out[0]), ["Ticket", "Lead hours", "Created", "Day", "Agent"]);
-    assert.equal(out[0].Created, "2026-08-16 17:31:00");
-    assert.equal(out[0].Day, "2026-08-16");
-    assert.equal(out[1].Created, "2026-08-17 09:00:00+02:00");
+    const out = mod.restoreRows(rows, ["Ticket", "Lead hours", "Created", "Agent"]);
+    assert.deepEqual(Object.keys(out[0]), ["Ticket", "Lead hours", "Created", "Agent"]);
+    // pivotkit-core reads .NET's round-trip format as a date; the drill-down formats it
+    assert.equal(out[0].Created, "2026-08-16T17:31:00.0000000");
+    assert.equal(out[1].Created, "2026-08-17T09:00:00.0000000+02:00");
     assert.equal(out[0].Agent, null);
     assert.equal(out[1]["Lead hours"], null);
     assert.deepEqual(mod.restoreRows(null, []), []);
     assert.deepEqual(mod.restoreRows([1, "x", null, { a: 1 }], ["A"]), [{ A: 1 }]);
-});
-
-test("readableDate: only .NET's round-trip dates change; a fraction that is not zero stays", () => {
-    assert.equal(mod.readableDate("2026-08-16T17:31:59.9990000"), "2026-08-16 17:31:59.9990000");
-    assert.equal(mod.readableDate("2026-08-16T00:00:00.0000000Z"), "2026-08-16 00:00:00Z");
-    for (const v of ["2026-08-16", "Team 2026-08-16T17:31:00", 42, null, "2026-13-99T99:99:99.0x"]) {
-        assert.equal(mod.readableDate(v), v);
-    }
 });
 
 test("parseView: objects and JSON, nothing else; never evaluated", () => {
@@ -99,17 +91,42 @@ test("callEndpoint: resolves on success, rejects with the server's message or on
     await assert.rejects(mod.callEndpoint(() => new Promise(() => {}), {}, 20), /no answer/);
 });
 
-test("sizeOf and placeholderLabel: the placeholder's layout and text follow the report's", () => {
-    assert.equal(mod.sizeOf(390), "narrow");
-    assert.equal(mod.sizeOf(639), "narrow");
-    assert.equal(mod.sizeOf(640), "medium");
-    assert.equal(mod.sizeOf(1023), "medium");
-    assert.equal(mod.sizeOf(1024), "wide");
-    assert.deepEqual(mod.placeholderLabel("de-DE"), { lang: "de", text: "Bericht wird geladen" });
-    assert.deepEqual(mod.placeholderLabel("de"), { lang: "de", text: "Bericht wird geladen" });
-    for (const locale of ["en-US", "fr-FR", "dev", undefined, null]) {
-        assert.deepEqual(mod.placeholderLabel(locale), { lang: "en", text: "Loading report" });
+test("parseJsonObject: JSON objects of at most max characters, nothing else", () => {
+    assert.deepEqual(mod.parseJsonObject('{"LeadHours":{"label":"Lead time"}}', 100), { LeadHours: { label: "Lead time" } });
+    for (const v of ["[1]", "1", '"x"', "{", "", null, undefined, { a: 1 }, '{"a":1}'.padEnd(200)]) {
+        assert.equal(mod.parseJsonObject(v, 100), undefined, String(v));
     }
+});
+
+test("mergeFieldDefaults: the server over the schema key by key, names without regard to case, the data's spelling", () => {
+    const schema = { leadHours: { label: "Lead (schema)", description: "From the schema", type: "number" }, Region: { order: ["North", "South"] } };
+    const server = { LEADHOURS: { label: "Lead time", agg: "average" }, Team: { description: "Who" } };
+    const out = mod.mergeFieldDefaults(schema, server, ["LeadHours", "Team"]);
+    assert.deepEqual(out, {
+        LeadHours: { label: "Lead time", description: "From the schema", type: "number", agg: "average" },
+        Region: { order: ["North", "South"] },
+        Team: { description: "Who" }
+    });
+    // without columnNames the server's spelling wins over the schema's
+    assert.deepEqual(Object.keys(mod.mergeFieldDefaults(schema, server)), ["LEADHOURS", "Region", "Team"]);
+    assert.equal(mod.mergeFieldDefaults(undefined, undefined, []), undefined);
+    assert.equal(mod.mergeFieldDefaults({ a: 1, b: null, c: [] }, "x"), undefined);
+    // a field named __proto__ stays a field and never reaches the prototype
+    const odd = mod.mergeFieldDefaults(JSON.parse('{"__proto__":{"label":"x"}}'), undefined);
+    assert.deepEqual(Object.getOwnPropertyDescriptor(odd, "__proto__").value, { label: "x" });
+    assert.equal(Object.getPrototypeOf(odd), Object.prototype);
+});
+
+test("tipsOf and switchOf", () => {
+    assert.equal(mod.tipsOf("off"), "off");
+    assert.equal(mod.tipsOf("On"), "on");
+    assert.equal(mod.tipsOf(undefined), "on");
+    assert.deepEqual(mod.tipsOf(["values", "chartSeries"]), ["values", "chartSeries"]);
+    assert.deepEqual(mod.tipsOf("values, cells"), ["values", "cells"]);
+    assert.equal(mod.switchOf("Off"), "off");
+    assert.equal(mod.switchOf("on"), "on");
+    assert.equal(mod.switchOf("maybe"), undefined);
+    assert.equal(mod.switchOf(undefined), undefined);
 });
 
 test("heightOf and themeOf", () => {

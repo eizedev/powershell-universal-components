@@ -15,12 +15,22 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   rows, undo and redo, templates, and Excel, CSV and PNG export.
 - Data straight from DataTables, REST results and PowerShell objects with their original column names;
   dates stay dates, `-TimeZone` (default: the server's zone) for dates with an offset.
-- `New-UDPivotReportPlaceholder` for `New-UDDynamic -LoadingComponent`: the report's frame in its own
-  colours and layout while the server builds the data (reduced motion respected, announced to screen
+- `New-UDPivotReportPlaceholder` for `New-UDDynamic -LoadingComponent`: pivotkit's own skeleton of the
+  report in its colours while the server builds the data (reduced motion respected, announced to screen
   readers); it also makes the browser load the module's code at once. The showcase uses it.
 - Data conversion without a function call per cell: the showcase's 5000-row DataTable takes about 40 ms
   instead of 2.4 to 2.9 s on the test instance, the table appears after about 0.46 s instead of 2.6 s.
-- `-View` (hashtable or JSON), `-Templates`, `-FieldDefaults`, `-Labels`, `-Locale` (English and
+- Field names and descriptions: `-FieldDefaults` with `Label`, `Description`, `Href` (https only),
+  `Order`, `Agg`, `Format`, `DrillFormat` and `Type`, checked on the server; `-FieldDescriptions` (field
+  name to text); `-Schema` from a JSON Schema or an OpenAPI 3 / Swagger 2 document (hashtable, JSON,
+  file or https URL fetched on the server with timeout and size cap) with `-SchemaName`, read by
+  pivotkit-core's `fieldDefaultsFromSchema` in the browser; `Get-UDPivotSqlColumnDescription` reads
+  SQL Server column descriptions (`MS_Description`) for `-FieldDescriptions`. `-FieldInfo` and
+  `-ZoneInfo` decide the "i" of fields and zones.
+- `-ChartOptions` (plain JSON over the chart's ECharts option), `-Tips` (On, Off or tip ids; dismissed
+  tips are remembered per report), `-Label` (the report's name for screen readers, also on the
+  placeholder).
+- `-View` (hashtable or JSON), `-Templates`, `-Labels`, `-Locale` (English and
   German, default en-US), `-Theme`, `-Height` (default: the window's height), `-FileName`, `-NoDrillDown`, `-NoAddressBar`.
 - `-OnViewChange`, `-OnCellClick`, `-OnSaveTemplate` and `-OnDeleteTemplate`; saving and deleting show
   in the report once the server confirmed them, and a server's refusal shows its message.

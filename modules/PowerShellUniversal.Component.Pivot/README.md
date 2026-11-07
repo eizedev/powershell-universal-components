@@ -4,7 +4,8 @@ A pivot report builder for PowerShell Universal apps, on [pivotkit](https://www.
 readers drag fields from a searchable list into Rows, Columns, Values and Filters and get a table with
 totals or a chart. Dates are grouped by month, quarter or year, a click on a value opens the source
 rows behind it, readers save their layouts as templates, undo every step and export to Excel, CSV and
-PNG. Light and dark theme in PSU's colours, English and German, from a phone to a wide screen.
+PNG. Fields get display names and descriptions from your script, SQL Server column descriptions or an
+OpenAPI schema. Light and dark theme in PSU's colours, English and German, from a phone to a wide screen.
 
 ```powershell
 New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -Locale de-DE
@@ -32,6 +33,7 @@ templates saved per user, a language switch, the events and the report in page l
 | --- | --- |
 | What readers can do, data, dates and time zones, language, theme and height, the placeholder while the data loads, performance | [Overview](https://powershell-universal-components.eize.dev/pivot/) |
 | Corporate design from the app's stylesheet, shared with the ECharts module | [Themes and corporate design](https://powershell-universal-components.eize.dev/pivot/themes/) |
+| `-FieldDefaults`, `-FieldDescriptions`, SQL Server column descriptions (`Get-UDPivotSqlColumnDescription`), `-Schema` (JSON Schema, OpenAPI) | [Field names and descriptions](https://powershell-universal-components.eize.dev/pivot/fields/) |
 | `-View`, `-SavedView`, several tabs, `-Templates`, saving templates, `ConvertFrom-UDPivotView` | [Views and templates](https://powershell-universal-components.eize.dev/pivot/views/) |
 | `-OnViewChange`, `-OnCellClick`, `-OnSaveTemplate`, `-OnDeleteTemplate`, security | [Events, security and limits](https://powershell-universal-components.eize.dev/pivot/events/) |
 | Parameters | [Reference](https://powershell-universal-components.eize.dev/pivot/reference/) |

@@ -123,7 +123,7 @@ Describe 'New-UDPivotReport' {
         (New-UDPivotReport -Data @() -Height '70vh').height | Should -Be '70vh'
         (New-UDPivotReport -Data @() -Height 'calc(100vh - 120px)').height | Should -Be 'calc(100vh - 120px)'
         { New-UDPivotReport -Data @() -Height '640px; background: red' } | Should -Throw
-        (New-UDPivotReport -Data @() -FieldDefaults @{ Hours = @{ Agg = 'average'; Format = 'number:1' } }).fieldDefaults.Hours.Format | Should -Be 'number:1'
+        ((New-UDPivotReport -Data @() -FieldDefaults @{ Hours = @{ Agg = 'average'; Format = 'number:1' } }).fieldDefaults | ConvertFrom-Json).Hours.format | Should -Be 'number:1'
         { New-UDPivotReport -Data @() -FieldDefaults @{ Hours = 'average' } } | Should -Throw '*Hours*'
         { New-UDPivotReport -Data @() -FieldDefaults @{ Hours = @{ Format = 'x(); alert(1)' } } } | Should -Throw '*Hours*'
         (New-UDPivotReport -Data @() -NoDrillDown).drillDown | Should -BeFalse
@@ -194,6 +194,233 @@ Describe 'ConvertFrom-UDPivotView' {
     }
 }
 
+Describe 'New-UDPivotReport: fields, schema, chart options and tips' {
+    BeforeAll {
+        $script:rows = @([pscustomobject]@{ LeadHours = 2.5; Priority = 'High' })
+        # the props travel as JSON text; this is what the browser parses
+        $script:defaultsOf = { param($Component) $Component.fieldDefaults | ConvertFrom-Json -AsHashtable }
+    }
+
+    It '-FieldDefaults: every key in pivotkit''s name, the field names as given, as JSON text' {
+        $c = New-UDPivotReport -Data $rows -FieldDefaults @{
+            LeadHours = @{ Agg = 'average'; Format = 'number:1'; DrillFormat = 'text'; Label = 'Lead time'; Description = 'Hours to resolve'; Href = 'https://wiki.example.org/lead'; Type = 'number' }
+            Priority  = [pscustomobject]@{ Order = @('Low', 'Normal', 'High') }
+        }
+        $c.fieldDefaults | Should -BeOfType [string]
+        $d = & $defaultsOf $c
+        $d.LeadHours.Keys | Sort-Object | Should -Be @('agg', 'description', 'drillFormat', 'format', 'href', 'label', 'type')
+        $d.LeadHours.label | Should -Be 'Lead time'
+        $d.LeadHours.href | Should -Be 'https://wiki.example.org/lead'
+        $d.Priority.order | Should -Be @('Low', 'Normal', 'High')
+    }
+
+    It '-FieldDefaults: refuses unknown keys, non-text, links that are not https, wrong types and orders' {
+        { New-UDPivotReport -Data $rows -FieldDefaults @{ A = @{ Colour = 'red' } } } | Should -Throw '*unknown key "Colour"*'
+        { New-UDPivotReport -Data $rows -FieldDefaults @{ A = @{ Label = 42 } } } | Should -Throw '*Label must be text*'
+        { New-UDPivotReport -Data $rows -FieldDefaults @{ A = @{ Description = @('x') } } } | Should -Throw '*Description must be text*'
+        foreach ($href in 'http://example.org', 'javascript:alert(1)', 'https://user:pw@example.org/', '/relative', ('https://example.org/' + ('a' * 2000))) {
+            { New-UDPivotReport -Data $rows -FieldDefaults @{ A = @{ Href = $href } } } | Should -Throw '*https*' -Because $href
+        }
+        { New-UDPivotReport -Data $rows -FieldDefaults @{ A = @{ Type = 'object' } } } | Should -Throw '*Type*'
+        { New-UDPivotReport -Data $rows -FieldDefaults @{ A = @{ Order = @(@{ x = 1 }) } } } | Should -Throw '*Order*'
+        { New-UDPivotReport -Data $rows -FieldDefaults @{ A = @{ Order = 1..1001 } } } | Should -Throw '*1000*'
+        { New-UDPivotReport -Data $rows -FieldDefaults @{ ('x' * 257) = @{ Label = 'x' } } } | Should -Throw '*field names*'
+    }
+
+    It 'cuts labels and descriptions to pivotkit''s caps' {
+        $d = & $defaultsOf (New-UDPivotReport -Data $rows -FieldDefaults @{ A = @{ Label = 'L' * 500; Description = 'D' * 5000 } })
+        $d.A.label.Length | Should -Be 120
+        $d.A.label | Should -BeLike ('*' + [char]0x2026)
+        $d.A.description.Length | Should -Be 1000
+    }
+
+    It '-FieldDescriptions: adds descriptions, a Description of -FieldDefaults wins, case-insensitive; empty, null and DBNull left out' {
+        $descriptions = [ordered]@{ leadhours = 'From SQL'; Priority = 'How urgent'; Empty = ''; Null = $null; Db = [System.DBNull]::Value }
+        $d = & $defaultsOf (New-UDPivotReport -Data $rows -FieldDescriptions $descriptions -FieldDefaults @{ LeadHours = @{ Description = 'Own text'; Agg = 'average' } })
+        $d.Keys | Sort-Object | Should -Be @('LeadHours', 'Priority')
+        $d.LeadHours.description | Should -Be 'Own text'
+        $d.Priority.description | Should -Be 'How urgent'
+        { New-UDPivotReport -Data $rows -FieldDescriptions @{ A = 1 } } | Should -Throw '*must be text*'
+        (New-UDPivotReport -Data $rows -FieldDescriptions @{ A = '' }).ContainsKey('fieldDefaults') | Should -BeFalse
+    }
+
+    It '-Schema: a hashtable, JSON, a file; the text keeps its names; -SchemaName goes along' {
+        $schema = @{ openapi = '3.0.3'; components = @{ schemas = @{ Ticket = @{ properties = @{ LeadHours = @{ title = 'Lead time' } } } } } }
+        $c = New-UDPivotReport -Data $rows -Schema $schema -SchemaName 'Ticket'
+        $c.schema | Should -BeOfType [string]
+        ($c.schema | ConvertFrom-Json -AsHashtable).components.schemas.Ticket.properties.LeadHours.title | Should -Be 'Lead time'
+        $c.schemaName | Should -Be 'Ticket'
+        (New-UDPivotReport -Data $rows -Schema ' {"properties":{"A":{}}} ').schema | Should -Be '{"properties":{"A":{}}}'
+        $file = Join-Path $TestDrive 'schema.json'
+        Set-Content -LiteralPath $file -Value '{"properties":{"A":{"description":"from a file"}}}' -Encoding utf8
+        (New-UDPivotReport -Data $rows -Schema $file).schema | Should -Match 'from a file'
+    }
+
+    It '-Schema: refuses what is no JSON object, too large, too deep, other address schemes and missing files' {
+        { New-UDPivotReport -Data $rows -Schema '{"a":' } | Should -Throw '*-Schema: not valid JSON*'
+        { New-UDPivotReport -Data $rows -Schema (Join-Path $TestDrive 'missing.json') } | Should -Throw '*no file*'
+        { New-UDPivotReport -Data $rows -Schema 'http://example.org/openapi.json' } | Should -Throw '*only https*'
+        { New-UDPivotReport -Data $rows -Schema 'file:///etc/passwd' } | Should -Throw '*only https*'
+        { New-UDPivotReport -Data $rows -Schema ('{"a":"' + ('x' * 1MB) + '"}') } | Should -Throw '*more than*'
+        { New-UDPivotReport -Data $rows -Schema (('{"a":' * 70) + '1' + ('}' * 70)) } | Should -Throw '*64 levels*'
+        $array = Join-Path $TestDrive 'array.json'
+        Set-Content -LiteralPath $array -Value '[1,2]'
+        { New-UDPivotReport -Data $rows -Schema $array } | Should -Throw '*JSON object*'
+        { New-UDPivotReport -Data $rows -SchemaName 'Ticket' } | Should -Throw '*needs -Schema*'
+    }
+
+    It '-Schema: an https URL is fetched once and kept per runspace' {
+        & $script:module {
+            $Script:SchemaCache['https://schemas.example.invalid/openapi.json'] = @{ Text = '{"properties":{}}'; Time = [datetime]::UtcNow }
+        }
+        (New-UDPivotReport -Data $rows -Schema 'https://schemas.example.invalid/openapi.json').schema | Should -Be '{"properties":{}}'
+        # an outdated entry is fetched again; the address does not resolve, so the error names it
+        & $script:module { $Script:SchemaCache['https://schemas.example.invalid/openapi.json'].Time = [datetime]::UtcNow.AddHours(-1) }
+        { New-UDPivotReport -Data $rows -Schema 'https://schemas.example.invalid/openapi.json' } | Should -Throw '*could not be read*'
+    }
+
+    It '-ChartOptions: JSON text from a hashtable or JSON, capped' {
+        $c = New-UDPivotReport -Data $rows -ChartOptions @{ legend = @{ top = 0 }; xAxis = @{ axisLabel = @{ rotate = 30 } } }
+        ($c.chartOptions | ConvertFrom-Json).xAxis.axisLabel.rotate | Should -Be 30
+        (New-UDPivotReport -Data $rows -ChartOptions '{"grid":{"left":80}}').chartOptions | Should -Be '{"grid":{"left":80}}'
+        { New-UDPivotReport -Data $rows -ChartOptions '[1]' } | Should -Throw '*JSON object*'
+        { New-UDPivotReport -Data $rows -ChartOptions @{ a = 'x' * 70000 } } | Should -Throw '*more than*'
+    }
+
+    It '-Tips, -FieldInfo, -ZoneInfo and -Label' {
+        (New-UDPivotReport -Data $rows -Tips Off).tips | Should -Be 'off'
+        (New-UDPivotReport -Data $rows -Tips values, chartSeries).tips | Should -Be @('values', 'chartSeries')
+        { New-UDPivotReport -Data $rows -Tips On, values } | Should -Throw '*alone*'
+        { New-UDPivotReport -Data $rows -Tips 'a b' } | Should -Throw
+        $c = New-UDPivotReport -Data $rows -FieldInfo Off -ZoneInfo On -Label 'Tickets per team'
+        $c.fieldInfo | Should -Be 'off'
+        $c.zoneInfo | Should -Be 'on'
+        $c.label | Should -Be 'Tickets per team'
+        foreach ($key in 'tips', 'fieldInfo', 'zoneInfo', 'label', 'schema', 'chartOptions') {
+            (New-UDPivotReport -Data $rows).ContainsKey($key) | Should -BeFalse -Because "$key was not passed"
+        }
+    }
+}
+
+Describe 'Get-UDPivotSqlColumnDescription' {
+    BeforeAll {
+        # a stand-in ADO.NET connection: records the command, answers with a DataTable
+        if (-not ('PivotTest.FakeConnection' -as [type])) {
+            Add-Type -ReferencedAssemblies System.Data.Common, System.Data, System.ComponentModel.Primitives, System.ComponentModel.TypeConverter, System.Collections, System.Linq -TypeDefinition @'
+using System.Data;
+using System.Data.Common;
+namespace PivotTest {
+    public class FakeParameter : DbParameter {
+        public override DbType DbType { get; set; }
+        public override ParameterDirection Direction { get; set; }
+        public override bool IsNullable { get; set; }
+        public override string ParameterName { get; set; }
+        public override string SourceColumn { get; set; }
+        public override object Value { get; set; }
+        public override bool SourceColumnNullMapping { get; set; }
+        public override int Size { get; set; }
+        public override void ResetDbType() { }
+    }
+    public class FakeParameters : DbParameterCollection {
+        public System.Collections.Generic.List<DbParameter> Items = new System.Collections.Generic.List<DbParameter>();
+        public override int Count { get { return Items.Count; } }
+        public override object SyncRoot { get { return this; } }
+        public override int Add(object value) { Items.Add((DbParameter)value); return Items.Count - 1; }
+        public override void AddRange(System.Array values) { foreach (object v in values) Add(v); }
+        public override void Clear() { Items.Clear(); }
+        public override bool Contains(object value) { return Items.Contains((DbParameter)value); }
+        public override bool Contains(string value) { return IndexOf(value) >= 0; }
+        public override void CopyTo(System.Array array, int index) { }
+        public override System.Collections.IEnumerator GetEnumerator() { return Items.GetEnumerator(); }
+        public override int IndexOf(object value) { return Items.IndexOf((DbParameter)value); }
+        public override int IndexOf(string name) { return Items.FindIndex(p => p.ParameterName == name); }
+        public override void Insert(int index, object value) { Items.Insert(index, (DbParameter)value); }
+        public override void Remove(object value) { Items.Remove((DbParameter)value); }
+        public override void RemoveAt(int index) { Items.RemoveAt(index); }
+        public override void RemoveAt(string name) { Items.RemoveAt(IndexOf(name)); }
+        protected override DbParameter GetParameter(int index) { return Items[index]; }
+        protected override DbParameter GetParameter(string name) { return Items[IndexOf(name)]; }
+        protected override void SetParameter(int index, DbParameter value) { Items[index] = value; }
+        protected override void SetParameter(string name, DbParameter value) { Items[IndexOf(name)] = value; }
+    }
+    public class FakeCommand : DbCommand {
+        public FakeConnection Owner;
+        public FakeParameters Params = new FakeParameters();
+        public override string CommandText { get; set; }
+        public override int CommandTimeout { get; set; }
+        public override CommandType CommandType { get; set; }
+        public override bool DesignTimeVisible { get; set; }
+        public override UpdateRowSource UpdatedRowSource { get; set; }
+        protected override DbConnection DbConnection { get; set; }
+        protected override DbParameterCollection DbParameterCollection { get { return Params; } }
+        protected override DbTransaction DbTransaction { get; set; }
+        public override void Cancel() { }
+        public override int ExecuteNonQuery() { return 0; }
+        public override object ExecuteScalar() { return null; }
+        public override void Prepare() { }
+        protected override DbParameter CreateDbParameter() { return new FakeParameter(); }
+        protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior) { Owner.Last = this; return Owner.Answer.CreateDataReader(); }
+    }
+    public class FakeConnection : DbConnection {
+        public DataTable Answer;
+        public FakeCommand Last;
+        public bool WasDisposed;
+        public override string ConnectionString { get; set; }
+        public override string Database { get { return "test"; } }
+        public override string DataSource { get { return "test"; } }
+        public override string ServerVersion { get { return "16.0"; } }
+        public override ConnectionState State { get { return ConnectionState.Open; } }
+        protected override DbTransaction BeginDbTransaction(IsolationLevel level) { return null; }
+        public override void ChangeDatabase(string name) { }
+        public override void Close() { }
+        public override void Open() { }
+        protected override DbCommand CreateDbCommand() { return new FakeCommand { Owner = this }; }
+        protected override void Dispose(bool disposing) { WasDisposed = true; base.Dispose(disposing); }
+    }
+}
+'@
+        }
+    }
+
+    It 'asks sys.extended_properties with the table as a parameter and returns column to description in order' {
+        $answer = [System.Data.DataTable]::new()
+        [void]$answer.Columns.Add('ColumnName', [string])
+        [void]$answer.Columns.Add('Description', [string])
+        [void]$answer.Rows.Add('TicketId', 'Number of the ticket')
+        [void]$answer.Rows.Add('Team', [System.DBNull]::Value)
+        [void]$answer.Rows.Add('LeadHours', 'Hours from created to resolved')
+        $connection = [PivotTest.FakeConnection]@{ Answer = $answer }
+        $result = Get-UDPivotSqlColumnDescription -Connection $connection -Table "dbo.Tickets'; DROP TABLE x;--"
+        $result | Should -BeOfType [System.Collections.Specialized.OrderedDictionary]
+        @($result.Keys) | Should -Be @('TicketId', 'LeadHours')
+        $result.LeadHours | Should -Be 'Hours from created to resolved'
+        $command = $connection.Last
+        $command.CommandText | Should -Match 'FROM sys\.columns AS c'
+        $command.CommandText | Should -Match 'ep\.class = 1 AND ep\.major_id = c\.object_id AND ep\.minor_id = c\.column_id AND ep\.name = @Name'
+        $command.CommandText | Should -Match 'OBJECT_ID\(@Table\)'
+        $command.CommandText | Should -Not -Match 'DROP'
+        ($command.Params.Items | Where-Object ParameterName -EQ '@Table').Value | Should -Be "dbo.Tickets'; DROP TABLE x;--"
+        ($command.Params.Items | Where-Object ParameterName -EQ '@Name').Value | Should -Be 'MS_Description'
+        $command.CommandTimeout | Should -Be 30
+        # a connection the caller passed stays open
+        $connection.WasDisposed | Should -BeFalse
+    }
+
+    It 'feeds -FieldDescriptions as it is' {
+        $answer = [System.Data.DataTable]::new()
+        [void]$answer.Columns.Add('ColumnName', [string])
+        [void]$answer.Columns.Add('Description', [string])
+        [void]$answer.Rows.Add('LeadHours', 'Hours')
+        $descriptions = Get-UDPivotSqlColumnDescription -Connection ([PivotTest.FakeConnection]@{ Answer = $answer }) -Table 'Tickets' -PropertyName 'Caption'
+        $d = (New-UDPivotReport -Data @([pscustomobject]@{ LeadHours = 1 }) -FieldDescriptions $descriptions).fieldDefaults | ConvertFrom-Json
+        $d.LeadHours.description | Should -Be 'Hours'
+    }
+
+    It 'reports a connection string that does not reach a server, with the client it used' {
+        { Get-UDPivotSqlColumnDescription -ConnectionString 'Server=tcp:127.0.0.1,1;Database=x;Integrated Security=false;User ID=x;Password=x;Connect Timeout=1' -Table 'dbo.T' } | Should -Throw
+    }
+}
+
 Describe 'New-UDPivotReportPlaceholder' {
     It 'returns the plugin hashtable for ud-pivot-placeholder with the defaults' {
         $c = New-UDPivotReportPlaceholder -Id 'wait'
@@ -216,6 +443,7 @@ Describe 'New-UDPivotReportPlaceholder' {
         { New-UDPivotReportPlaceholder -Height '640px; background: red' } | Should -Throw '*Height*'
         { New-UDPivotReportPlaceholder -Locale 'de_DE;x' } | Should -Throw '*Locale*'
         { New-UDPivotReportPlaceholder -Theme Blue } | Should -Throw
+        (New-UDPivotReportPlaceholder -Label 'Tickets').label | Should -Be 'Tickets'
     }
 
     It 'refuses to run without the bundle, like the report' {
@@ -232,12 +460,13 @@ Describe 'The pivot module' {
     It 'has a manifest with the PowerShellUniversal tag and exports its commands' {
         $manifest = Import-PowerShellDataFile (Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.Pivot' 'PowerShellUniversal.Component.Pivot.psd1')
         $manifest.PrivateData.PSData.Tags | Should -Contain 'PowerShellUniversal'
-        $manifest.FunctionsToExport | Should -Be @('New-UDPivotReport', 'New-UDPivotReportPlaceholder', 'ConvertFrom-UDPivotView')
+        $manifest.FunctionsToExport | Should -Be @('New-UDPivotReport', 'New-UDPivotReportPlaceholder', 'ConvertFrom-UDPivotView', 'Get-UDPivotSqlColumnDescription')
+        (Get-Command -Module $script:module.Name).Name | Sort-Object | Should -Be ($manifest.FunctionsToExport | Sort-Object)
         $manifest.ModuleVersion | Should -Be '0.1.0'
     }
 
     It 'documents every parameter with an example' {
-        foreach ($command in 'New-UDPivotReport', 'New-UDPivotReportPlaceholder', 'ConvertFrom-UDPivotView') {
+        foreach ($command in 'New-UDPivotReport', 'New-UDPivotReportPlaceholder', 'ConvertFrom-UDPivotView', 'Get-UDPivotSqlColumnDescription') {
             $help = Get-Help $command -Full
             @($help.examples.example).Count | Should -BeGreaterThan 0
             foreach ($p in $help.parameters.parameter) {

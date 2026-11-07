@@ -36,22 +36,31 @@ New-UDDynamic -Id 'tickets-report' -LoadingComponent {
 
 ## What readers can do
 
-- **Fields**: search the list, drag a field into a zone, or click it (numbers go to Values, the rest to
-  Rows); every field has a menu with the same moves, for the keyboard too.
+- **Fields**: search the list (by name, display name and description), drag a field into a zone, or
+  click it (numbers go to Values, the rest to Rows); every field has a menu with the same moves, for
+  the keyboard too. An "i" next to a field explains it when the app describes its fields
+  ([Field names and descriptions](fields.md)); an "i" next to each zone explains the zone.
 - **Values**: sum, count, average, minimum, maximum and more statistics; "show as" a share of the total,
   of the row or column, a running total, a rank or the difference to the previous one; a number format;
   colour scales and data bars.
-- **Rows and columns**: sort by label or by value, top or bottom N, number ranges; a date is grouped as
+- **Rows and columns**: sort by label, by a value or in the field's own order, top or bottom N by any
+  value, value conditions ("Sum of Revenue > 1,000"), number ranges; a date is grouped as
   soon as it is placed (by day, month, quarter or year, from the span of its values), and its menu
   groups along the time line or across years (month of the year, weekday, hour).
 - **Filters**: the values of a field with their row counts, search, "only this value", text conditions.
-- **Table or chart**: bars, stacked or horizontal bars, lines, area, pie, heatmap.
+- **Table or chart**: bars, stacked or horizontal bars, lines, area, pie, heatmap; value labels,
+  legend, title, smooth lines and axis labels in the chart type's Display settings.
 - **Drill-down**: a click on a value or a chart point opens the source rows behind it.
-- **Undo and redo** (Ctrl/Cmd+Z), **Reset** to the start view, **Templates**, and **Export** to Excel
-  (XLSX with number formats and merged headers), CSV and PNG.
+- **Undo and redo** (Ctrl/Cmd+Z), **Reset** to the start view, **Templates** (with "Copy view as
+  JSON", "Download view" and "Load view" from JSON or a file), and **Export** to Excel (XLSX with number
+  formats and merged headers), CSV and PNG.
+- **Tips** above the result for a layout that could be clearer (at most two, each dismissible and
+  remembered per report in the browser); `-Tips Off` or a list of tip ids limits them.
 
 The report adapts to its own width: in a narrow column or on a phone the field list opens as a drawer
-and the zones stack above the table.
+and the zones stack above the table. Below 540 pixels of height the zones start folded into one line
+(the toolbar's Layout button opens them). Several reports on one page need one `-Label` each, the
+name screen readers hear for the report.
 
 ## Data
 
@@ -73,7 +82,22 @@ name such as `Europe/Berlin`). Pass `-TimeZone UTC`, or the zone your readers ar
 `-Locale` sets the language of the report (German for `de-*`, English for everything else) and how
 numbers, dates and sorting look. The default is `en-US` for every reader: the report never takes the
 browser's or the server's language on its own, so a report and its exports look the same for
-everyone. `-Labels` replaces single texts.
+everyone. `-Labels` replaces single texts (the keys of pivotkit-react's `LABELS`, e.g.
+`@{ zones = @{ values = 'Kennzahlen' }; tips = @{ values = '...' } }`).
+
+### Field names and descriptions
+
+`-FieldDefaults`, `-FieldDescriptions` and `-Schema` give fields display names, descriptions with a
+link, their own order of items, aggregators and formats - from your script, from SQL Server column
+descriptions (`Get-UDPivotSqlColumnDescription`) or from a JSON Schema or an OpenAPI document:
+[Field names and descriptions](fields.md).
+
+### Chart options
+
+`-ChartOptions` is plain JSON merged over the chart's Apache ECharts option, for what the reader
+cannot set in the chart's Display settings: `-ChartOptions @{ legend = @{ top = 0 }; grid = @{ left = 80 } }`.
+It wins over the view's chart settings. pivotkit leaves out options that are markup or addresses
+(`formatter` strings, `rich`, `link`, `image`) with a warning in the browser's console; at most 64 KB.
 
 ## Pivot report in German
 
@@ -96,13 +120,14 @@ rows. Until then the page has nothing to show for it, and the browser does not e
 need the module's code. Three parts take the time: the server converts the rows (`-Data`), PSU sends
 them as JSON, and the browser builds the report.
 
-`New-UDPivotReportPlaceholder` in `New-UDDynamic -LoadingComponent` (see the top of this page) shows the
-report's frame while the server works: the field list, the toolbar, the zones and a few table rows as
-grey bars, in the report's colours and layout, at the height you give it. Give it the same `-Height`,
-`-Theme` and `-Locale` as the report, so nothing moves when the report replaces it. The bars pulse
-unless the reader asked the system for reduced motion; screen readers hear "Loading report". Because
-the placeholder comes from the module, the browser loads the module's code at once instead of after
-the data.
+`New-UDPivotReportPlaceholder` in `New-UDDynamic -LoadingComponent` (see the top of this page) shows
+pivotkit's own skeleton of the report while the server works: the field list, the toolbar, the zones
+and table rows as grey bars, in the report's colours, at the height you give it. Give it the same
+`-Height`, `-Theme`, `-Locale` and `-Label` as the report, so nothing moves when the report replaces
+it. The bars move unless the reader asked the system for reduced motion; screen readers hear "Loading
+the report". Because the placeholder comes from the module, the browser loads the module's code at
+once instead of after the data. With more than 10,000 rows the report itself shows the same skeleton
+for a moment while the browser reads the data.
 
 --8<-- "examples/placeholder-while-the-data-loads.md"
 
@@ -130,4 +155,4 @@ What makes it slower is the size of the data: every row and every column travels
 Select the columns readers need (`SELECT Team, Priority, Created ...` instead of `SELECT *`), and
 aggregate in SQL where readers never look at single rows.
 
-Next: [Themes and corporate design](themes.md), [Views and templates](views.md), [Events, security and limits](events.md), [Reference](reference.md).
+Next: [Field names and descriptions](fields.md), [Themes and corporate design](themes.md), [Views and templates](views.md), [Events, security and limits](events.md), [Reference](reference.md).

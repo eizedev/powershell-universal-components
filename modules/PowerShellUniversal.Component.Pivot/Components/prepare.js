@@ -16,36 +16,10 @@ export const VIEW_EVENT_DELAY_MS = 600;
 // at least enough for the field list and a few rows of the table
 export const DEFAULT_HEIGHT = "clamp(480px, calc(100svh - 200px), 1400px)";
 
-// ISO 8601 as ConvertTo-PSUComponentData writes it ("2026-08-16T17:31:00.0000000", with an offset for
-// dates of kind Local or Utc): date, time, fraction of a second, offset
-const PSU_DATE = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/;
-
-/*
- * A date from PowerShell as pivotkit reads it and a reader can read it. WORKAROUND (pivotkit-react
- * 0.1.0): the drill-down panel shows the source rows' values as they are, so .NET's round-trip format
- * would show as "2026-08-16T17:31:00.0000000". A fraction of zero goes, the T becomes a space, and a
- * midnight without an offset becomes the day alone ("2026-08-16"); pivotkit-core reads all of these as
- * the same date. Other values stay as they are.
- */
-export function readableDate(value) {
-    if (typeof value !== "string" || value.length < 19 || value.length > 40) {
-        return value;
-    }
-    const m = PSU_DATE.exec(value);
-    if (!m) {
-        return value;
-    }
-    const [, day, time, fraction, offset] = m;
-    const keepFraction = fraction && /[1-9]/.test(fraction) ? fraction : "";
-    if (!offset && !keepFraction && time === "00:00:00") {
-        return day;
-    }
-    return `${day} ${time}${keepFraction}${offset ?? ""}`;
-}
-
 /*
  * Rows with the column names PowerShell had: PSU camelCases the keys of the rows on their way to the
- * browser, New-UDPivotReport sends the original names along (columnNames). Dates become readableDate().
+ * browser, New-UDPivotReport sends the original names along (columnNames). Values stay as they are:
+ * pivotkit-core reads .NET's round-trip dates ("2026-08-16T17:31:00.0000000") as dates.
  */
 export function restoreRows(rows, columnNames) {
     const list = Array.isArray(rows) ? rows.filter((r) => r && typeof r === "object" && !Array.isArray(r)) : [];
@@ -55,7 +29,7 @@ export function restoreRows(rows, columnNames) {
     return list.map((r) => {
         const o = {};
         for (const [k, name] of names) {
-            o[name] = readableDate(r[k]);
+            o[name] = r[k];
         }
         return o;
     });
@@ -409,15 +383,64 @@ export function themeOf(theme) {
 }
 
 /*
- * The report's layout for its own width, as pivotkit-react 0.1.0 picks it (its sizeOf: narrow below
- * 640 pixels, medium below 1024): the placeholder sets the same data-pk-size, so pivotkit's own rules
- * lay it out like the report that replaces it.
+ * Props New-UDPivotReport sends as JSON text: -FieldDefaults (with -FieldDescriptions), -Schema and
+ * -ChartOptions. PSU camelCases the keys of objects in props on their way to the browser, which would
+ * turn the field names in them ("LeadHours") and a schema's names ("Release") into other names; it
+ * leaves strings alone. The server has checked them; this only refuses what is not a JSON object or
+ * longer than `max` characters.
  */
-export function sizeOf(width) {
-    return width < 640 ? "narrow" : width < 1024 ? "medium" : "wide";
+export const MAX_SCHEMA_LENGTH = 1024 * 1024;
+export const MAX_OPTIONS_LENGTH = 64 * 1024;
+
+export function parseJsonObject(text, max) {
+    if (typeof text !== "string" || !text || text.length > max) {
+        return undefined;
+    }
+    try {
+        const value = JSON.parse(text);
+        return value && typeof value === "object" && !Array.isArray(value) ? value : undefined;
+    } catch {
+        return undefined;
+    }
 }
 
-/* The placeholder's text for screen readers and its language, as the report picks it (German for de-*). */
-export function placeholderLabel(locale) {
-    return /^de(-|$)/i.test(String(locale ?? "")) ? { lang: "de", text: "Bericht wird geladen" } : { lang: "en", text: "Loading report" };
+/*
+ * The fieldDefaults the report gets: what the schema says about each field (pivotkit-core's
+ * fieldDefaultsFromSchema), with the server's -FieldDefaults and -FieldDescriptions over it, key by key.
+ * Field names match without regard to case; an entry takes the spelling of the data's column when there
+ * is one (columnNames), else the server's, else the schema's. Undefined when there is nothing.
+ */
+export function mergeFieldDefaults(schemaDefaults, serverDefaults, columnNames) {
+    const isEntry = (e) => e && typeof e === "object" && !Array.isArray(e);
+    const spelling = new Map((Array.isArray(columnNames) ? columnNames : []).map((n) => [String(n).toLowerCase(), String(n)]));
+    const out = new Map();
+    for (const source of [schemaDefaults, serverDefaults]) {
+        if (!isEntry(source)) continue;
+        for (const [name, entry] of Object.entries(source)) {
+            if (!isEntry(entry)) continue;
+            const key = name.toLowerCase();
+            const before = out.get(key);
+            // the server's entry comes second: its spelling wins over the schema's
+            out.set(key, { name: spelling.get(key) ?? name, entry: { ...(before?.entry ?? {}), ...entry } });
+        }
+    }
+    if (!out.size) return undefined;
+    const result = {};
+    // defineProperty: a field named "__proto__" stays a field
+    for (const { name, entry } of out.values()) Object.defineProperty(result, name, { value: entry, enumerable: true });
+    return result;
+}
+
+/* -Tips as pivotkit takes it: "on", "off", or the tip ids allowed. Anything else is "on". */
+export function tipsOf(tips) {
+    const list = (Array.isArray(tips) ? tips : typeof tips === "string" ? tips.split(",") : []).map((t) => String(t).trim()).filter(Boolean);
+    if (!list.length) return "on";
+    if (list.length === 1 && /^(on|off)$/i.test(list[0])) return list[0].toLowerCase();
+    return list;
+}
+
+/* "on" or "off" for -FieldInfo and -ZoneInfo, else undefined (the reader decides in Options). */
+export function switchOf(value) {
+    const v = String(value ?? "").toLowerCase();
+    return v === "on" || v === "off" ? v : undefined;
 }

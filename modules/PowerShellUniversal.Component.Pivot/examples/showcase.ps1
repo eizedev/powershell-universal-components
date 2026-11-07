@@ -76,10 +76,14 @@ $builtInTemplates = @(
         }
     }
 )
+# what the report knows about the fields: aggregator and format in Values, the order of Priority,
+# names and descriptions (the "i" next to a field)
 $fieldDefaults = @{
-    'Lead hours' = @{ Agg = 'average'; Format = 'number:1' }
-    Cost         = @{ Agg = 'sum'; Format = 'currency:EUR' }
-    Ticket       = @{ Agg = 'count' }
+    'Lead hours' = @{ Agg = 'average'; Format = 'number:1'; Description = 'Hours from creation to closing; empty while the ticket is open.' }
+    Cost         = @{ Agg = 'sum'; Format = 'currency:EUR'; Description = 'Cost of the work on the ticket, in euros.' }
+    Ticket       = @{ Agg = 'count'; DrillFormat = 'text'; Description = 'The ticket number.' }
+    Priority     = @{ Order = @('P1', 'P2', 'P3', 'P4'); Description = 'P1 is the most urgent.' }
+    Reopened     = @{ Label = 'Reopened?' }
 }
 #endregion
 
@@ -209,26 +213,54 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
         New-UDTypography -Id 'event-log' -Variant body2 -Text 'No event yet.' -Style @{ marginTop = '12px'; fontFamily = 'monospace'; overflowWrap = 'anywhere' }
     }
 
+    New-UDPage -Name 'Fields' -Url '/fields' -Content {
+        New-UDTypography -Variant h5 -Text 'Field names and descriptions from a schema'
+        New-UDTypography -Variant body2 -Text 'Display names, descriptions (the "i" next to a field), links, types and orders come from an OpenAPI document; one description comes from -FieldDescriptions, as Get-UDPivotSqlColumnDescription returns them from SQL Server.' -Style @{ marginBottom = '12px' }
+        # an OpenAPI 3 document as a hashtable; a file path, JSON text or an https URL work the same
+        $openApi = @{
+            openapi    = '3.0.3'
+            info       = @{ title = 'Tickets'; version = '1.0' }
+            paths      = @{}
+            components = @{ schemas = @{ Ticket = @{
+                        type       = 'object'
+                        properties = @{
+                            Ticket       = @{ type = 'integer'; title = 'Ticket number' }
+                            Created      = @{ type = 'string'; format = 'date-time'; description = 'When the customer reported it.' }
+                            Team         = @{ type = 'string'; title = 'Support team'; description = 'The team the ticket is assigned to.'; externalDocs = @{ url = 'https://powershell-universal-components.eize.dev/pivot/fields/' } }
+                            Status       = @{ type = 'string'; enum = @('Open', 'Waiting', 'Closed'); description = 'Open, waiting for the customer, or closed.' }
+                            'Lead hours' = @{ type = 'number'; title = 'Lead time (h)' }
+                        }
+                    }
+                }
+            }
+        }
+        # as Get-UDPivotSqlColumnDescription returns them (MS_Description of the columns)
+        $columnComments = [ordered]@{ Customer = 'The customer who reported the ticket.'; Agent = 'Who works on it; empty while unassigned.' }
+        New-UDPivotReport -Id 'fields-report' -Data $tickets -Schema $openApi -SchemaName 'Ticket' -FieldDescriptions $columnComments -FieldDefaults $fieldDefaults `
+            -View @{ rows = @('Team'); cols = @('Status'); values = @(@{ field = 'Lead hours'; agg = 'average'; format = 'number:1' }) } `
+            -ChartOptions @{ legend = @{ top = 0 } } -Label 'Tickets with field descriptions' -Height 640px
+    }
+
     New-UDPage -Name 'Layouts' -Url '/layouts' -Content {
         New-UDTypography -Variant h5 -Text 'The report in page layouts'
         New-UDTabs -Tabs {
             New-UDTab -Text 'In a tab' -Content {
-                New-UDPivotReport -Id 'layout-tab-1' -Data $tickets -View $builtInTemplates[1].View -Height 640px
+                New-UDPivotReport -Id 'layout-tab-1' -Data $tickets -View $builtInTemplates[1].View -Height 640px -Label 'Tickets per month'
             }
             New-UDTab -Text 'Second tab (starts hidden)' -Content {
-                New-UDPivotReport -Id 'layout-tab-2' -Data $tickets -View $builtInTemplates[2].View -Height 640px
+                New-UDPivotReport -Id 'layout-tab-2' -Data $tickets -View $builtInTemplates[2].View -Height 640px -Label 'Lead time per customer'
             }
         }
         # -NoAddressBar: this report's view stays out of the address (sessionStorage only)
         New-UDCard -Title 'In a card, 600 px high, view not in the address bar' -Content {
-            New-UDPivotReport -Id 'layout-card' -Data $tickets -View $builtInTemplates[3].View -Height 600px -NoAddressBar
+            New-UDPivotReport -Id 'layout-card' -Data $tickets -View $builtInTemplates[3].View -Height 600px -NoAddressBar -Label 'Cost per team'
         }
         New-UDStack -Direction row -Spacing 2 -Content {
             New-UDCard -Title 'Half width' -Style @{ flex = '1 1 0'; minWidth = 0 } -Content {
-                New-UDPivotReport -Id 'layout-half-1' -Data $tickets -View @{ rows = @('Category'); values = @(@{ field = 'Ticket'; agg = 'count' }) } -Height 560px
+                New-UDPivotReport -Id 'layout-half-1' -Data $tickets -View @{ rows = @('Category'); values = @(@{ field = 'Ticket'; agg = 'count' }) } -Height 560px -Label 'Tickets per category'
             }
             New-UDCard -Title 'Half width, German' -Style @{ flex = '1 1 0'; minWidth = 0 } -Content {
-                New-UDPivotReport -Id 'layout-half-2' -Data $tickets -View @{ rows = @('Status'); values = @(@{ field = 'Cost'; agg = 'sum'; format = 'currency:EUR' }) } -Locale de-DE -Height 560px
+                New-UDPivotReport -Id 'layout-half-2' -Data $tickets -View @{ rows = @('Status'); values = @(@{ field = 'Cost'; agg = 'sum'; format = 'currency:EUR' }) } -Locale de-DE -Height 560px -Label 'Kosten je Status'
             }
         }
     }
@@ -237,7 +269,7 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
     New-UDPage -Name 'Without Id' -Url '/without-id' -Content {
         New-UDTypography -Variant h5 -Text 'Two reports without -Id'
         New-UDTypography -Variant body2 -Text 'Each keeps its own view when the theme switches or the page reloads.' -Style @{ marginBottom = '12px' }
-        New-UDPivotReport -Data $tickets -View $startView -Height 560px
-        New-UDPivotReport -Data $tickets -View @{ rows = @('Category'); values = @(@{ field = 'Ticket'; agg = 'count' }) } -Height 560px
+        New-UDPivotReport -Data $tickets -View $startView -Height 560px -Label 'Tickets per team'
+        New-UDPivotReport -Data $tickets -View @{ rows = @('Category'); values = @(@{ field = 'Ticket'; agg = 'count' }) } -Height 560px -Label 'Tickets per category'
     }
 )

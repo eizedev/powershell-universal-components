@@ -1,9 +1,28 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { fieldDefaultsFromSchema } from "pivotkit-core";
 import { PivotReport as Report } from "pivotkit-react";
 import "pivotkit-react/styles.css";
 import "./psu.css";
 import { useNarrowWindow } from "./hooks";
-import { callEndpoint, cellEvent, heightOf, mergeTemplates, parseView, readLinkView, readTemplates, restoreRows, startViewOf, themeOf, VIEW_EVENT_DELAY_MS, viewStoreKey, writeLinkView, writeStoredView } from "./prepare";
+import { callEndpoint, cellEvent, heightOf, MAX_OPTIONS_LENGTH, MAX_SCHEMA_LENGTH, mergeFieldDefaults, mergeTemplates, parseJsonObject, parseView, readLinkView, readTemplates, restoreRows, startViewOf, switchOf, themeOf, tipsOf, VIEW_EVENT_DELAY_MS, viewStoreKey, writeLinkView, writeStoredView } from "./prepare";
+
+/*
+ * What -Schema says about the fields (pivotkit-core's fieldDefaultsFromSchema: names, descriptions,
+ * https links, types, orders), or undefined. A schema it cannot read is reported in the console and
+ * left out; the report works without it.
+ */
+function schemaDefaults(text, name) {
+    const schema = parseJsonObject(text, MAX_SCHEMA_LENGTH);
+    if (!schema) return undefined;
+    try {
+        const { defaults, issues } = fieldDefaultsFromSchema(schema, typeof name === "string" && name ? { schema: name } : {});
+        if (issues.length) console.warn("New-UDPivotReport -Schema:", issues.map((i) => `${i.path}: ${i.message}`).join("; "));
+        return defaults;
+    } catch (e) {
+        console.warn("New-UDPivotReport -Schema left out:", e instanceof Error ? e.message : String(e));
+        return undefined;
+    }
+}
 
 // sessionStorage, or null where the browser blocks it (the accessor itself can throw)
 function sessionStorageOrNull() {
@@ -156,6 +175,16 @@ export default function PsuPivotReport(props) {
           }
         : undefined;
 
+    // ---- fields: -Schema, then -FieldDefaults and -FieldDescriptions over it ---------------------
+    const columnsKey = JSON.stringify(props.columnNames ?? null);
+    const fieldDefaults = useMemo(
+        () => mergeFieldDefaults(schemaDefaults(props.schema, props.schemaName), parseJsonObject(props.fieldDefaults, MAX_SCHEMA_LENGTH), JSON.parse(columnsKey)),
+        [props.schema, props.schemaName, props.fieldDefaults, columnsKey]
+    );
+    const chartOptions = useMemo(() => parseJsonObject(props.chartOptions, MAX_OPTIONS_LENGTH), [props.chartOptions]);
+    const tipsKey = JSON.stringify(props.tips ?? null);
+    const tips = useMemo(() => tipsOf(JSON.parse(tipsKey)), [tipsKey]);
+
     // ---- clicks ----------------------------------------------------------------------------------
     const viewRef = useRef(view);
     viewRef.current = view;
@@ -177,7 +206,15 @@ export default function PsuPivotReport(props) {
                 onDeleteTemplate={onDeleteTemplate}
                 onCellClick={onCellClick}
                 drillDown={props.drillDown !== false}
-                fieldDefaults={props.fieldDefaults || undefined}
+                fieldDefaults={fieldDefaults}
+                chartOptions={chartOptions}
+                tips={tips}
+                fieldInfo={switchOf(props.fieldInfo)}
+                zoneInfo={switchOf(props.zoneInfo)}
+                // dismissed tips are kept in localStorage per report; the view is kept by this
+                // component (address bar and sessionStorage), so pivotkit's persistView and shareLink stay off
+                storageKey={props.storageKey || props.id}
+                label={props.label || undefined}
                 labels={props.labels || undefined}
                 locale={props.locale || "en-US"}
                 timeZone={props.timeZone || "UTC"}

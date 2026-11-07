@@ -33,6 +33,48 @@ $Script:MaxListLength = 64
 $Script:MaxNameLength = 256
 #endregion
 
+#region Limits of field descriptions, schemas and chart options
+# the caps of pivotkit (pivotkit-core's SCHEMA_CAPS): longer texts are cut here already, so a prop
+# never carries more than the report would show
+$Script:MaxFields = 1000
+$Script:MaxLabelLength = 120
+$Script:MaxDescriptionLength = 1000
+$Script:MaxHrefLength = 2000
+$Script:MaxOrderLength = 1000
+$Script:FieldDefaultKeys = [ordered]@{
+    Agg         = 'agg'
+    Format      = 'format'
+    DrillFormat = 'drillFormat'
+    Label       = 'label'
+    Description = 'description'
+    Href        = 'href'
+    Order       = 'order'
+    Type        = 'type'
+}
+$Script:FormatNamePattern = '^[A-Za-z0-9:._%-]{1,64}$'
+# a schema or the field defaults as JSON: the browser refuses longer ones too (prepare.js)
+$Script:MaxSchemaLength = 1MB
+$Script:MaxSchemaDepth = 64
+$Script:SchemaTimeoutSec = 15
+# a schema fetched from a URL is kept this long per PowerShell runspace, so a page does not fetch it on
+# every render
+$Script:SchemaCacheMinutes = 10
+$Script:SchemaCache = @{}
+$Script:MaxChartOptionsLength = 64KB
+$Script:MaxChartOptionsDepth = 16
+$Script:TipPattern = '^[A-Za-z][A-Za-z0-9-]{0,39}$'
+# the descriptions of a table's columns: sys.extended_properties class 1 (object or column), major_id the
+# object_id, minor_id the column_id (sys.extended_properties and sys.columns on Microsoft Learn)
+$Script:SqlColumnDescriptionQuery = @'
+SELECT c.name AS ColumnName, CAST(ep.value AS nvarchar(4000)) AS Description
+FROM sys.columns AS c
+INNER JOIN sys.extended_properties AS ep
+    ON ep.class = 1 AND ep.major_id = c.object_id AND ep.minor_id = c.column_id AND ep.name = @Name
+WHERE c.object_id = OBJECT_ID(@Table)
+ORDER BY c.column_id;
+'@
+#endregion
+
 #region Parameters New-UDPivotReport and New-UDPivotReportPlaceholder share
 # a CSS length or calc()/clamp()/min()/max(); a bare number is pixels
 $Script:HeightPattern = '^\s*(\d+(\.\d+)?(px|vh|svh|dvh|em|rem|%)?|(calc|clamp|min|max)\(.*\))\s*$'
@@ -235,6 +277,311 @@ function ConvertTo-UDPivotHeight {
     if ($value -match '^\d+(\.\d+)?$') { '{0}px' -f $value } else { $value }
 }
 
+function Test-UDPivotJsonText {
+    <#
+    .SYNOPSIS
+        Checks that a text is one JSON object of at most -MaxLength characters and -MaxDepth levels.
+    .DESCRIPTION
+        Parses with System.Text.Json (strict JSON, no comments or trailing commas, nothing evaluated) and
+        throws an error that starts with -Name when the text is not such an object.
+    .PARAMETER Text
+        The JSON text.
+    .PARAMETER Name
+        The parameter the text came from, for the error message.
+    .PARAMETER MaxLength
+        The longest text accepted, in characters.
+    .PARAMETER MaxDepth
+        The deepest nesting accepted.
+    .EXAMPLE
+        Test-UDPivotJsonText -Text '{"title":{"text":"Tickets"}}' -Name '-ChartOptions' -MaxLength 65536 -MaxDepth 16
+    .OUTPUTS
+        System.String, the text without leading and trailing white space.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Text,
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][int]$MaxLength,
+        [Parameter(Mandatory)][int]$MaxDepth
+    )
+    $json = $Text.Trim()
+    if ($json.Length -gt $MaxLength) { throw ('{0}: {1} characters, more than the {2} allowed.' -f $Name, $json.Length, $MaxLength) }
+    $options = [System.Text.Json.JsonDocumentOptions]::new()
+    $options.MaxDepth = $MaxDepth
+    try {
+        $document = [System.Text.Json.JsonDocument]::Parse($json, $options)
+    }
+    catch {
+        throw ('{0}: not valid JSON of at most {1} levels ({2})' -f $Name, $MaxDepth, $_.Exception.InnerException.Message ?? $_.Exception.Message)
+    }
+    try {
+        if ($document.RootElement.ValueKind -ne [System.Text.Json.JsonValueKind]::Object) { throw ('{0}: expected a JSON object.' -f $Name) }
+    }
+    finally {
+        $document.Dispose()
+    }
+    $json
+}
+
+function ConvertTo-UDPivotJsonText {
+    <#
+    .SYNOPSIS
+        A hashtable, an object or a JSON string as checked compact JSON text, for a prop PSU must not
+        camelCase.
+    .DESCRIPTION
+        PSU camelCases the keys of objects in props on their way to the browser; field names and schema
+        names in them would change. As JSON text they arrive as they are. A string is taken as JSON;
+        anything else goes through ConvertTo-Json. The result is checked by Test-UDPivotJsonText.
+    .PARAMETER InputObject
+        The value: a hashtable, an ordered dictionary, a PSCustomObject or a JSON string.
+    .PARAMETER Name
+        The parameter the value came from, for error messages.
+    .PARAMETER MaxLength
+        The longest JSON accepted, in characters.
+    .PARAMETER MaxDepth
+        The deepest nesting accepted.
+    .EXAMPLE
+        ConvertTo-UDPivotJsonText -InputObject @{ legend = @{ show = $false } } -Name '-ChartOptions' -MaxLength 65536 -MaxDepth 16
+    .OUTPUTS
+        System.String
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)][AllowNull()][object]$InputObject,
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][int]$MaxLength,
+        [Parameter(Mandatory)][int]$MaxDepth
+    )
+    if ($null -eq $InputObject) { throw ('{0}: no value (null).' -f $Name) }
+    $text = if ($InputObject -is [string]) { $InputObject } else {
+        # one level deeper than allowed: ConvertTo-Json cuts deeper levels off with a warning and writes
+        # them as text, which the depth check below then refuses
+        ConvertTo-Json -InputObject $InputObject -Depth ($MaxDepth + 1) -Compress -WarningAction SilentlyContinue
+    }
+    Test-UDPivotJsonText -Text $text -Name $Name -MaxLength $MaxLength -MaxDepth $MaxDepth
+}
+
+function Get-UDPivotEntryValue {
+    <#
+    .SYNOPSIS
+        The value of a key of a dictionary or a property of an object, the name matched without regard to case.
+    .PARAMETER InputObject
+        A dictionary (hashtable, ordered) or an object.
+    .PARAMETER Name
+        The key or property name.
+    .EXAMPLE
+        Get-UDPivotEntryValue -InputObject @{ label = 'Lead time' } -Name 'Label'
+    .OUTPUTS
+        System.Object
+    #>
+    [CmdletBinding()]
+    [OutputType([object])]
+    param([Parameter(Mandatory)][object]$InputObject, [Parameter(Mandatory)][string]$Name)
+    if ($InputObject -is [System.Collections.IDictionary]) {
+        # the comma keeps a list a list (a one-element array would come back as its element)
+        foreach ($key in $InputObject.Keys) { if ([string]$key -eq $Name) { return , $InputObject[$key] } }
+        return $null
+    }
+    $property = $InputObject.PSObject.Properties[$Name]
+    if ($property) { , $property.Value }
+}
+
+function Limit-UDPivotText {
+    <#
+    .SYNOPSIS
+        A text cut to -MaxLength characters (ending with an ellipsis when cut), or $null for an empty one.
+    .PARAMETER Text
+        The text.
+    .PARAMETER MaxLength
+        The longest text kept.
+    .EXAMPLE
+        Limit-UDPivotText -Text $description -MaxLength 1000
+    .OUTPUTS
+        System.String
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([AllowNull()][AllowEmptyString()][string]$Text, [Parameter(Mandatory)][int]$MaxLength)
+    $value = "$Text".Trim()
+    if (-not $value) { return $null }
+    if ($value.Length -le $MaxLength) { return $value }
+    $value.Substring(0, $MaxLength - 1).TrimEnd() + [char]0x2026
+}
+
+function ConvertTo-UDPivotFieldDefault {
+    <#
+    .SYNOPSIS
+        Checks -FieldDefaults and -FieldDescriptions and returns them as one dictionary in pivotkit's
+        shape (field name to agg, format, drillFormat, label, description, href, order, type).
+    .DESCRIPTION
+        Used by New-UDPivotReport. Every entry of -FieldDefaults is a hashtable (or an object) with the
+        keys Agg, Format, DrillFormat (names such as average or number:1), Label (text, cut at 120
+        characters), Description (text, cut at 1000), Href (an absolute https link without user name or
+        password), Order (a list of at most 1000 items: text, numbers, true/false, null) and Type
+        (string, number, date or boolean). -FieldDescriptions adds a description per field where
+        -FieldDefaults gives none. Values that are no text where text is expected, unknown keys, links
+        that are not https and more than 1000 fields throw an error that names the field.
+    .PARAMETER FieldDefaults
+        The value of -FieldDefaults.
+    .PARAMETER FieldDescriptions
+        The value of -FieldDescriptions: field name to text. Empty texts, $null and DBNull are left out.
+    .EXAMPLE
+        ConvertTo-UDPivotFieldDefault -FieldDefaults @{ LeadHours = @{ Agg = 'average'; Label = 'Lead time' } } -FieldDescriptions @{ LeadHours = 'Hours from created to resolved' }
+    .OUTPUTS
+        System.Collections.Specialized.OrderedDictionary
+    #>
+    [CmdletBinding()]
+    [OutputType([System.Collections.Specialized.OrderedDictionary])]
+    param([System.Collections.IDictionary]$FieldDefaults, [System.Collections.IDictionary]$FieldDescriptions)
+
+    $result = [ordered]@{}
+    # an ordered dictionary's keys are case-sensitive; the fields are matched without regard to case
+    $fieldOf = @{}
+    $entryOf = {
+        param([string]$Field)
+        $key = $Field.ToLowerInvariant()
+        if (-not $fieldOf.ContainsKey($key)) {
+            if ($fieldOf.Count -ge $Script:MaxFields) { throw ('-FieldDefaults and -FieldDescriptions: more than {0} fields.' -f $Script:MaxFields) }
+            $fieldOf[$key] = $Field
+            $result[$Field] = [ordered]@{}
+        }
+        $result[$fieldOf[$key]]
+    }
+    $checkName = {
+        param($Field, [string]$Parameter)
+        if ($Field -isnot [string] -or [string]::IsNullOrWhiteSpace($Field) -or $Field.Length -gt $Script:MaxNameLength) {
+            throw ('{0}: field names must be text of 1 to {1} characters.' -f $Parameter, $Script:MaxNameLength)
+        }
+    }
+
+    if ($FieldDefaults) {
+        foreach ($field in $FieldDefaults.Keys) {
+            & $checkName $field '-FieldDefaults'
+            $source = $FieldDefaults[$field]
+            if ($source -isnot [System.Collections.IDictionary] -and $source -isnot [System.Management.Automation.PSCustomObject]) {
+                throw ('-FieldDefaults, "{0}": expected @{{ Agg = ...; Format = ...; Label = ...; Description = ... }}.' -f $field)
+            }
+            $names = if ($source -is [System.Collections.IDictionary]) { @($source.Keys | ForEach-Object { [string]$_ }) } else { @($source.PSObject.Properties.Name) }
+            $entry = & $entryOf $field
+            foreach ($name in $names) {
+                $known = $Script:FieldDefaultKeys.Keys | Where-Object { $_ -eq $name } | Select-Object -First 1
+                if (-not $known) { throw ('-FieldDefaults, "{0}": unknown key "{1}"; known are {2}.' -f $field, $name, ($Script:FieldDefaultKeys.Keys -join ', ')) }
+                $value = Get-UDPivotEntryValue -InputObject $source -Name $name
+                if ($null -eq $value -or $value -is [System.DBNull]) { continue }
+                $target = $Script:FieldDefaultKeys[$known]
+                switch ($known) {
+                    { $_ -in 'Agg', 'Format', 'DrillFormat' } {
+                        if ($value -isnot [string] -or $value -notmatch $Script:FormatNamePattern) { throw ('-FieldDefaults, "{0}": {1} must be a name such as average or number:1.' -f $field, $known) }
+                        $entry[$target] = $value
+                    }
+                    'Label' {
+                        if ($value -isnot [string]) { throw ('-FieldDefaults, "{0}": Label must be text.' -f $field) }
+                        $text = Limit-UDPivotText -Text $value -MaxLength $Script:MaxLabelLength
+                        if ($text) { $entry[$target] = $text }
+                    }
+                    'Description' {
+                        if ($value -isnot [string]) { throw ('-FieldDefaults, "{0}": Description must be text.' -f $field) }
+                        $text = Limit-UDPivotText -Text $value -MaxLength $Script:MaxDescriptionLength
+                        if ($text) { $entry[$target] = $text }
+                    }
+                    'Href' {
+                        $uri = $null
+                        if ($value -isnot [string] -or $value.Length -gt $Script:MaxHrefLength -or -not [uri]::TryCreate($value.Trim(), [System.UriKind]::Absolute, [ref]$uri) -or $uri.Scheme -ne 'https' -or $uri.UserInfo) {
+                            throw ('-FieldDefaults, "{0}": Href must be an absolute https link without user name or password, at most {1} characters.' -f $field, $Script:MaxHrefLength)
+                        }
+                        $entry[$target] = $uri.AbsoluteUri
+                    }
+                    'Order' {
+                        $items = @($value)
+                        if ($items.Count -gt $Script:MaxOrderLength) { throw ('-FieldDefaults, "{0}": Order has more than {1} items.' -f $field, $Script:MaxOrderLength) }
+                        foreach ($item in $items) {
+                            $scalar = $null -eq $item -or $item -is [string] -or $item -is [bool] -or $item -is [int] -or $item -is [long] -or $item -is [double] -or $item -is [decimal]
+                            if (-not $scalar -or ($item -is [string] -and $item.Length -gt $Script:MaxDescriptionLength)) {
+                                throw ('-FieldDefaults, "{0}": Order must list values (text of at most {1} characters, numbers, $true, $false, $null).' -f $field, $Script:MaxDescriptionLength)
+                            }
+                        }
+                        $entry[$target] = [object[]]$items
+                    }
+                    'Type' {
+                        if ($value -isnot [string] -or $value -notin 'string', 'number', 'date', 'boolean') { throw ('-FieldDefaults, "{0}": Type must be string, number, date or boolean.' -f $field) }
+                        $entry[$target] = $value.ToLowerInvariant()
+                    }
+                }
+            }
+        }
+    }
+    if ($FieldDescriptions) {
+        foreach ($field in $FieldDescriptions.Keys) {
+            & $checkName $field '-FieldDescriptions'
+            $value = $FieldDescriptions[$field]
+            if ($null -eq $value -or $value -is [System.DBNull]) { continue }
+            if ($value -isnot [string]) { throw ('-FieldDescriptions, "{0}": the description must be text.' -f $field) }
+            $text = Limit-UDPivotText -Text $value -MaxLength $Script:MaxDescriptionLength
+            if (-not $text) { continue }
+            $entry = & $entryOf $field
+            # -FieldDefaults names the field's description more precisely: it wins
+            if (-not $entry.Contains('description')) { $entry['description'] = $text }
+        }
+    }
+    foreach ($field in @($result.Keys)) { if ($result[$field].Count -eq 0) { $result.Remove($field) } }
+    $result
+}
+
+function Get-UDPivotSchemaText {
+    <#
+    .SYNOPSIS
+        -Schema as checked JSON text: from a hashtable or object, a JSON string, a file or an https URL.
+    .DESCRIPTION
+        Used by New-UDPivotReport. A string that starts with { is JSON; one that starts with https:// is
+        fetched on the server (timeout 15 seconds, at most 1 MB, kept for 10 minutes per PowerShell
+        runspace); another address scheme (http://, file://) is refused; any other string is a file path.
+        The schema must be one JSON object of at most 1 MB and 64 levels. pivotkit-core reads it in the
+        browser; nothing in it runs, and only references inside the document are followed.
+    .PARAMETER Schema
+        The value of -Schema.
+    .EXAMPLE
+        Get-UDPivotSchemaText -Schema 'https://example.org/openapi.json'
+    .OUTPUTS
+        System.String
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([Parameter(Mandatory)][object]$Schema)
+
+    $check = @{ Name = '-Schema'; MaxLength = $Script:MaxSchemaLength; MaxDepth = $Script:MaxSchemaDepth }
+    if ($Schema -isnot [string]) { return ConvertTo-UDPivotJsonText -InputObject $Schema @check }
+    $value = $Schema.Trim()
+    if ($value.StartsWith('{')) { return Test-UDPivotJsonText -Text $value @check }
+    if ($value -match '^https://') {
+        $cached = $Script:SchemaCache[$value]
+        if ($cached -and $cached.Time -gt [datetime]::UtcNow.AddMinutes(-$Script:SchemaCacheMinutes)) { return $cached.Text }
+        $client = [System.Net.Http.HttpClient]::new()
+        try {
+            $client.Timeout = [timespan]::FromSeconds($Script:SchemaTimeoutSec)
+            # the answer is read into memory only up to this size; a longer one fails
+            $client.MaxResponseContentBufferSize = $Script:MaxSchemaLength * 4
+            $text = $client.GetStringAsync($value).GetAwaiter().GetResult()
+        }
+        catch {
+            throw ('-Schema: {0} could not be read ({1})' -f $value, $_.Exception.Message)
+        }
+        finally {
+            $client.Dispose()
+        }
+        $text = Test-UDPivotJsonText -Text $text @check
+        $Script:SchemaCache[$value] = @{ Text = $text; Time = [datetime]::UtcNow }
+        return $text
+    }
+    if ($value -match '^[A-Za-z][A-Za-z0-9+.-]+://') { throw ('-Schema: only https:// addresses are fetched, not "{0}".' -f ($value -replace '^([A-Za-z0-9+.-]+://).*', '$1')) }
+    $file = Get-Item -LiteralPath $value -ErrorAction Ignore
+    if ($file -isnot [System.IO.FileInfo]) { throw ('-Schema: no file "{0}" (expected a hashtable, JSON, an https URL or a file path).' -f $value) }
+    # UTF-8 takes up to four bytes per character; a larger file cannot hold an allowed schema
+    if ($file.Length -gt $Script:MaxSchemaLength * 4) { throw ('-Schema: "{0}" is larger than {1} bytes.' -f $value, ($Script:MaxSchemaLength * 4)) }
+    Test-UDPivotJsonText -Text (Get-Content -LiteralPath $file.FullName -Raw -Encoding utf8) @check
+}
+
 function New-UDPivotReport {
     <#
     .SYNOPSIS
@@ -282,10 +629,47 @@ function New-UDPivotReport {
         @{ Name = 'Tickets per team'; View = <view>; Deletable = $false }. Deletable entries get a delete
         button when -OnDeleteTemplate is set.
     .PARAMETER FieldDefaults
-        Aggregator and format a field gets when the reader puts it into Values, per field name:
-        @{ LeadHours = @{ Agg = 'average'; Format = 'number:1' }; Revenue = @{ Format = 'currency:EUR' } }.
-        Format names: number, number:2, integer, percent, percent:1, currency:EUR, compact, bytes,
-        duration:s, duration:h, date, datetime, time.
+        Per field name, what the report knows about the field:
+        @{ LeadHours = @{ Agg = 'average'; Format = 'number:1'; Label = 'Lead time (h)'; Description = 'Hours from created to resolved'; Href = 'https://wiki.example.org/lead-time' }; Priority = @{ Order = 'Low', 'Normal', 'High' } }.
+        Agg and Format: what the field gets when the reader puts it into Values (format names: number,
+        number:2, integer, percent, percent:1, currency:EUR, compact, bytes, duration:s, duration:h, date,
+        datetime, time); DrillFormat: the format of its values in the drill-down (text shows an id as it
+        is); Label: the name shown for the field everywhere (views keep the field name; at most 120
+        characters); Description: plain text behind an "i" next to the field, in its menu and on its
+        headers (at most 1000 characters); Href: an https link shown as "Learn more" with the description;
+        Order: the field's own order of items on Rows and Columns; Type: string, number, date or boolean,
+        the type its column is read as. Checked on the server: text only, https links only, sizes capped.
+    .PARAMETER FieldDescriptions
+        A description per field name, e.g. from SQL Server column comments
+        (Get-UDPivotSqlColumnDescription): @{ LeadHours = 'Hours from created to resolved' }. A Description
+        in -FieldDefaults wins; empty values, $null and DBNull are left out.
+    .PARAMETER Schema
+        A JSON Schema of a row, or an OpenAPI 3 / Swagger 2 document with -SchemaName: a hashtable or
+        object, JSON text, a file path, or an https URL (fetched on the server with a timeout of 15
+        seconds, at most 1 MB, kept 10 minutes per runspace; the browser never fetches it). The report
+        reads titles (labels), descriptions, externalDocs links (https), types and enums (orders) of the
+        row's properties with pivotkit-core's fieldDefaultsFromSchema; -FieldDefaults and
+        -FieldDescriptions win over it. At most 1 MB and 64 levels.
+    .PARAMETER SchemaName
+        The schema of a row in an OpenAPI document: a name in components.schemas (definitions in
+        Swagger 2) or a local reference such as #/components/schemas/Ticket.
+    .PARAMETER ChartOptions
+        Plain JSON merged over the chart's Apache ECharts option (a hashtable or JSON text, at most 64 KB),
+        e.g. @{ legend = @{ top = 0 }; grid = @{ left = 80 } }; it wins over the view's chart settings.
+        pivotkit leaves out options that are markup or addresses (formatter strings, rich, link, image).
+    .PARAMETER Tips
+        The tips above the result: On (default), Off (none, and no switch in Options), or the ids of the
+        tips allowed (filterEmpty, top, chartCapped, showAs, chartDates, chartTrend, chartSeries,
+        textValue, dateUngrouped, manyColumns, values, afterDrag, saveTemplate, menus, cells). Dismissed
+        tips are remembered per report in the browser's localStorage.
+    .PARAMETER FieldInfo
+        On or Off: the "i" with the field descriptions. Without it the reader switches it in Options.
+    .PARAMETER ZoneInfo
+        On or Off: the "i" next to the zone titles that explains each zone. Without it the reader
+        switches it in Options.
+    .PARAMETER Label
+        The name screen readers hear for the report (its region landmark). Several reports on one page
+        need one name each. Default: "Pivot report".
     .PARAMETER Labels
         Single texts of the report in your own words, merged over the language -Locale picked:
         @{ zones = @{ values = 'Kennzahlen' }; core = @{ grandTotal = 'Summe' } }. The keys are the ones of
@@ -372,7 +756,15 @@ function New-UDPivotReport {
         [object]$View,
         [object]$SavedView,
         [AllowEmptyCollection()][object[]]$Templates,
-        [hashtable]$FieldDefaults,
+        [System.Collections.IDictionary]$FieldDefaults,
+        [System.Collections.IDictionary]$FieldDescriptions,
+        [object]$Schema,
+        [ValidateLength(1, 200)][string]$SchemaName,
+        [object]$ChartOptions,
+        [ValidateScript({ $_ -match $Script:TipPattern }, ErrorMessage = 'Tips "{0}": expected On, Off or tip ids such as values or chartSeries.')][string[]]$Tips,
+        [ValidateSet('On', 'Off')][string]$FieldInfo,
+        [ValidateSet('On', 'Off')][string]$ZoneInfo,
+        [ValidateLength(1, 120)][string]$Label,
         [hashtable]$Labels,
         [ValidateScript({ $_ -match $Script:LocalePattern }, ErrorMessage = 'Locale "{0}": expected a language tag such as en-US or de-DE.')][string]$Locale = 'en-US',
         [ValidatePattern('^(UTC|[A-Za-z_]+(/[A-Za-z0-9_+-]+){1,2})$')][string]$TimeZone = (Get-UDPivotTimeZone),
@@ -429,18 +821,28 @@ function New-UDPivotReport {
         catch { Write-Warning ('-SavedView left out: {0}' -f $_.Exception.Message) }
     }
     if ($PSBoundParameters.ContainsKey('Templates')) { $props['templates'] = @(ConvertTo-UDPivotTemplate -Template $Templates) }
-    if ($FieldDefaults) {
-        foreach ($field in $FieldDefaults.Keys) {
-            $entry = $FieldDefaults[$field]
-            if ($entry -isnot [System.Collections.IDictionary]) { throw ('-FieldDefaults, "{0}": expected @{{ Agg = ...; Format = ... }}.' -f $field) }
-            foreach ($key in $entry.Keys) {
-                if ([string]$key -notin 'Agg', 'Format' -or $entry[$key] -isnot [string] -or $entry[$key] -notmatch '^[A-Za-z0-9:._%-]{1,64}$') {
-                    throw ('-FieldDefaults, "{0}": only Agg and Format, each a name such as average or number:1.' -f $field)
-                }
-            }
+    if ($FieldDefaults -or $FieldDescriptions) {
+        $defaults = ConvertTo-UDPivotFieldDefault -FieldDefaults $FieldDefaults -FieldDescriptions $FieldDescriptions
+        # as JSON text: PSU would camelCase the field names of an object prop
+        if ($defaults.Count) {
+            $props['fieldDefaults'] = ConvertTo-UDPivotJsonText -InputObject $defaults -Name '-FieldDefaults' -MaxLength $Script:MaxSchemaLength -MaxDepth 4
         }
-        $props['fieldDefaults'] = $FieldDefaults
     }
+    if ($PSBoundParameters.ContainsKey('Schema') -and $null -ne $Schema) {
+        $props['schema'] = Get-UDPivotSchemaText -Schema $Schema
+        if ($SchemaName) { $props['schemaName'] = $SchemaName }
+    }
+    elseif ($SchemaName) { throw '-SchemaName needs -Schema.' }
+    if ($PSBoundParameters.ContainsKey('ChartOptions') -and $null -ne $ChartOptions) {
+        $props['chartOptions'] = ConvertTo-UDPivotJsonText -InputObject $ChartOptions -Name '-ChartOptions' -MaxLength $Script:MaxChartOptionsLength -MaxDepth $Script:MaxChartOptionsDepth
+    }
+    if ($Tips) {
+        if ($Tips.Count -gt 1 -and ($Tips -contains 'On' -or $Tips -contains 'Off')) { throw '-Tips: On or Off alone, or a list of tip ids.' }
+        $props['tips'] = if ($Tips.Count -eq 1 -and $Tips[0] -in 'On', 'Off') { $Tips[0].ToLowerInvariant() } else { @($Tips) }
+    }
+    if ($FieldInfo) { $props['fieldInfo'] = $FieldInfo.ToLowerInvariant() }
+    if ($ZoneInfo) { $props['zoneInfo'] = $ZoneInfo.ToLowerInvariant() }
+    if ($Label) { $props['label'] = $Label }
     if ($Height) { $props['height'] = ConvertTo-UDPivotHeight -Height $Height }
     if ($Labels) { $props['labels'] = $Labels }
     if ($ClassName) { $props['className'] = $ClassName }
@@ -473,13 +875,14 @@ function New-UDPivotReportPlaceholder {
                 New-UDPivotReport -Id 'tickets' -Data $tickets -Height 640px
             }
 
-        The placeholder comes with the page and shows the field list, the toolbar, the four zones and a
-        few table rows as grey bars, in the report's colours (light, dark, a corporate design from the
-        app's stylesheet) and its layout for the width; the bars pulse unless the reader asked for
-        reduced motion. Screen readers hear "Loading report". It also makes the browser load the
-        module's code at once, while the server is still working on the data.
+        The placeholder comes with the page and shows pivotkit's own skeleton of the report: the field
+        list, the toolbar, the zones and table rows as grey bars, in the report's colours (light, dark, a
+        corporate design from the app's stylesheet); the bars pulse unless the reader asked for reduced
+        motion. Screen readers hear "Loading the report". It also makes the browser load the module's code at
+        once, while the server is still working on the data.
 
-        Give it the -Height, -Theme and -Locale of the report, so nothing moves when the report replaces it.
+        Give it the -Height, -Theme, -Locale and -Label of the report, so nothing moves when the report
+        replaces it.
     .PARAMETER Id
         Component id. Default: a new GUID.
     .PARAMETER Height
@@ -489,6 +892,8 @@ function New-UDPivotReportPlaceholder {
         Auto (follows the app's light/dark switch, default), Light or Dark.
     .PARAMETER Locale
         The language of the text screen readers hear: German for de-*, English otherwise. Default: en-US.
+    .PARAMETER Label
+        The name screen readers hear for it, as -Label of the report.
     .PARAMETER ClassName
         CSS class of the outer element.
     .PARAMETER Style
@@ -515,6 +920,7 @@ function New-UDPivotReportPlaceholder {
         [ValidateScript({ $_ -match $Script:HeightPattern }, ErrorMessage = 'Height "{0}": expected a CSS length such as 640px, 80vh or 640.')][string]$Height,
         [ValidateSet('Auto', 'Light', 'Dark')][string]$Theme = 'Auto',
         [ValidateScript({ $_ -match $Script:LocalePattern }, ErrorMessage = 'Locale "{0}": expected a language tag such as en-US or de-DE.')][string]$Locale = 'en-US',
+        [ValidateLength(1, 120)][string]$Label,
         [string]$ClassName,
         [hashtable]$Style
     )
@@ -529,9 +935,105 @@ function New-UDPivotReportPlaceholder {
         locale   = $Locale
     }
     if ($Height) { $props['height'] = ConvertTo-UDPivotHeight -Height $Height }
+    if ($Label) { $props['label'] = $Label }
     if ($ClassName) { $props['className'] = $ClassName }
     if ($Style) { $props['style'] = $Style }
     $props
 }
 
-Export-ModuleMember -Function New-UDPivotReport, New-UDPivotReportPlaceholder, ConvertFrom-UDPivotView
+function Get-UDPivotSqlColumnDescription {
+    <#
+    .SYNOPSIS
+        The column descriptions of a SQL Server table or view (extended property MS_Description), as the
+        hashtable -FieldDescriptions of New-UDPivotReport takes.
+    .DESCRIPTION
+        Reads sys.extended_properties for the columns of one table or view (class 1, major_id the object,
+        minor_id the column) with the property name MS_Description - what SQL Server Management Studio
+        writes as a column's Description - and returns column name to text, in column order. Columns
+        without a description are left out.
+
+        Pass an open connection (-Connection: System.Data.SqlClient, Microsoft.Data.SqlClient or any
+        ADO.NET connection to SQL Server; it stays open) or a connection string (-ConnectionString: the
+        function opens and closes a connection with Microsoft.Data.SqlClient when that is loaded, for
+        example by the SqlServer module, else with System.Data.SqlClient, which PowerShell 7 ships).
+        The table name goes to SQL Server as a parameter of OBJECT_ID(), never into the query text. The
+        account sees only the descriptions of objects it has permissions on; an unknown table gives an
+        empty result.
+    .PARAMETER Connection
+        An open ADO.NET connection to the database that holds the table.
+    .PARAMETER ConnectionString
+        A connection string to the database that holds the table.
+    .PARAMETER Table
+        The table or view, as OBJECT_ID() takes it: dbo.Tickets, [sales].[Order Lines] or Tickets
+        (the user's default schema).
+    .PARAMETER PropertyName
+        The extended property to read. Default: MS_Description.
+    .PARAMETER TimeoutSec
+        Command timeout in seconds. Default: 30.
+    .EXAMPLE
+        $descriptions = Get-UDPivotSqlColumnDescription -ConnectionString $connectionString -Table 'dbo.Tickets'
+        New-UDPivotReport -Id 'tickets' -Data $tickets -FieldDescriptions $descriptions
+    .EXAMPLE
+        $connection = [System.Data.SqlClient.SqlConnection]::new($connectionString)
+        $connection.Open()
+        try { $descriptions = Get-UDPivotSqlColumnDescription -Connection $connection -Table '[sales].[Orders]' }
+        finally { $connection.Dispose() }
+    .OUTPUTS
+        System.Collections.Specialized.OrderedDictionary
+    .LINK
+        https://powershell-universal-components.eize.dev/pivot/fields/
+    #>
+    [CmdletBinding(DefaultParameterSetName = 'ConnectionString')]
+    [OutputType([System.Collections.Specialized.OrderedDictionary])]
+    param(
+        [Parameter(Mandatory, ParameterSetName = 'Connection')][System.Data.IDbConnection]$Connection,
+        [Parameter(Mandatory, ParameterSetName = 'ConnectionString')][ValidateNotNullOrEmpty()][string]$ConnectionString,
+        [Parameter(Mandatory)][ValidateLength(1, 776)][string]$Table,
+        [ValidateLength(1, 128)][string]$PropertyName = 'MS_Description',
+        [ValidateRange(1, 3600)][int]$TimeoutSec = 30
+    )
+
+    $own = $PSCmdlet.ParameterSetName -eq 'ConnectionString'
+    if ($own) {
+        $type = 'Microsoft.Data.SqlClient.SqlConnection' -as [type]
+        if (-not $type) { $type = 'System.Data.SqlClient.SqlConnection' -as [type] }
+        if (-not $type) { throw 'Get-UDPivotSqlColumnDescription: no SQL Server client (Microsoft.Data.SqlClient or System.Data.SqlClient) is loaded; pass an open connection with -Connection.' }
+        $Connection = $type::new($ConnectionString)
+    }
+    try {
+        if ($own) { $Connection.Open() }
+        $command = $Connection.CreateCommand()
+        try {
+            $command.CommandTimeout = $TimeoutSec
+            $command.CommandText = $Script:SqlColumnDescriptionQuery
+            foreach ($parameter in @{ '@Table' = $Table; '@Name' = $PropertyName }.GetEnumerator()) {
+                $p = $command.CreateParameter()
+                $p.ParameterName = $parameter.Key
+                $p.DbType = [System.Data.DbType]::String
+                $p.Value = $parameter.Value
+                [void]$command.Parameters.Add($p)
+            }
+            $result = [ordered]@{}
+            $reader = $command.ExecuteReader()
+            try {
+                while ($reader.Read()) {
+                    if ($reader.IsDBNull(1)) { continue }
+                    $text = [string]$reader.GetValue(1)
+                    if (-not [string]::IsNullOrWhiteSpace($text)) { $result[[string]$reader.GetValue(0)] = $text }
+                }
+            }
+            finally {
+                $reader.Dispose()
+            }
+            $result
+        }
+        finally {
+            $command.Dispose()
+        }
+    }
+    finally {
+        if ($own) { $Connection.Dispose() }
+    }
+}
+
+Export-ModuleMember -Function New-UDPivotReport, New-UDPivotReportPlaceholder, ConvertFrom-UDPivotView, Get-UDPivotSqlColumnDescription

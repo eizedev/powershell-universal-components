@@ -13,3 +13,7 @@ From the comment-based help of the module (`Get-Help New-UDPivotReport -Full` sh
 ## ConvertFrom-UDPivotView
 
 --8<-- "reference/ConvertFrom-UDPivotView.md"
+
+## Get-UDPivotSqlColumnDescription
+
+--8<-- "reference/Get-UDPivotSqlColumnDescription.md"
