@@ -47,6 +47,8 @@ Describe 'New-UDPivotReport' {
         $c.storageKey | Should -Be 'p1'
         $c.fileName | Should -Be 'pivot'
         $c.drillDown | Should -BeTrue
+        $c.addressBar | Should -BeTrue
+        (New-UDPivotReport -Id 'p2' -Data $rows -NoAddressBar).addressBar | Should -BeFalse
         foreach ($key in 'view', 'savedView', 'templates', 'height', 'labels', 'fieldDefaults', 'onViewChange', 'onCellClick', 'onSaveTemplate', 'onDeleteTemplate') {
             $c.ContainsKey($key) | Should -BeFalse -Because "$key was not passed"
         }

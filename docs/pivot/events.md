@@ -41,7 +41,8 @@ when the page is built again (not `-View`: `$Session` is shared by all tabs of a
   without checking them, and never pass any of it to `Invoke-Expression`.
 - The reader's view, filter values included, is written into the address bar
   ([views](views.md#the-start-view-view)): it is in the browser history and in a copied link, and PSU
-  sends the page address with its requests. A view from a link is checked like every other view.
+  sends the page address with its requests. `-NoAddressBar` keeps it out for sensitive data. A view
+  from a link is checked like every other view.
 - Views are data. The report checks them against the data and runs nothing from them; formats are
   names, not code. The table and the drill-down show values as text, never as HTML.
 - Exports are made in the browser from what the reader sees; nothing is sent to a server. The CSV

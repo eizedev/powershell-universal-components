@@ -49,13 +49,18 @@ the tab keeps `-View`. The view is kept in two places of the tab:
   It is written in place (no new history entry: one step back leaves the page). A reload keeps it,
   and a copied address opens the same views for someone else - with their own data and permissions,
   since only the layout is in the link. A view in the address bar wins over `-View`; a view too long
-  for it (more than 8000 characters) stays out. The view includes filter values (a customer name in
-  a filter is in the address), so it ends up in the browser history, and PSU's own requests carry the
-  page address to the server (header `windowlocation`, measured on PSU 2026.3.4).
+  for it (more than 8000 characters) stays out. `-NoAddressBar` turns this off.
 - **sessionStorage** (per page and report), for a view that is not in the address bar. It returns
   after a reload as long as the page sends the same `-View`; a different `-View` from the server (the
   app chose another start view) wins. Closing the tab, or a browser that blocks storage, starts from
   `-View`.
+
+!!! warning "Filter values appear in the address"
+    The view includes filter values: a customer name in a filter is then in the address, in the
+    browser history, in every copied link, and in the page address PSU sends with its requests to the
+    server (header `windowlocation`, measured on PSU 2026.3.4). For reports whose filter values are
+    sensitive, use `-NoAddressBar`: the view stays in the tab's sessionStorage only, and a view in a
+    link is ignored.
 
 The view in a link is input like any other: the report checks it against the data and drops what does
 not fit, and nothing in it runs as code.

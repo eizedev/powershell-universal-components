@@ -219,8 +219,9 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
                 New-UDPivotReport -Id 'layout-tab-2' -Data $tickets -View $builtInTemplates[2].View -Height 640px
             }
         }
-        New-UDCard -Title 'In a card, 600 px high' -Content {
-            New-UDPivotReport -Id 'layout-card' -Data $tickets -View $builtInTemplates[3].View -Height 600px
+        # -NoAddressBar: this report's view stays out of the address (sessionStorage only)
+        New-UDCard -Title 'In a card, 600 px high, view not in the address bar' -Content {
+            New-UDPivotReport -Id 'layout-card' -Data $tickets -View $builtInTemplates[3].View -Height 600px -NoAddressBar
         }
         New-UDStack -Direction row -Spacing 2 -Content {
             New-UDCard -Title 'Half width' -Style @{ flex = '1 1 0'; minWidth = 0 } -Content {

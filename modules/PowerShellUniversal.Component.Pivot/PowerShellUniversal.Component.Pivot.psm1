@@ -270,7 +270,7 @@ function New-UDPivotReport {
         format: a format name), filters, sort, totals, display (table or chart), chart (type: bar, line,
         area, pie, heatmap). A saved template's view goes in as it is. Default: an empty report with the
         hint where to start. A view in the address bar (#pivot-<id>=..., written by the report on every
-        change, so a copied link opens the same layout) wins over it.
+        change unless -NoAddressBar, so a copied link opens the same layout) wins over it.
     .PARAMETER SavedView
         The reader's own view stored by the app (from -OnViewChange or a "save as my default" action),
         a hashtable or JSON. A browser tab without a view of its own (in its address bar or its
@@ -307,6 +307,12 @@ function New-UDPivotReport {
         above the table there.
     .PARAMETER FileName
         Name of exported files without the extension. Default: pivot.
+    .PARAMETER NoAddressBar
+        Keeps the reader's view out of the address bar; the browser tab then keeps it in sessionStorage
+        only (a reload and the light/dark switch still keep it, a copied link does not carry it). By
+        default the view, filter values included, is written into the address (#pivot-<id>=...), so it
+        also ends up in the browser history, in copied links and in the page address PSU sends with its
+        requests. Use it for reports whose filter values are sensitive.
     .PARAMETER NoDrillDown
         No panel with the source rows when a value is clicked (-OnCellClick still runs).
     .PARAMETER ClassName
@@ -373,6 +379,7 @@ function New-UDPivotReport {
         [ValidateSet('Auto', 'Light', 'Dark')][string]$Theme = 'Auto',
         [ValidateScript({ $_ -match $Script:HeightPattern }, ErrorMessage = 'Height "{0}": expected a CSS length such as 640px, 80vh or 640.')][string]$Height,
         [ValidateLength(1, 120)][string]$FileName = 'pivot',
+        [switch]$NoAddressBar,
         [switch]$NoDrillDown,
         [string]$ClassName,
         [hashtable]$Style,
@@ -410,6 +417,7 @@ function New-UDPivotReport {
         theme       = $Theme.ToLowerInvariant()
         fileName    = $FileName
         drillDown   = -not $NoDrillDown
+        addressBar  = -not $NoAddressBar
     }
     if ($PSBoundParameters.ContainsKey('View') -and $null -ne $View) {
         try { $props['view'] = ConvertFrom-UDPivotView -InputObject $View }

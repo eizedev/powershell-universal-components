@@ -343,6 +343,30 @@ test.describe("pivot showcase on PSU", () => {
         await expect(page).toHaveURL(new RegExp(`${base}/events$`));
     });
 
+    test("-NoAddressBar: the view stays out of the address and a link's view is ignored; the tab still keeps it", async ({ page }) => {
+        await open(page, "layouts");
+        const card = page.locator("#layout-card .pk-root");
+        await card.scrollIntoViewIfNeeded();
+        const zones = () => Promise.all(["Rows", "Columns"].map((name) => card.getByRole("region", { name }).innerText()));
+        const before = await zones();
+        await card.locator("[data-testid=swap]").click();
+        await expect.poll(() => page.evaluate(() => Boolean(JSON.parse(sessionStorage.getItem("psu-pivot-views") || "{}")[`${location.pathname}#layout-card`]))).toBe(true);
+        const swapped = await zones();
+        expect(swapped).not.toEqual(before);
+        expect(await page.evaluate(() => location.hash)).not.toContain("pivot-layout-card");
+        // a reload keeps it from sessionStorage
+        await page.reload();
+        await expect(card).toBeVisible({ timeout: 30000 });
+        await expect.poll(zones).toEqual(swapped);
+        // a view in a link is not read either
+        const view = Buffer.from(JSON.stringify({ rows: ["Status"], values: [{ field: "Ticket", agg: "count" }] })).toString("base64url");
+        const other = await page.context().newPage();
+        await other.goto(`${base}/layouts#pivot-layout-card=${view}`);
+        const otherCard = other.locator("#layout-card .pk-root");
+        await expect(otherCard).toBeVisible({ timeout: 30000 });
+        await expect(otherCard.getByRole("region", { name: "Rows" })).not.toContainText("Status");
+    });
+
     test("fits a phone-sized window without a horizontal page scroll", async ({ page }) => {
         await page.setViewportSize({ width: 390, height: 844 });
         await open(page, "tickets");

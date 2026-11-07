@@ -37,8 +37,8 @@ export default function PsuPivotReport(props) {
     // the address bar than in sessionStorage (the address bar wins on mount)
     const showInLink = useCallback((next) => {
         const s = store.current;
-        // only on the page the report was mounted on (PSU's menu may have moved on already)
-        if (!s.linkKey || typeof window === "undefined" || window.location.pathname !== s.path) return;
+        // -NoAddressBar; and only on the page the report was mounted on (PSU's menu may have moved on)
+        if (latest.current.addressBar === false || !s.linkKey || typeof window === "undefined" || window.location.pathname !== s.path) return;
         try {
             const hash = writeLinkView(window.location.hash, s.linkKey, next);
             if (hash === window.location.hash || (hash === "" && !window.location.hash)) return;
@@ -69,7 +69,8 @@ export default function PsuPivotReport(props) {
         s.linkKey = id;
         s.path = typeof window !== "undefined" ? window.location.pathname : "";
         s.key = viewStoreKey(s.path, id);
-        const link = typeof window !== "undefined" ? readLinkView(window.location.hash, id) : undefined;
+        // with -NoAddressBar a view in the link is ignored too: the report never reads what it never writes
+        const link = typeof window !== "undefined" && props.addressBar !== false ? readLinkView(window.location.hash, id) : undefined;
         const start = startViewOf(s.storage, s.key, s.mountedWith, props.savedView, link);
         if (start && JSON.stringify(start.view) !== serverViewKey) {
             shownKey.current = JSON.stringify(start.view);

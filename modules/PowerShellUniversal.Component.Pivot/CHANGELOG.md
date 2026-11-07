@@ -21,7 +21,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 - Data conversion without a function call per cell: the showcase's 5000-row DataTable takes about 40 ms
   instead of 2.4 to 2.9 s on the test instance, the table appears after about 0.46 s instead of 2.6 s.
 - `-View` (hashtable or JSON), `-Templates`, `-FieldDefaults`, `-Labels`, `-Locale` (English and
-  German, default en-US), `-Theme`, `-Height` (default: the window's height), `-FileName`, `-NoDrillDown`.
+  German, default en-US), `-Theme`, `-Height` (default: the window's height), `-FileName`, `-NoDrillDown`, `-NoAddressBar`.
 - `-OnViewChange`, `-OnCellClick`, `-OnSaveTemplate` and `-OnDeleteTemplate`; saving and deleting show
   in the report once the server confirmed them, and a server's refusal shows its message.
 - `ConvertFrom-UDPivotView`: checks a view from the browser (size, depth, shape, known keys only) before
@@ -34,7 +34,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   survives PSU building the report anew on its light/dark switch and a reload; `Reset` goes back to `-View`.
   Two tabs on the same report keep their own views. The view is also written into the address bar
   (`#pivot-<id>=...`, in place, without history entries), so a reload keeps it and a copied link opens
-  the same report layout.
+  the same report layout; `-NoAddressBar` keeps it out (filter values would otherwise appear in the
+  address, the history and copied links).
 - `-SavedView`: the reader's view stored by the app (in `-OnViewChange`) starts a tab without a view of
   its own and never replaces the view another tab shows; the showcase uses it instead of
   `-View $Session:PivotView`, which made every tab of a browser take over the last change of another
