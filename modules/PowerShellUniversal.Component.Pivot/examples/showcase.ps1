@@ -98,21 +98,23 @@ $TemplateSettings = @{
 
 # The store is a script block, not a function: PSU runs event handlers in their own runspace, which
 # gets the app script's variables the handler names, but not functions defined in it. For the same
-# reason every call passes the settings.
+# reason every call passes the settings. It runs where the app script defined it, so it does not see
+# $User: the page or the handler passes the signed-in user (measured on PSU 2026.2.5 and 2026.3.4).
 $TemplateStore = {
     param(
         [ValidateSet('List', 'Save', 'Delete')][string]$Action,
         [hashtable]$Settings,
+        # $User of the page or the event; apps without authentication have none
+        [AllowEmptyString()][string]$UserName,
         [string]$Name,
         [object]$View
     )
     $ErrorActionPreference = 'Stop'
     # event handlers run in a runspace of their own, where PSU does not load the module by itself
     Import-Module PowerShellUniversal.Component.Pivot
-    # $User: the signed-in user of the page or event that runs this; apps without authentication have none
-    $userName = if ($User) { [string]$User } else { 'anonymous' }
+    if (-not $UserName) { $UserName = 'anonymous' }
     # a file name from the user name that cannot leave the folder
-    $hash = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes($userName.ToLowerInvariant()))
+    $hash = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes($UserName.ToLowerInvariant()))
     $id = [System.Convert]::ToHexString($hash).Substring(0, 24).ToLowerInvariant()
     $file = Join-Path $Settings.Root ('{0}.json' -f $id)
     $mutex = $null
@@ -179,7 +181,7 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
             New-UDPivotReportPlaceholder -Locale $(if ($Session:PivotLocale) { $Session:PivotLocale } else { 'en-US' })
         } -Content {
             $locale = if ($Session:PivotLocale) { $Session:PivotLocale } else { 'en-US' }
-            $templates = @($builtInTemplates) + @(& $TemplateStore -Action List -Settings $TemplateSettings)
+            $templates = @($builtInTemplates) + @(& $TemplateStore -Action List -Settings $TemplateSettings -UserName $User)
             # the tab keeps its own view (also over a change of language); $Session is shared by all tabs
             # of the browser, so the last view stored there only starts a new tab (-SavedView), and never
             # replaces what another tab shows (as -View would)
@@ -192,10 +194,10 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
                 Show-UDToast -Message ('{0} tickets{1}' -f $EventData.count, $(if ($where) { " ($where)" })) -Duration 4000
             } -OnSaveTemplate {
                 # @{ error = '...' } refuses with that text (a bare throw shows a general error)
-                try { & $TemplateStore -Action Save -Settings $TemplateSettings -Name $EventData.name -View $EventData.view }
+                try { & $TemplateStore -Action Save -Settings $TemplateSettings -UserName $User -Name $EventData.name -View $EventData.view }
                 catch { @{ error = $_.Exception.Message } }
             } -OnDeleteTemplate {
-                try { & $TemplateStore -Action Delete -Settings $TemplateSettings -Name $EventData.name }
+                try { & $TemplateStore -Action Delete -Settings $TemplateSettings -UserName $User -Name $EventData.name }
                 catch { @{ error = $_.Exception.Message } }
             }
         }

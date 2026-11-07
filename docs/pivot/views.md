@@ -155,4 +155,6 @@ again when it is read.
 Event handlers run in a runspace of their own: functions defined in the app script are not there, and
 PSU does not load the module by itself. Call `Import-Module PowerShellUniversal.Component.Pivot` in a
 handler that uses `ConvertFrom-UDPivotView`, and keep shared code in a module or a script block
-variable.
+variable. A script block defined in the app script runs where it was defined: it does not see `$User`
+and `$Roles` of the page or the event that calls it (measured on PSU 2026.2.5 and 2026.3.4, an app
+with authentication). Pass them as parameters, as the showcase passes `-UserName $User` to its store.
