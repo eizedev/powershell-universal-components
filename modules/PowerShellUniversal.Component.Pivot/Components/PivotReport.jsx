@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { PivotReport as Report } from "pivotkit-react";
 import "pivotkit-react/styles.css";
 import "./psu.css";
@@ -43,24 +43,33 @@ export default function PsuPivotReport(props) {
     // ---- the view: the server's start view, then the user's ----------------------------------------
     const serverViewKey = JSON.stringify(parseView(props.view) ?? null);
     // the reader's view of this tab survives PSU mounting the component anew (its light/dark switch)
-    const store = useRef(null);
-    if (!store.current) {
-        store.current = { storage: sessionStorageOrNull(), key: viewStoreKey(typeof window !== "undefined" ? window.location.pathname : "", props.id), mountedWith: serverViewKey };
-    }
+    const store = useRef({ storage: sessionStorageOrNull(), key: null, mountedWith: serverViewKey });
     const remember = useCallback((next) => {
         const s = store.current;
-        writeStoredView(s.storage, s.key, s.mountedWith, next);
+        if (s.key) writeStoredView(s.storage, s.key, s.mountedWith, next);
     }, []);
-    const [restored] = useState(() => readStoredView(store.current.storage, store.current.key, serverViewKey));
-    const [view, setView] = useState(() => restored ?? parseView(props.view) ?? {});
+    // pivotkit's Reset goes back to the view of the first render: always -View, never a restored one
+    const [view, setView] = useState(() => parseView(props.view) ?? {});
     const shownKey = useRef(serverViewKey);
-    useEffect(() => {
-        // Get-UDElement reads the restored view too
-        if (restored && typeof latest.current.setState === "function") latest.current.setState({ view: restored });
+    const lastServerKey = useRef(serverViewKey);
+    useLayoutEffect(() => {
+        // the restored view replaces the start view before the browser paints; storageKey is -Id, or
+        // without one the module's key from the call site and the columns (the id is a new GUID per build)
+        const s = store.current;
+        s.key = viewStoreKey(typeof window !== "undefined" ? window.location.pathname : "", props.storageKey || props.id);
+        const restored = readStoredView(s.storage, s.key, s.mountedWith);
+        if (restored && JSON.stringify(restored) !== serverViewKey) {
+            shownKey.current = JSON.stringify(restored);
+            setView(restored);
+            // Get-UDElement reads the restored view too
+            if (typeof latest.current.setState === "function") latest.current.setState({ view: restored });
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     useEffect(() => {
-        // a view from the server that differs from the one shown (PSU echoes the view setState sent)
+        // a new view from the server that differs from the one shown (PSU echoes the view setState sent)
+        if (serverViewKey === lastServerKey.current) return;
+        lastServerKey.current = serverViewKey;
         if (serverViewKey !== shownKey.current) {
             shownKey.current = serverViewKey;
             const next = JSON.parse(serverViewKey) ?? {};

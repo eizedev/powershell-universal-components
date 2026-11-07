@@ -208,22 +208,30 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
         New-UDTypography -Variant h5 -Text 'The report in page layouts'
         New-UDTabs -Tabs {
             New-UDTab -Text 'In a tab' -Content {
-                New-UDPivotReport -Data $tickets -View $builtInTemplates[1].View -Height 640px
+                New-UDPivotReport -Id 'layout-tab-1' -Data $tickets -View $builtInTemplates[1].View -Height 640px
             }
             New-UDTab -Text 'Second tab (starts hidden)' -Content {
-                New-UDPivotReport -Data $tickets -View $builtInTemplates[2].View -Height 640px
+                New-UDPivotReport -Id 'layout-tab-2' -Data $tickets -View $builtInTemplates[2].View -Height 640px
             }
         }
         New-UDCard -Title 'In a card, 600 px high' -Content {
-            New-UDPivotReport -Data $tickets -View $builtInTemplates[3].View -Height 600px
+            New-UDPivotReport -Id 'layout-card' -Data $tickets -View $builtInTemplates[3].View -Height 600px
         }
         New-UDStack -Direction row -Spacing 2 -Content {
             New-UDCard -Title 'Half width' -Style @{ flex = '1 1 0'; minWidth = 0 } -Content {
-                New-UDPivotReport -Data $tickets -View @{ rows = @('Category'); values = @(@{ field = 'Ticket'; agg = 'count' }) } -Height 560px
+                New-UDPivotReport -Id 'layout-half-1' -Data $tickets -View @{ rows = @('Category'); values = @(@{ field = 'Ticket'; agg = 'count' }) } -Height 560px
             }
             New-UDCard -Title 'Half width, German' -Style @{ flex = '1 1 0'; minWidth = 0 } -Content {
-                New-UDPivotReport -Data $tickets -View @{ rows = @('Status'); values = @(@{ field = 'Cost'; agg = 'sum'; format = 'currency:EUR' }) } -Locale de-DE -Height 560px
+                New-UDPivotReport -Id 'layout-half-2' -Data $tickets -View @{ rows = @('Status'); values = @(@{ field = 'Cost'; agg = 'sum'; format = 'currency:EUR' }) } -Locale de-DE -Height 560px
             }
         }
+    }
+
+    # On purpose without -Id: the module tells the two reports apart by the line of the call and the columns
+    New-UDPage -Name 'Without Id' -Url '/without-id' -Content {
+        New-UDTypography -Variant h5 -Text 'Two reports without -Id'
+        New-UDTypography -Variant body2 -Text 'Each keeps its own view when the theme switches or the page reloads.' -Style @{ marginBottom = '12px' }
+        New-UDPivotReport -Data $tickets -View $startView -Height 560px
+        New-UDPivotReport -Data $tickets -View @{ rows = @('Category'); values = @(@{ field = 'Ticket'; agg = 'count' }) } -Height 560px
     }
 )

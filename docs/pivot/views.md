@@ -13,7 +13,7 @@ does not suit the field); a view never runs as code.
 ## The start view: -View
 
 ```powershell
-New-UDPivotReport -Data $tickets -View @{
+New-UDPivotReport -Id 'tickets' -Data $tickets -View @{
     rows   = @('Team')
     cols   = @('Priority')
     values = @(@{ field = 'Ticket'; agg = 'count' })
@@ -39,18 +39,23 @@ The simplest way to a view is to build it in the report, save it as a template a
 shows another view (the reader can undo it), and `(Get-UDElement -Id <id>).view` is the view the reader
 has now.
 
-The browser tab keeps the reader's view (sessionStorage, per page and `-Id`): PSU builds the report anew
-when the app switches between light and dark, and the report comes back with the same fields, table or
-chart, chart type and collapsed groups. Undo and redo start over then. The kept view also returns after
-a reload of the tab as long as the page sends the same `-View`; a different `-View` from the server
-(another start view, or `-View $Session:PivotView` from [-OnViewChange](events.md)) wins. Give the report
-a fixed `-Id` where the page is built anew and the view should stay: the default `-Id` is a new GUID per
-build. Closing the tab, or a browser that blocks storage, starts from `-View`.
+The browser tab keeps the reader's view (sessionStorage, per page and report): PSU builds the report
+anew when the app switches between light and dark, and the report comes back with the same fields,
+table or chart, chart type and collapsed groups. Undo and redo start over then; `Reset` still goes back
+to `-View`, and from then on the tab keeps `-View`. The kept view also returns after a reload of the tab
+as long as the page sends the same `-View`; a different `-View` from the server (another start view, or
+`-View $Session:PivotView` from [-OnViewChange](events.md)) wins. Closing the tab, or a browser that
+blocks storage, starts from `-View`.
+
+Without `-Id` the report is identified by its page and its place in the app script (the line of the
+`New-UDPivotReport` call) together with its column names, so two reports on one page keep their own
+views. Set `-Id` if reports are added or removed dynamically, or when one call builds several reports
+(a loop): they would share one view otherwise.
 
 ## Templates: -Templates
 
 ```powershell
-New-UDPivotReport -Data $tickets -Templates @(
+New-UDPivotReport -Id 'tickets' -Data $tickets -Templates @(
     @{ Name = 'Tickets per team'; View = @{ rows = @('Team'); values = @(@{ field = 'Ticket'; agg = 'count' }) } }
     @{ Name = 'Lead time per month'; View = (Get-Content -LiteralPath ./lead-time.json -Raw) }
 )
@@ -72,7 +77,7 @@ a view of at most 64 KB and eight levels, keeps only the keys of a view and retu
 or with `-AsJson` as compact JSON to store. Check the name too, and never build a file path from it.
 
 ```powershell
-New-UDPivotReport -Data $tickets -Templates $templates -OnSaveTemplate {
+New-UDPivotReport -Id 'tickets' -Data $tickets -Templates $templates -OnSaveTemplate {
     try {
         $name = ([string]$EventData.name).Trim()
         if ($name.Length -gt 80) { throw 'A template name has at most 80 characters.' }

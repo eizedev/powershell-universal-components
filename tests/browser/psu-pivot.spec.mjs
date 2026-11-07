@@ -169,6 +169,42 @@ test.describe("pivot showcase on PSU", () => {
         expect(await stored()).toEqual(before);
     });
 
+    test("two reports without -Id keep their own views over theme switches and a reload; Reset goes to -View", async ({ page }) => {
+        await open(page, "without-id");
+        const first = page.locator(".pk-root").nth(0);
+        const second = page.locator(".pk-root").nth(1);
+        const pressed = (report, id) => expect(report.locator(`[data-testid=${id}]`)).toHaveAttribute("aria-pressed", "true");
+        const entries = () => page.evaluate(() => JSON.parse(sessionStorage.getItem("psu-pivot-views") || "{}"));
+        // the first one shows a chart, the second one swaps rows and columns and stays a table
+        await first.locator("[data-testid=show-chart]").click();
+        await second.locator("[data-testid=swap]").click();
+        await expect.poll(async () => Object.keys(await entries()).filter((k) => k.includes("#auto-")).length).toBe(2);
+        const check = async () => {
+            await pressed(first, "show-chart");
+            await pressed(second, "show-table");
+            await expect(second.getByRole("region", { name: "Columns" })).toContainText("Category");
+            await expect(first.getByRole("region", { name: "Columns" })).toContainText("Priority");
+        };
+        const before = await entries();
+        for (const mode of ["dark", "light"]) {
+            await setTheme(page, mode);
+            await expect(first).toHaveAttribute("data-pk-theme", mode);
+            await check();
+        }
+        expect(await entries()).toEqual(before);
+        await page.reload();
+        await expect(first).toBeVisible({ timeout: 30000 });
+        await check();
+        // Reset goes back to the server's -View, and that is what the tab keeps from now on
+        await first.locator("[data-testid=reset]").click();
+        await pressed(first, "show-table");
+        await page.reload();
+        await expect(first).toBeVisible({ timeout: 30000 });
+        await pressed(first, "show-table");
+        await expect(first.locator("[data-testid=reset]")).toBeDisabled();
+        await expect(second.getByRole("region", { name: "Columns" })).toContainText("Category");
+    });
+
     test("fits a phone-sized window without a horizontal page scroll", async ({ page }) => {
         await page.setViewportSize({ width: 390, height: 844 });
         await open(page, "tickets");

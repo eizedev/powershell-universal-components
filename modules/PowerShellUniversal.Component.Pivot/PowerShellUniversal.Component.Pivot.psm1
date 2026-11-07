@@ -230,7 +230,10 @@ function New-UDPivotReport {
         the example app and ConvertFrom-UDPivotView). Field names are matched without regard to case.
     .PARAMETER Id
         Component id. Default: a new GUID. Get-UDElement -Id returns the current view as .view;
-        Set-UDElement -Id -Properties @{ view = ... } shows another view (one undo step).
+        Set-UDElement -Id -Properties @{ view = ... } shows another view (one undo step). The browser
+        tab keeps the reader's view under this id; without -Id the report is identified by its page,
+        its place in the app script (line and column of the call) and its column names. Set -Id when
+        one call builds several reports (a loop) or reports are added or removed at run time.
     .PARAMETER Data
         Rows: a DataTable (Invoke-Sqlcmd, SqlClient, ODBC), DataRows, PSCustomObjects, hashtables or a
         script block returning them. DBNull becomes an empty value, dates stay dates, TimeSpans become
@@ -293,10 +296,10 @@ function New-UDPivotReport {
         Runs when the reader deletes a deletable template (after confirming in the menu). $EventData:
         name. Throw, or return @{ error = 'message' }, to refuse.
     .EXAMPLE
-        New-UDPivotReport -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -Locale de-DE
+        New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -Locale de-DE
     .EXAMPLE
         $view = @{ rows = @('Team'); cols = @('Priority'); values = @(@{ field = 'Id'; agg = 'count' }) }
-        New-UDPivotReport -Data $tickets -View $view -Templates @(
+        New-UDPivotReport -Id 'tickets' -Data $tickets -View $view -Templates @(
             @{ Name = 'Tickets per team'; View = $view }
             @{ Name = 'Lead time per month'; View = @{ rows = @('Created'); values = @(@{ field = 'LeadHours'; agg = 'average'; format = 'number:1' }) } }
         )
@@ -305,7 +308,7 @@ function New-UDPivotReport {
             Show-UDToast -Message ('{0} tickets: {1}' -f $EventData.count, (($EventData.filter | ForEach-Object { '{0} = {1}' -f $_.field, $_.value }) -join ', '))
         }
     .EXAMPLE
-        New-UDPivotReport -Data $tickets -Templates $saved -OnSaveTemplate {
+        New-UDPivotReport -Id 'tickets' -Data $tickets -Templates $saved -OnSaveTemplate {
             $view = ConvertFrom-UDPivotView -InputObject $EventData.view -AsJson
             # store $EventData.name and $view (a file per user, a database table), then:
             Show-UDToast -Message "Saved $($EventData.name)"
@@ -346,15 +349,25 @@ function New-UDPivotReport {
 
     # one array (ConvertTo-PSUComponentData returns it as a single object; @() would nest it)
     $rows = ConvertTo-PSUComponentData -InputObject $Data
+    $columnNames = @($rows | Select-Object -First 1 | ForEach-Object { $_.PSObject.Properties.Name })
+    # the key the browser keeps the reader's view under: -Id, or without it (a new GUID per build) the
+    # place of this call in the app script and the columns, hashed (no server path reaches the browser)
+    $storageKey = if ($PSBoundParameters.ContainsKey('Id')) { $Id } else {
+        $site = '{0}|{1}|{2}|{3}' -f $MyInvocation.ScriptName, $MyInvocation.ScriptLineNumber, $MyInvocation.OffsetInLine, ($columnNames -join [char]1)
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        try { $hash = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($site)) } finally { $sha.Dispose() }
+        'auto-' + (-join ($hash[0..7] | ForEach-Object { $_.ToString('x2') }))
+    }
     $props = @{
         assetId     = $Script:AssetId
         isPlugin    = $true
         type        = 'ud-pivot-report'
         id          = $Id
+        storageKey  = $storageKey
         data        = $rows
         # PSU camelCases the keys of the rows on their way to the browser; the report shows the field
         # names as they are, so the original ones travel along as values (which PSU leaves alone)
-        columnNames = @($rows | Select-Object -First 1 | ForEach-Object { $_.PSObject.Properties.Name })
+        columnNames = $columnNames
         locale      = $Locale
         timeZone    = $TimeZone
         theme       = $Theme.ToLowerInvariant()

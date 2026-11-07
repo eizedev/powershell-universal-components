@@ -62,7 +62,7 @@ Or as a report builder, where readers drag the fields into rows, columns and val
 as templates and export to Excel:
 
 ```powershell
-New-UDPivotReport -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -Locale de-DE
+New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -Locale de-DE
 ```
 
 ## Try everything

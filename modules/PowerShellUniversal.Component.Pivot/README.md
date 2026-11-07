@@ -7,7 +7,7 @@ rows behind it, readers save their layouts as templates, undo every step and exp
 PNG. Light and dark theme in PSU's colours, English and German, from a phone to a wide screen.
 
 ```powershell
-New-UDPivotReport -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -Locale de-DE
+New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -Locale de-DE
 ```
 
 Requires PowerShell Universal 2026 (PowerShell 7.4+). Tested on PSU 2026.3.4 and 2026.2.5 in Chromium,

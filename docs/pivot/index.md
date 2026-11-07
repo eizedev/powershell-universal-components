@@ -15,7 +15,7 @@ Install-PSResource -Name PowerShellUniversal.Component.Pivot
 ```
 
 ```powershell
-New-UDPivotReport -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -Locale de-DE
+New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -Locale de-DE
 ```
 
 ## Pivot report from a DataTable

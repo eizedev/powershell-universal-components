@@ -19,6 +19,20 @@ public class Endpoint {
 }
 
 Describe 'New-UDPivotReport' {
+    It 'without -Id: a storage key from the call site and the columns, the same on every build' {
+        $rows = @([pscustomobject]@{ A = 1; B = 2 })
+        $keys = foreach ($i in 1..2) { (New-UDPivotReport -Data $rows).storageKey }
+        $keys[0] | Should -Match '^auto-[0-9a-f]{16}$'
+        $keys[1] | Should -Be $keys[0]
+        # another call (another line), other columns: other keys; the GUID id differs per build
+        $other = (New-UDPivotReport -Data $rows).storageKey
+        $other | Should -Not -Be $keys[0]
+        # one call, data with other columns: other keys
+        $byColumns = foreach ($d in @($rows, @([pscustomobject]@{ A = 1 }))) { (New-UDPivotReport -Data $d).storageKey }
+        $byColumns[1] | Should -Not -Be $byColumns[0]
+        (New-UDPivotReport -Data $rows).id | Should -Not -Be (New-UDPivotReport -Data $rows).id
+    }
+
     It 'returns the plugin hashtable with the rows, their original column names and the defaults' {
         $rows = @([pscustomobject]@{ TicketId = 1; 'Lead hours' = 2.5 }, [pscustomobject]@{ TicketId = 2; 'Lead hours' = 4 })
         $c = New-UDPivotReport -Id 'p1' -Data $rows -TimeZone 'Europe/Berlin'
@@ -30,6 +44,7 @@ Describe 'New-UDPivotReport' {
         $c.locale | Should -Be 'en-US'
         $c.timeZone | Should -Be 'Europe/Berlin'
         $c.theme | Should -Be 'auto'
+        $c.storageKey | Should -Be 'p1'
         $c.fileName | Should -Be 'pivot'
         $c.drillDown | Should -BeTrue
         foreach ($key in 'view', 'templates', 'height', 'labels', 'fieldDefaults', 'onViewChange', 'onCellClick', 'onSaveTemplate', 'onDeleteTemplate') {

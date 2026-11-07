@@ -25,6 +25,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   stylesheet through the ECharts module's `--psu-chart-*` properties and the report's own `--psu-pivot-*`
   ones, per mode.
 - The reader's view (fields, table or chart, chart type, collapsed groups) is kept in the browser tab
-  per page and `-Id`, so it survives PSU building the report anew on its light/dark switch.
+  per page and `-Id` (without `-Id`: the place of the call in the app script and the columns), so it
+  survives PSU building the report anew on its light/dark switch and a reload; `Reset` goes back to `-View`.
 - `examples/showcase.ps1`: a 5,000-row DataTable with templates saved per user, a language switch, the
   events and the report in page layouts.

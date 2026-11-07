@@ -361,7 +361,7 @@
                     $(if ($open) { [DBNull]::Value } else { [math]::Round(2 + 40 * $rng.NextDouble(), 1) }))
             }
             $view = @{ rows = @('Team'); cols = @('Priority'); values = @(@{ field = 'Ticket'; agg = 'count' }) }
-            New-UDPivotReport -Data $tickets -View $view -Height 620px -TimeZone UTC -Templates @(
+            New-UDPivotReport -Id 'pivot-datatable' -Data $tickets -View $view -Height 620px -TimeZone UTC -Templates @(
                 @{ Name = 'Tickets per team and priority'; View = $view }
                 @{ Name = 'Lead time per month'; View = @{ rows = @('Created'); values = @(@{ field = 'Lead hours'; agg = 'average'; format = 'number:1' }); display = 'chart'; chart = @{ type = 'line' } } }
             ) -OnCellClick {
@@ -378,7 +378,7 @@
             $rows = foreach ($i in 1..600) {
                 [pscustomobject]@{ Ticket = $i; Team = ('Service Desk', 'Netzwerk', 'Server')[$rng.Next(0, 3)]; Kunde = 'Kunde {0}' -f [char](65 + $rng.Next(0, 4)); 'Lead hours' = [math]::Round(2 + 30 * $rng.NextDouble(), 1) }
             }
-            New-UDPivotReport -Data $rows -Locale de-DE -Height 560px -TimeZone UTC -FieldDefaults @{ 'Lead hours' = @{ Agg = 'average'; Format = 'number:1' } } -View @{
+            New-UDPivotReport -Id 'pivot-german' -Data $rows -Locale de-DE -Height 560px -TimeZone UTC -FieldDefaults @{ 'Lead hours' = @{ Agg = 'average'; Format = 'number:1' } } -View @{
                 rows = @('Kunde'); cols = @('Team'); values = @(@{ field = 'Lead hours'; agg = 'average'; format = 'number:1' })
             }
         }

@@ -17,7 +17,7 @@ Every event runs a script block on the server with `$EventData`:
 | `-OnDeleteTemplate` | The reader deletes a template and confirmed it | `name` |
 
 ```powershell
-New-UDPivotReport -Data $tickets -OnCellClick {
+New-UDPivotReport -Id 'tickets' -Data $tickets -OnCellClick {
     $where = ($EventData.filter | ForEach-Object { '{0} = {1}' -f $_.field, $_.value }) -join ', '
     Show-UDToast -Message "$($EventData.count) tickets ($where)"
 }
