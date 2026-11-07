@@ -321,3 +321,17 @@ export function themeOf(theme) {
     const t = String(theme ?? "auto").toLowerCase();
     return t === "light" || t === "dark" ? t : "auto";
 }
+
+/*
+ * The report's layout for its own width, as pivotkit-react 0.1.0 picks it (its sizeOf: narrow below
+ * 640 pixels, medium below 1024): the placeholder sets the same data-pk-size, so pivotkit's own rules
+ * lay it out like the report that replaces it.
+ */
+export function sizeOf(width) {
+    return width < 640 ? "narrow" : width < 1024 ? "medium" : "wide";
+}
+
+/* The placeholder's text for screen readers and its language, as the report picks it (German for de-*). */
+export function placeholderLabel(locale) {
+    return /^de(-|$)/i.test(String(locale ?? "")) ? { lang: "de", text: "Bericht wird geladen" } : { lang: "en", text: "Loading report" };
+}

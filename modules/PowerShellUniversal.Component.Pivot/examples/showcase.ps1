@@ -169,7 +169,11 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
             }
         }
         New-UDTypography -Variant body2 -Text '5000 tickets from a DataTable. Drag fields from the list into Rows, Columns and Values, click a number to see its tickets, save your layout under Templates.' -Style @{ marginBottom = '12px' }
-        New-UDDynamic -Id 'tickets-report' -Content {
+        # the placeholder comes with the page: the report's frame at once, and the browser loads the
+        # module's code while the server still builds the 5000 rows
+        New-UDDynamic -Id 'tickets-report' -LoadingComponent {
+            New-UDPivotReportPlaceholder -Locale $(if ($Session:PivotLocale) { $Session:PivotLocale } else { 'en-US' })
+        } -Content {
             $locale = if ($Session:PivotLocale) { $Session:PivotLocale } else { 'en-US' }
             # the last view of this session, so a change of language keeps the layout
             $view = if ($Session:PivotView) { $Session:PivotView } else { $startView }

@@ -3,7 +3,8 @@
 `-Data` takes a `System.Data.DataTable` or `DataView` (SqlClient, ODBC), DataRows, PSCustomObjects,
 hashtables, or a script block returning any of these. `DBNull` becomes `null` (a gap in a line), dates
 become ISO 8601 (the time axis picks them up), TimeSpans become seconds. Column names are matched
-without regard to case, so `-X Team` finds `team`.
+without regard to case, so `-X Team` finds `team`. A DataTable of 1000 rows or more is converted by a
+small class the module compiles once per PSU process; see [loading and performance](../pivot/index.md#loading-and-performance).
 
 ## Wide and long data
 

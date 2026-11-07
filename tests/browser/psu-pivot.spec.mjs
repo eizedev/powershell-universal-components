@@ -5,12 +5,16 @@
 import { test, expect } from "@playwright/test";
 
 const base = (process.env.PSU_PIVOT_URL || "").replace(/\/$/, "");
+// the report itself, never the placeholder the Tickets page shows while its data loads
+const REPORT = ".ud-pivot-report:not(.ud-pivot-placeholder) .pk-root";
 
 async function open(page, path) {
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(`${base}/${path}`);
-    await expect(page.locator(".pk-root").first()).toBeVisible({ timeout: 30000 });
+    // the report itself, not the placeholder the Tickets page shows while the data loads
+    await expect(page.locator(REPORT).first()).toBeVisible({ timeout: 30000 });
+    await expect(page.locator(".ud-pivot-placeholder")).toHaveCount(0);
     return errors;
 }
 
@@ -27,7 +31,7 @@ test.describe("pivot showcase on PSU", () => {
 
     test("renders the DataTable with typed fields and totals", async ({ page }) => {
         const errors = await open(page, "tickets");
-        const report = page.locator(".pk-root");
+        const report = page.locator(REPORT);
         // dates of the DataTable are dates, DBNull leaves the column typed
         await expect(report.getByRole("button", { name: /^Drag Created$/ })).toBeVisible();
         await expect(report.getByRole("button", { name: "Drag Closed" }).locator("xpath=..")).toContainText("Date");
@@ -36,9 +40,33 @@ test.describe("pivot showcase on PSU", () => {
         expect(errors).toEqual([]);
     });
 
+    test("the placeholder shows the report's frame while the server builds the data, where the report will be", async ({ page }) => {
+        const errors = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+        // hold the report's data back for two seconds, as a slow server would
+        await page.route(/\/api\/internal\/component\/element\/tickets-report/, async (route) => {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            await route.continue();
+        });
+        await page.goto(`${base}/tickets`);
+        const placeholder = page.locator(".ud-pivot-placeholder .pk-root");
+        await expect(placeholder).toBeVisible({ timeout: 30000 });
+        await expect(placeholder).toHaveAttribute("role", "status");
+        await expect(placeholder).toHaveAttribute("aria-busy", "true");
+        await expect(placeholder.locator(".pk-zone")).toHaveCount(4);
+        const before = await placeholder.boundingBox();
+        const report = page.locator(REPORT);
+        await expect(report.getByRole("region", { name: "Table" })).toContainText("5,000", { timeout: 30000 });
+        await expect(placeholder).toHaveCount(0);
+        // the report takes the placeholder's place and size: nothing on the page moves
+        const after = await report.boundingBox();
+        for (const key of ["x", "y", "width", "height"]) expect(Math.round(after[key]), key).toBe(Math.round(before[key]));
+        expect(errors).toEqual([]);
+    });
+
     test("a field dragged into Rows becomes a chip there", async ({ page }) => {
         await open(page, "tickets");
-        const report = page.locator(".pk-root");
+        const report = page.locator(REPORT);
         const handle = report.getByRole("button", { name: "Drag Customer" });
         const rows = report.getByRole("region", { name: "Rows" });
         const from = await handle.boundingBox();
@@ -54,7 +82,7 @@ test.describe("pivot showcase on PSU", () => {
 
     test("exports an Excel workbook with the file name of -FileName", async ({ page }) => {
         await open(page, "tickets");
-        await page.locator(".pk-root [data-testid=export]").click();
+        await page.locator(`${REPORT} [data-testid=export]`).click();
         const [download] = await Promise.all([page.waitForEvent("download"), page.locator("[data-testid=export-xlsx]").click()]);
         expect(download.suggestedFilename()).toBe("tickets.xlsx");
         const stream = await download.createReadStream();
@@ -68,7 +96,7 @@ test.describe("pivot showcase on PSU", () => {
 
     test("a click on a value runs -OnCellClick on the server with its fields", async ({ page }) => {
         await open(page, "events");
-        await page.locator(".pk-root").getByRole("region", { name: "Table" }).getByRole("cell", { name: /^\d[\d,]*$/ }).first().click();
+        await page.locator(REPORT).getByRole("region", { name: "Table" }).getByRole("cell", { name: /^\d[\d,]*$/ }).first().click();
         const log = page.locator("#event-log");
         await expect(log).toContainText("OnCellClick", { timeout: 15000 });
         await expect(log).toContainText('"field":"Team"');
@@ -77,7 +105,7 @@ test.describe("pivot showcase on PSU", () => {
 
     test("a view change runs -OnViewChange with the view as JSON", async ({ page }) => {
         await open(page, "events");
-        await page.locator(".pk-root [data-testid=swap]").click();
+        await page.locator(`${REPORT} [data-testid=swap]`).click();
         const log = page.locator("#event-log");
         await expect(log).toContainText("OnViewChange", { timeout: 15000 });
         await expect(log).toContainText('"rows":["Priority"]');
@@ -85,7 +113,7 @@ test.describe("pivot showcase on PSU", () => {
 
     test("templates are saved on the server, refused with its message, and deleted", async ({ page }) => {
         await open(page, "tickets");
-        const report = page.locator(".pk-root");
+        const report = page.locator(REPORT);
         const name = `Playwright ${test.info().project.name} ${Date.now()}`;
         const templates = () => report.getByRole("button", { name: "Templates" }).click();
         await templates();
@@ -108,7 +136,7 @@ test.describe("pivot showcase on PSU", () => {
 
     test("follows PSU's light and dark theme with PSU's colours", async ({ page }) => {
         await open(page, "tickets");
-        const report = page.locator(".pk-root");
+        const report = page.locator(REPORT);
         await setTheme(page, "dark");
         await expect(report).toHaveAttribute("data-pk-theme", "dark");
         await expect(report).toHaveCSS("background-color", "rgb(18, 18, 18)");
@@ -123,7 +151,7 @@ test.describe("pivot showcase on PSU", () => {
         await page.addStyleTag({
             content: ':root { --psu-chart-1: #003b6f; --psu-chart-accent: #b35c00; } :root[data-theme="dark"] { --psu-chart-1: #6fa8dc; --psu-chart-accent: #f6b26b; }'
         });
-        const report = page.locator(".pk-root");
+        const report = page.locator(REPORT);
         await report.locator("[data-testid=show-chart]").click();
         const canvas = report.locator("[data-testid=pivot-chart] canvas");
         await expect(canvas).toBeVisible({ timeout: 15000 });
@@ -146,9 +174,12 @@ test.describe("pivot showcase on PSU", () => {
         }
     });
 
-    test("the reader's view survives PSU's light/dark switch, which mounts the report anew", async ({ page }) => {
+    // Inside New-UDDynamic with -LoadingComponent (the Tickets page) PSU keeps the report over the switch
+    // (measured on PSU 2026.3.4); a report placed straight into the page is mounted anew, which the test
+    // of the reports without -Id covers. The view must survive either way.
+    test("the reader's view survives PSU's light/dark switch", async ({ page }) => {
         await open(page, "tickets");
-        const report = page.locator(".pk-root");
+        const report = page.locator(REPORT);
         await report.locator("[data-testid=show-chart]").click();
         await report.locator("[data-testid=chart-type]").click();
         await page.locator("[data-testid=chart-line]").click();
@@ -156,7 +187,6 @@ test.describe("pivot showcase on PSU", () => {
         const stored = () => page.evaluate(() => JSON.parse(sessionStorage.getItem("psu-pivot-views") || "{}")[`${location.pathname}#tickets`]?.v);
         await expect.poll(stored).toMatchObject({ display: "chart", chart: { type: "line" } });
         const before = await stored();
-        const first = await report.elementHandle();
         for (const mode of ["dark", "light"]) {
             await setTheme(page, mode);
             await expect(report).toHaveAttribute("data-pk-theme", mode);
@@ -164,15 +194,13 @@ test.describe("pivot showcase on PSU", () => {
             await expect(report.locator("[data-testid=chart-type]")).toContainText("Lines");
             await expect(report.locator("[data-testid=pivot-chart] canvas")).toBeVisible({ timeout: 15000 });
         }
-        // PSU did mount it anew (a new element), and the view is the same as before
-        expect(await first.evaluate((e) => e.isConnected)).toBe(false);
         expect(await stored()).toEqual(before);
     });
 
     test("two reports without -Id keep their own views over theme switches and a reload; Reset goes to -View", async ({ page }) => {
         await open(page, "without-id");
-        const first = page.locator(".pk-root").nth(0);
-        const second = page.locator(".pk-root").nth(1);
+        const first = page.locator(REPORT).nth(0);
+        const second = page.locator(REPORT).nth(1);
         const pressed = (report, id) => expect(report.locator(`[data-testid=${id}]`)).toHaveAttribute("aria-pressed", "true");
         const entries = () => page.evaluate(() => JSON.parse(sessionStorage.getItem("psu-pivot-views") || "{}"));
         // the first one shows a chart, the second one swaps rows and columns and stays a table
@@ -186,11 +214,14 @@ test.describe("pivot showcase on PSU", () => {
             await expect(first.getByRole("region", { name: "Columns" })).toContainText("Priority");
         };
         const before = await entries();
+        const mounted = await first.elementHandle();
         for (const mode of ["dark", "light"]) {
             await setTheme(page, mode);
             await expect(first).toHaveAttribute("data-pk-theme", mode);
             await check();
         }
+        // PSU did mount the reports anew (new elements), and the views are the same as before
+        expect(await mounted.evaluate((e) => e.isConnected)).toBe(false);
         expect(await entries()).toEqual(before);
         await page.reload();
         await expect(first).toBeVisible({ timeout: 30000 });
@@ -208,9 +239,9 @@ test.describe("pivot showcase on PSU", () => {
     test("fits a phone-sized window without a horizontal page scroll", async ({ page }) => {
         await page.setViewportSize({ width: 390, height: 844 });
         await open(page, "tickets");
-        await expect(page.locator(".pk-root [data-testid=show-fields]")).toBeVisible();
+        await expect(page.locator(`${REPORT} [data-testid=show-fields]`)).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-        const height = await page.locator(".pk-root").evaluate((e) => e.getBoundingClientRect().height);
+        const height = await page.locator(REPORT).evaluate((e) => e.getBoundingClientRect().height);
         expect(height).toBeGreaterThan(700);
     });
 });

@@ -17,7 +17,8 @@ Install-PSResource -Name PowerShellUniversal.Component.Perspective
 ## Data
 
 `-Data` takes a DataTable, DataRows, PSCustomObjects, hashtables or a script block, like the chart
-module. Column names keep their PowerShell spelling in the grid. Every column gets a type from its
+module (a DataTable of 1000 rows or more is converted by a small class compiled once per PSU process:
+[loading and performance](../pivot/index.md#loading-and-performance)). Column names keep their PowerShell spelling in the grid. Every column gets a type from its
 values: ISO dates and times become dates (sortable and filterable as dates), whole numbers up to
 2,147,483,647 integers (Perspective's integers are 32 bit), other numbers floats, `$true`/`$false`
 booleans, everything else text.

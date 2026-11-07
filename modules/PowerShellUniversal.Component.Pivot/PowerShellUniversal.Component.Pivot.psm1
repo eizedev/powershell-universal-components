@@ -33,6 +33,13 @@ $Script:MaxListLength = 64
 $Script:MaxNameLength = 256
 #endregion
 
+#region Parameters New-UDPivotReport and New-UDPivotReportPlaceholder share
+# a CSS length or calc()/clamp()/min()/max(); a bare number is pixels
+$Script:HeightPattern = '^\s*(\d+(\.\d+)?(px|vh|svh|dvh|em|rem|%)?|(calc|clamp|min|max)\(.*\))\s*$'
+$Script:LocalePattern = '^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$'
+$Script:MissingAssetMessage = 'PowerShellUniversal.Component.Pivot: the JavaScript bundle (index.<hash>.bundle.js) was not found next to the module, or the module was imported outside PowerShell Universal.'
+#endregion
+
 function ConvertFrom-UDPivotView {
     <#
     .SYNOPSIS
@@ -210,6 +217,24 @@ function Get-UDPivotTimeZone {
     'UTC'
 }
 
+function ConvertTo-UDPivotHeight {
+    <#
+    .SYNOPSIS
+        -Height as the report takes it: a bare number becomes pixels, anything else stays as it is.
+    .PARAMETER Height
+        The value of -Height (already checked against $Script:HeightPattern).
+    .EXAMPLE
+        ConvertTo-UDPivotHeight -Height 640
+    .OUTPUTS
+        System.String
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([Parameter(Mandatory)][string]$Height)
+    $value = $Height.Trim()
+    if ($value -match '^\d+(\.\d+)?$') { '{0}px' -f $value } else { $value }
+}
+
 function New-UDPivotReport {
     <#
     .SYNOPSIS
@@ -329,10 +354,10 @@ function New-UDPivotReport {
         [AllowEmptyCollection()][object[]]$Templates,
         [hashtable]$FieldDefaults,
         [hashtable]$Labels,
-        [ValidatePattern('^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$')][string]$Locale = 'en-US',
+        [ValidateScript({ $_ -match $Script:LocalePattern }, ErrorMessage = 'Locale "{0}": expected a language tag such as en-US or de-DE.')][string]$Locale = 'en-US',
         [ValidatePattern('^(UTC|[A-Za-z_]+(/[A-Za-z0-9_+-]+){1,2})$')][string]$TimeZone = (Get-UDPivotTimeZone),
         [ValidateSet('Auto', 'Light', 'Dark')][string]$Theme = 'Auto',
-        [ValidatePattern('^\s*(\d+(\.\d+)?(px|vh|svh|dvh|em|rem|%)?|(calc|clamp|min|max)\(.*\))\s*$')][string]$Height,
+        [ValidateScript({ $_ -match $Script:HeightPattern }, ErrorMessage = 'Height "{0}": expected a CSS length such as 640px, 80vh or 640.')][string]$Height,
         [ValidateLength(1, 120)][string]$FileName = 'pivot',
         [switch]$NoDrillDown,
         [string]$ClassName,
@@ -343,9 +368,7 @@ function New-UDPivotReport {
         [Endpoint]$OnDeleteTemplate
     )
 
-    if (-not $Script:AssetId) {
-        throw 'PowerShellUniversal.Component.Pivot: the JavaScript bundle (index.<hash>.bundle.js) was not found next to the module, or the module was imported outside PowerShell Universal.'
-    }
+    if (-not $Script:AssetId) { throw $Script:MissingAssetMessage }
 
     # one array (ConvertTo-PSUComponentData returns it as a single object; @() would nest it)
     $rows = ConvertTo-PSUComponentData -InputObject $Data
@@ -391,7 +414,7 @@ function New-UDPivotReport {
         }
         $props['fieldDefaults'] = $FieldDefaults
     }
-    if ($Height) { $props['height'] = if ($Height.Trim() -match '^\d+(\.\d+)?$') { '{0}px' -f $Height.Trim() } else { $Height.Trim() } }
+    if ($Height) { $props['height'] = ConvertTo-UDPivotHeight -Height $Height }
     if ($Labels) { $props['labels'] = $Labels }
     if ($ClassName) { $props['className'] = $ClassName }
     if ($Style) { $props['style'] = $Style }
@@ -407,4 +430,81 @@ function New-UDPivotReport {
     $props
 }
 
-Export-ModuleMember -Function New-UDPivotReport, ConvertFrom-UDPivotView
+function New-UDPivotReportPlaceholder {
+    <#
+    .SYNOPSIS
+        A placeholder in the pivot report's own look, for New-UDDynamic -LoadingComponent: it shows the
+        report's frame while the server builds the data.
+    .DESCRIPTION
+        PSU renders a component only once its properties have arrived, and the report's properties hold
+        all of its rows: with thousands of rows the page stays empty until the server has converted and
+        sent them. Put the report into New-UDDynamic and this placeholder into its -LoadingComponent:
+
+            New-UDDynamic -Id 'tickets-report' -LoadingComponent {
+                New-UDPivotReportPlaceholder -Height 640px
+            } -Content {
+                New-UDPivotReport -Id 'tickets' -Data $tickets -Height 640px
+            }
+
+        The placeholder comes with the page and shows the field list, the toolbar, the four zones and a
+        few table rows as grey bars, in the report's colours (light, dark, a corporate design from the
+        app's stylesheet) and its layout for the width; the bars pulse unless the reader asked for
+        reduced motion. Screen readers hear "Loading report". It also makes the browser load the
+        module's code at once, while the server is still working on the data.
+
+        Give it the -Height, -Theme and -Locale of the report, so nothing moves when the report replaces it.
+    .PARAMETER Id
+        Component id. Default: a new GUID.
+    .PARAMETER Height
+        Height, as -Height of New-UDPivotReport (e.g. 640px, 80vh or 640). Default: the report's default
+        height.
+    .PARAMETER Theme
+        Auto (follows the app's light/dark switch, default), Light or Dark.
+    .PARAMETER Locale
+        The language of the text screen readers hear: German for de-*, English otherwise. Default: en-US.
+    .PARAMETER ClassName
+        CSS class of the outer element.
+    .PARAMETER Style
+        CSS styles of the outer element, e.g. @{ maxWidth = '1200px' }.
+    .EXAMPLE
+        New-UDDynamic -Id 'tickets-report' -LoadingComponent { New-UDPivotReportPlaceholder } -Content {
+            New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets')
+        }
+    .EXAMPLE
+        New-UDDynamic -LoadingComponent { New-UDPivotReportPlaceholder -Height 560px -Locale de-DE } -Content {
+            New-UDPivotReport -Data $tickets -Height 560px -Locale de-DE
+        }
+    .OUTPUTS
+        System.Collections.Hashtable
+    .LINK
+        https://powershell-universal-components.eize.dev/pivot/
+    #>
+    # describes a component for PSU to render; changes no state, so no ShouldProcess
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [string]$Id = [guid]::NewGuid().ToString(),
+        [ValidateScript({ $_ -match $Script:HeightPattern }, ErrorMessage = 'Height "{0}": expected a CSS length such as 640px, 80vh or 640.')][string]$Height,
+        [ValidateSet('Auto', 'Light', 'Dark')][string]$Theme = 'Auto',
+        [ValidateScript({ $_ -match $Script:LocalePattern }, ErrorMessage = 'Locale "{0}": expected a language tag such as en-US or de-DE.')][string]$Locale = 'en-US',
+        [string]$ClassName,
+        [hashtable]$Style
+    )
+
+    if (-not $Script:AssetId) { throw $Script:MissingAssetMessage }
+    $props = @{
+        assetId  = $Script:AssetId
+        isPlugin = $true
+        type     = 'ud-pivot-placeholder'
+        id       = $Id
+        theme    = $Theme.ToLowerInvariant()
+        locale   = $Locale
+    }
+    if ($Height) { $props['height'] = ConvertTo-UDPivotHeight -Height $Height }
+    if ($ClassName) { $props['className'] = $ClassName }
+    if ($Style) { $props['style'] = $Style }
+    $props
+}
+
+Export-ModuleMember -Function New-UDPivotReport, New-UDPivotReportPlaceholder, ConvertFrom-UDPivotView

@@ -1,0 +1,72 @@
+/*
+ * The placeholder New-UDPivotReportPlaceholder shows while the report's data is on its way: pivotkit's
+ * own layout (panel, toolbar, zones, result) with grey bars where the content will be. Every colour is
+ * a --pk-* token of the theme bridge (psu.css), so light and dark mode and a corporate design apply as
+ * in the report. The bars pulse unless the reader asked for reduced motion.
+ */
+.ud-pivot-placeholder .ud-pivot-bone {
+    display: block;
+    height: 0.9em;
+    border-radius: var(--pk-radius-sm);
+    background: var(--pk-surface-3);
+    animation: ud-pivot-pulse 1.6s ease-in-out infinite;
+}
+.ud-pivot-placeholder .ud-pivot-bone-button {
+    height: 2.15em;
+    border-radius: var(--pk-radius-sm);
+}
+.ud-pivot-placeholder .pk-toolbar {
+    /* the buttons that do not fit wrap out of sight, as the report moves them into its More menu;
+       a narrow report has two rows of buttons */
+    flex-wrap: wrap;
+    max-height: 2.15em;
+    overflow: hidden;
+}
+.ud-pivot-placeholder .pk-root[data-pk-size="narrow"] .pk-toolbar {
+    max-height: calc(4.3em + 6px);
+}
+.ud-pivot-placeholder .ud-pivot-bone-field {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    height: 2.2em;
+    padding: 0 0.4em;
+}
+.ud-pivot-placeholder .ud-pivot-bone-icon {
+    flex: none;
+    width: 1.4em;
+    height: 1.4em;
+}
+.ud-pivot-placeholder .ud-pivot-bone-chip {
+    width: 9em;
+    height: 1.9em;
+    border-radius: 1em;
+}
+.ud-pivot-placeholder .ud-pivot-bone-table {
+    display: grid;
+    grid-template-columns: 1.6fr repeat(4, 1fr);
+    align-content: start;
+    gap: 0;
+    width: 100%;
+}
+.ud-pivot-placeholder .ud-pivot-bone-cell {
+    padding: 0.75em 0.8em;
+    border-bottom: 1px solid var(--pk-grid);
+}
+.ud-pivot-placeholder .ud-pivot-bone-head {
+    background: var(--pk-surface-2);
+}
+@keyframes ud-pivot-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .ud-pivot-placeholder .ud-pivot-bone {
+        animation: none;
+    }
+}

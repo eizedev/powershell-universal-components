@@ -123,7 +123,7 @@ foreach ($example in & (Join-Path $site 'examples.ps1')) {
     $id = Get-Slug $example.Title
     if ($examples.Contains($id)) { throw "Two examples are titled '$($example.Title)'." }
     $props = & $example.Code
-    $component = switch ($props.type) { 'ud-perspective' { 'perspective' } 'ud-pivot-report' { 'pivot' } default { 'echarts' } }
+    $component = switch ($props.type) { 'ud-perspective' { 'perspective' } 'ud-pivot-report' { 'pivot' } 'ud-pivot-placeholder' { 'pivot-placeholder' } default { 'echarts' } }
     foreach ($key in 'assetId', 'isPlugin', 'type') { $props.Remove($key) }
     # a fixed id per example, so the page is the same on every build
     $props['id'] = "example-$id"

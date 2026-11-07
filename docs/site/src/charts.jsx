@@ -93,6 +93,9 @@ async function mount(el) {
         } else if (example.component === "pivot") {
             const { default: PivotReport } = await import(/* webpackChunkName: "pivot" */ "./pivot.js");
             root.render(<PivotReport {...propsOf(example, el)} />);
+        } else if (example.component === "pivot-placeholder") {
+            const { Placeholder } = await import(/* webpackChunkName: "pivot" */ "./pivot.js");
+            root.render(<Placeholder {...propsOf(example, el)} />);
         } else {
             root.render(<EChart {...propsOf(example, el)} />);
         }

@@ -7,7 +7,7 @@
     Copyright         = '(c) 2026 eizedev. MIT License.'
     Description       = 'Pivot report builder for PowerShell Universal apps: readers drag fields into rows, columns, values and filters and get a table or a chart, with date grouping, drill-down to the source rows, templates, undo and Excel, CSV and PNG export; light and dark theme, English and German, fed straight from SQL DataTables, REST results and PowerShell objects.'
     PowerShellVersion = '7.4'
-    FunctionsToExport = @('New-UDPivotReport', 'ConvertFrom-UDPivotView')
+    FunctionsToExport = @('New-UDPivotReport', 'New-UDPivotReportPlaceholder', 'ConvertFrom-UDPivotView')
     CmdletsToExport   = @()
     VariablesToExport = @()
     AliasesToExport   = @()

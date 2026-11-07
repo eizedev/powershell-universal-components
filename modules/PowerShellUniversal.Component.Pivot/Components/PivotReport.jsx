@@ -2,21 +2,8 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { PivotReport as Report } from "pivotkit-react";
 import "pivotkit-react/styles.css";
 import "./psu.css";
-import { callEndpoint, cellEvent, heightOf, mergeTemplates, NARROW_QUERY, parseView, readStoredView, readTemplates, restoreRows, themeOf, VIEW_EVENT_DELAY_MS, viewStoreKey, writeStoredView } from "./prepare";
-
-// true while the window is phone-sized (for the default height)
-function useNarrowWindow() {
-    const query = typeof window !== "undefined" && window.matchMedia ? window.matchMedia(NARROW_QUERY) : null;
-    const [narrow, setNarrow] = useState(() => Boolean(query && query.matches));
-    useEffect(() => {
-        if (!query) return undefined;
-        const onChange = () => setNarrow(query.matches);
-        query.addEventListener("change", onChange);
-        return () => query.removeEventListener("change", onChange);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-    return narrow;
-}
+import { useNarrowWindow } from "./hooks";
+import { callEndpoint, cellEvent, heightOf, mergeTemplates, parseView, readStoredView, readTemplates, restoreRows, themeOf, VIEW_EVENT_DELAY_MS, viewStoreKey, writeStoredView } from "./prepare";
 
 // sessionStorage, or null where the browser blocks it (the accessor itself can throw)
 function sessionStorageOrNull() {

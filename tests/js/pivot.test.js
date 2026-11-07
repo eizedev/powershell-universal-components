@@ -99,6 +99,19 @@ test("callEndpoint: resolves on success, rejects with the server's message or on
     await assert.rejects(mod.callEndpoint(() => new Promise(() => {}), {}, 20), /no answer/);
 });
 
+test("sizeOf and placeholderLabel: the placeholder's layout and text follow the report's", () => {
+    assert.equal(mod.sizeOf(390), "narrow");
+    assert.equal(mod.sizeOf(639), "narrow");
+    assert.equal(mod.sizeOf(640), "medium");
+    assert.equal(mod.sizeOf(1023), "medium");
+    assert.equal(mod.sizeOf(1024), "wide");
+    assert.deepEqual(mod.placeholderLabel("de-DE"), { lang: "de", text: "Bericht wird geladen" });
+    assert.deepEqual(mod.placeholderLabel("de"), { lang: "de", text: "Bericht wird geladen" });
+    for (const locale of ["en-US", "fr-FR", "dev", undefined, null]) {
+        assert.deepEqual(mod.placeholderLabel(locale), { lang: "en", text: "Loading report" });
+    }
+});
+
 test("heightOf and themeOf", () => {
     assert.equal(mod.heightOf(500), 500);
     assert.equal(mod.heightOf(" 70vh "), "70vh");

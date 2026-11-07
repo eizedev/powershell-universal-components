@@ -65,6 +65,9 @@ as templates and export to Excel:
 New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -Locale de-DE
 ```
 
+With thousands of rows, give it a placeholder that shows the report's frame while the server builds the
+data: [Pivot: loading and performance](pivot/index.md#loading-and-performance).
+
 ## Try everything
 
 The [showcase app](demo.md) has 14 pages of charts with generated and public data:

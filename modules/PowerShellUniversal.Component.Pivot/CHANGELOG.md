@@ -15,6 +15,11 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   rows, undo and redo, templates, and Excel, CSV and PNG export.
 - Data straight from DataTables, REST results and PowerShell objects with their original column names;
   dates stay dates, `-TimeZone` (default: the server's zone) for dates with an offset.
+- `New-UDPivotReportPlaceholder` for `New-UDDynamic -LoadingComponent`: the report's frame in its own
+  colours and layout while the server builds the data (reduced motion respected, announced to screen
+  readers); it also makes the browser load the module's code at once. The showcase uses it.
+- Data conversion without a function call per cell: the showcase's 5000-row DataTable takes about 40 ms
+  instead of 2.4 to 2.9 s on the test instance, the table appears after about 0.46 s instead of 2.6 s.
 - `-View` (hashtable or JSON), `-Templates`, `-FieldDefaults`, `-Labels`, `-Locale` (English and
   German, default en-US), `-Theme`, `-Height` (default: the window's height), `-FileName`, `-NoDrillDown`.
 - `-OnViewChange`, `-OnCellClick`, `-OnSaveTemplate` and `-OnDeleteTemplate`; saving and deleting show

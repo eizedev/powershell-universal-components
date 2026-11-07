@@ -18,6 +18,18 @@ Install-PSResource -Name PowerShellUniversal.Component.Pivot
 New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -Locale de-DE
 ```
 
+With thousands of rows, put the report into `New-UDDynamic` and give it `New-UDPivotReportPlaceholder` as
+`-LoadingComponent`. The page then shows the report's frame at once, and the browser loads the module's
+code while the server still builds the rows ([Loading and performance](#loading-and-performance)):
+
+```powershell
+New-UDDynamic -Id 'tickets-report' -LoadingComponent {
+    New-UDPivotReportPlaceholder -Height 640px -Locale de-DE
+} -Content {
+    New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -Height 640px -Locale de-DE
+}
+```
+
 ## Pivot report from a DataTable
 
 --8<-- "examples/pivot-report-from-a-datatable.md"
@@ -76,5 +88,46 @@ height minus the app bar and a page title (between 480 and 1400 pixels, almost t
 phone); `-Height` sets another one. Give it at least 600 pixels where readers build reports: the zones
 take about 300 of them. Inside `New-UDTabs`, `New-UDCard`, `New-UDStack` and expansion panels it fits
 its container and grows when a hidden tab is shown.
+
+## Loading and performance
+
+PSU draws a component once its properties have arrived, and the report's properties carry all of its
+rows. Until then the page has nothing to show for it, and the browser does not even know that it will
+need the module's code. Three parts take the time: the server converts the rows (`-Data`), PSU sends
+them as JSON, and the browser builds the report.
+
+`New-UDPivotReportPlaceholder` in `New-UDDynamic -LoadingComponent` (see the top of this page) shows the
+report's frame while the server works: the field list, the toolbar, the zones and a few table rows as
+grey bars, in the report's colours and layout, at the height you give it. Give it the same `-Height`,
+`-Theme` and `-Locale` as the report, so nothing moves when the report replaces it. The bars pulse
+unless the reader asked the system for reduced motion; screen readers hear "Loading report". Because
+the placeholder comes from the module, the browser loads the module's code at once instead of after
+the data.
+
+--8<-- "examples/placeholder-while-the-data-loads.md"
+
+The rows are converted without a call per cell. A DataTable of 1000 rows or more whose columns hold
+text, numbers, booleans, GUIDs, dates or TimeSpans goes through a small C# class that the module
+compiles with `Add-Type` the first time it needs it: about 2 seconds, once per PSU process (PSU runs
+its apps in its own process, so once after PSU starts, not per app start). Where `Add-Type` is not
+available, for example in constrained language mode, PowerShell does the same conversion more slowly.
+The ECharts and Perspective modules convert their data the same way.
+
+Measured on the test instance (PSU 2026.3.4 in a Linux container on a small NAS, 2026-11-07, Chromium;
+approximate, your server and network differ), with the showcase's DataTable of 5000 rows and 12
+columns:
+
+| Step | Time |
+| --- | --- |
+| Converting the rows, compiled class | about 40 ms (PSU 2026.2.5: about 36 ms) |
+| Converting the rows, PowerShell only | about 150 to 250 ms |
+| The report's properties: 1.24 MB of JSON, built, sent and received | about 0.25 s |
+| Placeholder on screen, after the page request started | about 0.22 s |
+| The table on screen, after the page request started | about 0.46 s |
+| The browser, from the data to the table (the module's code already loaded) | about 40 ms |
+
+What makes it slower is the size of the data: every row and every column travels to the browser.
+Select the columns readers need (`SELECT Team, Priority, Created ...` instead of `SELECT *`), and
+aggregate in SQL where readers never look at single rows.
 
 Next: [Themes and corporate design](themes.md), [Views and templates](views.md), [Events, security and limits](events.md), [Reference](reference.md).

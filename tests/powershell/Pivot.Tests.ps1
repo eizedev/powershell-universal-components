@@ -180,16 +180,50 @@ Describe 'ConvertFrom-UDPivotView' {
     }
 }
 
+Describe 'New-UDPivotReportPlaceholder' {
+    It 'returns the plugin hashtable for ud-pivot-placeholder with the defaults' {
+        $c = New-UDPivotReportPlaceholder -Id 'wait'
+        $c.type | Should -Be 'ud-pivot-placeholder'
+        $c.assetId | Should -Be 'asset-under-test'
+        $c.isPlugin | Should -BeTrue
+        $c.id | Should -Be 'wait'
+        $c.theme | Should -Be 'auto'
+        $c.locale | Should -Be 'en-US'
+        foreach ($key in 'height', 'className', 'style') { $c.ContainsKey($key) | Should -BeFalse -Because "$key was not passed" }
+    }
+
+    It 'takes -Height, -Theme and -Locale as New-UDPivotReport does' {
+        $placeholder = New-UDPivotReportPlaceholder -Height 640 -Theme Dark -Locale de-DE -ClassName 'x' -Style @{ maxWidth = '900px' }
+        $report = New-UDPivotReport -Data @() -Height 640 -Theme Dark -Locale de-DE
+        foreach ($key in 'height', 'theme', 'locale') { $placeholder[$key] | Should -Be $report[$key] }
+        $placeholder.className | Should -Be 'x'
+        $placeholder.style.maxWidth | Should -Be '900px'
+        (New-UDPivotReportPlaceholder -Height 'clamp(400px, 60vh, 900px)').height | Should -Be 'clamp(400px, 60vh, 900px)'
+        { New-UDPivotReportPlaceholder -Height '640px; background: red' } | Should -Throw '*Height*'
+        { New-UDPivotReportPlaceholder -Locale 'de_DE;x' } | Should -Throw '*Locale*'
+        { New-UDPivotReportPlaceholder -Theme Blue } | Should -Throw
+    }
+
+    It 'refuses to run without the bundle, like the report' {
+        $saved = & $script:module { $Script:AssetId }
+        try {
+            & $script:module { $Script:AssetId = $null }
+            { New-UDPivotReportPlaceholder } | Should -Throw '*bundle*'
+        }
+        finally { & $script:module { param($Id) $Script:AssetId = $Id } $saved }
+    }
+}
+
 Describe 'The pivot module' {
-    It 'has a manifest with the PowerShellUniversal tag and exports both commands' {
+    It 'has a manifest with the PowerShellUniversal tag and exports its commands' {
         $manifest = Import-PowerShellDataFile (Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.Pivot' 'PowerShellUniversal.Component.Pivot.psd1')
         $manifest.PrivateData.PSData.Tags | Should -Contain 'PowerShellUniversal'
-        $manifest.FunctionsToExport | Should -Be @('New-UDPivotReport', 'ConvertFrom-UDPivotView')
+        $manifest.FunctionsToExport | Should -Be @('New-UDPivotReport', 'New-UDPivotReportPlaceholder', 'ConvertFrom-UDPivotView')
         $manifest.ModuleVersion | Should -Be '0.1.0'
     }
 
     It 'documents every parameter with an example' {
-        foreach ($command in 'New-UDPivotReport', 'ConvertFrom-UDPivotView') {
+        foreach ($command in 'New-UDPivotReport', 'New-UDPivotReportPlaceholder', 'ConvertFrom-UDPivotView') {
             $help = Get-Help $command -Full
             @($help.examples.example).Count | Should -BeGreaterThan 0
             foreach ($p in $help.parameters.parameter) {

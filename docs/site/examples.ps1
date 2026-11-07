@@ -373,6 +373,10 @@
             }
         }
     }
+    @{ Section = 'Pivot'; Title = 'Placeholder while the data loads'; Text = 'What New-UDPivotReportPlaceholder shows in New-UDDynamic -LoadingComponent until the report arrives: the report''s frame in its colours and layout, pulsing unless the reader asked for reduced motion.'; Code = {
+            New-UDPivotReportPlaceholder -Height 420px
+        }
+    }
     @{ Section = 'Pivot'; Title = 'Pivot report in German'; Text = '-Locale de-DE: German labels, numbers and dates; -FieldDefaults gives Lead hours an average with one decimal when it is put into Values.'; Code = {
             $rng = [System.Random]::new(9)
             $rows = foreach ($i in 1..600) {
