@@ -117,6 +117,37 @@ test.describe("pivot showcase on PSU", () => {
         await expect(report).toHaveCSS("background-color", "rgb(255, 255, 255)");
     });
 
+    test("a corporate stylesheet on :root themes the report and its chart, per PSU mode", async ({ page }) => {
+        await open(page, "tickets");
+        // what an app's stylesheet sets: the ECharts module's properties, one value per mode
+        await page.addStyleTag({
+            content: ':root { --psu-chart-1: #003b6f; --psu-chart-accent: #b35c00; } :root[data-theme="dark"] { --psu-chart-1: #6fa8dc; --psu-chart-accent: #f6b26b; }'
+        });
+        const report = page.locator(".pk-root");
+        const canvas = report.locator("[data-testid=pivot-chart] canvas");
+        const token = (name) => report.evaluate((e, n) => getComputedStyle(e).getPropertyValue(n).trim(), name);
+        // pixels of the chart drawn in exactly this colour (the first series' bars)
+        const pixels = (hex) =>
+            canvas.evaluate((c, rgb) => {
+                const data = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+                let n = 0;
+                for (let i = 0; i < data.length; i += 4) if (data[i] === rgb[0] && data[i + 1] === rgb[1] && data[i + 2] === rgb[2]) n++;
+                return n;
+            }, [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)));
+        for (const [mode, accent, series] of [["light", "#b35c00", "#003b6f"], ["dark", "#f6b26b", "#6fa8dc"]]) {
+            // switched by PSU's toggle, without a reload
+            await setTheme(page, mode);
+            await expect(report).toHaveAttribute("data-pk-theme", mode);
+            await expect.poll(() => token("--pk-accent")).toBe(accent);
+            await expect.poll(() => token("--pk-chart-1")).toBe(series);
+            // PSU mounts the page's components anew when its theme switches, so the report is back at its
+            // start view (a table): show the chart in this mode
+            await report.locator("[data-testid=show-chart]").click();
+            await expect(canvas).toBeVisible({ timeout: 15000 });
+            await expect.poll(() => pixels(series), { timeout: 10000 }).toBeGreaterThan(100);
+        }
+    });
+
     test("fits a phone-sized window without a horizontal page scroll", async ({ page }) => {
         await page.setViewportSize({ width: 390, height: 844 });
         await open(page, "tickets");

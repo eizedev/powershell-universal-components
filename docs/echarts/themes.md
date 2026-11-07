@@ -45,9 +45,10 @@ charts ([Layout](layout.md)):
 ```
 
 The properties are read from the page root (`:root`), so they apply to every chart of the app. An app
-sets them in its stylesheet, or on the page with
+sets them in its stylesheet (`New-UDApp -Stylesheets`, see [Pivot themes](../pivot/themes.md#adding-the-stylesheet-to-an-app)), or on the page with
 `New-UDHtml -Markup '<style>:root { --psu-chart-font-size: 14px; }</style>'`. They apply to the whole
-page, so this site shows no live example of them (it would restyle every chart here).
+page, so this site shows no live example of them (it would restyle every chart here). The pivot report
+reads the same properties, so one stylesheet themes both: [Pivot themes and corporate design](../pivot/themes.md).
 
 ## Fixed colours per category
 

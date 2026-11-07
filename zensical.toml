@@ -55,6 +55,7 @@ nav = [
   ] },
   { "Pivot" = [
     { "Overview" = "pivot/index.md" },
+    { "Themes and corporate design" = "pivot/themes.md" },
     { "Views and templates" = "pivot/views.md" },
     { "Events, security and limits" = "pivot/events.md" },
     { "Commands and parameters" = "pivot/reference.md" },

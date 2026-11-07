@@ -112,12 +112,79 @@ test("heightOf and themeOf", () => {
 // ---- the PSU theme bridge ------------------------------------------------------------------------
 
 const css = readFileSync(new URL("../../modules/PowerShellUniversal.Component.Pivot/Components/psu.css", import.meta.url), "utf8");
+const themesDoc = readFileSync(new URL("../../docs/pivot/themes.md", import.meta.url), "utf8");
+const LIGHT = ".ud-pivot-report .pk-root";
+const DARK = '.ud-pivot-report .pk-root[data-pk-theme="dark"]';
 
-function tokens(selector) {
-    const start = css.indexOf(`${selector} {`);
-    assert.ok(start >= 0, selector);
-    const block = css.slice(start, css.indexOf("}", start));
-    return Object.fromEntries([...block.matchAll(/(--pk-[a-z0-9-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
+// the custom properties of every block with exactly this selector, in source order
+function declarations(selector) {
+    const out = {};
+    const source = css.replace(/\/\*[\s\S]*?\*\//g, "");
+    for (let at = source.indexOf(`${selector} {`); at >= 0; at = source.indexOf(`${selector} {`, at + 1)) {
+        const block = source.slice(at, source.indexOf("}", at));
+        for (const m of block.matchAll(/(--[a-z0-9-]+):\s*([^;]+);/g)) out[m[1]] = m[2].trim();
+    }
+    assert.ok(Object.keys(out).length, selector);
+    return out;
+}
+
+// the report's declarations in a mode: the dark block adds to the light one, as in the browser
+function element(mode) {
+    return mode === "dark" ? { ...declarations(LIGHT), ...declarations(DARK) } : declarations(LIGHT);
+}
+
+// var() substitution as CSS does it: a property without a value takes the fallback, a var() without
+// either makes the whole value invalid (undefined here); `page` holds the values inherited from :root
+function resolve(name, own, page, seen = new Set()) {
+    if (seen.has(name)) return undefined;
+    if (!(name in own)) return page[name];
+    return substitute(own[name], own, page, new Set([...seen, name]));
+}
+
+function substitute(value, own, page, seen) {
+    let out = "";
+    let i = 0;
+    while (i < value.length) {
+        const at = value.indexOf("var(", i);
+        if (at < 0) return out + value.slice(i);
+        out += value.slice(i, at);
+        let depth = 0;
+        let end = at + 3;
+        let comma = -1;
+        for (; end < value.length; end++) {
+            if (value[end] === "(") depth++;
+            else if (value[end] === ")" && --depth === 0) break;
+            else if (value[end] === "," && depth === 1 && comma < 0) comma = end;
+        }
+        const ref = value.slice(at + 4, comma < 0 ? end : comma).trim();
+        let v = resolve(ref, own, page, seen);
+        if (v === undefined && comma >= 0) v = substitute(value.slice(comma + 1, end).trim(), own, page, seen);
+        if (v === undefined) return undefined;
+        out += v;
+        i = end + 1;
+    }
+    return out;
+}
+
+const tokenNames = (own) => Object.keys(own).filter((n) => n.startsWith("--pk-"));
+const tokensOf = (mode, page = {}) => {
+    const own = element(mode);
+    return Object.fromEntries(tokenNames(own).map((n) => [n, resolve(n, own, page)]));
+};
+
+// the properties an app may set: every --psu-pivot-* and --psu-chart-* the bridge reads
+const publicNames = () => [...new Set([...css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/var\((--psu-(?:pivot|chart)-[a-z0-9-]+)/g)].map((m) => m[1]))].sort();
+
+// the table in docs/pivot/themes.md: property, falls back to, what it sets, light, dark
+function docRows() {
+    return themesDoc.split("\n").filter((l) => l.startsWith("| `--psu-")).map((line) => {
+        const cells = line.split("|").slice(1, -1).map((c) => c.trim());
+        let names = [...cells[0].matchAll(/`(--psu-[a-z0-9-]+)`/g)].map((m) => m[1]);
+        const range = /^`--psu-([a-z]+)-(\d+)` \.\.\. `--psu-\1-(\d+)`$/.exec(cells[0]);
+        if (range) names = Array.from({ length: range[3] - range[2] + 1 }, (_, k) => `--psu-${range[1]}-${Number(range[2]) + k}`);
+        const literal = (cell) => (/^`([^`]+)`$/.exec(cell) || [])[1];
+        return { names, fallbacks: [...cells[1].matchAll(/`(--psu-[a-z0-9-]+)`/g)].map((m) => m[1]), light: literal(cells[3]), dark: literal(cells[4]) };
+    });
 }
 
 // a colour with alpha over its background, as the browser draws it
@@ -129,9 +196,9 @@ function over(color, background) {
     return fg.map((v, i) => Math.round(v * a + bg[i] * (1 - a)));
 }
 
-for (const [mode, selector] of [["light", ".ud-pivot-report .pk-root"], ["dark", '.ud-pivot-report .pk-root[data-pk-theme="dark"]']]) {
+for (const mode of ["light", "dark"]) {
     test(`theme bridge (${mode}): text 4.5:1 on every surface, accent and borders of controls 3:1`, () => {
-        const t = { ...tokens(".ud-pivot-report .pk-root"), ...tokens(selector) };
+        const t = tokensOf(mode);
         for (const surface of ["--pk-surface", "--pk-surface-2", "--pk-surface-3", "--pk-surface-raised", "--pk-total", "--pk-total-strong", "--pk-note", "--pk-accent-soft"]) {
             const bg = parseColor(t[surface]);
             assert.ok(contrastRatio(over(t["--pk-text"], t[surface]), bg) >= 4.5, `text on ${surface}`);
@@ -142,4 +209,55 @@ for (const [mode, selector] of [["light", ".ud-pivot-report .pk-root"], ["dark",
         assert.ok(contrastRatio(parseColor(t["--pk-focus"]), parseColor(t["--pk-surface"])) >= 3, "focus ring");
         assert.ok(contrastRatio(parseColor(t["--pk-drop-border"]), parseColor(t["--pk-surface"])) >= 3, "edge of a zone");
     });
+
+    test(`theme bridge (${mode}): every token has a value without a corporate stylesheet, except the font`, () => {
+        const t = tokensOf(mode);
+        for (const [name, value] of Object.entries(t)) {
+            if (name === "--pk-font") assert.equal(value, undefined, "pivotkit inherits the page's font");
+            else assert.ok(value && !value.includes("var("), `${name}: ${value}`);
+        }
+    });
+
+    test(`theme bridge (${mode}): corporate values on :root win, --psu-pivot-* over --psu-chart-*`, () => {
+        const chart = tokensOf(mode, { "--psu-chart-accent": "#f28c28", "--psu-chart-1": "#003b6f", "--psu-chart-text": "#1f2430" });
+        assert.equal(chart["--pk-accent"], "#f28c28");
+        assert.equal(chart["--pk-focus"], "#f28c28");
+        assert.equal(chart["--pk-chart-1"], "#003b6f");
+        assert.equal(chart["--pk-chart-2"], tokensOf(mode)["--pk-chart-2"], "positions without a property keep theirs");
+        assert.equal(chart["--pk-text"], "#1f2430");
+        // the highlight and the drop zone are tinted with the corporate accent
+        assert.match(chart["--pk-accent-soft"], /^color-mix\(in srgb, #f28c28 \d+%, #[0-9a-f]{6}\)$/);
+        assert.match(chart["--pk-drop"], /#f28c28/);
+        const pivot = tokensOf(mode, { "--psu-chart-accent": "#f28c28", "--psu-pivot-accent": "#003b6f", "--psu-pivot-accent-soft": "#eeeeee" });
+        assert.equal(pivot["--pk-accent"], "#003b6f");
+        assert.equal(pivot["--pk-accent-soft"], "#eeeeee");
+        assert.equal(tokensOf(mode, { "--psu-pivot-font": "Arial" })["--pk-font"], "Arial");
+    });
 }
+
+test("theme bridge: docs/pivot/themes.md lists every property the bridge reads, with its fallbacks and defaults", () => {
+    const rows = docRows();
+    assert.deepEqual([...new Set(rows.flatMap((r) => [...r.names, ...r.fallbacks]))].sort(), publicNames());
+    for (const row of rows) {
+        for (const name of row.names) {
+            // the property changes at least one token in both modes
+            const changed = (mode, page) => {
+                const base = tokensOf(mode);
+                const t = tokensOf(mode, page);
+                return tokenNames(element(mode)).filter((n) => t[n] !== base[n] && t[n] === "#123456");
+            };
+            for (const mode of ["light", "dark"]) {
+                const tokens = changed(mode, { [name]: "#123456" });
+                assert.ok(tokens.length, `${name} sets no token in ${mode}`);
+                // each documented fallback reaches the same token when the property itself is not set
+                for (const fallback of row.fallbacks) {
+                    assert.ok(changed(mode, { [fallback]: "#123456" }).some((n) => tokens.includes(n)), `${name} falls back to ${fallback} (${mode})`);
+                }
+                const expected = mode === "light" ? row.light : row.dark;
+                if (expected !== undefined) {
+                    assert.equal(tokensOf(mode)[tokens[0]], expected, `default of ${name} (${mode})`);
+                }
+            }
+        }
+    }
+});

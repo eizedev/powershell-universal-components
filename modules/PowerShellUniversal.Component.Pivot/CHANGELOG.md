@@ -21,6 +21,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   in the report once the server confirmed them, and a server's refusal shows its message.
 - `ConvertFrom-UDPivotView`: checks a view from the browser (size, depth, shape, known keys only) before
   it is stored.
-- Light and dark theme in PSU's colours, following the app's switch.
+- Light and dark theme in PSU's colours, following the app's switch; a corporate design from the app's
+  stylesheet through the ECharts module's `--psu-chart-*` properties and the report's own `--psu-pivot-*`
+  ones, per mode.
 - `examples/showcase.ps1`: a 5,000-row DataTable with templates saved per user, a language switch, the
   events and the report in page layouts.

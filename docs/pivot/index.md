@@ -70,10 +70,11 @@ everyone. `-Labels` replaces single texts.
 ## Theme and layout
 
 The report follows the app's light and dark switch and takes PSU's colours: the neutral greys of PSU's
-pages and MUI's primary blue. `-Theme Light` or `-Theme Dark` pins it. Its height is the window's
+pages and MUI's primary blue. `-Theme Light` or `-Theme Dark` pins it. A corporate design comes from the
+app's stylesheet, the same one that themes the ECharts charts: [Themes and corporate design](themes.md). Its height is the window's
 height minus the app bar and a page title (between 480 and 1400 pixels, almost the whole window on a
 phone); `-Height` sets another one. Give it at least 600 pixels where readers build reports: the zones
 take about 300 of them. Inside `New-UDTabs`, `New-UDCard`, `New-UDStack` and expansion panels it fits
 its container and grows when a hidden tab is shown.
 
-Next: [Views and templates](views.md), [Events, security and limits](events.md), [Reference](reference.md).
+Next: [Themes and corporate design](themes.md), [Views and templates](views.md), [Events, security and limits](events.md), [Reference](reference.md).

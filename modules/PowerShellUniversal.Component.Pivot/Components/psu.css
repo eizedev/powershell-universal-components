@@ -1,55 +1,155 @@
 /*
- * PSU theme bridge: pivotkit's tokens (--pk-*) mapped to the colours PSU's own pages use, so the report
- * looks like a part of the app. Measured on PSU 2026.3.4: light page rgb(240, 242, 245) with white
- * cards and app bar, MUI's primary blue #1976d2; dark page black, app bar rgb(31, 31, 31), text white
- * at 85 %, MUI's dark primary #90caf9. pivotkit's own defaults are tinted blue-grey; here the surfaces
- * are PSU's neutral greys and the accent is MUI's primary. The report picks light or dark from
- * <html data-theme> itself (data-pk-theme on its root).
+ * PSU theme bridge: pivotkit's tokens (--pk-*) in PSU's colours, themable from the app's stylesheet.
+ *
+ * Three layers, the first one set wins:
+ *   1. --psu-pivot-*  set on :root by the app's stylesheet, for the pivot report only;
+ *   2. --psu-chart-*  the same properties the ECharts module reads (series colours, text, muted, axis,
+ *                     grid, accent), so one corporate palette themes the charts and the report;
+ *   3. --psu-default-* below: PSU's own look, per mode.
+ * Corporate values are set per mode as :root { ... } and :root[data-theme="dark"] { ... }; custom
+ * properties inherit, so the report sees the value of the page's current mode. The list of properties
+ * is documented in docs/pivot/themes.md (a test keeps both in step).
+ *
+ * PSU's look, measured on PSU 2026.3.4: light page rgb(240, 242, 245) with white cards and app bar,
+ * MUI's primary blue #1976d2; dark page black, app bar rgb(31, 31, 31), text white at 85 %, MUI's dark
+ * primary #90caf9. pivotkit's own defaults are tinted blue-grey; here the surfaces are PSU's neutral
+ * greys and the accent is MUI's primary. Series, heatmap and colour-scale defaults are pivotkit's own
+ * (pivotkit-react 0.1.0 styles.css), repeated here because a property cannot fall back to the value it
+ * replaces. The report picks light or dark from <html data-theme> itself (data-pk-theme on its root).
  *
  * The selectors carry one class more than pivotkit's (zero specificity), so they win in any order.
  */
+
+/* ---- PSU's defaults, light ------------------------------------------------------------------- */
 .ud-pivot-report .pk-root {
-    --pk-radius: 8px;
-    --pk-radius-sm: 4px;
-    --pk-surface: #ffffff;
-    --pk-surface-2: #f5f6f8;
-    --pk-surface-3: #eaecef;
-    --pk-surface-raised: #ffffff;
-    --pk-text: rgba(0, 0, 0, 0.87);
-    --pk-muted: rgba(0, 0, 0, 0.62);
-    --pk-border: #e0e0e0;
-    --pk-border-strong: #c4c4c4;
-    --pk-drop-border: #8a8a8a;
-    --pk-grid: #eeeeee;
-    --pk-accent: #1976d2;
-    --pk-accent-text: #ffffff;
-    --pk-accent-soft: #e3effb;
-    --pk-drop: #d6e7f9;
-    --pk-note: #eef5fc;
-    --pk-focus: #1976d2;
-    --pk-total: #f5f6f8;
-    --pk-total-strong: #eaecef;
-    /* scroll bars of the table and the field list in the report's colours (inherited) */
-    scrollbar-color: var(--pk-border-strong) transparent;
+    --psu-default-radius: 8px;
+    --psu-default-radius-sm: 4px;
+    --psu-default-font-size: max(14px, 1em);
+    --psu-default-surface: #ffffff;
+    --psu-default-surface-2: #f5f6f8;
+    --psu-default-surface-3: #eaecef;
+    --psu-default-surface-raised: #ffffff;
+    --psu-default-text: rgba(0, 0, 0, 0.87);
+    --psu-default-muted: rgba(0, 0, 0, 0.62);
+    --psu-default-border: #e0e0e0;
+    --psu-default-border-strong: #c4c4c4;
+    --psu-default-drop-border: #8a8a8a;
+    --psu-default-grid: #eeeeee;
+    --psu-default-accent: #1976d2;
+    --psu-default-accent-text: #ffffff;
+    --psu-default-accent-soft: #e3effb;
+    --psu-default-drop: #d6e7f9;
+    --psu-default-note: #eef5fc;
+    --psu-default-total: #f5f6f8;
+    --psu-default-total-strong: #eaecef;
+    --psu-default-heat-low: #eaf1fb;
+    --psu-default-heat-high: #2a78d6;
+    --psu-default-scale-low: #f8696b;
+    --psu-default-scale-mid: #ffeb84;
+    --psu-default-scale-high: #63be7b;
+    --psu-default-chart-1: #2a78d6;
+    --psu-default-chart-2: #eb6834;
+    --psu-default-chart-3: #1baf7a;
+    --psu-default-chart-4: #eda100;
+    --psu-default-chart-5: #e87ba4;
+    --psu-default-chart-6: #008300;
+    --psu-default-chart-7: #6250d6;
+    --psu-default-chart-8: #e34948;
+    /* how much of a corporate accent tints the highlight, the drop zone and the notes */
+    --psu-default-mix-soft: 12%;
+    --psu-default-mix-drop: 18%;
+    --psu-default-mix-note: 7%;
 }
 
+/* ---- PSU's defaults, dark -------------------------------------------------------------------- */
 .ud-pivot-report .pk-root[data-pk-theme="dark"] {
-    --pk-surface: #121212;
-    --pk-surface-2: #1a1a1a;
-    --pk-surface-3: #262626;
-    --pk-surface-raised: #1f1f1f;
-    --pk-text: rgba(255, 255, 255, 0.87);
-    --pk-muted: rgba(255, 255, 255, 0.64);
-    --pk-border: #2e2e2e;
-    --pk-border-strong: #474747;
-    --pk-drop-border: #7a7a7a;
-    --pk-grid: #232323;
-    --pk-accent: #90caf9;
-    --pk-accent-text: #0b1a2a;
-    --pk-accent-soft: #1b2a38;
-    --pk-drop: #1e3a55;
-    --pk-note: #16212c;
-    --pk-focus: #90caf9;
-    --pk-total: #1a1a1a;
-    --pk-total-strong: #242424;
+    --psu-default-surface: #121212;
+    --psu-default-surface-2: #1a1a1a;
+    --psu-default-surface-3: #262626;
+    --psu-default-surface-raised: #1f1f1f;
+    --psu-default-text: rgba(255, 255, 255, 0.87);
+    --psu-default-muted: rgba(255, 255, 255, 0.64);
+    --psu-default-border: #2e2e2e;
+    --psu-default-border-strong: #474747;
+    --psu-default-drop-border: #7a7a7a;
+    --psu-default-grid: #232323;
+    --psu-default-accent: #90caf9;
+    --psu-default-accent-text: #0b1a2a;
+    --psu-default-accent-soft: #1b2a38;
+    --psu-default-drop: #1e3a55;
+    --psu-default-note: #16212c;
+    --psu-default-total: #1a1a1a;
+    --psu-default-total-strong: #242424;
+    --psu-default-heat-low: #1d2735;
+    --psu-default-heat-high: #3987e5;
+    --psu-default-scale-low: #c2413f;
+    --psu-default-scale-mid: #b39a2e;
+    --psu-default-scale-high: #3f9a5c;
+    --psu-default-chart-1: #3987e5;
+    --psu-default-chart-2: #d95926;
+    --psu-default-chart-3: #199e70;
+    --psu-default-chart-4: #c98500;
+    --psu-default-chart-5: #d55181;
+    --psu-default-chart-6: #008300;
+    --psu-default-chart-7: #9085e9;
+    --psu-default-chart-8: #e66767;
+    --psu-default-mix-soft: 18%;
+    --psu-default-mix-drop: 32%;
+    --psu-default-mix-note: 10%;
+}
+
+/* ---- the bridge, one declaration per token for both modes ------------------------------------ */
+.ud-pivot-report .pk-root {
+    /*
+     * The corporate accent, if the page sets one. Without one this property is invalid (a var() without
+     * a fallback that has no value), so every var(--psu-corporate-accent*, ...) below takes its fallback.
+     */
+    --psu-corporate-accent: var(--psu-pivot-accent, var(--psu-chart-accent));
+    --psu-corporate-accent-soft: color-mix(in srgb, var(--psu-corporate-accent) var(--psu-default-mix-soft), var(--pk-surface));
+    --psu-corporate-drop: color-mix(in srgb, var(--psu-corporate-accent) var(--psu-default-mix-drop), var(--pk-surface));
+    --psu-corporate-note: color-mix(in srgb, var(--psu-corporate-accent) var(--psu-default-mix-note), var(--pk-surface));
+
+    --pk-chart-1: var(--psu-chart-1, var(--psu-default-chart-1));
+    --pk-chart-2: var(--psu-chart-2, var(--psu-default-chart-2));
+    --pk-chart-3: var(--psu-chart-3, var(--psu-default-chart-3));
+    --pk-chart-4: var(--psu-chart-4, var(--psu-default-chart-4));
+    --pk-chart-5: var(--psu-chart-5, var(--psu-default-chart-5));
+    --pk-chart-6: var(--psu-chart-6, var(--psu-default-chart-6));
+    --pk-chart-7: var(--psu-chart-7, var(--psu-default-chart-7));
+    --pk-chart-8: var(--psu-chart-8, var(--psu-default-chart-8));
+
+    --pk-text: var(--psu-pivot-text, var(--psu-chart-text, var(--psu-default-text)));
+    --pk-muted: var(--psu-pivot-muted, var(--psu-chart-muted, var(--psu-default-muted)));
+    /* pivotkit draws the chart's axes in the border colour */
+    --pk-border: var(--psu-pivot-border, var(--psu-chart-axis, var(--psu-default-border)));
+    --pk-grid: var(--psu-pivot-grid, var(--psu-chart-grid, var(--psu-default-grid)));
+    --pk-accent: var(--psu-corporate-accent, var(--psu-default-accent));
+    --pk-focus: var(--psu-pivot-focus, var(--psu-corporate-accent, var(--psu-default-accent)));
+    --pk-accent-text: var(--psu-pivot-accent-text, var(--psu-default-accent-text));
+    --pk-accent-soft: var(--psu-pivot-accent-soft, var(--psu-corporate-accent-soft, var(--psu-default-accent-soft)));
+    --pk-drop: var(--psu-pivot-drop, var(--psu-corporate-drop, var(--psu-default-drop)));
+    --pk-note: var(--psu-pivot-note, var(--psu-corporate-note, var(--psu-default-note)));
+
+    --pk-surface: var(--psu-pivot-surface, var(--psu-default-surface));
+    --pk-surface-2: var(--psu-pivot-surface-2, var(--psu-default-surface-2));
+    --pk-surface-3: var(--psu-pivot-surface-3, var(--psu-default-surface-3));
+    --pk-surface-raised: var(--psu-pivot-surface-raised, var(--psu-default-surface-raised));
+    --pk-border-strong: var(--psu-pivot-border-strong, var(--psu-default-border-strong));
+    --pk-drop-border: var(--psu-pivot-drop-border, var(--psu-default-drop-border));
+    --pk-total: var(--psu-pivot-total, var(--psu-default-total));
+    --pk-total-strong: var(--psu-pivot-total-strong, var(--psu-default-total-strong));
+    --pk-heat-low: var(--psu-pivot-heat-low, var(--psu-default-heat-low));
+    --pk-heat-high: var(--psu-pivot-heat-high, var(--psu-default-heat-high));
+    --pk-scale-low: var(--psu-pivot-scale-low, var(--psu-default-scale-low));
+    --pk-scale-mid: var(--psu-pivot-scale-mid, var(--psu-default-scale-mid));
+    --pk-scale-high: var(--psu-pivot-scale-high, var(--psu-default-scale-high));
+
+    --pk-radius: var(--psu-pivot-radius, var(--psu-default-radius));
+    --pk-radius-sm: var(--psu-pivot-radius-sm, var(--psu-default-radius-sm));
+    /* without --psu-pivot-font the property has no value and pivotkit inherits the page's font */
+    --pk-font: var(--psu-pivot-font);
+    --pk-font-size: var(--psu-pivot-font-size, var(--psu-default-font-size));
+
+    /* scroll bars of the table and the field list in the report's colours (inherited) */
+    scrollbar-color: var(--pk-border-strong) transparent;
 }
