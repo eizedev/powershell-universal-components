@@ -25,10 +25,23 @@ $PSDefaultParameterValues['New-UDEChart:DarkTheme'] = "/path/on/the/psu/server/c
 
 ## CSS custom properties
 
-In the app's stylesheet: `--psu-chart-1` ... `--psu-chart-12` (the N-th series colour; positions
-without a property keep theirs), `--psu-chart-text`, `--psu-chart-muted`, `--psu-chart-axis`,
-`--psu-chart-grid`, `--psu-chart-tooltip`, `--psu-chart-tooltip-border`, `--psu-chart-accent`. Set them
-per mode:
+These properties are the one theme contract of all modules in this repository: an app's stylesheet
+sets them once, and the charts and the [pivot report](../pivot/themes.md) both follow. A property that
+is not set leaves the module's own default.
+
+| Property | ECharts charts | Pivot report |
+| --- | --- | --- |
+| `--psu-chart-1` ... `--psu-chart-12` | the N-th series colour; positions without a property keep theirs | 1 to 8: series colours of its chart |
+| `--psu-chart-text` | text | text |
+| `--psu-chart-muted` | secondary text (axis labels and names, subtitles) | secondary text, chart labels |
+| `--psu-chart-axis` | axis lines and ticks | borders of controls and panels, chart axes |
+| `--psu-chart-grid` | split lines | lines between table cells, chart grid lines |
+| `--psu-chart-tooltip` | tooltip background | - |
+| `--psu-chart-tooltip-border` | tooltip border | - |
+| `--psu-chart-accent` | accent (toolbox buttons, selections) | primary buttons, focus ring, highlights |
+| `--psu-chart-font-size` | base text size, see below | - |
+
+Set them per mode:
 
 ```css
 :root { --psu-chart-1: #003b6f; --psu-chart-2: #f28c28; --psu-chart-text: #1f2430; }
