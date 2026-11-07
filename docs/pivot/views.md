@@ -39,6 +39,14 @@ The simplest way to a view is to build it in the report, save it as a template a
 shows another view (the reader can undo it), and `(Get-UDElement -Id <id>).view` is the view the reader
 has now.
 
+The browser tab keeps the reader's view (sessionStorage, per page and `-Id`): PSU builds the report anew
+when the app switches between light and dark, and the report comes back with the same fields, table or
+chart, chart type and collapsed groups. Undo and redo start over then. The kept view also returns after
+a reload of the tab as long as the page sends the same `-View`; a different `-View` from the server
+(another start view, or `-View $Session:PivotView` from [-OnViewChange](events.md)) wins. Give the report
+a fixed `-Id` where the page is built anew and the view should stay: the default `-Id` is a new GUID per
+build. Closing the tab, or a browser that blocks storage, starts from `-View`.
+
 ## Templates: -Templates
 
 ```powershell

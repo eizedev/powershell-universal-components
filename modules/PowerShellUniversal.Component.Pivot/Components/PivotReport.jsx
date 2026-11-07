@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { PivotReport as Report } from "pivotkit-react";
 import "pivotkit-react/styles.css";
 import "./psu.css";
-import { callEndpoint, cellEvent, heightOf, mergeTemplates, NARROW_QUERY, parseView, readTemplates, restoreRows, themeOf, VIEW_EVENT_DELAY_MS } from "./prepare";
+import { callEndpoint, cellEvent, heightOf, mergeTemplates, NARROW_QUERY, parseView, readStoredView, readTemplates, restoreRows, themeOf, VIEW_EVENT_DELAY_MS, viewStoreKey, writeStoredView } from "./prepare";
 
 // true while the window is phone-sized (for the default height)
 function useNarrowWindow() {
@@ -16,6 +16,15 @@ function useNarrowWindow() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     return narrow;
+}
+
+// sessionStorage, or null where the browser blocks it (the accessor itself can throw)
+function sessionStorageOrNull() {
+    try {
+        return typeof window !== "undefined" && window.sessionStorage ? window.sessionStorage : null;
+    } catch {
+        return null;
+    }
 }
 
 /*
@@ -33,15 +42,32 @@ export default function PsuPivotReport(props) {
 
     // ---- the view: the server's start view, then the user's ----------------------------------------
     const serverViewKey = JSON.stringify(parseView(props.view) ?? null);
-    const [view, setView] = useState(() => parseView(props.view) ?? {});
+    // the reader's view of this tab survives PSU mounting the component anew (its light/dark switch)
+    const store = useRef(null);
+    if (!store.current) {
+        store.current = { storage: sessionStorageOrNull(), key: viewStoreKey(typeof window !== "undefined" ? window.location.pathname : "", props.id), mountedWith: serverViewKey };
+    }
+    const remember = useCallback((next) => {
+        const s = store.current;
+        writeStoredView(s.storage, s.key, s.mountedWith, next);
+    }, []);
+    const [restored] = useState(() => readStoredView(store.current.storage, store.current.key, serverViewKey));
+    const [view, setView] = useState(() => restored ?? parseView(props.view) ?? {});
     const shownKey = useRef(serverViewKey);
+    useEffect(() => {
+        // Get-UDElement reads the restored view too
+        if (restored && typeof latest.current.setState === "function") latest.current.setState({ view: restored });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     useEffect(() => {
         // a view from the server that differs from the one shown (PSU echoes the view setState sent)
         if (serverViewKey !== shownKey.current) {
             shownKey.current = serverViewKey;
-            setView(JSON.parse(serverViewKey) ?? {});
+            const next = JSON.parse(serverViewKey) ?? {};
+            setView(next);
+            remember(next);
         }
-    }, [serverViewKey]);
+    }, [serverViewKey, remember]);
 
     const pending = useRef(null);
     const flush = useCallback(() => {
@@ -61,6 +87,7 @@ export default function PsuPivotReport(props) {
             const key = JSON.stringify(next);
             shownKey.current = key;
             setView(next);
+            remember(next);
             // Get-UDElement reads the view from the component's state
             if (typeof latest.current.setState === "function") latest.current.setState({ view: next });
             if (typeof latest.current.onViewChange === "function") {
@@ -68,7 +95,7 @@ export default function PsuPivotReport(props) {
                 pending.current = { next, timer: setTimeout(flush, VIEW_EVENT_DELAY_MS) };
             }
         },
-        [flush]
+        [flush, remember]
     );
 
     // ---- templates -------------------------------------------------------------------------------

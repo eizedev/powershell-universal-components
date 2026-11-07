@@ -84,6 +84,73 @@ export function parseView(input) {
 }
 
 /*
+ * The reader's view in the browser tab (sessionStorage), so it survives PSU mounting the component
+ * anew: PSU does that on its light/dark switch, and the component then gets the -View it was created
+ * with. One entry per page path and component id, with a hash of the -View the component was mounted
+ * with: a different -View from the server (a new render of the page) wins over the stored one. At most
+ * VIEW_STORE_ENTRIES entries and MAX_VIEW_LENGTH characters in all, the oldest go first. Storage that
+ * is blocked or full is ignored; the report then starts from -View as before.
+ */
+export const VIEW_STORE = "psu-pivot-views";
+export const VIEW_STORE_ENTRIES = 20;
+
+export function viewStoreKey(path, id) {
+    return `${path || "/"}#${id || ""}`;
+}
+
+export function hashText(text) {
+    let h = 5381;
+    const s = String(text);
+    for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+    return h.toString(36);
+}
+
+// the stored entries as a Map (no object keys from storage end up on a prototype)
+function readStore(storage) {
+    try {
+        const parsed = JSON.parse(storage.getItem(VIEW_STORE) || "{}");
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return new Map();
+        return new Map(Object.entries(parsed).filter(([, e]) => e && typeof e === "object" && typeof e.s === "string"));
+    } catch {
+        return new Map();
+    }
+}
+
+// the stored view of this component, or undefined; an entry of another -View is removed
+export function readStoredView(storage, key, serverKey) {
+    if (!storage) return undefined;
+    const entries = readStore(storage);
+    const entry = entries.get(key);
+    if (!entry) return undefined;
+    if (entry.s !== hashText(serverKey)) {
+        writeStoredView(storage, key, serverKey, undefined);
+        return undefined;
+    }
+    return parseView(entry.v);
+}
+
+// stores the view (undefined removes it); returns false when the storage refused it
+export function writeStoredView(storage, key, serverKey, view, now = Date.now()) {
+    if (!storage) return false;
+    try {
+        const entries = readStore(storage);
+        entries.delete(key);
+        const list = [...entries].sort((a, b) => (b[1].t || 0) - (a[1].t || 0));
+        if (view !== undefined) list.unshift([key, { s: hashText(serverKey), v: view, t: now }]);
+        let kept = list.slice(0, VIEW_STORE_ENTRIES);
+        let text = JSON.stringify(Object.fromEntries(kept));
+        while (text.length > MAX_VIEW_LENGTH && kept.length) {
+            kept = kept.slice(0, -1);
+            text = JSON.stringify(Object.fromEntries(kept));
+        }
+        storage.setItem(VIEW_STORE, text);
+        return kept.some(([k]) => k === key) || view === undefined;
+    } catch {
+        return false;
+    }
+}
+
+/*
  * The templates of -Templates: { name, view, deletable }, keys in any case (PSU camelCases them), the
  * view an object or JSON. Entries without a name or a usable view are left out; the first of two
  * entries with the same name wins.

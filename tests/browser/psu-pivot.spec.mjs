@@ -124,7 +124,9 @@ test.describe("pivot showcase on PSU", () => {
             content: ':root { --psu-chart-1: #003b6f; --psu-chart-accent: #b35c00; } :root[data-theme="dark"] { --psu-chart-1: #6fa8dc; --psu-chart-accent: #f6b26b; }'
         });
         const report = page.locator(".pk-root");
+        await report.locator("[data-testid=show-chart]").click();
         const canvas = report.locator("[data-testid=pivot-chart] canvas");
+        await expect(canvas).toBeVisible({ timeout: 15000 });
         const token = (name) => report.evaluate((e, n) => getComputedStyle(e).getPropertyValue(n).trim(), name);
         // pixels of the chart drawn in exactly this colour (the first series' bars)
         const pixels = (hex) =>
@@ -140,12 +142,31 @@ test.describe("pivot showcase on PSU", () => {
             await expect(report).toHaveAttribute("data-pk-theme", mode);
             await expect.poll(() => token("--pk-accent")).toBe(accent);
             await expect.poll(() => token("--pk-chart-1")).toBe(series);
-            // PSU mounts the page's components anew when its theme switches, so the report is back at its
-            // start view (a table): show the chart in this mode
-            await report.locator("[data-testid=show-chart]").click();
-            await expect(canvas).toBeVisible({ timeout: 15000 });
             await expect.poll(() => pixels(series), { timeout: 10000 }).toBeGreaterThan(100);
         }
+    });
+
+    test("the reader's view survives PSU's light/dark switch, which mounts the report anew", async ({ page }) => {
+        await open(page, "tickets");
+        const report = page.locator(".pk-root");
+        await report.locator("[data-testid=show-chart]").click();
+        await report.locator("[data-testid=chart-type]").click();
+        await page.locator("[data-testid=chart-line]").click();
+        await expect(report.locator("[data-testid=chart-type]")).toContainText("Lines");
+        const stored = () => page.evaluate(() => JSON.parse(sessionStorage.getItem("psu-pivot-views") || "{}")[`${location.pathname}#tickets`]?.v);
+        await expect.poll(stored).toMatchObject({ display: "chart", chart: { type: "line" } });
+        const before = await stored();
+        const first = await report.elementHandle();
+        for (const mode of ["dark", "light"]) {
+            await setTheme(page, mode);
+            await expect(report).toHaveAttribute("data-pk-theme", mode);
+            await expect(report.locator("[data-testid=show-chart]")).toHaveAttribute("aria-pressed", "true");
+            await expect(report.locator("[data-testid=chart-type]")).toContainText("Lines");
+            await expect(report.locator("[data-testid=pivot-chart] canvas")).toBeVisible({ timeout: 15000 });
+        }
+        // PSU did mount it anew (a new element), and the view is the same as before
+        expect(await first.evaluate((e) => e.isConnected)).toBe(false);
+        expect(await stored()).toEqual(before);
     });
 
     test("fits a phone-sized window without a horizontal page scroll", async ({ page }) => {

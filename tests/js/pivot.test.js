@@ -109,6 +109,63 @@ test("heightOf and themeOf", () => {
     assert.equal(mod.themeOf("blue"), "auto");
 });
 
+// ---- the reader's view in the tab -----------------------------------------------------------------
+
+function fakeStorage({ full = false } = {}) {
+    const data = new Map();
+    return {
+        data,
+        getItem: (k) => (data.has(k) ? data.get(k) : null),
+        setItem: (k, v) => {
+            if (full) throw new Error("QuotaExceededError");
+            data.set(k, String(v));
+        }
+    };
+}
+
+test("stored view: comes back for the same -View, page and id; another -View wins and removes it", () => {
+    const storage = fakeStorage();
+    const key = mod.viewStoreKey("/pivot-report/tickets", "tickets");
+    const server = JSON.stringify({ rows: ["Team"] });
+    const reader = { rows: ["Team"], display: "chart", chart: { type: "line" }, collapsed: { rows: [["Ops"]] } };
+    assert.equal(mod.readStoredView(storage, key, server), undefined);
+    assert.equal(mod.writeStoredView(storage, key, server, reader), true);
+    assert.deepEqual(mod.readStoredView(storage, key, server), reader);
+    assert.equal(mod.readStoredView(storage, mod.viewStoreKey("/other", "tickets"), server), undefined);
+    assert.equal(mod.readStoredView(storage, mod.viewStoreKey("/pivot-report/tickets", "other"), server), undefined);
+    // a new -View from the server: the reader's view is dropped
+    assert.equal(mod.readStoredView(storage, key, JSON.stringify({ rows: ["Priority"] })), undefined);
+    assert.equal(mod.readStoredView(storage, key, server), undefined);
+});
+
+test("stored view: capped by entries and size, keys from storage never reach a prototype", () => {
+    const storage = fakeStorage();
+    for (let i = 0; i < mod.VIEW_STORE_ENTRIES + 5; i++) mod.writeStoredView(storage, `/p#${i}`, "null", { rows: [String(i)] }, i);
+    const all = JSON.parse(storage.getItem(mod.VIEW_STORE));
+    assert.equal(Object.keys(all).length, mod.VIEW_STORE_ENTRIES);
+    assert.ok(!("/p#0" in all), "the oldest go first");
+    assert.deepEqual(mod.readStoredView(storage, `/p#${mod.VIEW_STORE_ENTRIES + 4}`, "null"), { rows: [String(mod.VIEW_STORE_ENTRIES + 4)] });
+    // a view larger than the whole store is not kept
+    assert.equal(mod.writeStoredView(storage, "/big#1", "null", { rows: ["x".repeat(mod.MAX_VIEW_LENGTH)] }), false);
+    assert.ok(JSON.stringify(JSON.parse(storage.getItem(mod.VIEW_STORE))).length <= mod.MAX_VIEW_LENGTH);
+    storage.setItem(mod.VIEW_STORE, '{"__proto__": {"s": "x", "v": {"polluted": true}}}');
+    mod.writeStoredView(storage, "/p#1", "null", { rows: [] });
+    assert.equal({}.polluted, undefined);
+});
+
+test("stored view: blocked, full or broken storage is ignored", () => {
+    assert.equal(mod.readStoredView(null, "/p#1", "null"), undefined);
+    assert.equal(mod.writeStoredView(null, "/p#1", "null", {}), false);
+    assert.equal(mod.writeStoredView(fakeStorage({ full: true }), "/p#1", "null", {}), false);
+    const broken = fakeStorage();
+    broken.setItem(mod.VIEW_STORE, "not json");
+    assert.equal(mod.readStoredView(broken, "/p#1", "null"), undefined);
+    assert.equal(mod.writeStoredView(broken, "/p#1", "null", { rows: ["A"] }), true);
+    const throwing = { getItem: () => { throw new Error("SecurityError"); }, setItem: () => { throw new Error("SecurityError"); } };
+    assert.equal(mod.readStoredView(throwing, "/p#1", "null"), undefined);
+    assert.equal(mod.writeStoredView(throwing, "/p#1", "null", {}), false);
+});
+
 // ---- the PSU theme bridge ------------------------------------------------------------------------
 
 const css = readFileSync(new URL("../../modules/PowerShellUniversal.Component.Pivot/Components/psu.css", import.meta.url), "utf8");

@@ -121,7 +121,8 @@ default text on the accent is white in light mode and near-black in dark mode.
 ## Light and dark
 
 The report takes light or dark from PSU's `<html data-theme>` and switches with the app's toggle, the
-table and the chart at once, without a reload. The properties are inherited from the page root, so the
+table and the chart at once, without a reload, and keeps the reader's view ([Views](views.md#the-start-view-view));
+undo and redo start over. The properties are inherited from the page root, so the
 report sees the values of the page's current mode: those in `:root[data-theme="dark"]` while the app is
 dark, those in `:root` while it is light.
 

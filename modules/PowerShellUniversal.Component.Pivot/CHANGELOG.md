@@ -24,5 +24,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 - Light and dark theme in PSU's colours, following the app's switch; a corporate design from the app's
   stylesheet through the ECharts module's `--psu-chart-*` properties and the report's own `--psu-pivot-*`
   ones, per mode.
+- The reader's view (fields, table or chart, chart type, collapsed groups) is kept in the browser tab
+  per page and `-Id`, so it survives PSU building the report anew on its light/dark switch.
 - `examples/showcase.ps1`: a 5,000-row DataTable with templates saved per user, a language switch, the
   events and the report in page layouts.
