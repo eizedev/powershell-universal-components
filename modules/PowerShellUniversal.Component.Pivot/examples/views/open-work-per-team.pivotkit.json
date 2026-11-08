@@ -1,0 +1,44 @@
+{
+  "$schema": "https://pivotkit.eize.dev/schema/view-file-1.json",
+  "format": "pivotkit-view",
+  "formatVersion": 1,
+  "name": "Open work per team",
+  "description": "Tickets not closed yet, per team and priority.",
+  "generator": {
+    "name": "PowerShellUniversal.Component.Pivot",
+    "version": "0.1.0"
+  },
+  "source": {
+    "id": "tickets",
+    "name": "Tickets"
+  },
+  "extensions": {},
+  "view": {
+    "totals": {
+      "grandTotalColumn": true,
+      "grandTotalRow": true
+    },
+    "values": [
+      {
+        "field": "Ticket",
+        "agg": "count"
+      }
+    ],
+    "rows": [
+      "Team"
+    ],
+    "filters": [
+      {
+        "type": "include",
+        "items": [
+          "Open",
+          "Waiting"
+        ],
+        "field": "Status"
+      }
+    ],
+    "cols": [
+      "Priority"
+    ]
+  }
+}

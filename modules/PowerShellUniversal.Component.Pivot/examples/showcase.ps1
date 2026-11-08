@@ -1,12 +1,13 @@
 <#
     Showcase app of PowerShellUniversal.Component.Pivot: a ticket report from a System.Data.DataTable
-    (what a SQL query returns: dates, numbers, text and DBNull), with built-in templates, templates each
-    user saves and deletes, a language switch, events and the report in common page layouts.
+    (what a SQL query returns: dates, numbers, text and DBNull), with built-in templates, view files
+    from a folder, a template store, a language switch, events and the report in common page layouts.
     All data is generated with a fixed seed, so every run shows the same numbers.
 
-    Templates the users save are JSON files, one per user, in a folder next to the PSU repository
-    ($TemplateSettings below; change it to where your app keeps data, or use a database table). The views
-    come from the browser: ConvertFrom-UDPivotView checks every one before it is stored.
+    The app has no sign-in: the server cannot tell readers apart, so each reader's own views ("My
+    views") stay in the browser, and shared views come from the store (New-UDPivotFileTemplateStore,
+    view files next to the PSU repository). templates.ps1 is the same report in an app with sign-in,
+    where readers keep their views on the server and admins publish shared ones.
 #>
 
 #region Generated data: 5000 tickets as a DataTable, like Invoke-Sqlcmd returns them
@@ -87,77 +88,11 @@ $fieldDefaults = @{
 }
 #endregion
 
-#region Template store: one JSON file per user
-# next to the repository, not inside it (a git-synced repository would pick the files up)
-$TemplateSettings = @{
-    Root       = if ($Repository) { Join-Path (Split-Path -Parent $Repository) 'pivot-templates' } else { Join-Path ([System.IO.Path]::GetTempPath()) 'pivot-templates' }
-    MaxPerUser = 50
-    # names of the built-in templates, which no user template may take
-    Reserved   = @($builtInTemplates | ForEach-Object { $_.Name })
-}
-
-# The store is a script block, not a function: PSU runs event handlers in their own runspace, which
-# gets the app script's variables the handler names, but not functions defined in it. For the same
-# reason every call passes the settings. It runs where the app script defined it, so it does not see
-# $User: the page or the handler passes the signed-in user (measured on PSU 2026.2.5 and 2026.3.4).
-$TemplateStore = {
-    param(
-        [ValidateSet('List', 'Save', 'Delete')][string]$Action,
-        [hashtable]$Settings,
-        # $User of the page or the event; apps without authentication have none
-        [AllowEmptyString()][string]$UserName,
-        [string]$Name,
-        [object]$View
-    )
-    $ErrorActionPreference = 'Stop'
-    # event handlers run in a runspace of their own, where PSU does not load the module by itself
-    Import-Module PowerShellUniversal.Component.Pivot
-    if (-not $UserName) { $UserName = 'anonymous' }
-    # a file name from the user name that cannot leave the folder
-    $hash = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes($UserName.ToLowerInvariant()))
-    $id = [System.Convert]::ToHexString($hash).Substring(0, 24).ToLowerInvariant()
-    $file = Join-Path $Settings.Root ('{0}.json' -f $id)
-    $mutex = $null
-    if ($Action -ne 'List') {
-        # one change at a time per user: two saves at the same moment would otherwise lose one
-        $mutex = [System.Threading.Mutex]::new($false, ('pivot-templates-{0}' -f $id))
-        if (-not $mutex.WaitOne([timespan]::FromSeconds(10))) { throw 'The template store is busy; try again.' }
-    }
-    try {
-        $saved = @(if (Test-Path -LiteralPath $file) { Get-Content -LiteralPath $file -Raw | ConvertFrom-Json -Depth 12 })
-        switch ($Action) {
-            'List' {
-                # each stored view is checked again: a file can be edited by hand
-                foreach ($t in $saved) {
-                    try { [pscustomobject]@{ Name = $t.Name; View = (ConvertFrom-UDPivotView -InputObject $t.View); Deletable = $true } }
-                    catch { Write-Warning ('Pivot template "{0}" skipped: {1}' -f $t.Name, $_.Exception.Message) }
-                }
-                return
-            }
-            'Save' {
-                $Name = ([string]$Name).Trim()
-                if ($Name.Length -lt 1 -or $Name.Length -gt 80) { throw 'A template name has 1 to 80 characters.' }
-                if ($Name -in $Settings.Reserved) { throw ('"{0}" is a built-in template; choose another name.' -f $Name) }
-                # throws for anything that is not a view; what is stored is the checked JSON, never the input
-                $json = ConvertFrom-UDPivotView -InputObject $View -AsJson
-                $others = @($saved | Where-Object Name -NE $Name)
-                if ($others.Count -ge $Settings.MaxPerUser) { throw ('At most {0} templates per user.' -f $Settings.MaxPerUser) }
-                $saved = @($others) + [pscustomobject]@{ Name = $Name; View = ($json | ConvertFrom-Json -Depth 12) }
-            }
-            'Delete' {
-                $saved = @($saved | Where-Object Name -NE $Name)
-            }
-        }
-        New-Item -ItemType Directory -Path $Settings.Root -Force | Out-Null
-        # write a new file, then replace: a reader never sees half a file
-        $temp = '{0}.{1}.tmp' -f $file, [guid]::NewGuid().ToString('n')
-        Set-Content -LiteralPath $temp -Value (ConvertTo-Json -InputObject @($saved) -Depth 12 -Compress) -Encoding utf8NoBOM
-        Move-Item -LiteralPath $temp -Destination $file -Force
-    }
-    finally {
-        if ($mutex) { $mutex.ReleaseMutex(); $mutex.Dispose() }
-    }
-}
+#region Shared views: view files shipped with the app, and a store for readers' and shared views
+# the folder next to this script (examples/views); PSU sets $PSScriptRoot for an app script
+$viewFolder = Join-Path $PSScriptRoot 'views'
+# view files in a folder next to the PSU repository ($Repository), never inside it
+$templateStore = New-UDPivotFileTemplateStore
 #endregion
 
 New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
@@ -174,33 +109,33 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
                 Sync-UDElement -Id 'tickets-report'
             }
         }
-        New-UDTypography -Variant body2 -Text '5000 tickets from a DataTable. Drag fields from the list into Rows, Columns and Values, click a number to see its tickets, save your layout under Templates.' -Style @{ marginBottom = '12px' }
+        New-UDTypography -Variant body2 -Text '5000 tickets from a DataTable. Drag fields from the list into Rows, Columns and Values, click a number to see its tickets, save your layout under Views.' -Style @{ marginBottom = '12px' }
         # the placeholder comes with the page: the report's frame at once, and the browser loads the
         # module's code while the server still builds the 5000 rows
         New-UDDynamic -Id 'tickets-report' -LoadingComponent {
             New-UDPivotReportPlaceholder -Locale $(if ($Session:PivotLocale) { $Session:PivotLocale } else { 'en-US' })
         } -Content {
             $locale = if ($Session:PivotLocale) { $Session:PivotLocale } else { 'en-US' }
-            $templates = @($builtInTemplates) + @(& $TemplateStore -Action List -Settings $TemplateSettings -UserName $User)
             # the tab keeps its own view (also over a change of language); $Session is shared by all tabs
             # of the browser, so the last view stored there only starts a new tab (-SavedView), and never
             # replaces what another tab shows (as -View would)
-            New-UDPivotReport -Id 'tickets' -Data $tickets -View $startView -SavedView $Session:PivotView -Templates $templates -FieldDefaults $fieldDefaults `
+            New-UDPivotReport -Id 'tickets' -Data $tickets -View $startView -SavedView $Session:PivotView -FieldDefaults $fieldDefaults `
+                -Templates $builtInTemplates -TemplatePath $viewFolder -TemplateStore $templateStore -AdminRole 'Administrator' -SourceName 'Tickets' `
                 -Locale $locale -FileName 'tickets' -OnViewChange {
                 Import-Module PowerShellUniversal.Component.Pivot
                 $Session:PivotView = ConvertFrom-UDPivotView -InputObject $EventData.json
             } -OnCellClick {
                 $where = ($EventData.filter | ForEach-Object { '{0} = {1}' -f $_.field, $_.value }) -join ', '
                 Show-UDToast -Message ('{0} tickets{1}' -f $EventData.count, $(if ($where) { " ($where)" })) -Duration 4000
-            } -OnSaveTemplate {
-                # @{ error = '...' } refuses with that text (a bare throw shows a general error)
-                try { & $TemplateStore -Action Save -Settings $TemplateSettings -UserName $User -Name $EventData.name -View $EventData.view }
-                catch { @{ error = $_.Exception.Message } }
-            } -OnDeleteTemplate {
-                try { & $TemplateStore -Action Delete -Settings $TemplateSettings -UserName $User -Name $EventData.name }
-                catch { @{ error = $_.Exception.Message } }
             }
         }
+    }
+
+    New-UDPage -Name 'Templates' -Url '/templates' -Content {
+        New-UDTypography -Variant h5 -Text 'Templates: shared views and my views'
+        New-UDTypography -Variant body2 -Text 'Open Views in the toolbar. Shared views come from -Templates, from view files in a folder (-TemplatePath) and from the store; this app has no sign-in, so the views you save stay in this browser. Download view writes the view file a folder or a store keeps.' -Style @{ marginBottom = '12px' }
+        New-UDPivotReport -Id 'templates-report' -Data $tickets -View $startView -FieldDefaults $fieldDefaults -Height 640px -Label 'Tickets with templates' `
+            -Templates $builtInTemplates -TemplatePath $viewFolder -TemplateStore $templateStore -AdminRole 'Administrator' -SourceId 'tickets' -SourceName 'Tickets'
     }
 
     New-UDPage -Name 'Events' -Url '/events' -Content {
@@ -252,6 +187,11 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
             New-UDTab -Text 'Second tab (starts hidden)' -Content {
                 New-UDPivotReport -Id 'layout-tab-2' -Data $tickets -View $builtInTemplates[2].View -Height 640px -Label 'Lead time per customer'
             }
+        }
+        # a card of a fixed height: the report keeps inside its -Height (pivotkit's grow is off with a
+        # height), the field list starts collapsed to a rail
+        New-UDCard -Id 'fixed-card' -Title 'In a card of a fixed height (560 px), field list collapsed' -Style @{ height = '560px'; overflow = 'hidden' } -Content {
+            New-UDPivotReport -Id 'layout-fixed' -Data $tickets -View $startView -Height 440px -FieldList Collapsed -Label 'Tickets in a fixed card'
         }
         # -NoAddressBar: this report's view stays out of the address (sessionStorage only)
         New-UDCard -Title 'In a card, 600 px high, view not in the address bar' -Content {
