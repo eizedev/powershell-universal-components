@@ -189,8 +189,9 @@ function ConvertTo-UDPivotTemplate {
     .DESCRIPTION
         Used by New-UDPivotReport. An entry is a hashtable or an object with Name (plain text, 1 to 120
         characters), View (as ConvertFrom-UDPivotView accepts it) or File (a pivotkit view file as text
-        or object, read by ConvertFrom-UDPivotViewFile; its name is the default of Name), Scope (shared,
-        the default, or user) and Deletable. A wrong entry throws an error that names it.
+        or object, read by ConvertFrom-UDPivotViewFile; its name is the default of Name), Scope (shared or
+        user; without it a Deletable entry is the reader's own, every other one shared, as in pivotkit)
+        and Deletable. A wrong entry throws an error that names it.
     .PARAMETER Template
         The entries.
     .EXAMPLE
@@ -223,10 +224,12 @@ function ConvertTo-UDPivotTemplate {
         catch {
             throw ('-Templates, "{0}": {1}' -f $label, $_.Exception.Message)
         }
+        $deletable = [bool](Get-UDPivotEntryValue -InputObject $entry -Name 'Deletable')
         $scope = [string](Get-UDPivotEntryValue -InputObject $entry -Name 'Scope')
-        if (-not $scope) { $scope = 'shared' }
+        # pivotkit's rule without a scope: a deletable entry is the reader's own, every other one shared
+        if (-not $scope) { $scope = if ($deletable) { 'user' } else { 'shared' } }
         if ($scope -notin 'shared', 'user') { throw ('-Templates, "{0}": Scope must be shared or user.' -f $name) }
-        [pscustomobject]@{ name = $name; view = $view; scope = $scope.ToLowerInvariant(); deletable = [bool](Get-UDPivotEntryValue -InputObject $entry -Name 'Deletable') }
+        [pscustomobject]@{ name = $name; view = $view; scope = $scope.ToLowerInvariant(); deletable = $deletable }
     }
 }
 
@@ -656,24 +659,27 @@ function Get-UDPivotViewFileName {
     .DESCRIPTION
         The slug is the name in lower case without accents, every run of other characters a "-" (as
         pivotkit-core's viewFileName), at most 60 characters; the hash (10 hex characters of the SHA-256
-        of the name in lower case) keeps two names apart that give the same slug. The same name in
-        another case gives the same file: a save replaces it. Nothing of the name can leave the folder.
+        of the source id and the name in lower case) keeps two names apart that give the same slug, and
+        the views of two reports with the same name. The same name in another case gives the same file:
+        a save replaces it. Nothing of the name can leave the folder.
     .PARAMETER Name
         The checked template name.
+    .PARAMETER SourceId
+        The id of the data the view was made for (New-UDPivotReport -SourceId).
     .EXAMPLE
-        Get-UDPivotViewFileName -Name 'Revenue by region'
+        Get-UDPivotViewFileName -Name 'Revenue by region' -SourceId 'sales'
     .OUTPUTS
         System.String
     #>
     [CmdletBinding()]
     [OutputType([string])]
-    param([Parameter(Mandatory)][string]$Name)
+    param([Parameter(Mandatory)][string]$Name, [AllowEmptyString()][AllowNull()][string]$SourceId)
     $plain = -join ($Name.ToLowerInvariant().Normalize([System.Text.NormalizationForm]::FormKD).ToCharArray() |
             Where-Object { [System.Globalization.CharUnicodeInfo]::GetUnicodeCategory($_) -ne [System.Globalization.UnicodeCategory]::NonSpacingMark })
     $slug = ($plain -replace '[^a-z0-9]+', '-').Trim('-')
     if ($slug.Length -gt 60) { $slug = $slug.Substring(0, 60).Trim('-') }
     if (-not $slug) { $slug = 'view' }
-    '{0}-{1}.pivotkit.json' -f $slug, (Get-UDPivotSha256 -Text $Name.ToLowerInvariant() -Length 10)
+    '{0}-{1}.pivotkit.json' -f $slug, (Get-UDPivotSha256 -Text ('{0}|{1}' -f $SourceId, $Name.ToLowerInvariant()) -Length 10)
 }
 
 function ConvertFrom-UDPivotViewFile {
@@ -853,7 +859,7 @@ function Get-UDPivotTemplateFile {
             try {
                 $read = ConvertFrom-UDPivotViewFile -InputObject (Get-Content -LiteralPath $file.FullName -Raw -Encoding utf8) -Name ($file.Name -replace '\.pivotkit\.json$', '')
                 $count++
-                [pscustomobject]@{ Name = $read.Name; View = $read.View; File = $file.Name }
+                [pscustomobject]@{ Name = $read.Name; View = $read.View; File = $file.Name; SourceId = if ($read.Source) { $read.Source.id } }
             }
             catch {
                 Write-Warning ('Pivot template {0} skipped: {1}' -f $file.Name, $_.Exception.Message)
@@ -1102,30 +1108,34 @@ function Invoke-UDPivotTemplateStore {
         UserKey = $userKey
     }
 
-    # the stored views of this scope, each checked again (a store can be changed by hand)
+    # the stored views of this scope, each checked again (a store can be changed by hand); a folder holds
+    # the views of every report of the store, so the list is capped by what a report takes, not by $max
     $list = {
-        if ($Store.Kind -eq 'File') { return @(Get-UDPivotTemplateFile -Path $folder -MaxCount $max) }
+        if ($Store.Kind -eq 'File') { return @(Get-UDPivotTemplateFile -Path $folder -MaxCount $Script:MaxTemplates | ForEach-Object { $_.File = Get-UDPivotViewFileName -Name $_.Name -SourceId $_.SourceId; $_ }) }
         $index = 0
         @(foreach ($entry in @(& $Store.Get ([pscustomobject]$request))) {
                 $index++
                 if ($null -eq $entry) { continue }
-                if ($index -gt $max) { Write-Warning ('Pivot template store: more than {0} {1} views; the rest is left out.' -f $max, $Scope); break }
+                if ($index -gt $Script:MaxTemplates) { Write-Warning ('Pivot template store: more than {0} {1} views; the rest is left out.' -f $Script:MaxTemplates, $Scope); break }
                 try {
                     $source = if ($entry -is [string]) { $entry } else {
                         $json = Get-UDPivotEntryValue -InputObject $entry -Name 'Json'
                         if ($json -is [string]) { $json } else { $entry }
                     }
                     $read = ConvertFrom-UDPivotViewFile -InputObject $source
-                    [pscustomobject]@{ Name = $read.Name; View = $read.View; File = Get-UDPivotViewFileName -Name $read.Name }
+                    $sourceId = if ($read.Source) { $read.Source.id }
+                    [pscustomobject]@{ Name = $read.Name; View = $read.View; File = Get-UDPivotViewFileName -Name $read.Name -SourceId $sourceId; SourceId = $sourceId }
                 }
                 catch { Write-Warning ('Pivot template store: a {0} view skipped: {1}' -f $Scope, $_.Exception.Message) }
             })
     }
 
-    if ($Action -eq 'List') { return & $list }
+    # one store serves several reports: a report lists the views of its data and those made for no
+    # named data (as pivotkit's browser store)
+    if ($Action -eq 'List') { return & $list | Where-Object { -not $SourceId -or -not $_.SourceId -or $_.SourceId -ceq $SourceId } }
 
     $checkedName = ConvertTo-UDPivotTemplateName -Name $Name
-    $fileName = Get-UDPivotViewFileName -Name $checkedName
+    $fileName = Get-UDPivotViewFileName -Name $checkedName -SourceId $SourceId
     $request['Name'] = $checkedName
     $request['FileName'] = $fileName
     $request['Key'] = if ($Scope -eq 'user') { 'users/{0}/{1}' -f $userKey, $fileName } else { 'shared/{0}' -f $fileName }
@@ -1410,9 +1420,9 @@ function New-UDPivotReport {
         pass ConvertFrom-UDPivotView is left out with a warning.
     .PARAMETER Templates
         Views offered in the Views menu (the first three also on the empty report): a list of
-        @{ Name = 'Tickets per team'; View = <view> } or @{ File = <view file> }, with Scope shared (the
-        default, "Shared views") or user ("My views") and Deletable (a delete button when
-        -OnDeleteTemplate is set).
+        @{ Name = 'Tickets per team'; View = <view> } or @{ File = <view file> }, with Scope shared
+        ("Shared views") or user ("My views") and Deletable (a delete button when -OnDeleteTemplate is
+        set). Without Scope a Deletable entry is the reader's own, every other one shared.
     .PARAMETER TemplatePath
         Folders of pivotkit view files (*.pivotkit.json, as Download view in the Views menu writes them),
         read on the server on every render and offered under "Shared views", read-only. Each file is
@@ -1478,9 +1488,10 @@ function New-UDPivotReport {
         pivotkit leaves out options that are markup or addresses (formatter strings, rich, link, image).
     .PARAMETER Tips
         The tips above the result: On (default), Off (none, and no switch in Options), or the ids of the
-        tips allowed (filterEmpty, top, chartCapped, showAs, chartDates, chartTrend, chartSeries,
-        textValue, dateUngrouped, manyColumns, values, afterDrag, saveTemplate, menus, cells). Dismissed
-        tips are remembered per report in the browser's localStorage.
+        tips allowed (showAs, chartOverTime, pieSlices, pieColumns, chartDates, chartTrend, chartSeries,
+        textValue, dateUngrouped, manyColumns, afterDrag, values, saveTemplate, menus, cells; the
+        notices filterEmpty, top and chartCapped always show). Dismissed tips are remembered per report
+        in the browser's localStorage.
     .PARAMETER FieldInfo
         On or Off: the "i" with the field descriptions. Without it the reader switches it in Options.
     .PARAMETER ZoneInfo
@@ -1700,7 +1711,7 @@ function New-UDPivotReport {
         foreach ($scope in 'shared', 'user') {
             if ($scope -eq 'user' -and -not $user) { continue }
             try {
-                foreach ($t in @(Invoke-UDPivotTemplateStore -Store $store -Action List -Scope $scope -UserName $user)) {
+                foreach ($t in @(Invoke-UDPivotTemplateStore -Store $store -Action List -Scope $scope -UserName $user -SourceId $source.id)) {
                     $templateList.Add([pscustomobject]@{ name = $t.Name; view = $t.View; scope = $scope; deletable = ($scope -eq 'user' -or $isAdmin) })
                 }
             }

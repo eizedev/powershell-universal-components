@@ -69,14 +69,16 @@ Describe 'View files' {
 }
 
 Describe '-Templates and -TemplatePath' {
-    It '-Templates: Scope and File, shared by default' {
+    It '-Templates: Scope and File; without Scope a deletable entry is the reader''s own (pivotkit''s rule)' {
         $file = ConvertTo-UDPivotViewFile -View $script:view -Name 'From a file'
         $c = New-UDPivotReport -Data $script:rows -Templates @(
             @{ Name = 'Shared'; View = $script:view }
             @{ File = $file }
             @{ Name = 'Renamed'; File = $file; Scope = 'user'; Deletable = $true }
+            @{ Name = 'Saved earlier'; View = $script:view; Deletable = $true }
+            @{ Name = 'Admins may delete'; View = $script:view; Scope = 'shared'; Deletable = $true }
         )
-        $c.templates | ForEach-Object { '{0}|{1}|{2}' -f $_.name, $_.scope, $_.deletable } | Should -Be @('Shared|shared|False', 'From a file|shared|False', 'Renamed|user|True')
+        $c.templates | ForEach-Object { '{0}|{1}|{2}' -f $_.name, $_.scope, $_.deletable } | Should -Be @('Shared|shared|False', 'From a file|shared|False', 'Renamed|user|True', 'Saved earlier|user|True', 'Admins may delete|shared|True')
         { New-UDPivotReport -Data $script:rows -Templates @(@{ Name = 'X'; View = $script:view; Scope = 'everyone' }) } | Should -Throw '*Scope*'
         { New-UDPivotReport -Data $script:rows -Templates @(@{ Name = 'X'; File = '{"format":"pivotkit-view","formatVersion":9,"view":{}}' }) } | Should -Throw '*"X"*newer*'
     }
@@ -131,6 +133,19 @@ Describe 'New-UDPivotFileTemplateStore' {
         @(& $script:invoke @{ Store = $script:store; Action = 'List'; Scope = 'user'; UserName = 'alex' }).Name | Sort-Object | Should -Be @('Three', 'Two')
         # deleting what is not there is no error
         & $script:invoke @{ Store = $script:store; Action = 'Delete'; Scope = 'user'; UserName = 'alex'; Name = 'Never saved' }
+    }
+
+    It 'keeps the views of two reports apart: the same name twice, each report lists its own and those of no named data' {
+        foreach ($source in 'tickets', 'sales') {
+            & $script:invoke @{ Store = $script:store; Action = 'Save'; Scope = 'user'; UserName = 'alex'; Name = 'Overview'; View = $script:view; SourceId = $source }
+        }
+        $userFolder = (Get-ChildItem -LiteralPath (Join-Path $script:folder 'users') -Directory).FullName
+        Set-Content -LiteralPath (Join-Path $userFolder 'plain.pivotkit.json') -Value '{"name":"For any data","view":{"rows":["Team"]}}'
+        @(Get-ChildItem -LiteralPath $script:folder -Recurse -File).Count | Should -Be 3
+        @(& $script:invoke @{ Store = $script:store; Action = 'List'; Scope = 'user'; UserName = 'alex'; SourceId = 'tickets' }).Name | Sort-Object | Should -Be @('For any data', 'Overview')
+        & $script:invoke @{ Store = $script:store; Action = 'Delete'; Scope = 'user'; UserName = 'alex'; Name = 'overview'; SourceId = 'sales' }
+        @(& $script:invoke @{ Store = $script:store; Action = 'List'; Scope = 'user'; UserName = 'alex'; SourceId = 'sales' }).Name | Should -Be @('For any data')
+        @(& $script:invoke @{ Store = $script:store; Action = 'List'; Scope = 'user'; UserName = 'alex'; SourceId = 'tickets' }).Name | Sort-Object | Should -Be @('For any data', 'Overview')
     }
 
     It 'stores the checked view, never the input; refuses names and views that do not pass' {
