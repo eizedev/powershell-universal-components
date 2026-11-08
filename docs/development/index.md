@@ -4,7 +4,7 @@ The repository builds one PowerShell module per component. Each module is a Reac
 with PSU and a PowerShell function returning the hashtable PSU renders. Code several modules need - the
 bridge to PSU's light/dark theme, column matching, number formats, HTML escaping, CSV/Excel export,
 text contrast on fills, data conversion - lives once in `shared/` and is compiled into every module, so
-component modules never depend on each other at runtime (the demo module requires the chart module).
+component modules never depend on each other at runtime (each demo module requires its component module).
 [AGENTS.md](https://github.com/eizedev/powershell-universal-components/blob/HEAD/AGENTS.md) holds the
 layout and the rules that keep modules working inside PSU.
 
@@ -46,6 +46,7 @@ to; the build fails for an example that no page includes.
 | An example's text | `Text` in `examples.ps1`; parameters (`-View`), commands (`New-UDDynamic`) and variables (`$EventData`) become code. |
 | An example as a whole app | `App` in `examples.ps1` (the app's title): the page shows the code once more inside `New-UDApp -Content { }`. |
 | Public data in an example | `Invoke-RestMethod` with the real address; the build answers it from the snapshot in `docs/site/data/<host>/<path>`, so it needs no network. `docs/site/Update-Data.ps1` fetches the snapshots again; sources, licences and the attribution each source asks for (`Source` in `examples.ps1`, shown under the example) are in [data/SOURCES.md](https://github.com/eizedev/powershell-universal-components/blob/HEAD/docs/site/data/SOURCES.md). |
+| The pivot showcase app | Runs the pivot examples of `examples.ps1` and reads the snapshots in `docs/site/data/` (`Addresses.psd1` holds the exact address of a snapshot whose address has a query string); `Build.psd1` of the demo module copies both into it, so a change of an example or a snapshot reaches the app with its next release. |
 | What PSU provides | Stubs in `Build-Site.ps1`: the `[Endpoint]` type, `New-UDDynamic` (draws its `-Content`), a signed-in reader with the role `Administrator` (`$User`, `$Roles`) and `$Repository`. |
 | The pivot report on a page | Drawn into a shadow root of its placeholder, with the module's stylesheets inside it, so the page's typography stays outside. |
 | The pivot screenshots of the start page | `node docs/site/screenshots.mjs <site url>` on the built and served site, light and dark, into `docs/assets/`. |

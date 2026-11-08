@@ -72,4 +72,5 @@ data: [Pivot: loading and performance](pivot/index.md#loading-and-performance).
 
 The [showcase app](demo.md) has 14 pages of charts with generated and public data:
 `Install-PSResource PowerShellUniversal.Component.ECharts.Demo`, then `New-UDEChartShowcase` as an app's
-content.
+content. The [pivot showcase app](pivot/demo.md) works the same way:
+`Install-PSResource PowerShellUniversal.Component.Pivot.Demo`, then `New-UDPivotShowcase`.

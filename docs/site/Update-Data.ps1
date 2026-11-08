@@ -4,7 +4,8 @@
 .SYNOPSIS
     Fetches the snapshots of the live examples again (docs/site/data/).
 .DESCRIPTION
-    Every JSON file below data/ is the answer of one address: data/<host>/<path> is https://<host>/<path>.
+    Every JSON file below data/ is the answer of one address: data/<host>/<path> is https://<host>/<path>,
+    or the address data/Addresses.psd1 names for the file (an address with a query string).
     The script requests each address, checks that the answer is JSON and only then replaces the file
     with it as it came; a failed request or an answer that is not JSON keeps the old file and is
     reported. At the end it writes the day into the "Fetched on" line of data/SOURCES.md. To add an
@@ -22,12 +23,14 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $data = Join-Path $PSScriptRoot 'data'
+# addresses with a query string, by file below data/
+$addresses = Import-PowerShellDataFile -LiteralPath (Join-Path $data 'Addresses.psd1')
 $failed = 0
 $updated = 0
 foreach ($file in Get-ChildItem -LiteralPath $data -Recurse -File -Filter '*.json') {
     $relative = [System.IO.Path]::GetRelativePath($data, $file.FullName) -replace '\\', '/'
     if ($relative -notlike $Filter) { continue }
-    $uri = "https://$relative"
+    $uri = if ($addresses[$relative]) { $addresses[$relative] } else { "https://$relative" }
     if (-not $PSCmdlet.ShouldProcess($file.FullName, "Fetch $uri")) { continue }
     try {
         $answer = Invoke-WebRequest -Uri $uri -UserAgent 'powershell-universal-components docs'

@@ -41,7 +41,7 @@ $generated = Join-Path $site 'generated'
 $charts = Join-Path $docs 'assets' 'charts'
 $modulesDir = Join-Path $repo 'modules'
 # the modules whose commands the site documents and whose examples it runs
-$moduleNames = 'PowerShellUniversal.Component.ECharts', 'PowerShellUniversal.Component.Perspective', 'PowerShellUniversal.Component.Pivot', 'PowerShellUniversal.Component.ECharts.Demo'
+$moduleNames = 'PowerShellUniversal.Component.ECharts', 'PowerShellUniversal.Component.Perspective', 'PowerShellUniversal.Component.Pivot', 'PowerShellUniversal.Component.ECharts.Demo', 'PowerShellUniversal.Component.Pivot.Demo'
 
 # PSU's endpoint type, as in the Pester tests: event script blocks become a marker the page replaces
 if (-not ('Endpoint' -as [type])) {
@@ -79,7 +79,7 @@ $Repository = Join-Path ([System.IO.Path]::GetTempPath()) 'powershell-universal-
 $manifests = [ordered]@{}
 foreach ($name in $moduleNames) {
     $dir = Join-Path $modulesDir $name
-    # the demo requires the chart module by name; it is imported above it already
+    # a demo requires its component module by name; it is imported above it already
     $module = Import-Module (Join-Path $dir "$name.psm1") -Force -PassThru -DisableNameChecking
     & $module { $Script:AssetId = 'site' }
     $manifests[$name] = Import-PowerShellDataFile -LiteralPath (Join-Path $dir "$name.psd1")

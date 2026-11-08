@@ -28,7 +28,9 @@ or copy the built module folder into `Modules/PowerShellUniversal.Component.Pivo
 PSU repository. [examples/showcase.ps1](examples/showcase.ps1) is an app with a 5,000-row DataTable,
 shipped views and a template store, a language switch, the events and the report in page layouts;
 [examples/templates.ps1](examples/templates.ps1) an app with sign-in where readers keep their views on
-the server and admins publish shared ones.
+the server and admins publish shared ones. The module
+[PowerShellUniversal.Component.Pivot.Demo](https://powershell-universal-components.eize.dev/pivot/demo/)
+is a showcase app in one line (`New-UDPivotShowcase`).
 
 ## Where to read on
 

@@ -12,7 +12,7 @@ tag `<Module>-v<Version>` on `main`.
    release with the zip and the CHANGELOG section.
 
 "Run workflow" on `release.yml` with a tag name checks a release without publishing anything. A module
-that requires another one (the demo requires the charts) is released after it: the gallery checks that
+that requires another one (a demo requires its component module) is released after it: the gallery checks that
 the required version is there.
 
 Once per repository: Settings > Environments > `psgallery` with the maintainers as required reviewers
