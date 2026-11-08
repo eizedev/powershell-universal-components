@@ -610,13 +610,20 @@ test.describe("pivot templates with sign-in on PSU", () => {
         // the admin deletes the shared view and the own one
         await admin.page.reload();
         await expect(admin.page.locator(REPORT)).toBeVisible({ timeout: 30000 });
-        for (const name of [shared, shared]) {
+        // the shared view and the admin's own one have the same name: one after the other
+        for (const left of [1, 0]) {
             menu = await openViews(admin.page.locator(REPORT));
-            await menu.locator(`[data-testid='delete-view-${name}']`).first().click();
+            await menu.locator(`[data-testid='delete-view-${shared}']`).first().click();
             await menu.locator("[data-testid=confirm-delete]").click();
-            await expect(admin.page.locator(`${REPORT} .pk-toast-dock`)).toContainText(`“${name}” deleted`, { timeout: 15000 });
+            await expect(admin.page.locator(`${REPORT} .pk-toast-dock`)).toContainText(`“${shared}” deleted`, { timeout: 15000 });
+            await expect(menu.locator(`[data-testid='saved-view-${shared}']`)).toHaveCount(left);
             await admin.page.keyboard.press("Escape");
         }
+        // gone on the server too
+        await admin.page.reload();
+        await expect(admin.page.locator(REPORT)).toBeVisible({ timeout: 30000 });
+        menu = await openViews(admin.page.locator(REPORT));
+        await expect(menu.locator(`[data-testid='saved-view-${shared}']`)).toHaveCount(0);
         expect(admin.errors).toEqual([]);
         expect(reader.errors).toEqual([]);
         await admin.context.close();
