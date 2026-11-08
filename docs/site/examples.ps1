@@ -451,7 +451,7 @@ $endoflife = 'Release data by [endoflife.date](https://endoflife.date/), MIT lic
             }
         }
     }
-    @{ Section = 'Pivot'; Title = 'Shared views and my views'; Text = 'Open Views: shared views from -Templates, the reader''s own under My views. This reader has the role of -AdminRole, so each own view can be published and shared views deleted; the page shows the $EventData the server would get. On a PSU server -TemplateStore does the storing.'; Code = {
+    @{ Section = 'Pivot'; Title = 'Shared views and my views'; Text = 'Open Views: shared views from -Templates, the reader''s own under My views. This reader has the role of -AdminRole, so each own view can be published, a loaded shared view saved over (Save, after a question) and shared views deleted; Save as asks before it replaces one of My views; the page shows the $EventData the server would get. On a PSU server -TemplateStore does the storing.'; Code = {
             $rng = [System.Random]::new(21)
             $rows = foreach ($i in 1..400) {
                 [pscustomobject]@{ Ticket = $i; Team = ('Service Desk', 'Network', 'Server')[$rng.Next(0, 3)]; Priority = 'P{0}' -f $rng.Next(1, 5); 'Lead hours' = [math]::Round(2 + 30 * $rng.NextDouble(), 1) }

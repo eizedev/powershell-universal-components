@@ -10,13 +10,26 @@ groups:
 
 - **Shared views** - the same for everyone: what your app ships (`-Templates`, view files from
   `-TemplatePath`) and what admins published.
-- **My views** - the reader's own, saved with **Save current view**.
+- **My views** - the reader's own, saved with **Save as…** (**Save current view** before a view is
+  loaded).
 
 Each entry loads its view with one click (one undo step); the first three are also offered on the
-empty report. Views also has **Copy view as JSON**, **Download view** (a [view file](#view-files)) and
-**Load view…** (a view file, JSON or a link). Toolbar buttons that do not fit move into **More**, Views among the
-first: in the showcase's report in a window 1,440 pixels wide, Views is in More (measured on PSU
-2026.3.4).
+empty report. The view loaded has a check mark in the menu, and its name shows in the toolbar next to
+Views, with a dot while it has unsaved changes. The menu starts with **This view**:
+
+| Entry | What it does |
+| --- | --- |
+| **Save “…”** | Writes the loaded view under its own name in one click: one of My views through the store or `-OnSaveTemplate`; a shared view through Publish, only for a reader with a role of `-AdminRole` and after "Replace the shared view “…” for everyone?". Off, with the reason, for a shared view the reader may not change, a view from a file or a link, and an empty report. |
+| **Save as…** | Saves the view as one of My views under a name; a name the reader's views have asks "“…” exists. Replace it?" first (Cancel has the focus). |
+| **New, empty report** | Empties the report to its start screen in one undo step; the report then shows no saved view. |
+
+Save and a confirmed Save as send the name of a view that exists: the store replaces that view (an
+upsert, see [Saving a name that exists](#in-files-on-the-server-new-udpivotfiletemplatestore)), and
+your own `-OnSaveTemplate` and `-OnPublishTemplate` must do the same. Undo and Redo carry the view's
+name with the view; Reset and New take it away. Views also has **Copy view as JSON**, **Download
+view** (a [view file](#view-files)) and **Load view…** (a view file, JSON or a link). Toolbar buttons
+that do not fit move into **More**; Views is the last to go (pivotkit's order: Reset, Layout,
+Options, the chart type, Views), so it moves under More only when the report is narrow.
 
 | What you want | Parameters |
 | --- | --- |
@@ -127,9 +140,13 @@ delete shared views; everyone else sees shared views read-only. The store keeps 
   `/data/Repository` (measured on PSU 2026.2.5 and 2026.3.4). The PSU service account needs to write
   there.
 - **Names**: the file name comes from the view's name (lower case, accents dropped, everything else a
-  `-`, plus a hash of the name and the report's `-SourceId`), so a name never leaves the folder and the
-  same name in another case replaces the view. A user's folder is a hash of the user name: the name
-  itself is not on disk.
+  `-`, plus a hash of the name and the report's `-SourceId`), so a name never leaves the folder. A user's
+  folder is a hash of the user name: the name itself is not on disk.
+- **Saving a name that exists** replaces that view in its file (an upsert): the reader's own view for
+  Save and Save as, the shared view for Publish and Save on a shared view. Names match as in pivotkit's Views menu: the same
+  characters in the same case after trimming, so `Sales` and `sales` are two views. A report replaces
+  the view made for its data, else one that names no data (which then still names none). A view stored
+  twice (copied by hand) is left once.
 - **Several reports** can share one store: each lists the views made for its data (`-SourceId`) and
   those that name no data, as pivotkit's browser store does; the same name in two reports is two views.
 - **Writes**: to a new file that then replaces the old one, under a lock per folder, so two saves at the
@@ -147,10 +164,30 @@ block gets one argument, `$Request`:
 
 | Script block | `$Request` | Returns |
 | --- | --- | --- |
-| `-Get` | `Scope` (`user` or `shared`), `User` (`$null` for shared), `UserKey` (a hash of the user name, safe in keys and file names) | The stored views: view file texts (the `Json` of a save), or objects with `Name` and `View` |
-| `-Save` | `Scope`, `User`, `UserKey`, `Name` (checked), `FileName` (`<name>-<hash>.pivotkit.json`, the same for the same name in any case and the same `-SourceId`), `Key` (`users/<UserKey>/<FileName>` or `shared/<FileName>`), `Json` (the view file to store), `View` (the checked view) | Nothing; a save of a name the scope has replaces it |
+| `-Get` | `Scope` (`user` or `shared`), `User` (`$null` for shared), `UserKey` (a hash of the user name, safe in keys and file names) | The stored views: view file texts (the `Json` of a save), objects with `Json` and `FileName` (where the view is stored), or objects with `Name` and `View` |
+| `-Save` | `Scope`, `User`, `UserKey`, `Name` (checked), `FileName`, `Key` (`users/<UserKey>/<FileName>` or `shared/<FileName>`), `Json` (the view file to store), `View` (the checked view) | Nothing; store `Json` under `FileName`, replacing what is there |
 | `-Delete` | `Scope`, `User`, `UserKey`, `Name`, `FileName`, `Key` | Nothing |
 | `-Publish` (optional) | As `-Save`, with `Scope` `shared` and `User` the publisher | Nothing; without it, publishing calls `-Save` with `Scope` `shared` |
+
+Saving a name the scope has replaces that view, as in the file store: the module finds it in what
+`-Get` returns (same name, same case) and passes its `FileName`, so `-Save` writes over it. For a
+new name `FileName` is `<name>-<hash>.pivotkit.json` (a hash of the name and the `-SourceId`), one no
+stored view has; when that one is taken, another (`<name>-<hash>.pivotkit.json` with another hash).
+
+Return `FileName` from `-Get` (objects with `FileName` and `Json`). Without it the module can only
+assume where a view is stored: the `FileName` a save of its name gives it. A view stored under another
+one - put there by hand or by another tool, or given another `FileName` because the first was taken -
+is then not found again, and the next save of its name adds a second entry instead of replacing it.
+
+`-Delete` must succeed for a `Key` that is not stored (as `DELETE`, `HDEL` and S3 do): after a save the
+module removes the other places a view of that name may be stored (a copy, the key version 0.1.0 gave
+it), and where it has to guess, the key may not exist. A delete that fails there is a warning in the
+app's log, not an error for a save that worked.
+
+The lock the module holds while it lists and writes is a named mutex on one machine. With several PSU
+nodes, two saves of a new name on two nodes at the same moment can both add it: give the storage a
+unique key on scope, user and `FileName` (the SQL Server example's primary key), so the second
+replaces the first instead of adding a row.
 
 Throw to refuse; the reader sees the message. Like the file store, a report lists only the views made
 for its `-SourceId` and those that name no data, so one store serves several reports. The script blocks run in the runspace of the app script
@@ -178,13 +215,14 @@ $run = {
         $command.CommandText = $Query
         foreach ($p in $Parameters.GetEnumerator()) { [void]$command.Parameters.AddWithValue($p.Key, [string]$p.Value) }
         $reader = $command.ExecuteReader()
-        while ($reader.Read()) { $reader.GetString(0) }
+        # Get reads FileName and Json; MERGE and DELETE return no rows
+        while ($reader.Read()) { [pscustomobject]@{ FileName = $reader.GetString(0); Json = $reader.GetString(1) } }
     }
     finally { $connection.Dispose() }
 }
 $store = New-UDPivotTemplateStore -Get {
     param($Request)
-    & $run 'SELECT Json FROM PivotViews WHERE Scope = @Scope AND UserKey = @UserKey ORDER BY FileName' @{ '@Scope' = $Request.Scope; '@UserKey' = "$($Request.UserKey)" }
+    & $run 'SELECT FileName, Json FROM PivotViews WHERE Scope = @Scope AND UserKey = @UserKey ORDER BY FileName' @{ '@Scope' = $Request.Scope; '@UserKey' = "$($Request.UserKey)" }
 } -Save {
     param($Request)
     & $run @'
@@ -259,7 +297,8 @@ $store = New-UDPivotTemplateStore -Get {
 `-AdminRole` names PSU roles (`$Roles`), for example `-AdminRole 'Administrator'` or a role of your own
 from claims mapping. A reader with one of them gets:
 
-- **Publish as shared view** next to each of their own views (asked in place),
+- **Publish as shared view** next to each of their own views (asked in place), and **Save “…”** on a
+  shared view they loaded (after "Replace the shared view “…” for everyone?"),
 - a delete button on every shared view, and
 - the **admin panel** under the report: the current view as JSON, the columns with the type pivotkit
   reads them as, their distinct and blank values, how long the server took (converting the data, the
@@ -302,6 +341,9 @@ For full control, handle the events yourself instead of a store (the two cannot 
 | `-OnSaveTemplate` | `name`, `view`, `json`, `scope` (`user`) |
 | `-OnDeleteTemplate` | `name`, `scope` (`user` or `shared`, the group of the entry) |
 | `-OnPublishTemplate` | `name`, `view`, `json`; offered only to readers with a role of `-AdminRole` |
+
+Save current view and Publish send the name of a view that exists when the reader saves over it:
+replace that view (by its name, the same characters in the same case), do not add a second one.
 
 The view comes from the browser: check it with `ConvertFrom-UDPivotView` (or write it with
 `ConvertTo-UDPivotViewFile`, which checks it) before it is stored, check the name, never build a path

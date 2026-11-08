@@ -5,6 +5,38 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-08
+
+### Changed
+
+- pivotkit 0.2.0 ([pivotkit-react release](https://github.com/eizedev/pivotkit/releases/tag/pivotkit-react%400.2.0)):
+  Save, Save as and New, empty report in the Views menu with the loaded view's name and an
+  unsaved-changes dot in the toolbar; sorting by a click on a table header; a view's unused parts as a
+  warning in plain words; field menus with one line per setting. Labels a `-Labels` override may use
+  changed: `issues`, `viewMissingFields`, `viewOtherIssue(s)` and `valuesFilterHint` are gone (see
+  pivotkit-react's CHANGELOG for the new keys).
+- View names in the template stores match as in pivotkit's Views menu: the same characters in the same
+  case (after trimming). `Sales` and `sales` are two views; before, saving `sales` replaced `Sales`
+  without pivotkit asking. Files of new views carry a hash of the name as it is. A view saved by 0.1.0
+  is replaced in its file; in a custom store whose `-Get` returns only the Json it moves to the new
+  key on its next save, and the old key is deleted.
+- `New-UDPivotTemplateStore`: `-Get` may return objects with `Json` and `FileName`; a save over such a
+  view gets its `FileName`, so `-Save` replaces it where it is stored. The SQL Server example returns it.
+  `-Delete` must succeed for a key that is not stored: after a save the module also removes the other
+  places a view of the name may be under, and a failure there is a warning in the log, not an error
+  for the save. On several PSU nodes the store's own unique key (scope, user, `FileName`) keeps a
+  name once; the module's lock holds on one machine only.
+- `ConvertFrom-UDPivotViewFile` also returns `Generator` (name and version of what wrote the file).
+
+### Fixed
+
+- Saving or publishing a name that exists replaces that view in both template stores (an upsert, as
+  pivotkit 0.2.0's Save expects), also a view stored under another file name (copied into the folder by
+  hand, saved by 0.1.0) and a view that names no data; before, these got a second entry. A view stored
+  twice is left once. `-OnSaveTemplate` and `-OnPublishTemplate` document that a save sends existing
+  names. Listing, the check and the write of a custom store run under the store's lock, as in the file
+  store.
+
 ## [0.1.0] - 2026-11-08
 
 ### Added

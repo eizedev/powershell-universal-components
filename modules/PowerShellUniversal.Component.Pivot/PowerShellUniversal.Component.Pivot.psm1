@@ -659,13 +659,22 @@ function Get-UDPivotViewFileName {
     .DESCRIPTION
         The slug is the name in lower case without accents, every run of other characters a "-" (as
         pivotkit-core's viewFileName), at most 60 characters; the hash (10 hex characters of the SHA-256
-        of the source id and the name in lower case) keeps two names apart that give the same slug, and
-        the views of two reports with the same name. The same name in another case gives the same file:
-        a save replaces it. Nothing of the name can leave the folder.
+        of the source id and the name as it is) keeps two names apart that give the same slug, the same
+        name in another case (pivotkit tells names apart by case), and the views of two reports with the
+        same name. Nothing of the name can leave the folder. The file name of a new view only: a save over
+        a stored view keeps that view's file (Invoke-UDPivotTemplateStore finds it by its name).
     .PARAMETER Name
         The checked template name.
     .PARAMETER SourceId
         The id of the data the view was made for (New-UDPivotReport -SourceId).
+    .PARAMETER Attempt
+        Another file name for the same name (1, 2, ...), when the first one holds another view.
+    .PARAMETER Legacy
+        The file name version 0.1.0 gave the view: the hash of the source id and the name in lower case
+        (one file for a name in any case). Never the same as a file name of this version.
+    .NOTES
+        The parts of the hashed text are joined with a NUL character, which a checked name never holds,
+        so a file name of this version and one of 0.1.0 (joined with "|") never meet.
     .EXAMPLE
         Get-UDPivotViewFileName -Name 'Revenue by region' -SourceId 'sales'
     .OUTPUTS
@@ -673,13 +682,15 @@ function Get-UDPivotViewFileName {
     #>
     [CmdletBinding()]
     [OutputType([string])]
-    param([Parameter(Mandatory)][string]$Name, [AllowEmptyString()][AllowNull()][string]$SourceId)
+    param([Parameter(Mandatory)][string]$Name, [AllowEmptyString()][AllowNull()][string]$SourceId, [ValidateRange(0, 100)][int]$Attempt = 0, [switch]$Legacy)
     $plain = -join ($Name.ToLowerInvariant().Normalize([System.Text.NormalizationForm]::FormKD).ToCharArray() |
             Where-Object { [System.Globalization.CharUnicodeInfo]::GetUnicodeCategory($_) -ne [System.Globalization.UnicodeCategory]::NonSpacingMark })
     $slug = ($plain -replace '[^a-z0-9]+', '-').Trim('-')
     if ($slug.Length -gt 60) { $slug = $slug.Substring(0, 60).Trim('-') }
     if (-not $slug) { $slug = 'view' }
-    '{0}-{1}.pivotkit.json' -f $slug, (Get-UDPivotSha256 -Text ('{0}|{1}' -f $SourceId, $Name.ToLowerInvariant()) -Length 10)
+    $text = if ($Legacy) { '{0}|{1}' -f $SourceId, $Name.ToLowerInvariant() }
+    else { (@($SourceId, $Name) + @(if ($Attempt) { $Attempt })) -join [char]0 }
+    '{0}-{1}.pivotkit.json' -f $slug, (Get-UDPivotSha256 -Text $text -Length 10)
 }
 
 function ConvertFrom-UDPivotViewFile {
@@ -702,7 +713,8 @@ function ConvertFrom-UDPivotViewFile {
     .EXAMPLE
         ConvertFrom-UDPivotViewFile -InputObject (Get-Content -LiteralPath ./open-work.pivotkit.json -Raw)
     .OUTPUTS
-        System.Management.Automation.PSCustomObject with Name, Description, Source (id, name) and View.
+        System.Management.Automation.PSCustomObject with Name, Description, Source (id, name), Generator
+        (name, version: what wrote the file) and View.
     .LINK
         https://powershell-universal-components.eize.dev/pivot/templates/
     #>
@@ -748,6 +760,7 @@ function ConvertFrom-UDPivotViewFile {
         if ($title -isnot [string] -or [string]::IsNullOrWhiteSpace($title)) { $title = $Name }
         $description = & $get 'description'
         $source = & $get 'source'
+        $generator = & $get 'generator'
         [pscustomobject]@{
             Name        = ConvertTo-UDPivotTemplateName -Name $title
             Description = if ($description -is [string]) { Limit-UDPivotText -Text ($description -replace '[\p{Cc}\p{Cf}]', ' ') -MaxLength $Script:MaxViewFileDescription }
@@ -755,6 +768,12 @@ function ConvertFrom-UDPivotViewFile {
                 [pscustomobject]@{
                     id   = if ($source.id -is [string]) { Limit-UDPivotText -Text $source.id -MaxLength $Script:MaxNameLength }
                     name = if ($source.name -is [string]) { Limit-UDPivotText -Text $source.name -MaxLength $Script:MaxNameLength }
+                }
+            }
+            Generator   = if ($generator -is [System.Management.Automation.PSCustomObject]) {
+                [pscustomobject]@{
+                    name    = if ($generator.name -is [string]) { Limit-UDPivotText -Text $generator.name -MaxLength $Script:MaxNameLength }
+                    version = if ($generator.version -is [string]) { Limit-UDPivotText -Text $generator.version -MaxLength 40 }
                 }
             }
             View        = $checked
@@ -946,10 +965,13 @@ function New-UDPivotTemplateStore {
 
         - Get: Scope ('user' or 'shared'), User (the user name; $null for shared), UserKey (a hash of the
           user name, safe in a key or file name). Return the stored views: view file texts (the Json of
-          a save) or objects with Name and View. The module checks each one again.
-        - Save: Scope, User, UserKey, Name (checked), FileName (<slug>-<hash>.pivotkit.json, the same for
-          the same name in any case), Key ('users/<UserKey>/<FileName>' or 'shared/<FileName>'), Json
-          (the view file to store) and View (the checked view). A save of a name the scope has replaces it.
+          a save), objects with Json and FileName (where it is stored), or objects with Name and View. The
+          module checks each one again.
+        - Save: Scope, User, UserKey, Name (checked), FileName, Key ('users/<UserKey>/<FileName>' or
+          'shared/<FileName>'), Json (the view file to store) and View (the checked view). Store it under
+          FileName, replacing what is there: for a name the scope has (the same characters in the same
+          case, as pivotkit compares names) the module passes the FileName of that view, so a save
+          replaces it; for a new name <slug>-<hash>.pivotkit.json that no stored view has.
         - Delete: Scope, User, UserKey, Name, FileName, Key.
         - Publish (optional): as Save with Scope 'shared' and User the publisher. Without it, publishing
           calls Save with Scope 'shared'.
@@ -1057,7 +1079,10 @@ function Invoke-UDPivotTemplateStore {
     .DESCRIPTION
         The one place that talks to a store: New-UDPivotReport lists with it, the event handlers save,
         publish and delete with it (Invoke-UDPivotTemplateRequest). Who may do what is decided before:
-        this function only checks names, views and limits.
+        this function only checks names, views and limits. Save and Publish are an upsert: a view of the
+        name the report lists (the same characters in the same case, as pivotkit compares names; one
+        made for this report's data first, else one made for no named data) is replaced where it is
+        stored, and a copy of it stored twice goes; Delete removes the views of the name the same way.
     .PARAMETER Store
         A store of New-UDPivotFileTemplateStore or New-UDPivotTemplateStore.
     .PARAMETER Action
@@ -1109,9 +1134,14 @@ function Invoke-UDPivotTemplateStore {
     }
 
     # the stored views of this scope, each checked again (a store can be changed by hand); a folder holds
-    # the views of every report of the store, so the list is capped by what a report takes, not by $max
+    # the views of every report of the store, so the list is capped by what a report takes, not by $max.
+    # File: where a view is stored (its file; for a custom store the FileName Get returns, else the one a
+    # save gives it), so a save over it replaces it in place. Files: every place it may be stored: for a
+    # custom store without FileName also the one version 0.1.0 gave it (a hash of the name in lower case,
+    # which "Sales" and "sales" share), unless the stored file says this module wrote it from 0.2.0 on,
+    # which never uses that place: so a view saved now never claims the place of an old one.
     $list = {
-        if ($Store.Kind -eq 'File') { return @(Get-UDPivotTemplateFile -Path $folder -MaxCount $Script:MaxTemplates | ForEach-Object { $_.File = Get-UDPivotViewFileName -Name $_.Name -SourceId $_.SourceId; $_ }) }
+        if ($Store.Kind -eq 'File') { return @(Get-UDPivotTemplateFile -Path $folder -MaxCount $Script:MaxTemplates | ForEach-Object { $_ | Add-Member -NotePropertyName Files -NotePropertyValue @($_.File) -PassThru }) }
         $index = 0
         @(foreach ($entry in @(& $Store.Get ([pscustomobject]$request))) {
                 $index++
@@ -1124,7 +1154,16 @@ function Invoke-UDPivotTemplateStore {
                     }
                     $read = ConvertFrom-UDPivotViewFile -InputObject $source
                     $sourceId = if ($read.Source) { $read.Source.id }
-                    [pscustomobject]@{ Name = $read.Name; View = $read.View; File = Get-UDPivotViewFileName -Name $read.Name -SourceId $sourceId; SourceId = $sourceId }
+                    $stored = if ($entry -isnot [string]) { Get-UDPivotEntryValue -InputObject $entry -Name 'FileName' }
+                    $writtenBy = $read.Generator
+                    $version = $null
+                    $current = $writtenBy -and $writtenBy.name -ceq 'PowerShellUniversal.Component.Pivot' -and [version]::TryParse([string]$writtenBy.version, [ref]$version) -and $version -ge [version]'0.2.0'
+                    $files = @(if ($stored -is [string] -and $stored -match '^[^\\/\p{Cc}]{1,255}$' -and $stored -notin '.', '..') { $stored } else {
+                            Get-UDPivotViewFileName -Name $read.Name -SourceId $sourceId
+                            if (-not $current) { Get-UDPivotViewFileName -Name $read.Name -SourceId $sourceId -Legacy }
+                        }) | Select-Object -Unique
+                    $files = @($files)
+                    [pscustomobject]@{ Name = $read.Name; View = $read.View; File = $files[0]; Files = @($files); SourceId = $sourceId }
                 }
                 catch { Write-Warning ('Pivot template store: a {0} view skipped: {1}' -f $Scope, $_.Exception.Message) }
             })
@@ -1132,44 +1171,108 @@ function Invoke-UDPivotTemplateStore {
 
     # one store serves several reports: a report lists the views of its data and those made for no
     # named data (as pivotkit's browser store)
-    if ($Action -eq 'List') { return & $list | Where-Object { -not $SourceId -or -not $_.SourceId -or $_.SourceId -ceq $SourceId } }
+    $reportData = [string]$SourceId
+    $viewFile = @{ SourceName = $SourceName; SchemaUrl = $SchemaUrl }
+    $listed = { param($Entry) -not $reportData -or -not $Entry.SourceId -or $Entry.SourceId -ceq $reportData }
+    if ($Action -eq 'List') { return & $list | Where-Object { & $listed $_ } }
 
     $checkedName = ConvertTo-UDPivotTemplateName -Name $Name
-    $fileName = Get-UDPivotViewFileName -Name $checkedName -SourceId $SourceId
     $request['Name'] = $checkedName
-    $request['FileName'] = $fileName
-    $request['Key'] = if ($Scope -eq 'user') { 'users/{0}/{1}' -f $userKey, $fileName } else { 'shared/{0}' -f $fileName }
-
-    if ($Action -eq 'Delete') {
+    # the views of this name the report lists, by pivotkit's rule (its Views menu compares names with
+    # ===: the same characters in the same case): those made for this data, else those made for no named
+    # data, as pivotkit's browser store replaces them
+    $named = {
+        param($Entries)
+        $all = @($Entries | Where-Object { $_.Name -ceq $checkedName -and (& $listed $_) })
+        $same = @($all | Where-Object { [string]$_.SourceId -ceq [string]$reportData })
+        if ($same.Count) { $same } else { @($all | Where-Object { -not $_.SourceId }) }
+    }
+    $requestFor = {
+        param([string]$FileName)
+        $out = [ordered]@{}
+        foreach ($k in $request.Keys) { $out[$k] = $request[$k] }
+        $out['FileName'] = $FileName
+        $out['Key'] = if ($Scope -eq 'user') { 'users/{0}/{1}' -f $userKey, $FileName } else { 'shared/{0}' -f $FileName }
+        $out
+    }
+    $remove = {
+        param([string]$FileName)
         if ($Store.Kind -eq 'File') {
-            Invoke-UDPivotStoreLock -Name $folder -ScriptBlock {
-                $target = Join-Path $folder $fileName
-                if (Test-Path -LiteralPath $target -PathType Leaf) { Remove-Item -LiteralPath $target -Force }
+            $target = Join-Path $folder $FileName
+            if (Test-Path -LiteralPath $target -PathType Leaf) { Remove-Item -LiteralPath $target -Force }
+        }
+        else { $null = & $Store.Delete ([pscustomobject](& $requestFor $FileName)) }
+    }
+    # takes the view of this name out of every place it may be stored but -Keep (a copy; the place version
+    # 0.1.0 gave it), never out of a place another view may be in. Some of these places are guesses (a
+    # custom store without FileName), so a failed delete there is a warning; with -Strict (Delete) a view
+    # of which no place could be deleted is an error the reader sees.
+    $clear = {
+        param([object[]]$Found, [object[]]$All, [string]$Keep, [switch]$Strict)
+        $claimed = @($All | Where-Object { $Found -notcontains $_ } | ForEach-Object { $_.Files })
+        $done = @{}
+        foreach ($entry in $Found) {
+            $failed = $null
+            $removed = 0
+            foreach ($file in @($entry.Files | Where-Object { $_ -ne $Keep -and $claimed -notcontains $_ })) {
+                if ($done.ContainsKey($file)) { $removed++; continue }
+                try { & $remove $file; $done[$file] = $true; $removed++ }
+                catch { if (-not $failed) { $failed = $_ } }
+            }
+            if ($failed) {
+                if ($Strict -and -not $removed) { throw $failed }
+                Write-Warning ('Pivot template store: "{0}" could not be removed from one place: {1}' -f $checkedName, $failed.Exception.Message)
             }
         }
-        else {
-            $null = & $Store.Delete ([pscustomobject]$request)
+    }
+    # a folder, or a custom store's scope and user: list and write as one step, so two saves of a new
+    # name at the same moment neither store it twice nor go over the limit
+    $lockName = if ($Store.Kind -eq 'File') { $folder } else { 'store|{0}|{1}|{2}' -f (Get-UDPivotSha256 -Text $Store.Save.ToString()), $Scope, $userKey }
+
+    if ($Action -eq 'Delete') {
+        Invoke-UDPivotStoreLock -Name $lockName -ScriptBlock {
+            $all = @(& $list)
+            $found = @(& $named $all)
+            # none listed (a stored view broken by hand): the file a save of this name gives it
+            if ($found.Count) { & $clear $found $all '' -Strict }
+            else { & $remove (Get-UDPivotViewFileName -Name $checkedName -SourceId $reportData) }
         }
         return
     }
 
-    # Save and Publish: the checked view as a view file; what is stored is never the input itself
+    # Save and Publish: the checked view as a view file; what is stored is never the input itself. A view
+    # of the name replaces the stored one in place (an upsert: pivotkit's Save sends an existing name)
     $checkedView = ConvertFrom-UDPivotView -InputObject $View
-    $json = ConvertTo-UDPivotViewFile -View $checkedView -Name $checkedName -SourceId $SourceId -SourceName $SourceName -SchemaUrl $SchemaUrl -CreatedAt ([datetime]::UtcNow)
-    $request['Json'] = $json
-    $request['View'] = $checkedView
     $full = { ('At most {0} {1} views; delete one first.' -f $max, $(if ($Scope -eq 'user') { 'own' } else { 'shared' })) }
 
-    if ($Store.Kind -eq 'File') {
-        Invoke-UDPivotStoreLock -Name $folder -ScriptBlock {
-            $target = Join-Path $folder $fileName
-            if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
-                $count = @(Get-ChildItem -LiteralPath $folder -Filter '*.pivotkit.json' -File -ErrorAction SilentlyContinue).Count
-                if ($count -ge $max) { throw (& $full) }
-            }
+    Invoke-UDPivotStoreLock -Name $lockName -ScriptBlock {
+        $all = @(& $list)
+        $found = @(& $named $all)
+        if ($found.Count) {
+            # its file and its data stay (a view made for no named data stays one)
+            $fileName = $found[0].File
+            $fileSource = [string]$found[0].SourceId
+        }
+        else {
+            $count = if ($Store.Kind -eq 'File') { @(Get-ChildItem -LiteralPath $folder -Filter '*.pivotkit.json' -File -ErrorAction SilentlyContinue).Count } else { $all.Count }
+            if ($count -ge $max) { throw (& $full) }
+            # a file name no other view holds (one stored by hand); file names compared without case, as
+            # on Windows and macOS
+            $attempt = 0
+            do {
+                $fileName = Get-UDPivotViewFileName -Name $checkedName -SourceId $reportData -Attempt $attempt
+                $attempt++
+                $taken = @($all | Where-Object { $_.Files -contains $fileName }).Count -or ($Store.Kind -eq 'File' -and (Test-Path -LiteralPath (Join-Path $folder $fileName)))
+            } while ($taken)
+            $fileSource = $reportData
+        }
+        $json = ConvertTo-UDPivotViewFile -View $checkedView -Name $checkedName -SourceId $fileSource -SourceName $(if ($fileSource) { $viewFile.SourceName }) -SchemaUrl $viewFile.SchemaUrl -CreatedAt ([datetime]::UtcNow)
+
+        if ($Store.Kind -eq 'File') {
             try { $null = New-Item -ItemType Directory -Path $folder -Force }
             catch { throw ('The view store cannot create its folder ({0}).' -f $_.Exception.Message) }
             # a new file, then replace: a reader never sees half a file
+            $target = Join-Path $folder $fileName
             $temp = Join-Path $folder ('.{0}.{1}.tmp' -f $fileName, [guid]::NewGuid().ToString('n'))
             try {
                 [System.IO.File]::WriteAllText($temp, $json, [System.Text.UTF8Encoding]::new($false))
@@ -1179,13 +1282,16 @@ function Invoke-UDPivotTemplateStore {
                 if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Force -ErrorAction SilentlyContinue }
             }
         }
-        return
+        else {
+            $save = & $requestFor $fileName
+            $save['Json'] = $json
+            $save['View'] = $checkedView
+            if ($Action -eq 'Publish' -and $Store.Publish) { $null = & $Store.Publish ([pscustomobject]$save) }
+            else { $null = & $Store.Save ([pscustomobject]$save) }
+        }
+        # the same view stored twice before (by hand, under another file name): one is left
+        & $clear $found $all $fileName
     }
-
-    $existing = @(& $list)
-    if (-not ($existing | Where-Object File -EQ $fileName) -and $existing.Count -ge $max) { throw (& $full) }
-    if ($Action -eq 'Publish' -and $Store.Publish) { $null = & $Store.Publish ([pscustomobject]$request) }
-    else { $null = & $Store.Save ([pscustomobject]$request) }
 }
 
 function Get-UDPivotStoreRegistry {
@@ -1551,15 +1657,18 @@ function New-UDPivotReport {
         key paths), rowFields, colFields, filter (one @{ field; value } per level, rows first), valueField,
         value, text (as shown), count (source rows behind the value) and rows (the first 100 of them).
     .PARAMETER OnSaveTemplate
-        Shows "Save current view" in the Views menu and runs when the reader saves. $EventData: name,
-        view, json, scope (user). The template appears in the menu (deletable) once the script block finished without
+        Shows Save as (and Save on a loaded view of the reader's own) in the Views menu and runs when the
+        reader saves. $EventData: name, view, json, scope (user). Save and a confirmed Save as send a name the reader's views already have:
+        replace that view (an upsert by name, the same characters in the same case), never add a second
+        one. The template appears in the menu (deletable) once the script block finished without
         an error; throw, or return @{ error = 'message' }, to refuse - the reader sees the message.
     .PARAMETER OnDeleteTemplate
         Runs when the reader deletes a deletable template (after confirming in the menu). $EventData:
         name, scope (user or shared). Throw, or return @{ error = 'message' }, to refuse.
     .PARAMETER OnPublishTemplate
-        With -AdminRole: "Publish as shared view" on the reader's own views, for readers with one of the
-        roles. $EventData: name, view, json. Check $Roles in it again: the browser only hides the button.
+        With -AdminRole: "Publish as shared view" on the reader's own views and Save on a shared view, for
+        readers with one of the roles. $EventData: name, view, json. A name the shared views have replaces
+        that view (an upsert by name). Check $Roles in it again: the browser only hides the button.
     .EXAMPLE
         New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -Locale de-DE
     .EXAMPLE

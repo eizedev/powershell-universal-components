@@ -62,8 +62,11 @@ Describe 'View files' {
         $file | Should -Match '^[a-z0-9-]+-[0-9a-f]{10}\.pivotkit\.json$'
         # as pivotkit-core's viewFileName: accents dropped (NFKD), every other character a dash
         $file | Should -BeLike 'etc-gro-e-passwd-*'
-        # the same name in another case is the same file; another name is another file
-        (& $script:module { Get-UDPivotViewFileName -Name 'Per Team' }) | Should -Be (& $script:module { Get-UDPivotViewFileName -Name 'per team' })
+        # names are told apart by case, as pivotkit does: the same name in another case is another file
+        (& $script:module { Get-UDPivotViewFileName -Name 'Per Team' }) | Should -Not -Be (& $script:module { Get-UDPivotViewFileName -Name 'per team' })
+        # 0.1.0's file names (one per name in any case) never meet this version's
+        (& $script:module { Get-UDPivotViewFileName -Name 'Per Team' -Legacy }) | Should -Be (& $script:module { Get-UDPivotViewFileName -Name 'per team' -Legacy })
+        (& $script:module { Get-UDPivotViewFileName -Name 'per team' -Legacy }) | Should -Not -Be (& $script:module { Get-UDPivotViewFileName -Name 'per team' })
         (& $script:module { Get-UDPivotViewFileName -Name 'Per team!' }) | Should -Not -Be (& $script:module { Get-UDPivotViewFileName -Name 'Per team' })
     }
 }
@@ -126,9 +129,9 @@ Describe 'New-UDPivotFileTemplateStore' {
         $save = { param($Name) & $script:invoke @{ Store = $script:store; Action = 'Save'; Scope = 'user'; UserName = 'alex'; Name = $Name; View = $script:view } }
         & $save 'One'
         & $save 'Two'
-        & $save 'one'
+        & $save 'One'
         { & $save 'Three' } | Should -Throw '*At most 2*'
-        & $script:invoke @{ Store = $script:store; Action = 'Delete'; Scope = 'user'; UserName = 'alex'; Name = 'ONE' }
+        & $script:invoke @{ Store = $script:store; Action = 'Delete'; Scope = 'user'; UserName = 'alex'; Name = 'One' }
         & $save 'Three'
         @(& $script:invoke @{ Store = $script:store; Action = 'List'; Scope = 'user'; UserName = 'alex' }).Name | Sort-Object | Should -Be @('Three', 'Two')
         # deleting what is not there is no error
@@ -143,7 +146,7 @@ Describe 'New-UDPivotFileTemplateStore' {
         Set-Content -LiteralPath (Join-Path $userFolder 'plain.pivotkit.json') -Value '{"name":"For any data","view":{"rows":["Team"]}}'
         @(Get-ChildItem -LiteralPath $script:folder -Recurse -File).Count | Should -Be 3
         @(& $script:invoke @{ Store = $script:store; Action = 'List'; Scope = 'user'; UserName = 'alex'; SourceId = 'tickets' }).Name | Sort-Object | Should -Be @('For any data', 'Overview')
-        & $script:invoke @{ Store = $script:store; Action = 'Delete'; Scope = 'user'; UserName = 'alex'; Name = 'overview'; SourceId = 'sales' }
+        & $script:invoke @{ Store = $script:store; Action = 'Delete'; Scope = 'user'; UserName = 'alex'; Name = 'Overview'; SourceId = 'sales' }
         @(& $script:invoke @{ Store = $script:store; Action = 'List'; Scope = 'user'; UserName = 'alex'; SourceId = 'sales' }).Name | Should -Be @('For any data')
         @(& $script:invoke @{ Store = $script:store; Action = 'List'; Scope = 'user'; UserName = 'alex'; SourceId = 'tickets' }).Name | Sort-Object | Should -Be @('For any data', 'Overview')
     }
@@ -197,11 +200,11 @@ Describe 'New-UDPivotTemplateStore' {
         $save.View.rows | Should -Be @('Team')
         { & $invoke @{ Store = $store; Action = 'Save'; Scope = 'user'; UserName = 'alex'; Name = 'Second'; View = $script:view } } | Should -Throw '*At most 1*'
         # the same name again replaces it
-        & $invoke @{ Store = $store; Action = 'Save'; Scope = 'user'; UserName = 'alex'; Name = 'MINE'; View = $script:view }
+        & $invoke @{ Store = $store; Action = 'Save'; Scope = 'user'; UserName = 'alex'; Name = 'Mine'; View = $script:view }
         & $invoke @{ Store = $store; Action = 'Publish'; Scope = 'user'; UserName = 'boss'; Name = 'For all'; View = $script:view }
         $data.Keys | Where-Object { $_ -like 'shared/*' } | Should -HaveCount 1
         @(& $invoke @{ Store = $store; Action = 'List'; Scope = 'shared' }).Name | Should -Be @('For all')
-        & $invoke @{ Store = $store; Action = 'Delete'; Scope = 'shared'; Name = 'for all' }
+        & $invoke @{ Store = $store; Action = 'Delete'; Scope = 'shared'; Name = 'For all' }
         @(& $invoke @{ Store = $store; Action = 'List'; Scope = 'shared' }).Count | Should -Be 0
     }
 
@@ -214,6 +217,201 @@ Describe 'New-UDPivotTemplateStore' {
         $published[0].User | Should -Be 'boss'
         @(& $invoke @{ Store = $store; Action = 'List'; Scope = 'shared' } -WarningAction SilentlyContinue).Name | Should -Be @('Ok', 'Obj')
         { & $invoke @{ Store = $store; Action = 'Save'; Scope = 'user'; UserName = 'alex'; Name = 'S'; View = $script:view } } | Should -Throw '*no save*'
+    }
+}
+
+# pivotkit 0.2.0's Save sends the name of a stored view (onSaveTemplate, onPublishTemplate): the store
+# replaces that view, never adds a second one. Each case runs against the file store, a custom store
+# whose Get returns FileName and Json, and one whose Get returns only the Json (the Valkey and S3 sketches).
+Describe 'Save over a stored view (upsert by name): <Kind> store' -ForEach @(@{ Kind = 'File' }, @{ Kind = 'Custom' }, @{ Kind = 'CustomJsonOnly' }) {
+    BeforeEach {
+        $script:folder = & $script:newFolder
+        # the custom store keeps view files in memory by Key, and Get returns where each one is stored
+        $script:data = [System.Collections.Generic.Dictionary[string, string]]::new()
+        $data = $script:data
+        $withFileName = $Kind -eq 'Custom'
+        $script:store = if ($Kind -eq 'File') { New-UDPivotFileTemplateStore -Path $script:folder } else {
+            New-UDPivotTemplateStore -Get {
+                param($Request)
+                $prefix = if ($Request.Scope -eq 'shared') { 'shared/' } else { 'users/{0}/' -f $Request.UserKey }
+                foreach ($k in @($data.Keys | Where-Object { $_.StartsWith($prefix) } | Sort-Object)) {
+                    if ($withFileName) { [pscustomobject]@{ FileName = $k.Substring($prefix.Length); Json = $data[$k] } } else { $data[$k] }
+                }
+            }.GetNewClosure() -Save { param($Request) $data[$Request.Key] = $Request.Json } -Delete { param($Request) $null = $data.Remove($Request.Key) }
+        }
+        $script:invoke = { param([hashtable]$Arguments) & $script:module { param($a) Invoke-UDPivotTemplateStore @a } $Arguments }
+        $script:save = { param($Name, $View = $script:view, $User = 'alex', $SourceId = 'tickets') & $script:invoke @{ Store = $script:store; Action = 'Save'; Scope = 'user'; UserName = $User; Name = $Name; View = $View; SourceId = $SourceId } }
+        $script:names = { param($User = 'alex', $SourceId = 'tickets') @(& $script:invoke @{ Store = $script:store; Action = 'List'; Scope = 'user'; UserName = $User; SourceId = $SourceId } | ForEach-Object Name | Sort-Object -CaseSensitive) }
+        # what is stored: file names of the file store, keys of the custom store
+        $script:stored = {
+            if ($Kind -eq 'File') { @(Get-ChildItem -LiteralPath $script:folder -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object { [System.IO.Path]::GetRelativePath($script:folder, $_.FullName) -replace '\\', '/' }) }
+            else { @($script:data.Keys) }
+        }
+        $script:readStored = { param($Key) if ($Kind -eq 'File') { Get-Content -LiteralPath (Join-Path $script:folder $Key) -Raw } else { $script:data[$Key] } }
+        # puts a view file where an older version or a hand placed it
+        $script:place = {
+            param($Key, $Json)
+            if ($Kind -eq 'File') { $path = Join-Path $script:folder $Key; $null = New-Item -ItemType Directory -Path (Split-Path $path) -Force; Set-Content -LiteralPath $path -Value $Json -NoNewline }
+            else { $script:data[$Key] = $Json }
+        }
+        $script:userKey = { param($User = 'alex') & $script:module { param($u) Get-UDPivotSha256 -Text $u -Length 24 } $User }
+        # a view file as version 0.1.0 wrote it, at the key 0.1.0 gave it (a hash of the name in lower case)
+        $script:placeLegacy = {
+            param($Name, $View = $script:view)
+            $key = 'users/{0}/{1}' -f (& $script:userKey), (& $script:module { param($n) Get-UDPivotViewFileName -Name $n -SourceId 'tickets' -Legacy } $Name)
+            $json = (ConvertTo-UDPivotViewFile -View $View -Name $Name -SourceId 'tickets') -replace '("generator": \{\s*"name": "PowerShellUniversal\.Component\.Pivot",\s*"version": )"[^"]*"', '$1"0.1.0"'
+            $json | Should -Match '"version": "0\.1\.0"'
+            & $script:place $key $json
+            $key
+        }
+        $script:other = @{ rows = @('Team'); cols = @('Hours'); values = @(@{ field = 'Hours'; agg = 'count' }) }
+    }
+    AfterEach { if (Test-Path $script:folder) { Remove-Item -LiteralPath $script:folder -Recurse -Force } }
+
+    It 'saves a new view' {
+        & $script:save 'Overview'
+        & $script:names | Should -Be @('Overview')
+        @(& $script:stored).Count | Should -Be 1
+    }
+
+    It 'replaces the reader''s own view of the name in place: one entry, the new view' {
+        & $script:save 'Overview'
+        $before = @(& $script:stored)
+        & $script:save 'Overview' $script:other
+        & $script:names | Should -Be @('Overview')
+        @(& $script:stored) | Should -Be $before
+        (ConvertFrom-UDPivotViewFile -InputObject (& $script:readStored $before[0])).View.cols | Should -Be @('Hours')
+    }
+
+    It 'replaces a shared view of the name when an admin publishes over it (Save on a shared view)' {
+        $report = New-UDPivotReport -Id 'tickets' -Data $script:rows -TemplateStore $script:store -AdminRole 'Admin' -UserName 'boss' -Roles 'Admin'
+        $key = & $script:keyOf $report.onPublishTemplate
+        Invoke-UDPivotTemplateRequest -Key $key -Action Publish -EventData @{ name = 'Team view'; view = $script:view } -UserName 'boss' -Roles 'Admin' | Should -BeNullOrEmpty
+        # another admin saves over it
+        Invoke-UDPivotTemplateRequest -Key $key -Action Publish -EventData @{ name = 'Team view'; view = $script:other } -UserName 'kim' -Roles 'Admin' | Should -BeNullOrEmpty
+        $shared = @(& $script:stored | Where-Object { $_ -like 'shared/*' })
+        $shared.Count | Should -Be 1
+        (ConvertFrom-UDPivotViewFile -InputObject (& $script:readStored $shared[0])).View.cols | Should -Be @('Hours')
+        $again = New-UDPivotReport -Id 'tickets' -Data $script:rows -TemplateStore $script:store -AdminRole 'Admin' -UserName 'alex' -Roles 'Reader'
+        @($again.templates | ForEach-Object { '{0}|{1}' -f $_.name, $_.scope }) | Should -Be @('Team view|shared')
+    }
+
+    It 'keeps two users'' views of the same name apart' {
+        & $script:save 'Overview' $script:view 'alex'
+        & $script:save 'Overview' $script:view 'kim'
+        & $script:save 'Overview' $script:other 'alex'
+        & $script:names 'alex' | Should -Be @('Overview')
+        & $script:names 'kim' | Should -Be @('Overview')
+        @(& $script:stored).Count | Should -Be 2
+        $kim = @(& $script:invoke @{ Store = $script:store; Action = 'List'; Scope = 'user'; UserName = 'kim'; SourceId = 'tickets' })
+        $kim[0].View.PSObject.Properties.Name | Should -Not -Contain 'cols'
+    }
+
+    It 'matches names as pivotkit does: the same characters in the same case, after trimming' {
+        & $script:save 'Sales'
+        & $script:save 'sales'
+        & $script:names | Should -Be @('sales', 'Sales')
+        # pivotkit trims a name it saves; the module makes it plain text the same way
+        & $script:save ' Sales ' $script:other
+        & $script:names | Should -Be @('sales', 'Sales')
+        @(& $script:stored).Count | Should -Be 2
+        & $script:invoke @{ Store = $script:store; Action = 'Delete'; Scope = 'user'; UserName = 'alex'; Name = 'sales'; SourceId = 'tickets' }
+        & $script:names | Should -Be @('Sales')
+    }
+
+    It 'replaces a view stored under another file name (version 0.1.0, by hand) and never writes over it with another name' {
+        # 0.1.0 named the file after a hash of the name in lower case
+        $legacy = & $script:placeLegacy 'Sales'
+        & $script:save 'Sales' $script:other
+        $stored = @(& $script:stored)
+        $stored.Count | Should -Be 1
+        # in its place when the store says where that is; a store that does not moves it (and removes the old one)
+        if ($Kind -ne 'CustomJsonOnly') { $stored | Should -Be @($legacy) }
+        & $script:save 'sales'
+        @(& $script:stored).Count | Should -Be 2
+        & $script:names | Should -Be @('sales', 'Sales')
+        $sales = @(& $script:invoke @{ Store = $script:store; Action = 'List'; Scope = 'user'; UserName = 'alex'; SourceId = 'tickets' } | Where-Object Name -CEQ 'Sales')
+        $sales[0].View.cols | Should -Be @('Hours')
+    }
+
+    # a store whose Get does not say where a view is cannot replace one stored elsewhere (documented)
+    It 'deletes a view of version 0.1.0 whose old key a new view of the name in another case shares' {
+        & $script:placeLegacy 'Sales'
+        & $script:save 'sales'
+        & $script:names | Should -Be @('sales', 'Sales')
+        & $script:invoke @{ Store = $script:store; Action = 'Delete'; Scope = 'user'; UserName = 'alex'; Name = 'Sales'; SourceId = 'tickets' }
+        & $script:names | Should -Be @('sales')
+        @(& $script:stored).Count | Should -Be 1
+    }
+
+    It 'replaces a view made for no named data in place, and it stays one; leaves one of a view stored twice' {
+        if ($Kind -eq 'CustomJsonOnly') {
+            Set-ItResult -Skipped -Because 'a store whose -Get returns no FileName cannot say where a view put there by hand is stored, so it cannot replace it there (documented on docs/pivot/templates.md)'
+            return
+        }
+        $plain = 'users/{0}/plain.pivotkit.json' -f (& $script:userKey)
+        & $script:place $plain '{"name":"For any data","view":{"rows":["Team"]}}'
+        & $script:save 'For any data' $script:other
+        @(& $script:stored) | Should -Be @($plain)
+        $read = ConvertFrom-UDPivotViewFile -InputObject (& $script:readStored $plain)
+        $read.View.cols | Should -Be @('Hours')
+        $read.Source.id | Should -BeNullOrEmpty
+        & $script:names 'alex' 'sales' | Should -Be @('For any data')
+
+        # two copies of a view (copied by hand): a save leaves one
+        & $script:place ('users/{0}/copy-1.pivotkit.json' -f (& $script:userKey)) (ConvertTo-UDPivotViewFile -View $script:view -Name 'Twice' -SourceId 'tickets')
+        & $script:place ('users/{0}/copy-2.pivotkit.json' -f (& $script:userKey)) (ConvertTo-UDPivotViewFile -View $script:view -Name 'Twice' -SourceId 'tickets')
+        & $script:save 'Twice' $script:other
+        @(& $script:stored | Where-Object { $_ -like '*copy-*' }).Count | Should -Be 1
+        & $script:names | Should -Be @('For any data', 'Twice')
+    }
+}
+
+Describe 'A custom store whose -Delete fails for a missing key' {
+    BeforeEach {
+        $script:data = [System.Collections.Generic.Dictionary[string, string]]::new()
+        $script:refuseAll = $false
+        $script:store = New-UDPivotTemplateStore -Get {
+            param($Request)
+            $prefix = 'users/{0}/' -f $Request.UserKey
+            foreach ($k in @($script:data.Keys | Where-Object { $_.StartsWith($prefix) })) { $script:data[$k] }
+        } -Save { param($Request) $script:data[$Request.Key] = $Request.Json } -Delete {
+            param($Request)
+            if ($script:refuseAll -or -not $script:data.ContainsKey($Request.Key)) { throw "no such key: $($Request.Key)" }
+            $null = $script:data.Remove($Request.Key)
+        }
+        $script:run = { param([hashtable]$a) & $script:module { param($x) Invoke-UDPivotTemplateStore @x } (@{ Store = $script:store; Scope = 'user'; UserName = 'alex'; SourceId = 'tickets' } + $a) }
+        $script:names = { @(& $script:run @{ Action = 'List' } | ForEach-Object Name | Sort-Object -CaseSensitive) }
+        # a view file as version 0.1.0 wrote it, at the key 0.1.0 gave it
+        $script:legacy = {
+            param($Name)
+            $key = 'users/{0}/{1}' -f (& $script:module { Get-UDPivotSha256 -Text 'alex' -Length 24 }), (& $script:module { param($n) Get-UDPivotViewFileName -Name $n -SourceId 'tickets' -Legacy } $Name)
+            $script:data[$key] = (ConvertTo-UDPivotViewFile -View $script:view -Name $Name -SourceId 'tickets') -replace '("generator": \{\s*"name": "PowerShellUniversal\.Component\.Pivot",\s*"version": )"[^"]*"', '$1"0.1.0"'
+        }
+    }
+
+    It 'a save that worked is no error when a cleanup delete fails: a warning' {
+        & $script:legacy 'Sales'
+        $script:refuseAll = $true
+        $warned = @(& $script:run @{ Action = 'Save'; Name = 'Sales'; View = $script:view } 3>&1 | Where-Object { $_ -is [System.Management.Automation.WarningRecord] })
+        "$warned" | Should -BeLike '*could not be removed*'
+        & $script:names | Should -Contain 'Sales'
+    }
+
+    It 'deletes a view of this version (its one key) and one of 0.1.0 (one of the keys it may be under) without an error' {
+        & $script:run @{ Action = 'Save'; Name = 'New one'; View = $script:view }
+        $warnedNew = @(& $script:run @{ Action = 'Delete'; Name = 'New one' } 3>&1 | Where-Object { $_ -is [System.Management.Automation.WarningRecord] })
+        $warnedNew | Should -BeNullOrEmpty
+        & $script:legacy 'Old One'
+        $null = & $script:run @{ Action = 'Delete'; Name = 'Old One' } 3>&1
+        & $script:names | Should -BeNullOrEmpty
+        $script:data.Count | Should -Be 0
+    }
+
+    It 'a delete that removed nothing is the error the reader sees' {
+        & $script:run @{ Action = 'Save'; Name = 'Kept'; View = $script:view }
+        $script:refuseAll = $true
+        { & $script:run @{ Action = 'Delete'; Name = 'Kept' } } | Should -Throw '*no such key*'
     }
 }
 
@@ -264,7 +462,7 @@ Describe 'New-UDPivotReport -TemplateStore and -AdminRole' {
         $admin.admin.store | Should -Be 'File'
         $admin.admin.rows | Should -Be 1
         $admin.admin.templates | Should -Be 1
-        Invoke-UDPivotTemplateRequest -Key (& $script:keyOf $admin.onDeleteTemplate) -Action Delete -EventData @{ name = 'team VIEW'; scope = 'shared' } -UserName 'boss' -Roles 'Admin' | Should -BeNullOrEmpty
+        Invoke-UDPivotTemplateRequest -Key (& $script:keyOf $admin.onDeleteTemplate) -Action Delete -EventData @{ name = 'Team view'; scope = 'shared' } -UserName 'boss' -Roles 'Admin' | Should -BeNullOrEmpty
         @(Get-ChildItem (Join-Path $script:folder 'shared')).Count | Should -Be 0
     }
 
