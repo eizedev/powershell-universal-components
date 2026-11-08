@@ -127,9 +127,13 @@ delete shared views; everyone else sees shared views read-only. The store keeps 
   `/data/Repository` (measured on PSU 2026.2.5 and 2026.3.4). The PSU service account needs to write
   there.
 - **Names**: the file name comes from the view's name (lower case, accents dropped, everything else a
-  `-`, plus a hash of the name and the report's `-SourceId`), so a name never leaves the folder and the
-  same name in another case replaces the view. A user's folder is a hash of the user name: the name
-  itself is not on disk.
+  `-`, plus a hash of the name and the report's `-SourceId`), so a name never leaves the folder. A user's
+  folder is a hash of the user name: the name itself is not on disk.
+- **Saving a name that exists** replaces that view in its file (an upsert): the reader's own view for
+  Save current view, the shared view for Publish. Names match as in pivotkit's Views menu: the same
+  characters in the same case after trimming, so `Sales` and `sales` are two views. A report replaces
+  the view made for its data, else one that names no data (which then still names none). A view stored
+  twice (copied by hand) is left once.
 - **Several reports** can share one store: each lists the views made for its data (`-SourceId`) and
   those that name no data, as pivotkit's browser store does; the same name in two reports is two views.
 - **Writes**: to a new file that then replaces the old one, under a lock per folder, so two saves at the
@@ -147,10 +151,16 @@ block gets one argument, `$Request`:
 
 | Script block | `$Request` | Returns |
 | --- | --- | --- |
-| `-Get` | `Scope` (`user` or `shared`), `User` (`$null` for shared), `UserKey` (a hash of the user name, safe in keys and file names) | The stored views: view file texts (the `Json` of a save), or objects with `Name` and `View` |
-| `-Save` | `Scope`, `User`, `UserKey`, `Name` (checked), `FileName` (`<name>-<hash>.pivotkit.json`, the same for the same name in any case and the same `-SourceId`), `Key` (`users/<UserKey>/<FileName>` or `shared/<FileName>`), `Json` (the view file to store), `View` (the checked view) | Nothing; a save of a name the scope has replaces it |
+| `-Get` | `Scope` (`user` or `shared`), `User` (`$null` for shared), `UserKey` (a hash of the user name, safe in keys and file names) | The stored views: view file texts (the `Json` of a save), objects with `Json` and `FileName` (where the view is stored), or objects with `Name` and `View` |
+| `-Save` | `Scope`, `User`, `UserKey`, `Name` (checked), `FileName`, `Key` (`users/<UserKey>/<FileName>` or `shared/<FileName>`), `Json` (the view file to store), `View` (the checked view) | Nothing; store `Json` under `FileName`, replacing what is there |
 | `-Delete` | `Scope`, `User`, `UserKey`, `Name`, `FileName`, `Key` | Nothing |
 | `-Publish` (optional) | As `-Save`, with `Scope` `shared` and `User` the publisher | Nothing; without it, publishing calls `-Save` with `Scope` `shared` |
+
+Saving a name the scope has replaces that view, as in the file store: the module finds it in what
+`-Get` returns (same name, same case) and passes its `FileName`, so `-Save` writes over it. For a
+new name `FileName` is `<name>-<hash>.pivotkit.json` (a hash of the name and the `-SourceId`), one no
+stored view has. Without `FileName` from `-Get` the module assumes that one; return `FileName` when
+views can be stored under another (put there by hand or by another tool), or a save adds a second.
 
 Throw to refuse; the reader sees the message. Like the file store, a report lists only the views made
 for its `-SourceId` and those that name no data, so one store serves several reports. The script blocks run in the runspace of the app script
@@ -178,13 +188,14 @@ $run = {
         $command.CommandText = $Query
         foreach ($p in $Parameters.GetEnumerator()) { [void]$command.Parameters.AddWithValue($p.Key, [string]$p.Value) }
         $reader = $command.ExecuteReader()
-        while ($reader.Read()) { $reader.GetString(0) }
+        # Get reads FileName and Json; MERGE and DELETE return no rows
+        while ($reader.Read()) { [pscustomobject]@{ FileName = $reader.GetString(0); Json = $reader.GetString(1) } }
     }
     finally { $connection.Dispose() }
 }
 $store = New-UDPivotTemplateStore -Get {
     param($Request)
-    & $run 'SELECT Json FROM PivotViews WHERE Scope = @Scope AND UserKey = @UserKey ORDER BY FileName' @{ '@Scope' = $Request.Scope; '@UserKey' = "$($Request.UserKey)" }
+    & $run 'SELECT FileName, Json FROM PivotViews WHERE Scope = @Scope AND UserKey = @UserKey ORDER BY FileName' @{ '@Scope' = $Request.Scope; '@UserKey' = "$($Request.UserKey)" }
 } -Save {
     param($Request)
     & $run @'
@@ -302,6 +313,9 @@ For full control, handle the events yourself instead of a store (the two cannot 
 | `-OnSaveTemplate` | `name`, `view`, `json`, `scope` (`user`) |
 | `-OnDeleteTemplate` | `name`, `scope` (`user` or `shared`, the group of the entry) |
 | `-OnPublishTemplate` | `name`, `view`, `json`; offered only to readers with a role of `-AdminRole` |
+
+Save current view and Publish send the name of a view that exists when the reader saves over it:
+replace that view (by its name, the same characters in the same case), do not add a second one.
 
 The view comes from the browser: check it with `ConvertFrom-UDPivotView` (or write it with
 `ConvertTo-UDPivotViewFile`, which checks it) before it is stored, check the name, never build a path

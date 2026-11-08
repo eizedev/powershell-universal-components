@@ -5,6 +5,25 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+### Changed
+
+- View names in the template stores match as in pivotkit's Views menu: the same characters in the same
+  case (after trimming). `Sales` and `sales` are two views; before, saving `sales` replaced `Sales`
+  without pivotkit asking. Files of new views carry a hash of the name as it is. A view saved by 0.1.0
+  is replaced in its file; in a custom store whose `-Get` returns only the Json it moves to the new
+  key on its next save, and the old key is deleted.
+- `New-UDPivotTemplateStore`: `-Get` may return objects with `Json` and `FileName`; a save over such a
+  view gets its `FileName`, so `-Save` replaces it where it is stored. The SQL Server example returns it.
+
+### Fixed
+
+- Saving or publishing a name that exists replaces that view in both template stores (an upsert, as
+  pivotkit 0.2.0's Save expects), also a view stored under another file name (copied into the folder by
+  hand, saved by 0.1.0) and a view that names no data; before, these got a second entry. A view stored
+  twice is left once. `-OnSaveTemplate` and `-OnPublishTemplate` document that a save sends existing
+  names. Listing, the check and the write of a custom store run under the store's lock, as in the file
+  store.
+
 ## [0.1.0] - 2026-11-08
 
 ### Added
