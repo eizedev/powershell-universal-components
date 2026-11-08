@@ -94,8 +94,18 @@ Describe 'Pivot demo module' {
             @($reports[0].data).Count | Should -BeGreaterThan 10 -Because $name
         }
         $weather = (& ($app.Pages | Where-Object Name -EQ 'Weather').Content | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' })
+        # one report per page: no -Height of its own, so the report's default fills the window
+        $weather.ContainsKey('height') | Should -BeFalse -Because 'a fixed height would leave only a few rows below the zones'
         # six cities, two years of days
         @($weather.data).Count | Should -Be (6 * 731)
+    }
+
+    It 'gives its reports and their placeholder no -Height, so the default fills the window' {
+        # the pages' code is text in Showcase.ps1 (shown on the pages too): read it as text
+        $text = Get-Content -Raw -LiteralPath (Join-Path $script:demoDir 'Apps' 'Showcase.ps1')
+        $calls = [regex]::Matches($text, '(?m)New-UDPivotReport(Placeholder)?\b[^\r\n]*')
+        $calls.Count | Should -BeGreaterThan 2
+        foreach ($call in $calls) { $call.Value | Should -Not -Match '-Height\b' }
     }
 
     It 'answers only the addresses it has a snapshot of' {
@@ -134,9 +144,10 @@ Describe 'Pivot demo upload' {
         $Session:PivotShowcaseUpload.Rows.Count | Should -Be 2
         $Session:PivotShowcaseUpload.Rows[0].Cost | Should -Be 1234.5
         $Session:PivotShowcaseUpload.Rows[1].Team | Should -Be 'Server'
-        # the report on the page gets the rows
+        # the report on the page gets the rows, at the report's default height
         $report = & $script:uploadPage.Content | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }
         @($report.data).Count | Should -Be 2
+        $report.ContainsKey('height') | Should -BeFalse
     }
 
     It 'reads JSON as an array of objects or an object with one array' {

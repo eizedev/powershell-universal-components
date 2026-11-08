@@ -63,7 +63,7 @@ New-UDTypography -Variant body2 -Text <<TEXT>> -Style @{ marginBottom = '12px' }
 <<ABOVE>>
 New-UDDynamic -Id '<<ID>>-content' -LoadingComponent {
     # the report's frame at once while the server reads the data (pages with public data)
-    if ($<<LIVE>>) { New-UDPivotReportPlaceholder -Height 640px -Locale $(if ($Session:PivotShowcaseLocale) { $Session:PivotShowcaseLocale } else { <<LOCALE>> }) }
+    if ($<<LIVE>>) { New-UDPivotReportPlaceholder -Locale $(if ($Session:PivotShowcaseLocale) { $Session:PivotShowcaseLocale } else { <<LOCALE>> }) }
 } -Content {
     $locale = if ($Session:PivotShowcaseLocale) { $Session:PivotShowcaseLocale } else { <<LOCALE>> }
     $live = if ($null -ne $Session:PivotShowcaseLive) { $Session:PivotShowcaseLive } else { $<<LIVEDEFAULT>> }
@@ -169,7 +169,7 @@ $monthly = @{
     rows    = @('City'); cols = @('Month')
     values  = @(@{ field = "Mean $($degree)C"; agg = 'average'; format = 'number:1'; conditional = @{ type = 'colorScale'; colors = @('#5a8dee', '#e8554e') } })
 }
-New-UDPivotReport -Id 'weather' -Data $weather -Label 'Weather of six cities' -SourceName 'Weather' -Locale $locale -Height 640px -View $monthly -FieldDefaults @{
+New-UDPivotReport -Id 'weather' -Data $weather -Label 'Weather of six cities' -SourceName 'Weather' -Locale $locale -View $monthly -FieldDefaults @{
     "Max $($degree)C"  = @{ Agg = 'average'; Format = 'number:1' }
     "Min $($degree)C"  = @{ Agg = 'average'; Format = 'number:1' }
     "Mean $($degree)C" = @{ Agg = 'average'; Format = 'number:1' }
@@ -209,7 +209,7 @@ if ($Session:PivotShowcaseUploadError) {
 }
 if ($upload) {
     New-UDTypography -Variant body2 -Text ('{0}: {1} rows, {2} columns' -f $upload.Name, $upload.Rows.Count, $upload.Columns) -Style @{ marginBottom = '8px' }
-    New-UDPivotReport -Id 'upload' -Data $upload.Rows -Label $upload.Name -SourceName $upload.Name -Locale $locale -Height 640px -NoAddressBar
+    New-UDPivotReport -Id 'upload' -Data $upload.Rows -Label $upload.Name -SourceName $upload.Name -Locale $locale -NoAddressBar
 }
 '@
 $uploadHandler = {

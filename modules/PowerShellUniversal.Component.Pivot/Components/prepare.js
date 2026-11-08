@@ -12,9 +12,13 @@ export const EVENT_ROWS = 100;
 export const ENDPOINT_TIMEOUT_MS = 30000;
 // changes of the view within this time are sent to -OnViewChange once
 export const VIEW_EVENT_DELAY_MS = 600;
-// the height when -Height is not set: the window's height minus PSU's app bar and the page padding,
-// at least enough for the field list and a few rows of the table
-export const DEFAULT_HEIGHT = "clamp(480px, calc(100svh - 200px), 1400px)";
+// the height when -Height is not set: one screen. The window's height (svh: the browser's bars shown)
+// minus 160 pixels for what a page shows above the report (PSU's app bar of 64 pixels, the page's
+// padding, a title line), so the whole report is on screen when the page loads and the result shows
+// rows enough below the toolbar, the zones and a tip. At least 600 pixels: below that pivotkit folds
+// the zones into one line, and the open zones take about 300. At most 1400 on a tall screen.
+// docs/pivot/index.md and the help of -Height name these numbers (tests/js/pivot.test.js).
+export const DEFAULT_HEIGHT = "clamp(600px, calc(100svh - 160px), 1400px)";
 
 /*
  * Rows with the column names PowerShell had: PSU camelCases the keys of the rows on their way to the

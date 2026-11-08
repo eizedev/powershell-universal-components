@@ -5,6 +5,16 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+### Changed
+
+- The report's default height (without `-Height`) is one screen: the window's height minus 160
+  pixels for PSU's app bar and a page title, between 600 and 1400 pixels (was minus 200, between 480
+  and 1400). The whole report is on screen when the page loads, and the table shows more rows below
+  the toolbar, the zones and a tip; below 600 pixels pivotkit would fold the zones. `-Height` sets
+  another one, as before.
+- The example showcase's pages with one report (Templates, Fields) take the default height instead
+  of 640 pixels; the Events page keeps 640 so its event log stays in view.
+
 ## [0.2.0] - 2026-11-08
 
 ### Changed

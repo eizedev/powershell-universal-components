@@ -60,9 +60,9 @@ code while the server still builds the rows ([Loading and performance](#loading-
 
 ```powershell
 New-UDDynamic -Id 'tickets-report' -LoadingComponent {
-    New-UDPivotReportPlaceholder -Height 640px -Locale de-DE
+    New-UDPivotReportPlaceholder -Locale de-DE
 } -Content {
-    New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -Height 640px -Locale de-DE
+    New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -Locale de-DE
 }
 ```
 
@@ -150,7 +150,7 @@ It wins over the view's chart settings. pivotkit leaves out options that are mar
 | --- | --- |
 | Light and dark | The report follows the app's light and dark switch and takes PSU's colours: the neutral greys of PSU's pages and MUI's primary blue. `-Theme Light` or `-Theme Dark` pins it. |
 | Corporate design | From the app's stylesheet, the same one that themes the ECharts charts: [Themes and corporate design](themes.md). |
-| Height | The window's height minus the app bar and a page title (between 480 and 1400 pixels, almost the whole window on a phone); `-Height` sets another one. Give it at least 600 pixels where readers build reports: the zones take about 300 of them. |
+| Height | One screen: the window's height minus 160 pixels for PSU's app bar and a page title, between 600 and 1400 pixels (almost the whole window on a phone), so the whole report is on screen when the page loads and the table shows rows enough below the zones. `-Height` sets another one; give it at least 600 pixels where readers build reports: the zones take about 300 of them. |
 | Inside a fixed size | The report stays inside its height - in a card of a fixed size too: the table scrolls inside it, however small it gets (measured in a 560-pixel `New-UDCard` on PSU 2026.3.4). |
 | Growing | `-Grow On` lets it grow past the height instead when the table would get too small, and the page scrolls. |
 | Containers | Inside `New-UDTabs`, `New-UDCard`, `New-UDStack` and expansion panels it fits its container and grows when a hidden tab is shown. |

@@ -134,13 +134,14 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
     New-UDPage -Name 'Templates' -Url '/templates' -Content {
         New-UDTypography -Variant h5 -Text 'Templates: shared views and my views'
         New-UDTypography -Variant body2 -Text 'Open Views in the toolbar. Shared views come from -Templates, from view files in a folder (-TemplatePath) and from the store; this app has no sign-in, so the views you save stay in this browser. Download view writes the view file a folder or a store keeps.' -Style @{ marginBottom = '12px' }
-        New-UDPivotReport -Id 'templates-report' -Data $tickets -View $startView -FieldDefaults $fieldDefaults -Height 640px -Label 'Tickets with templates' `
+        New-UDPivotReport -Id 'templates-report' -Data $tickets -View $startView -FieldDefaults $fieldDefaults -Label 'Tickets with templates' `
             -Templates $builtInTemplates -TemplatePath $viewFolder -TemplateStore $templateStore -AdminRole 'Administrator' -SourceId 'tickets' -SourceName 'Tickets'
     }
 
     New-UDPage -Name 'Events' -Url '/events' -Content {
         New-UDTypography -Variant h5 -Text 'What the events send to the server ($EventData)'
         New-UDTypography -Variant body2 -Text 'Change the view or click a value: the last event appears below the report.' -Style @{ marginBottom = '12px' }
+        # 640 pixels, not the default of one screen: the event log below the report stays in view
         New-UDPivotReport -Id 'events-report' -Data $tickets -View $startView -Height 640px -OnViewChange {
             Set-UDElement -Id 'event-log' -Properties @{ text = 'OnViewChange: ' + $EventData.json }
         } -OnCellClick {
@@ -175,7 +176,7 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
         $columnComments = [ordered]@{ Customer = 'The customer who reported the ticket.'; Agent = 'Who works on it; empty while unassigned.' }
         New-UDPivotReport -Id 'fields-report' -Data $tickets -Schema $openApi -SchemaName 'Ticket' -FieldDescriptions $columnComments -FieldDefaults $fieldDefaults `
             -View @{ rows = @('Team'); cols = @('Status'); values = @(@{ field = 'Lead hours'; agg = 'average'; format = 'number:1' }) } `
-            -ChartOptions @{ legend = @{ top = 0 } } -Label 'Tickets with field descriptions' -Height 640px
+            -ChartOptions @{ legend = @{ top = 0 } } -Label 'Tickets with field descriptions'
     }
 
     # 640 pixels and more: below 600 pivotkit folds the zones into one line (its compact layout), which
