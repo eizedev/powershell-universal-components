@@ -6,9 +6,9 @@ description: "PowerShellUniversal.Component.ECharts.Demo - the showcase app of t
 # ECharts showcase app
 
 `PowerShellUniversal.Component.ECharts.Demo` is the showcase app of the [ECharts module](echarts/index.md)
-as a module: install it and an app needs one line. The Perspective and Pivot modules have example apps
-in their folders: [Perspective](https://github.com/eizedev/powershell-universal-components/tree/HEAD/modules/PowerShellUniversal.Component.Perspective/examples),
-[Pivot](https://github.com/eizedev/powershell-universal-components/tree/HEAD/modules/PowerShellUniversal.Component.Pivot/examples).
+as a module: install it and an app needs one line. The pivot module has one of its own, the
+[pivot showcase app](pivot/demo.md); the Perspective module has example apps in its
+[folder](https://github.com/eizedev/powershell-universal-components/tree/HEAD/modules/PowerShellUniversal.Component.Perspective/examples).
 
 ```powershell
 Install-PSResource -Name PowerShellUniversal.Component.ECharts.Demo   # installs the chart module too

@@ -17,6 +17,9 @@ Install it from the PowerShell Gallery on the PSU server:
 Install-PSResource -Name PowerShellUniversal.Component.Pivot
 ```
 
+To see it with data first, the [showcase app](demo.md) is a module of its own
+(`New-UDPivotShowcase`): these examples, weather data, your own CSV and JSON files and a ticket report.
+
 ## Pivot report from a web API
 
 --8<-- "examples/pivot-report-from-a-web-api.md"

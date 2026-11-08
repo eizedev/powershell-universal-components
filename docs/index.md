@@ -75,6 +75,7 @@ New-UDPivotReport -Id 'python' -Data (Invoke-RestMethod 'https://endoflife.date/
 
 [Pivot overview](pivot/index.md){ .md-button .md-button--primary }
 [Templates, view files and roles](pivot/templates.md){ .md-button }
+[Showcase app (demo)](pivot/demo.md){ .md-button title="PowerShellUniversal.Component.Pivot.Demo: the examples, weather, your own files and a ticket report" }
 
 ## Requirements
 

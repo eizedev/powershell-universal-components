@@ -8,7 +8,9 @@ hashtable PSU renders; see [README.md](README.md).
 
 - `modules/<Module>/` - one component module: `Components/` (React/JavaScript), `<Module>.psm1`,
   `<Module>.psd1`, `package.json` + `package-lock.json`, `examples/`, `README.md`, `CHANGELOG.md`.
-  A module without `package.json` is PowerShell only (the demo module with its app in `Apps/`).
+  A module without `package.json` is PowerShell only (the demo modules with their app in `Apps/`).
+  A module's `Build.psd1` names files from elsewhere in the repository the build copies into it (the
+  pivot demo carries the site's examples and data snapshots and the pivot showcase), so each is defined once.
 - `shared/js/` - JavaScript used by several modules (PSU theme bridge, column matching, formats,
   CSV/XLSX export, text contrast on fills). Compiled into each module's bundle; never a runtime dependency between modules.
 - `shared/powershell/` - PowerShell used by several modules (data conversion, asset registration);
@@ -77,8 +79,8 @@ rendering.
 - CI runs the browser tests in Playwright's container image: a new `@playwright/test` version (also a
   Dependabot pull request) raises the image tag and digest in `ci.yml` with it; `tests/js/ci.test.js` fails
   until both match.
-- The demo module requires a minimum chart module version: raise it when the showcase uses a new
-  chart feature (a Pester test checks that the version exists).
+- A demo module requires a minimum version of its component module: raise it when the showcase uses a
+  new feature (a Pester test checks that the version exists).
 
 ## Do not
 
