@@ -141,7 +141,7 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
     New-UDPage -Name 'Events' -Url '/events' -Content {
         New-UDTypography -Variant h5 -Text 'What the events send to the server ($EventData)'
         New-UDTypography -Variant body2 -Text 'Change the view or click a value: the last event appears below the report.' -Style @{ marginBottom = '12px' }
-        New-UDPivotReport -Id 'events-report' -Data $tickets -View $startView -Height 560px -OnViewChange {
+        New-UDPivotReport -Id 'events-report' -Data $tickets -View $startView -Height 640px -OnViewChange {
             Set-UDElement -Id 'event-log' -Properties @{ text = 'OnViewChange: ' + $EventData.json }
         } -OnCellClick {
             $summary = [ordered]@{ filter = $EventData.filter; value = $EventData.value; text = $EventData.text; count = $EventData.count; rows = @($EventData.rows).Count }
@@ -178,6 +178,8 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
             -ChartOptions @{ legend = @{ top = 0 } } -Label 'Tickets with field descriptions' -Height 640px
     }
 
+    # 640 pixels and more: below 600 pivotkit folds the zones into one line (its compact layout), which
+    # the fixed card below shows on purpose
     New-UDPage -Name 'Layouts' -Url '/layouts' -Content {
         New-UDTypography -Variant h5 -Text 'The report in page layouts'
         New-UDTabs -Tabs {
@@ -194,15 +196,15 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
             New-UDPivotReport -Id 'layout-fixed' -Data $tickets -View $startView -Height 440px -FieldList Collapsed -Label 'Tickets in a fixed card'
         }
         # -NoAddressBar: this report's view stays out of the address (sessionStorage only)
-        New-UDCard -Title 'In a card, 600 px high, view not in the address bar' -Content {
-            New-UDPivotReport -Id 'layout-card' -Data $tickets -View $builtInTemplates[3].View -Height 600px -NoAddressBar -Label 'Cost per team'
+        New-UDCard -Title 'In a card, 640 px high, view not in the address bar' -Content {
+            New-UDPivotReport -Id 'layout-card' -Data $tickets -View $builtInTemplates[3].View -Height 640px -NoAddressBar -Label 'Cost per team'
         }
         New-UDStack -Direction row -Spacing 2 -Content {
             New-UDCard -Title 'Half width' -Style @{ flex = '1 1 0'; minWidth = 0 } -Content {
-                New-UDPivotReport -Id 'layout-half-1' -Data $tickets -View @{ rows = @('Category'); values = @(@{ field = 'Ticket'; agg = 'count' }) } -Height 560px -Label 'Tickets per category'
+                New-UDPivotReport -Id 'layout-half-1' -Data $tickets -View @{ rows = @('Category'); values = @(@{ field = 'Ticket'; agg = 'count' }) } -Height 640px -Label 'Tickets per category'
             }
             New-UDCard -Title 'Half width, German' -Style @{ flex = '1 1 0'; minWidth = 0 } -Content {
-                New-UDPivotReport -Id 'layout-half-2' -Data $tickets -View @{ rows = @('Status'); values = @(@{ field = 'Cost'; agg = 'sum'; format = 'currency:EUR' }) } -Locale de-DE -Height 560px -Label 'Kosten je Status'
+                New-UDPivotReport -Id 'layout-half-2' -Data $tickets -View @{ rows = @('Status'); values = @(@{ field = 'Cost'; agg = 'sum'; format = 'currency:EUR' }) } -Locale de-DE -Height 640px -Label 'Kosten je Status'
             }
         }
     }
@@ -211,7 +213,7 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
     New-UDPage -Name 'Without Id' -Url '/without-id' -Content {
         New-UDTypography -Variant h5 -Text 'Two reports without -Id'
         New-UDTypography -Variant body2 -Text 'Each keeps its own view when the theme switches or the page reloads.' -Style @{ marginBottom = '12px' }
-        New-UDPivotReport -Data $tickets -View $startView -Height 560px -Label 'Tickets per team'
-        New-UDPivotReport -Data $tickets -View @{ rows = @('Category'); values = @(@{ field = 'Ticket'; agg = 'count' }) } -Height 560px -Label 'Tickets per category'
+        New-UDPivotReport -Data $tickets -View $startView -Height 640px -Label 'Tickets per team'
+        New-UDPivotReport -Data $tickets -View @{ rows = @('Category'); values = @(@{ field = 'Ticket'; agg = 'count' }) } -Height 640px -Label 'Tickets per category'
     }
 )

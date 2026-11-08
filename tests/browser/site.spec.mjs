@@ -73,6 +73,17 @@ test("the site has its pages", () => {
     expect(pages).toContain("/pivot/");
 });
 
+// Views in the toolbar, or in its More menu where a medium-wide report has no room for it
+async function openViews(report) {
+    const views = report.locator("[data-testid=views]");
+    if (await views.isVisible()) {
+        await views.click();
+    } else {
+        await report.locator("[data-testid=more]").click();
+        await report.page().locator("[data-testid=more-views]").click();
+    }
+}
+
 test("Pivot: the report holds the DataTable, follows the switch and shows the $EventData of a save", async ({ page }) => {
     const errors = collectErrors(page);
     await openPage(page, "/pivot/");
@@ -83,19 +94,31 @@ test("Pivot: the report holds the DataTable, follows the switch and shows the $E
     const theme = await report.getAttribute("data-pk-theme");
     await page.locator("[data-md-component=palette] label:visible").first().click();
     await expect(report).not.toHaveAttribute("data-pk-theme", theme);
-    // in the page's content column the report is medium wide: Templates may sit in the More menu
-    const more = report.locator("[data-testid=more]");
-    if (await more.count()) {
-        await more.click();
-        await page.getByRole("menuitem", { name: "Templates" }).click();
-    } else {
-        await report.getByRole("button", { name: "Templates" }).click();
-    }
-    await page.getByRole("textbox", { name: "Template name" }).fill("Mine");
-    await page.getByRole("textbox", { name: "Template name" }).press("Enter");
+    await openViews(report);
+    await page.locator("[data-testid=saved-view-name]").fill("Mine");
+    await page.locator("[data-testid=saved-view-name]").press("Enter");
     await expect(page.locator(".psu-event")).toContainText("-OnSaveTemplate");
     await expect(page.locator(".psu-event")).toContainText('"name": "Mine"');
-    await expect(report.getByRole("status").first()).toContainText("saved");
+    await expect(report.locator(".pk-toast-dock")).toContainText("saved");
+    expect(errors).toEqual([]);
+});
+
+test("Pivot: shared views and my views; a reader with -AdminRole publishes and the page shows the $EventData", async ({ page }) => {
+    const errors = collectErrors(page);
+    await openPage(page, "/pivot/templates/");
+    const report = page.locator('[data-example="shared-views-and-my-views"] .pk-root');
+    await expect(report.getByRole("region", { name: "Table" })).toContainText("400");
+    await openViews(report);
+    const menu = page.locator(".pk-popover").last();
+    await expect(menu).toContainText("Shared views");
+    await expect(menu).toContainText("Lead time per priority");
+    await expect(menu).toContainText("My views");
+    await expect(menu).toContainText("My priorities");
+    await menu.getByRole("button", { name: /Publish/ }).first().click();
+    await menu.getByRole("button", { name: /^Publish$/ }).last().click();
+    await expect(page.locator(".psu-event")).toContainText("-OnPublishTemplate");
+    await expect(page.locator(".psu-event")).toContainText('"name": "My priorities"');
+    await expect(report.locator(".pk-toast-dock")).toContainText("published");
     expect(errors).toEqual([]);
 });
 

@@ -39,6 +39,19 @@ async function reset(report) {
     await (await resetButton(report)).button.click();
 }
 
+// Views in the toolbar, or in its More menu where the toolbar has no room for it; returns the menu
+async function openViews(report) {
+    const page = report.page();
+    if (await report.locator("[data-testid=views]").isVisible()) await report.locator("[data-testid=views]").click();
+    else {
+        await report.locator("[data-testid=more]").click();
+        await page.locator("[data-testid=more-views]").click();
+    }
+    const menu = page.locator(".pk-popover").last();
+    await expect(menu).toContainText("Share");
+    return menu;
+}
+
 // Reset is disabled while the report shows its start view
 async function expectAtStart(report) {
     const { button, close } = await resetButton(report);
@@ -166,27 +179,105 @@ test.describe("pivot showcase on PSU", () => {
         await expect(log).toContainText('"rows":["Priority"]');
     });
 
-    test("templates are saved on the server, refused with its message, and deleted", async ({ page }) => {
-        await open(page, "tickets");
+    test("templates: shared views from -Templates and view files, my views in the browser without sign-in", async ({ page }) => {
+        const errors = await open(page, "templates");
         const report = page.locator(REPORT);
         const name = `Playwright ${test.info().project.name} ${Date.now()}`;
-        const templates = () => report.getByRole("button", { name: "Templates" }).click();
-        await templates();
-        await page.getByRole("textbox", { name: "Template name" }).fill(name);
-        await page.getByRole("textbox", { name: "Template name" }).press("Enter");
-        await expect(report.getByRole("status").first()).toContainText(`“${name}” saved`, { timeout: 15000 });
-        // a built-in name: the server refuses with its own words
-        await templates();
-        await page.getByRole("textbox", { name: "Template name" }).fill("Lead time per customer");
-        await page.getByRole("textbox", { name: "Template name" }).press("Enter");
-        await expect(report).toContainText("is a built-in template", { timeout: 15000 });
-        // after a reload the saved one comes from the server, and it can be deleted
+        const menu = await openViews(report);
+        // -Templates, then the view files of -TemplatePath
+        await expect(menu).toContainText("Shared views");
+        await expect(menu.locator("[data-testid='saved-view-Tickets per team and priority']")).toBeVisible();
+        await expect(menu.locator("[data-testid='saved-view-Open work per team']")).toBeVisible();
+        await expect(menu.locator("[data-testid='saved-view-Cost per category (donut)']")).toBeVisible();
+        // the app has no sign-in: the reader's own views stay in this browser, and the menu says so
+        await expect(menu.locator("[data-testid=store-note]")).toBeVisible();
+        await expect(menu.locator("[data-testid^=publish-view-]")).toHaveCount(0);
+        await menu.locator("[data-testid=saved-view-name]").fill(name);
+        await menu.locator("[data-testid=saved-view-name]").press("Enter");
+        await expect(report.locator(".pk-toast-dock")).toContainText(`“${name}” saved`);
+        await page.keyboard.press("Escape");
+        // a view file of the folder loads its chart: a donut
         await page.reload();
-        await expect(report).toBeVisible({ timeout: 30000 });
-        await templates();
-        await page.getByRole("button", { name: `Delete ${name}` }).click();
-        await page.locator("[data-testid=confirm-delete]").click();
-        await expect(report.getByRole("status").first()).toContainText(`“${name}” deleted`, { timeout: 15000 });
+        await expect(page.locator(REPORT)).toBeVisible({ timeout: 30000 });
+        let again = await openViews(page.locator(REPORT));
+        await again.locator("[data-testid='saved-view-Cost per category (donut)']").click();
+        await expect(page.locator(`${REPORT} [data-testid=chart-type]`)).toContainText("Donut");
+        // after the reload the saved view is still there, and it can be deleted
+        again = await openViews(page.locator(REPORT));
+        await again.locator(`[data-testid='delete-view-${name}']`).click();
+        await again.locator("[data-testid=confirm-delete]").click();
+        await expect(page.locator(`${REPORT} .pk-toast-dock`)).toContainText(`“${name}” deleted`);
+        expect(errors).toEqual([]);
+    });
+
+    test("the menus load lazily from the module's one bundle", async ({ page }) => {
+        const chunks = [];
+        page.on("request", (r) => {
+            if (/menus\.js|chunk-[A-Z0-9]+\.js|echarts\.js/.test(r.url())) chunks.push(r.url());
+        });
+        const errors = await open(page, "tickets");
+        const report = page.locator(REPORT);
+        for (const id of ["options", "export", "chart-type"]) {
+            await report.locator(`[data-testid=${id}]`).click();
+            const panel = page.locator(".pk-popover").last();
+            await expect(panel).toBeVisible();
+            await expect(panel).not.toContainText("could not be loaded");
+            await expect(panel.locator("button").first()).toBeVisible();
+            await page.keyboard.press("Escape");
+        }
+        const views = await openViews(report);
+        await expect(views).toContainText("Copy view as JSON");
+        // PSU serves only the registered bundle: no file is fetched next to it
+        expect(chunks).toEqual([]);
+        expect(errors).toEqual([]);
+    });
+
+    test("Copy table and the drill-down's Copy work over the instance's address", async ({ page }) => {
+        const errors = await open(page, "tickets");
+        const report = page.locator(REPORT);
+        await report.locator("[data-testid=export]").click();
+        await page.locator(".pk-popover").last().locator("[data-testid=export-copy-table]").click();
+        // without a secure context (plain http) the Clipboard API is missing; pivotkit's fallback copies
+        await expect(report.locator(".pk-toast-dock")).toContainText("Table copied");
+        await page.keyboard.press("Escape");
+        await report.getByRole("region", { name: "Table" }).locator("td").filter({ hasText: /^\d/ }).first().click();
+        const drill = report.locator("[data-testid=drill-enlarge]").locator("xpath=ancestor::*[contains(@class,'pk-drill')][1]");
+        await expect(report.locator("[data-testid=drill-enlarge]")).toBeVisible();
+        await drill.getByRole("button", { name: "Export" }).click();
+        await page.locator("[data-testid=drill-copy]").click();
+        await expect(report.locator(".pk-toast-dock, .pk-status-notes").first()).toContainText(/[Cc]opied/);
+        expect(errors).toEqual([]);
+    });
+
+    test("Enlarge lets the result fill the report; Escape brings the fields and zones back", async ({ page }) => {
+        const errors = await open(page, "tickets");
+        const report = page.locator(REPORT);
+        const fields = report.getByRole("complementary", { name: "Field list" });
+        await expect(fields).toBeVisible();
+        await expect(report.locator("[data-testid=full-screen]")).toBeVisible();
+        await report.locator("[data-testid=enlarge]").click();
+        await expect(fields).toBeHidden();
+        await expect(report.getByRole("region", { name: "Rows" })).toBeHidden();
+        await expect(report.getByRole("region", { name: "Table" })).toContainText("5,000");
+        await report.getByRole("region", { name: "Table" }).click({ position: { x: 5, y: 5 } });
+        await page.keyboard.press("Escape");
+        await expect(fields).toBeVisible();
+        expect(errors).toEqual([]);
+    });
+
+    test("a card of a fixed height keeps the whole report; the field list starts as a rail", async ({ page }) => {
+        const errors = await open(page, "layouts");
+        const card = page.locator("#fixed-card");
+        const report = card.locator(".pk-root");
+        await report.scrollIntoViewIfNeeded();
+        await expect(report.locator(".pk-rail")).toBeVisible();
+        const box = await card.boundingBox();
+        const inner = await report.boundingBox();
+        expect(inner.y + inner.height).toBeLessThanOrEqual(box.y + box.height + 1);
+        // the table scrolls inside the report instead of growing it
+        await expect(report.getByRole("region", { name: "Table" })).toBeVisible();
+        expect(Math.round(inner.height)).toBe(440);
+        expect(errors).toEqual([]);
     });
 
     test("follows PSU's light and dark theme with PSU's colours", async ({ page }) => {
@@ -429,5 +520,106 @@ test.describe("pivot showcase on PSU", () => {
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
         const height = await page.locator(REPORT).evaluate((e) => e.getBoundingClientRect().height);
         expect(height).toBeGreaterThan(700);
+    });
+});
+
+// Optional: examples/templates.ps1 as an app with sign-in (PSU_PIVOT_AUTH_URL), with two local
+// identities: a reader (no role of -AdminRole) and an admin (Operator or Administrator), given as
+// PSU_PIVOT_READER_USER/_PASSWORD and PSU_PIVOT_ADMIN_USER/_PASSWORD. The tests save, publish and
+// delete views of their own names (the browser project and a time stamp in each).
+const auth = {
+    url: (process.env.PSU_PIVOT_AUTH_URL || "").replace(/\/$/, ""),
+    reader: { user: process.env.PSU_PIVOT_READER_USER, password: process.env.PSU_PIVOT_READER_PASSWORD },
+    admin: { user: process.env.PSU_PIVOT_ADMIN_USER, password: process.env.PSU_PIVOT_ADMIN_PASSWORD }
+};
+
+async function signIn(browser, who) {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await page.goto(`${auth.url}/requests`);
+    if (page.url().includes("/login")) {
+        await page.locator("input[type=text]:visible, input:not([type]):visible").first().fill(who.user);
+        await page.locator("input[type=password]:visible").first().fill(who.password);
+        await page.getByRole("button", { name: /^Login$/ }).first().click();
+        await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 30000 });
+        if (!page.url().includes("/requests")) await page.goto(`${auth.url}/requests`);
+    }
+    const report = page.locator(REPORT);
+    await expect(report).toBeVisible({ timeout: 30000 });
+    return { context, page, report, errors };
+}
+
+test.describe("pivot templates with sign-in on PSU", () => {
+    test.skip(!auth.url || !auth.reader.user || !auth.admin.user, "set PSU_PIVOT_AUTH_URL and the two identities to run these");
+    test.describe.configure({ mode: "serial" });
+
+    test("own views on the server, publishing for -AdminRole only, refused on the server for a reader, the admin panel for admins", async ({ browser }) => {
+        const stamp = `${test.info().project.name} ${Date.now()}`;
+        const own = `Reader view ${stamp}`;
+        const shared = `Admin view ${stamp}`;
+
+        // the admin saves a view and publishes it
+        const admin = await signIn(browser, auth.admin);
+        await expect(admin.page.locator("[data-testid=pivot-admin]")).toBeVisible();
+        let menu = await openViews(admin.report);
+        await menu.locator("[data-testid=saved-view-name]").fill(shared);
+        await menu.locator("[data-testid=saved-view-name]").press("Enter");
+        await expect(admin.report.locator(".pk-toast-dock")).toContainText(`“${shared}” saved`, { timeout: 15000 });
+        await admin.page.keyboard.press("Escape");
+        menu = await openViews(admin.report);
+        await menu.locator(`[data-testid='publish-view-${shared}']`).click();
+        await menu.locator("[data-testid=confirm-publish]").click();
+        await expect(admin.report.locator(".pk-toast-dock")).toContainText(`“${shared}” published`, { timeout: 15000 });
+        // the admin panel: the columns as pivotkit reads them, and the view
+        await admin.page.locator("[data-testid=pivot-admin] summary").click();
+        await expect(admin.page.locator("[data-testid=pivot-admin-columns]")).toContainText("Opened");
+        await expect(admin.page.locator("[data-testid=pivot-admin-columns]")).toContainText("date");
+        await expect(admin.page.locator("[data-testid=pivot-admin-view]")).toContainText('"rows"');
+        await expect(admin.page.locator("[data-testid=pivot-admin-server]")).toContainText("ms");
+
+        // the reader: the shared view read-only, no publish, no admin panel; own views saved on the server
+        const reader = await signIn(browser, auth.reader);
+        await expect(reader.page.locator("[data-testid=pivot-admin]")).toHaveCount(0);
+        menu = await openViews(reader.report);
+        await expect(menu.locator(`[data-testid='saved-view-${shared}']`)).toBeVisible();
+        await expect(menu.locator(`[data-testid='delete-view-${shared}']`)).toHaveCount(0);
+        await expect(menu.locator("[data-testid^=publish-view-]")).toHaveCount(0);
+        await expect(menu.locator("[data-testid=store-note]")).toHaveCount(0);
+        await menu.locator("[data-testid=saved-view-name]").fill(own);
+        await menu.locator("[data-testid=saved-view-name]").press("Enter");
+        await expect(reader.report.locator(".pk-toast-dock")).toContainText(`“${own}” saved`, { timeout: 15000 });
+        await reader.page.keyboard.press("Escape");
+        // a forged request: the reader's delete sent for the shared view; the server refuses it
+        await reader.page.route(/onDeleteTemplate/, (route) => route.continue({ postData: JSON.stringify({ name: shared, scope: "shared" }) }));
+        menu = await openViews(reader.report);
+        await menu.locator(`[data-testid='delete-view-${own}']`).click();
+        await menu.locator("[data-testid=confirm-delete]").click();
+        await expect(reader.report.locator(".pk-toast-dock")).toContainText("Only admins can change shared views.", { timeout: 15000 });
+        await reader.page.unroute(/onDeleteTemplate/);
+        // after a reload both are still there: the own view from the server, the shared one untouched
+        await reader.page.reload();
+        await expect(reader.page.locator(REPORT)).toBeVisible({ timeout: 30000 });
+        menu = await openViews(reader.page.locator(REPORT));
+        await expect(menu.locator(`[data-testid='saved-view-${shared}']`)).toBeVisible();
+        await menu.locator(`[data-testid='delete-view-${own}']`).click();
+        await menu.locator("[data-testid=confirm-delete]").click();
+        await expect(reader.page.locator(`${REPORT} .pk-toast-dock`)).toContainText(`“${own}” deleted`, { timeout: 15000 });
+
+        // the admin deletes the shared view and the own one
+        await admin.page.reload();
+        await expect(admin.page.locator(REPORT)).toBeVisible({ timeout: 30000 });
+        for (const name of [shared, shared]) {
+            menu = await openViews(admin.page.locator(REPORT));
+            await menu.locator(`[data-testid='delete-view-${name}']`).first().click();
+            await menu.locator("[data-testid=confirm-delete]").click();
+            await expect(admin.page.locator(`${REPORT} .pk-toast-dock`)).toContainText(`“${name}” deleted`, { timeout: 15000 });
+            await admin.page.keyboard.press("Escape");
+        }
+        expect(admin.errors).toEqual([]);
+        expect(reader.errors).toEqual([]);
+        await admin.context.close();
+        await reader.context.close();
     });
 });
