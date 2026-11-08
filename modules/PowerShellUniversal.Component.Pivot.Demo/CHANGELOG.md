@@ -5,6 +5,8 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-08
+
 ### Added
 
 - `New-UDPivotShowcase`: the showcase app of PowerShellUniversal.Component.Pivot as a module, with
