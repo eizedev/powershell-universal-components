@@ -40,13 +40,19 @@ async function reset(report) {
 }
 
 // Views in the toolbar, or in its More menu where the toolbar has no room for it; returns the menu
-async function openViews(report) {
+// a toolbar menu: its button, or its entry under "More" when the report is too narrow for it
+async function openToolbarMenu(report, id) {
     const page = report.page();
-    if (await report.locator("[data-testid=views]").isVisible()) await report.locator("[data-testid=views]").click();
+    if (await report.locator(`[data-testid=${id}]`).isVisible()) await report.locator(`[data-testid=${id}]`).click();
     else {
         await report.locator("[data-testid=more]").click();
-        await page.locator("[data-testid=more-views]").click();
+        await page.locator(`[data-testid=more-${id}]`).click();
     }
+}
+
+async function openViews(report) {
+    const page = report.page();
+    await openToolbarMenu(report, "views");
     const menu = page.locator(".pk-popover").last();
     await expect(menu).toContainText("Share");
     return menu;
@@ -219,7 +225,9 @@ test.describe("pivot showcase on PSU", () => {
         const errors = await open(page, "tickets");
         const report = page.locator(REPORT);
         for (const id of ["options", "export", "chart-type"]) {
-            await report.locator(`[data-testid=${id}]`).click();
+            // Export stays in the toolbar; Options and the chart type move under "More" first
+            if (id === "export") await report.locator("[data-testid=export]").click();
+            else await openToolbarMenu(report, id);
             const panel = page.locator(".pk-popover").last();
             await expect(panel).toBeVisible();
             await expect(panel).not.toContainText("could not be loaded");
