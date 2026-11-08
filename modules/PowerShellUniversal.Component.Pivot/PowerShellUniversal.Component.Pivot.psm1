@@ -1632,7 +1632,7 @@ function New-UDPivotReport {
         Auto (follows the app's light/dark switch, default), Light or Dark.
     .PARAMETER Height
         Height of the report, e.g. 640px, 80vh or 640 (pixels); the table and the field list scroll inside
-        it. Default: one screen, the window's height minus 160 pixels for PSU's app bar and a page title,
+        it. Default: one screen, the window's height minus 180 pixels for PSU's app bar and a page title,
         between 600 and 1400 pixels, so the whole report is on screen when the page loads; in a window
         narrower than 640 pixels (a phone) almost the whole window, since the zones stack above the table
         there.

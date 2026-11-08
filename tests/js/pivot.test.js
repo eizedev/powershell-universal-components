@@ -193,8 +193,8 @@ function defaultHeightAt(svh) {
 
 test("the default height fills a desktop window below PSU's app bar and a page title", () => {
     // a 1080p screen: the browser shows about 940 pixels of page; a 1440 x 900 window: 900
-    assert.equal(defaultHeightAt(940).px, 780);
-    assert.equal(defaultHeightAt(900).px, 740);
+    assert.equal(defaultHeightAt(940).px, 760);
+    assert.equal(defaultHeightAt(900).px, 720);
     // a low window: enough for the open zones (pivotkit folds them below 600) and rows below them
     assert.equal(defaultHeightAt(700).px, 600);
     // a tall screen: the report stops growing

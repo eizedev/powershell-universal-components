@@ -18,7 +18,7 @@ export const VIEW_EVENT_DELAY_MS = 600;
 // rows enough below the toolbar, the zones and a tip. At least 600 pixels: below that pivotkit folds
 // the zones into one line, and the open zones take about 300. At most 1400 on a tall screen.
 // docs/pivot/index.md and the help of -Height name these numbers (tests/js/pivot.test.js).
-export const DEFAULT_HEIGHT = "clamp(600px, calc(100svh - 160px), 1400px)";
+export const DEFAULT_HEIGHT = "clamp(600px, calc(100svh - 180px), 1400px)";
 
 /*
  * Rows with the column names PowerShell had: PSU camelCases the keys of the rows on their way to the

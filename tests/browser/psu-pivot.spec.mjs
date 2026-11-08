@@ -530,8 +530,8 @@ test.describe("pivot showcase on PSU", () => {
             const r = e.getBoundingClientRect();
             return { top: r.top, bottom: r.bottom, height: r.height, folded: e.hasAttribute("data-pk-layout") };
         });
-        // the default: 900 - 160 pixels (prepare.js DEFAULT_HEIGHT)
-        expect(Math.round(box.height)).toBe(740);
+        // the default: 900 - 180 pixels (prepare.js DEFAULT_HEIGHT)
+        expect(Math.round(box.height)).toBe(720);
         expect(box.bottom, "the report's bottom on screen").toBeLessThanOrEqual(900);
         expect(box.folded, "the zones are open").toBe(false);
     });
