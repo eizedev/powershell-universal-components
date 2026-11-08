@@ -15,7 +15,7 @@ The code of this repository is MIT licensed; these files are data and keep the l
 | Files | Source | Licence | Attribution |
 | --- | --- | --- | --- |
 | `endoflife.date/api/*.json` | [endoflife.date](https://endoflife.date/), the API's `/api/<product>.json` (release cycles of one product) | [MIT](https://github.com/endoflife-date/endoflife.date/blob/master/LICENSE) | "endoflife.date", with the copyright notice and the licence text below |
-| `archive-api.open-meteo.com/v1/archive.json` | [Open-Meteo](https://open-meteo.com/) Historical Weather API ("best match": ECMWF IFS, ERA5, ERA5-Land) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | "Weather data by Open-Meteo.com", linked to open-meteo.com, next to the data, and the Copernicus attribution below |
+| `archive-api.open-meteo.com/v1/archive.json` | [Open-Meteo](https://open-meteo.com/) Historical Weather API | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | "Weather data by Open-Meteo.com", linked to open-meteo.com, next to the data, and the Copernicus attribution below |
 
 Fetched on 2026-11-08 (`Update-Data.ps1` writes this date), unchanged.
 
@@ -30,7 +30,11 @@ Fetched on 2026-11-08 (`Update-Data.ps1` writes this date), unchanged.
   `extendedSupport`, `codename`, `releaseLabel` and `link`.
 - Mixed types: `eol`, `support` and `extendedSupport` are a date (`"2031-10-31"`) or `true`/`false`
   (ended or not, without a date); the dates are text.
-- Key: none. No rate limit is documented.
+- Key: none. Terms of the API: the [OpenAPI document of API v1](https://endoflife.date/docs/api/v1/openapi.yml)
+  (version 1.2.1, read on 2026-11-08) names the MIT License with a link to the repository's `LICENSE`,
+  states no other terms of use and no numeric rate limit; it says the API may answer `429` (Too Many
+  Requests), "to prevent abuse of the API and ensure fair usage for all users", possibly with a
+  `Retry-After` header.
 - Licence: the release data the API serves lives in the endoflife.date repository (one file per
   product, `products/<product>.md`), which is under the MIT License: its `LICENSE` file and its README
   ("Licensed under the MIT License"), checked on 2026-11-08. The API documentation names no separate
@@ -52,19 +56,32 @@ Fetched on 2026-11-08 (`Update-Data.ps1` writes this date), unchanged.
   longitudes of Berlin, London, Madrid, New York, Tokyo and Sydney in one call, `start_date=2024-01-01`,
   `end_date=2025-12-31`, `daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum,sunshine_duration`
   and `timezone=auto`; the answer is an array with one object per city, in that order.
-- Changes made by the app (CC BY asks to say them): one row per city and day; sunshine converted from
-  seconds to hours (one decimal); added city, country, continent, the meteorological season (swapped
-  south of the equator) and "Rain day" (1 for at least 1 mm of rain). The file here is unchanged.
-- Key: none for non-commercial use; commercial use needs a subscription and an `apikey`
-  ([terms](https://open-meteo.com/en/terms), [pricing](https://open-meteo.com/en/pricing)). This
-  applies to the app's live switch; the snapshot is redistributed under CC BY 4.0.
-- Limits of the free API: 600 calls per minute, 5,000 per hour, 10,000 per day; a request of more than
-  10 variables or more than two weeks counts as several calls (this one is a few hundred).
-- Licence: [CC BY 4.0](https://open-meteo.com/en/licence), attribution next to the data.
-- Underlying data: Open-Meteo's "best match" combines ECMWF IFS, ERA5 and ERA5-Land
-  ([documentation](https://open-meteo.com/en/docs/historical-weather-api)). ERA5 and ERA5-Land come
-  from the Copernicus Climate Change Service (C3S), CC BY 4.0; the Climate Data Store asks users to
-  attribute the Copernicus programme with this text, which the app shows under the Open-Meteo credit:
+- Changes made by the app (the licence asks to indicate them): one row per city and day; sunshine
+  converted from seconds to hours (one decimal); added city, country, continent, the meteorological
+  season (swapped south of the equator) and "Rain day" (1 for at least 1 mm of rain). The file here is
+  unchanged.
+- [Terms](https://open-meteo.com/en/terms), read on 2026-11-08 (the page shows no date of its own).
+  For the free API they say: "You may only use the free API services for non-commercial purposes."
+  "Non-commercial use is defined as elaborated by creative commons." Examples of non-commercial use
+  they give include "Private or non-profit websites or apps that do not have subscriptions or
+  advertising" and "Use in educational content"; examples of commercial use include "Websites or apps
+  that have subscriptions or display advertisements" and "Commercial products or promotional
+  activities". Limits of the free API: "Less than 10'000 API calls per day, 5'000 per hour and 600 per
+  minute", applied "by IP addresses and application"; the pricing table on the page also lists 300,000
+  calls per month. For commercial use or more calls the page asks to subscribe to an API plan. This
+  concerns the app's "Live data" switch, which calls the API from the PSU server; whether a particular
+  installation's use is non-commercial is for its operator to judge.
+- Data licence: the terms say "The data obtained through the API is provided under the terms of the
+  CC-BY 4.0 licence". The [licence page](https://open-meteo.com/en/licence), read on 2026-11-08:
+  "API data are offered under Attribution 4.0 International (CC BY 4.0)"; "You must give appropriate
+  credit, provide a link to the licence, and indicate if changes were made."; "You must include a link
+  next to any location Open-Meteo data are displayed", for example "Weather data by Open-Meteo.com"
+  linked to open-meteo.com. The app shows that credit with a link to the licence under the report.
+- Underlying data: the licence page lists "Weather reanalysis, air quality forecasts and elevation
+  data from Copernicus Climate Change Service C3S" under a separate Copernicus licence, and ECMWF
+  forecasts under CC BY. The app shows this Copernicus attribution under the Open-Meteo credit; the
+  text is the one pivotkit's playground uses for the same data (its SOURCES.md names the Climate Data
+  Store as the place that asks for it) and was not checked again here:
 
   > Contains modified Copernicus Climate Change Service information 2023 (ERA5) and 2019 (ERA5-Land),
   > and ECMWF IFS data. Neither the European Commission nor ECMWF is responsible for any use that may

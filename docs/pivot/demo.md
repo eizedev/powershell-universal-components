@@ -54,6 +54,21 @@ memory of the reader's session only, until the next upload or the end of the ses
 cannot read leaves a message above the report. Excel files are planned
 ([#64](https://github.com/eizedev/powershell-universal-components/issues/64)).
 
+## Views stored on the server
+
+The page Release cycles and the ticket pages keep views with `New-UDPivotFileTemplateStore` (see
+[Templates, view files and roles](templates.md)): as files in a folder `pivot-views` next to the PSU
+repository folder, never inside it. `users/` holds the own views of signed-in readers, `shared/` the
+shared views readers with the role Administrator publish. Without sign-in, readers' own views stay in
+their browser and nothing is written for them. To remove what the app stored, delete that folder on the
+server:
+
+```powershell
+Remove-Item -Recurse -Force (Join-Path (Split-Path -Parent $Repository) 'pivot-views')
+```
+
+Other apps with a file template store without `-Path` use the same folder; check before deleting it.
+
 ## How it is built
 
 The source of the app is

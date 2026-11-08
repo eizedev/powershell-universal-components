@@ -43,6 +43,8 @@ function Get-UDPivotShowcaseData {
         address with a query string is Data/<host>/<path>.json, and Data/Addresses.psd1 holds the
         exact address it was fetched from). With -Live it calls Invoke-RestMethod with a 30 second
         timeout. Sources, licences and the attribution each source asks for: Data/SOURCES.md.
+        With -Live it fetches whatever https address it is given: call it with fixed addresses only,
+        never with an address a reader typed or sent (the server would fetch it for them).
     .PARAMETER Uri
         The https address of the API call.
     .PARAMETER Live
@@ -69,8 +71,13 @@ function Get-UDPivotShowcaseData {
         $addresses = Import-PowerShellDataFile -LiteralPath (Join-Path $data 'Addresses.psd1')
         if ($addresses[$relative] -ne $Uri.AbsoluteUri) { throw ('No snapshot of {0} in the module; use -Live.' -f $Uri) }
     }
-    $file = Join-Path $data $relative
-    if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { throw ('No snapshot of {0} in the module; use -Live.' -f $Uri) }
+    # a snapshot is a .json file below Data/, whatever the address says (no way out of the folder)
+    $root = [System.IO.Path]::GetFullPath($data).TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+    $file = [System.IO.Path]::GetFullPath((Join-Path $data $relative))
+    if (-not $file.StartsWith($root, [System.StringComparison]::Ordinal) -or [System.IO.Path]::GetExtension($file) -ne '.json' -or
+        -not (Test-Path -LiteralPath $file -PathType Leaf)) {
+        throw ('No snapshot of {0} in the module; use -Live.' -f $Uri)
+    }
     Get-Content -LiteralPath $file -Raw | ConvertFrom-Json -NoEnumerate
 }
 

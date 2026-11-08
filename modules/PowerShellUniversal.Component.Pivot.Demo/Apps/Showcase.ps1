@@ -67,7 +67,9 @@ New-UDDynamic -Id '<<ID>>-content' -LoadingComponent {
 <<CODE>>
     }
     catch {
-        New-UDAlert -Severity error -Text ('The data could not be loaded: {0}' -f $_.Exception.Message)
+        # the details (addresses, paths) go to the server's log, never to the browser
+        Write-Warning ('Pivot showcase, page <<ID>>: {0}' -f $_)
+        New-UDAlert -Severity error -Text 'The data could not be loaded. The server log has the details.'
     }
     if (<<SOURCE>>) {
         $from = if (-not $<<LIVE>>) { '' } elseif ($live) { ' Fetched live from the API.' } else { <<SNAPSHOT>> }
@@ -207,59 +209,81 @@ if ($upload) {
 }
 '@
 $uploadHandler = {
-    # PSU writes the uploaded file to a temporary file on the server: read it, then delete it at once
+    # PSU writes the uploaded file to a temporary file on the server: read it, then delete it at once.
+    # The limits are checked before the expensive steps, so a dense file cannot keep the runspace busy.
+    # A refusal of the file is an InvalidDataException whose text the reader sees; anything else shows
+    # a general message, and its details (paths on the server) go to the server's log only.
     $file = $EventData.FileName
     $Session:PivotShowcaseUploadError = $null
     try {
-        $limit = 5MB
+        $maxBytes = 5MB
         $maxRows = 100000
+        $maxColumns = 200
+        $maxCells = 2000000
         $name = [System.IO.Path]::GetFileName([string]$EventData.Name)
+        $extension = [System.IO.Path]::GetExtension($name).ToLowerInvariant()
+        if ($extension -notin '.csv', '.json') { throw [System.IO.InvalidDataException]::new(('{0}: the showcase reads .csv and .json files.' -f $name)) }
         $size = (Get-Item -LiteralPath $file).Length
-        if ($size -gt $limit) { throw ('{0} has {1:N1} MB; the showcase reads files up to {2} MB.' -f $name, ($size / 1MB), ($limit / 1MB)) }
-        if ($size -eq 0) { throw ('{0} is empty.' -f $name) }
+        if ($size -gt $maxBytes) { throw [System.IO.InvalidDataException]::new(('{0} has {1:N1} MB; the showcase reads files up to {2} MB.' -f $name, ($size / 1MB), ($maxBytes / 1MB))) }
+        if ($size -eq 0) { throw [System.IO.InvalidDataException]::new(('{0} is empty.' -f $name)) }
         $text = Get-Content -LiteralPath $file -Raw -Encoding utf8
-        $rows = switch ([System.IO.Path]::GetExtension($name).ToLowerInvariant()) {
-            '.csv' {
-                # the separator that splits the header line most: comma, semicolon (German Excel) or tab
-                $header = ($text -split '\r?\n', 2)[0]
-                $delimiter = ',', ';', "`t" | Sort-Object { ($header -split [regex]::Escape($_)).Count } -Descending | Select-Object -First 1
-                $csv = @($text | ConvertFrom-Csv -Delimiter $delimiter)
-                # numbers arrive as text: a column whose every value is a number becomes numbers
-                # (decimal comma with a semicolon separator, as German Excel writes it)
-                $culture = if ($delimiter -eq ';') { [cultureinfo]'de-DE' } else { [cultureinfo]::InvariantCulture }
-                $columns = if ($csv.Count) { $csv[0].PSObject.Properties.Name } else { @() }
-                foreach ($column in $columns) {
-                    $values = @($csv.$column | Where-Object { $_ -ne '' })
-                    $number = 0.0
-                    if ($values.Count -and -not ($values | Where-Object { -not [double]::TryParse($_, [System.Globalization.NumberStyles]::Float -bor [System.Globalization.NumberStyles]::AllowThousands, $culture, [ref]$number) })) {
-                        foreach ($row in $csv) { $row.$column = if ($row.$column -ne '') { [double]::Parse($row.$column, [System.Globalization.NumberStyles]::Float -bor [System.Globalization.NumberStyles]::AllowThousands, $culture) } }
-                    }
+        if ($extension -eq '.csv') {
+            # rows and columns from the text before parsing it (a quoted line break counts as a row)
+            $lines = $text.TrimEnd("`r", "`n").Split("`n").Count
+            $header = ($text -split '\r?\n', 2)[0]
+            # the separator that splits the header line most: comma, semicolon (German Excel) or tab
+            $delimiter = ',', ';', "`t" | Sort-Object { $header.Split($_).Count } -Descending | Select-Object -First 1
+            $columnCount = $header.Split($delimiter).Count
+            if ($lines - 1 -gt $maxRows) { throw [System.IO.InvalidDataException]::new(('{0} has {1:N0} rows; the showcase reads up to {2:N0}.' -f $name, ($lines - 1), $maxRows)) }
+            if ($columnCount -gt $maxColumns) { throw [System.IO.InvalidDataException]::new(('{0} has {1:N0} columns; the showcase reads up to {2:N0}.' -f $name, $columnCount, $maxColumns)) }
+            if (($lines - 1) * $columnCount -gt $maxCells) { throw [System.IO.InvalidDataException]::new(('{0} has {1:N0} cells; the showcase reads up to {2:N0}.' -f $name, (($lines - 1) * $columnCount), $maxCells)) }
+            $rows = @($text | ConvertFrom-Csv -Delimiter $delimiter)
+            # numbers arrive as text: a column whose every value is a number becomes numbers
+            # (decimal comma with a semicolon separator, as German Excel writes it)
+            $culture = if ($delimiter -eq ';') { [cultureinfo]'de-DE' } else { [cultureinfo]::InvariantCulture }
+            $style = [System.Globalization.NumberStyles]::Float -bor [System.Globalization.NumberStyles]::AllowThousands
+            $columns = if ($rows.Count) { $rows[0].PSObject.Properties.Name } else { @() }
+            foreach ($column in $columns) {
+                $number = 0.0
+                $allNumbers = $false
+                foreach ($row in $rows) {
+                    $value = $row.$column
+                    if ($value -eq '') { continue }
+                    if (-not [double]::TryParse($value, $style, $culture, [ref]$number)) { $allNumbers = $false; break }
+                    $allNumbers = $true
                 }
-                $csv
-            }
-            '.json' {
-                $json = $text | ConvertFrom-Json -NoEnumerate -Depth 20
-                # an array of objects, or an object with one array of objects in it (as many APIs answer)
-                if ($json -isnot [array]) {
-                    $arrays = @($json.PSObject.Properties | Where-Object { $_.Value -is [array] })
-                    if ($arrays.Count -ne 1) { throw ('{0}: expected an array of objects, or an object with exactly one array in it.' -f $name) }
-                    $json = $arrays[0].Value
+                if ($allNumbers) {
+                    foreach ($row in $rows) { $row.$column = if ($row.$column -ne '') { [double]::Parse($row.$column, $style, $culture) } }
                 }
-                if (@($json | Where-Object { $_ -isnot [System.Management.Automation.PSCustomObject] }).Count) { throw ('{0}: every entry of the array must be an object (one row).' -f $name) }
-                @($json)
             }
-            default { throw ('{0}: the showcase reads .csv and .json files.' -f $name) }
         }
-        $rows = @($rows)
-        if ($rows.Count -eq 0) { throw ('{0} has no rows.' -f $name) }
-        if ($rows.Count -gt $maxRows) { throw ('{0} has {1:N0} rows; the showcase reads up to {2:N0}.' -f $name, $rows.Count, $maxRows) }
+        else {
+            try { $json = $text | ConvertFrom-Json -NoEnumerate -Depth 20 }
+            catch { throw [System.IO.InvalidDataException]::new(('{0} is not valid JSON, or nested deeper than 20 levels.' -f $name)) }
+            # an array of objects, or an object with one array of objects in it (as many APIs answer)
+            if ($json -isnot [array]) {
+                $arrays = @($json.PSObject.Properties | Where-Object { $_.Value -is [array] })
+                if ($arrays.Count -ne 1) { throw [System.IO.InvalidDataException]::new(('{0}: expected an array of objects, or an object with exactly one array in it.' -f $name)) }
+                $json = $arrays[0].Value
+            }
+            if ($json.Count -gt $maxRows) { throw [System.IO.InvalidDataException]::new(('{0} has {1:N0} rows; the showcase reads up to {2:N0}.' -f $name, $json.Count, $maxRows)) }
+            if (@($json | Where-Object { $_ -isnot [System.Management.Automation.PSCustomObject] }).Count) { throw [System.IO.InvalidDataException]::new(('{0}: every entry of the array must be an object (one row).' -f $name)) }
+            $columnCount = if ($json.Count) { @($json[0].PSObject.Properties).Count } else { 0 }
+            if ($columnCount -gt $maxColumns) { throw [System.IO.InvalidDataException]::new(('{0} has {1:N0} columns; the showcase reads up to {2:N0}.' -f $name, $columnCount, $maxColumns)) }
+            $rows = @($json)
+        }
+        if ($rows.Count -eq 0) { throw [System.IO.InvalidDataException]::new(('{0} has no rows.' -f $name)) }
         $Session:PivotShowcaseUpload = @{ Name = $name; Rows = $rows; Columns = @($rows[0].PSObject.Properties).Count }
     }
-    catch {
+    catch [System.IO.InvalidDataException] {
         $Session:PivotShowcaseUploadError = $_.Exception.Message
     }
+    catch {
+        Write-Warning ('Pivot showcase upload: {0}' -f $_)
+        $Session:PivotShowcaseUploadError = 'The file could not be read. The server log has the details.'
+    }
     finally {
-        Remove-Item -LiteralPath $file -Force -ErrorAction Ignore
+        if ($file) { Remove-Item -LiteralPath $file -Force -ErrorAction Ignore }
     }
     Sync-UDElement -Id 'upload-content'
 }

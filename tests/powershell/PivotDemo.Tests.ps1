@@ -102,6 +102,10 @@ Describe 'Pivot demo module' {
         { Get-UDPivotShowcaseData 'https://endoflife.date/api/no-such-product.json' } | Should -Throw '*No snapshot*'
         { Get-UDPivotShowcaseData 'https://archive-api.open-meteo.com/v1/archive?latitude=1&longitude=1' } | Should -Throw '*No snapshot*'
         { Get-UDPivotShowcaseData 'http://endoflife.date/api/python.json' } | Should -Throw '*https*'
+        # no way out of the module's Data folder, and nothing but its .json snapshots
+        { Get-UDPivotShowcaseData 'https://endoflife.date/api/../../Addresses.psd1' } | Should -Throw '*No snapshot*'
+        { Get-UDPivotShowcaseData 'https://endoflife.date/%2e%2e/%2e%2e/SOURCES.md' } | Should -Throw '*No snapshot*'
+        { Get-UDPivotShowcaseData 'https://endoflife.date/..%2f..%2f..%2fREADME.md' } | Should -Throw '*No snapshot*'
         (Get-UDPivotShowcaseData 'https://endoflife.date/api/python.json').Count | Should -BeGreaterThan 10
     }
 }
@@ -149,6 +153,10 @@ Describe 'Pivot demo upload' {
         @{ Name = 'bad.json'; Text = '{"a":[1,2]}'; Message = '*must be an object*' }
         @{ Name = 'two.json'; Text = '{"a":[],"b":[]}'; Message = '*exactly one array*' }
         @{ Name = 'empty.csv'; Text = 'a,b'; Message = '*no rows*' }
+        @{ Name = 'broken.json'; Text = '{"a":'; Message = '*not valid JSON*' }
+        @{ Name = 'deep.json'; Text = ('[' * 30) + (']' * 30); Message = '*not valid JSON, or nested deeper*' }
+        @{ Name = 'wide.csv'; Text = ((1..201 | ForEach-Object { "c$_" }) -join ',') + "`n" + ((1..201) -join ','); Message = '*201 columns*up to 200*' }
+        @{ Name = 'wide.json'; Text = '[{' + ((1..201 | ForEach-Object { '"c{0}":1' -f $_ }) -join ',') + '}]'; Message = '*201 columns*up to 200*' }
     ) {
         $Session:PivotShowcaseUpload = $null
         $EventData = New-UploadEvent -Name $Name -Text $Text
@@ -156,5 +164,30 @@ Describe 'Pivot demo upload' {
         $EventData.FileName | Should -Not -Exist
         $Session:PivotShowcaseUpload | Should -BeNullOrEmpty
         $Session:PivotShowcaseUploadError | Should -BeLike $Message
+    }
+
+    It 'refuses a file over 5 MB before reading it' {
+        $EventData = New-UploadEvent -Name 'big.csv' -Text ('a,b' + "`n" + ('1,2' + "`n") * 1500000)
+        . $script:handler
+        $EventData.FileName | Should -Not -Exist
+        $Session:PivotShowcaseUploadError | Should -BeLike '*MB; the showcase reads files up to 5 MB.'
+    }
+
+    It 'refuses more than 100,000 rows before parsing them' {
+        $Session:PivotShowcaseUpload = $null
+        $EventData = New-UploadEvent -Name 'long.csv' -Text ('a' + "`n" + ('1' + "`n") * 100001)
+        . $script:handler
+        $Session:PivotShowcaseUpload | Should -BeNullOrEmpty
+        $Session:PivotShowcaseUploadError | Should -BeLike '*100?001 rows; the showcase reads up to 100?000.'
+    }
+
+    It 'deletes the file and shows no server details when reading it fails' {
+        $Session:PivotShowcaseUpload = $null
+        $EventData = New-UploadEvent -Name 'costs.csv' -Text "a,b`n1,2"
+        # an error with a path in it, as the file system would raise
+        Mock Get-Item { throw "Access to the path '/srv/secret/tmp/x' is denied." }
+        . $script:handler 3>$null
+        $EventData.FileName | Should -Not -Exist
+        $Session:PivotShowcaseUploadError | Should -Be 'The file could not be read. The server log has the details.'
     }
 }

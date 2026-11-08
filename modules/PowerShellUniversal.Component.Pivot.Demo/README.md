@@ -29,6 +29,14 @@ Uploaded files are read on the server and deleted at once; their rows stay in th
 reader's session only (CSV with comma, semicolon or tab, JSON as an array of objects; up to 5 MB and
 100,000 rows).
 
+Views stored on the server: the page Release cycles and the ticket pages use
+`New-UDPivotFileTemplateStore`, which keeps views as files in a folder `pivot-views` next to the PSU
+repository folder: the own views of signed-in readers (`users/`) and the shared views readers with the
+role Administrator publish (`shared/`). Without sign-in, readers' own views stay in their browser. To
+remove what the app stored, delete that folder on the server, e.g.
+`Remove-Item -Recurse -Force (Join-Path (Split-Path -Parent $Repository) 'pivot-views')`; other apps
+with a file template store without `-Path` use the same folder.
+
 The source of the app is [Apps/Showcase.ps1](Apps/Showcase.ps1); the pages on endoflife.date run the
 documentation's examples and the ticket pages the pivot module's
 [examples/showcase.ps1](../PowerShellUniversal.Component.Pivot/examples/showcase.ps1), so each is
