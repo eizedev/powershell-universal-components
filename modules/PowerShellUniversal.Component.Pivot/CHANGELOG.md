@@ -9,7 +9,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Added
 
-- `New-UDPivotReport` on pivotkit 0.1.0 (built from its main branch at 4bb1d91): a field list with
+- `New-UDPivotReport` on pivotkit 0.1.0 (built from its main branch at 45ff257): a field list with
   search that collapses to a rail, Rows, Columns, Values and Filters with drag and drop and a menu on
   every field, aggregators and "show values as", date grouping, filters with value counts, table or
   chart (bars, lines, area, pie, donut, heatmap, Automatic) with display settings, Enlarge and Full
