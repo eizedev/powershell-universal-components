@@ -31,30 +31,84 @@ test("parseView: objects and JSON, nothing else; never evaluated", () => {
     }
 });
 
-test("readTemplates: keys in any case, views as objects or JSON, bad entries and duplicates left out", () => {
+test("readTemplates: keys in any case, views as objects or JSON, scopes, bad entries and duplicates left out", () => {
     const t = mod.readTemplates([
         { name: "A", view: { rows: ["Team"] } },
         { Name: "B", View: '{"cols":["Priority"]}', Deletable: true },
         { name: "A", view: { rows: ["Other"] } },
+        // the same name in the other scope is another template
+        { name: "A", view: { rows: ["Mine"] }, scope: "user", deletable: true },
+        { name: "S", view: { rows: ["Team"] }, Scope: "SHARED", deletable: true },
+        { name: "X", view: { rows: ["Team"] }, scope: "everyone" },
         { name: "", view: {} },
         { name: "C", view: "nope" },
         null
     ]);
     assert.deepEqual(t, [
-        { name: "A", view: { rows: ["Team"] }, deletable: false },
-        { name: "B", view: { cols: ["Priority"] }, deletable: true }
+        { name: "A", view: { rows: ["Team"] }, scope: "shared", deletable: false },
+        // without a scope a deletable entry is the reader's own (pivotkit's rule)
+        { name: "B", view: { cols: ["Priority"] }, scope: "user", deletable: true },
+        { name: "A", view: { rows: ["Mine"] }, scope: "user", deletable: true },
+        { name: "S", view: { rows: ["Team"] }, scope: "shared", deletable: true },
+        { name: "X", view: { rows: ["Team"] }, scope: "shared", deletable: false }
     ]);
     assert.deepEqual(mod.readTemplates(undefined), []);
 });
 
-test("mergeTemplates: saved ones appended or replacing deletable ones, never built-in ones; deleted ones gone", () => {
-    const server = [{ name: "Built-in", view: {}, deletable: false }, { name: "Mine", view: { rows: ["A"] }, deletable: true }];
-    const saved = [{ name: "Mine", view: { rows: ["B"] }, deletable: true }, { name: "Built-in", view: {}, deletable: true }, { name: "New", view: {}, deletable: true }];
+test("mergeTemplates: saved views appended or replacing deletable ones of their scope, published ones replacing shared ones; deleted ones gone by scope", () => {
+    const server = [
+        { name: "Built-in", view: {}, scope: "shared", deletable: false },
+        { name: "Mine", view: { rows: ["A"] }, scope: "user", deletable: true }
+    ];
+    const saved = [
+        { name: "Mine", view: { rows: ["B"] }, scope: "user", deletable: true },
+        // a reader's own view of a shared view's name is a view of its own
+        { name: "Built-in", view: { rows: ["U"] }, scope: "user", deletable: true },
+        { name: "New", view: {}, scope: "user", deletable: true }
+    ];
     const merged = mod.mergeTemplates(server, saved, new Set());
-    assert.deepEqual(merged.map((t) => t.name), ["Built-in", "Mine", "New"]);
+    assert.deepEqual(merged.map((t) => `${t.scope}:${t.name}`), ["shared:Built-in", "user:Mine", "user:Built-in", "user:New"]);
     assert.deepEqual(merged[1].view, { rows: ["B"] });
-    assert.equal(merged[0].deletable, false);
-    assert.deepEqual(mod.mergeTemplates(server, saved, new Set(["Mine", "New"])).map((t) => t.name), ["Built-in"]);
+    assert.deepEqual(merged[0].view, {});
+    // an admin published "Built-in": it replaces the shared one
+    const published = mod.mergeTemplates(server, [{ name: "Built-in", view: { rows: ["P"] }, scope: "shared", deletable: true }], new Set());
+    assert.deepEqual(published[0].view, { rows: ["P"] });
+    const deleted = new Set([mod.templateKey("user", "Mine"), mod.templateKey("user", "New")]);
+    assert.deepEqual(mod.mergeTemplates(server, saved, deleted).map((t) => `${t.scope}:${t.name}`), ["shared:Built-in", "user:Built-in"]);
+    // deleting the shared one leaves the reader's view of that name
+    assert.deepEqual(mod.mergeTemplates(server, saved, new Set([mod.templateKey("shared", "Built-in")])).map((t) => `${t.scope}:${t.name}`), ["user:Mine", "user:Built-in", "user:New"]);
+});
+
+test("sourceOf, schemaUrlOf, fieldListOf: the props of -SourceId, -SourceName, -SchemaUrl and -FieldList", () => {
+    assert.deepEqual(mod.sourceOf({ id: " tickets ", name: "Tickets" }), { id: "tickets", name: "Tickets" });
+    assert.deepEqual(mod.sourceOf({ id: "tickets", name: "" }), { id: "tickets" });
+    assert.equal(mod.sourceOf({ name: "No id" }), undefined);
+    assert.equal(mod.sourceOf("tickets"), undefined);
+    assert.equal(mod.sourceOf({ id: "x".repeat(300) }).id.length, 256);
+    assert.equal(mod.schemaUrlOf(undefined), undefined);
+    assert.equal(mod.schemaUrlOf(""), null);
+    assert.equal(mod.schemaUrlOf("https://example.org/view-file-1.json"), "https://example.org/view-file-1.json");
+    assert.equal(mod.fieldListOf("Collapsed"), "collapsed");
+    assert.equal(mod.fieldListOf("open"), "open");
+    assert.equal(mod.fieldListOf("hidden"), undefined);
+    assert.equal(mod.switchOf("Off"), "off");
+});
+
+test("columnSummary and lastTimings: the admin panel's columns and timings", () => {
+    const encoded = {
+        columns: [
+            { name: "Team", type: "string", dict: ["A", "B"], codes: Int32Array.from([0, 1, -1]) },
+            { name: "Created (Month)", type: "string", dict: [], codes: Int32Array.from([]), derived: true },
+            { name: "Hours", type: "number", dict: [1, 2, 3], codes: Int32Array.from([0, 1, 2]) }
+        ]
+    };
+    assert.deepEqual(mod.columnSummary(encoded), [
+        { name: "Team", type: "string", distinct: 2, blanks: 1 },
+        { name: "Hours", type: "number", distinct: 3, blanks: 0 }
+    ]);
+    assert.deepEqual(mod.columnSummary(null), []);
+    const entries = { "pivotkit:encode": [{ duration: 9.04 }, { duration: 4.26 }], "pivotkit:toGrid": [{ duration: 1 }] };
+    assert.deepEqual(mod.lastTimings((n) => entries[n]), { encode: 4.3, toGrid: 1 });
 });
 
 test("cellEvent: the fields of each level, the value field and at most EVENT_ROWS rows", () => {

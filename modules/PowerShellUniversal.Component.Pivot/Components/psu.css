@@ -153,3 +153,56 @@
     /* scroll bars of the table and the field list in the report's colours (inherited) */
     scrollbar-color: var(--pk-border-strong) transparent;
 }
+
+/*
+ * The admin panel under the report (-AdminRole). It sits outside pivotkit's root, so it takes the
+ * page's text colour (PSU's light or dark theme) and draws its lines from it.
+ */
+.ud-pivot-admin {
+    margin-top: 8px;
+    border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 0.875rem;
+    color: inherit;
+}
+.ud-pivot-admin > summary {
+    cursor: pointer;
+    padding: 6px 0;
+    font-weight: 600;
+}
+.ud-pivot-admin h3 {
+    font-size: 0.875rem;
+    margin: 12px 0 4px;
+}
+.ud-pivot-admin p {
+    margin: 4px 0;
+    overflow-wrap: anywhere;
+}
+.ud-pivot-admin-note {
+    opacity: 0.75;
+}
+.ud-pivot-admin-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+}
+.ud-pivot-admin table {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+}
+.ud-pivot-admin th,
+.ud-pivot-admin td {
+    text-align: left;
+    padding: 2px 12px 2px 0;
+    border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+.ud-pivot-admin pre {
+    max-height: 320px;
+    overflow: auto;
+    margin: 0 0 8px;
+    padding: 8px;
+    border-radius: 4px;
+    background: color-mix(in srgb, currentColor 6%, transparent);
+    font-size: 0.8125rem;
+    white-space: pre;
+}

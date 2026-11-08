@@ -460,13 +460,14 @@ Describe 'The pivot module' {
     It 'has a manifest with the PowerShellUniversal tag and exports its commands' {
         $manifest = Import-PowerShellDataFile (Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.Pivot' 'PowerShellUniversal.Component.Pivot.psd1')
         $manifest.PrivateData.PSData.Tags | Should -Contain 'PowerShellUniversal'
-        $manifest.FunctionsToExport | Should -Be @('New-UDPivotReport', 'New-UDPivotReportPlaceholder', 'ConvertFrom-UDPivotView', 'Get-UDPivotSqlColumnDescription')
+        $manifest.FunctionsToExport | Should -Be @('New-UDPivotReport', 'New-UDPivotReportPlaceholder', 'ConvertFrom-UDPivotView', 'ConvertFrom-UDPivotViewFile', 'ConvertTo-UDPivotViewFile', 'New-UDPivotFileTemplateStore', 'New-UDPivotTemplateStore', 'Invoke-UDPivotTemplateRequest', 'Get-UDPivotSqlColumnDescription')
         (Get-Command -Module $script:module.Name).Name | Sort-Object | Should -Be ($manifest.FunctionsToExport | Sort-Object)
         $manifest.ModuleVersion | Should -Be '0.1.0'
     }
 
     It 'documents every parameter with an example' {
-        foreach ($command in 'New-UDPivotReport', 'New-UDPivotReportPlaceholder', 'ConvertFrom-UDPivotView', 'Get-UDPivotSqlColumnDescription') {
+        $manifest = Import-PowerShellDataFile (Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.Pivot' 'PowerShellUniversal.Component.Pivot.psd1')
+        foreach ($command in $manifest.FunctionsToExport) {
             $help = Get-Help $command -Full
             @($help.examples.example).Count | Should -BeGreaterThan 0
             foreach ($p in $help.parameters.parameter) {

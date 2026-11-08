@@ -4,7 +4,8 @@ import { PivotReport as Report } from "pivotkit-react";
 import "pivotkit-react/styles.css";
 import "./psu.css";
 import { useNarrowWindow } from "./hooks";
-import { callEndpoint, cellEvent, heightOf, MAX_OPTIONS_LENGTH, MAX_SCHEMA_LENGTH, mergeFieldDefaults, mergeTemplates, parseJsonObject, parseView, readLinkView, readTemplates, restoreRows, startViewOf, switchOf, themeOf, tipsOf, VIEW_EVENT_DELAY_MS, viewStoreKey, writeLinkView, writeStoredView } from "./prepare";
+import AdminPanel from "./AdminPanel";
+import { callEndpoint, cellEvent, fieldListOf, heightOf, MAX_OPTIONS_LENGTH, MAX_SCHEMA_LENGTH, mergeFieldDefaults, mergeTemplates, parseJsonObject, parseView, readLinkView, readTemplates, restoreRows, schemaUrlOf, sourceOf, startViewOf, switchOf, templateKey, themeOf, tipsOf, VIEW_EVENT_DELAY_MS, viewStoreKey, writeLinkView, writeStoredView } from "./prepare";
 
 /*
  * What -Schema says about the fields (pivotkit-core's fieldDefaultsFromSchema: names, descriptions,
@@ -37,8 +38,8 @@ function sessionStorageOrNull() {
  * pivotkit's report builder with the props New-UDPivotReport sends. The report runs controlled: this
  * component keeps the view, so a view the server sets later (Set-UDElement -Properties @{ view = ... })
  * becomes one undo step, Get-UDElement sees the current view, and -OnViewChange gets every change once
- * the user paused. Templates saved or deleted through the endpoints show up at once, after the server
- * confirmed them.
+ * the user paused. Templates saved, published or deleted through the endpoints show up at once, after
+ * the server confirmed them.
  */
 export default function PsuPivotReport(props) {
     const rows = useMemo(() => restoreRows(props.data, props.columnNames), [props.data, props.columnNames]);
@@ -156,22 +157,35 @@ export default function PsuPivotReport(props) {
     }, [templatesKey]);
     const templates = useMemo(() => mergeTemplates(serverTemplates, saved, deleted), [serverTemplates, saved, deleted]);
 
+    // a template the server confirmed: shown until the server sends the templates again
+    const keep = useCallback((template) => {
+        const key = templateKey(template.scope, template.name);
+        setSaved((list) => [...list.filter((t) => templateKey(t.scope, t.name) !== key), template]);
+        setDeleted((set) => {
+            if (!set.has(key)) return set;
+            const next = new Set(set);
+            next.delete(key);
+            return next;
+        });
+    }, []);
     const onSaveTemplate = typeof props.onSaveTemplate === "function"
         ? async (name, current) => {
-              await callEndpoint(latest.current.onSaveTemplate, { name, view: current, json: JSON.stringify(current) });
-              setSaved((list) => [...list.filter((t) => t.name !== name), { name, view: current, deletable: true }]);
-              setDeleted((set) => {
-                  if (!set.has(name)) return set;
-                  const next = new Set(set);
-                  next.delete(name);
-                  return next;
-              });
+              await callEndpoint(latest.current.onSaveTemplate, { name, view: current, json: JSON.stringify(current), scope: "user" });
+              keep({ name, view: current, scope: "user", deletable: true });
           }
         : undefined;
     const onDeleteTemplate = typeof props.onDeleteTemplate === "function"
-        ? async (name) => {
-              await callEndpoint(latest.current.onDeleteTemplate, { name });
-              setDeleted((set) => new Set(set).add(name));
+        ? async (name, how) => {
+              const scope = how && how.scope === "shared" ? "shared" : "user";
+              await callEndpoint(latest.current.onDeleteTemplate, { name, scope });
+              setDeleted((set) => new Set(set).add(templateKey(scope, name)));
+          }
+        : undefined;
+    // -AdminRole: the server sends canPublish only to readers with one of its roles, and checks again
+    const onPublishTemplate = props.canPublish === true && typeof props.onPublishTemplate === "function"
+        ? async (name, current) => {
+              await callEndpoint(latest.current.onPublishTemplate, { name, view: current, json: JSON.stringify(current), scope: "shared" });
+              keep({ name, view: current, scope: "shared", deletable: true });
           }
         : undefined;
 
@@ -184,6 +198,9 @@ export default function PsuPivotReport(props) {
     const chartOptions = useMemo(() => parseJsonObject(props.chartOptions, MAX_OPTIONS_LENGTH), [props.chartOptions]);
     const tipsKey = JSON.stringify(props.tips ?? null);
     const tips = useMemo(() => tipsOf(JSON.parse(tipsKey)), [tipsKey]);
+    const sourceKey = JSON.stringify(props.source ?? null);
+    const source = useMemo(() => sourceOf(JSON.parse(sourceKey)), [sourceKey]);
+    const schemaUrl = schemaUrlOf(props.schemaUrl);
 
     // ---- clicks ----------------------------------------------------------------------------------
     const viewRef = useRef(view);
@@ -204,6 +221,11 @@ export default function PsuPivotReport(props) {
                 templates={templates}
                 onSaveTemplate={onSaveTemplate}
                 onDeleteTemplate={onDeleteTemplate}
+                onPublishTemplate={onPublishTemplate}
+                canPublish={Boolean(onPublishTemplate)}
+                templateStore={String(props.templateStore || "").toLowerCase() === "browser" ? "browser" : undefined}
+                source={source}
+                {...(schemaUrl !== undefined ? { schemaUrl } : {})}
                 onCellClick={onCellClick}
                 drillDown={props.drillDown !== false}
                 fieldDefaults={fieldDefaults}
@@ -211,6 +233,9 @@ export default function PsuPivotReport(props) {
                 tips={tips}
                 fieldInfo={switchOf(props.fieldInfo)}
                 zoneInfo={switchOf(props.zoneInfo)}
+                settingInfo={switchOf(props.settingInfo)}
+                fieldList={fieldListOf(props.fieldList)}
+                grow={switchOf(props.grow)}
                 // dismissed tips are kept in localStorage per report; the view is kept by this
                 // component (address bar and sessionStorage), so pivotkit's persistView and shareLink stay off
                 storageKey={props.storageKey || props.id}
@@ -222,6 +247,7 @@ export default function PsuPivotReport(props) {
                 height={heightOf(props.height, narrow)}
                 fileName={props.fileName || "pivot"}
             />
+            {props.admin ? <AdminPanel admin={props.admin} view={view} rows={rows} locale={props.locale} timeZone={props.timeZone || "UTC"} /> : null}
         </div>
     );
 }

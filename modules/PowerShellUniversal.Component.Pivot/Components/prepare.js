@@ -211,9 +211,10 @@ export function startViewOf(storage, key, serverKey, savedView, linkView) {
 }
 
 /*
- * The templates of -Templates: { name, view, deletable }, keys in any case (PSU camelCases them), the
- * view an object or JSON. Entries without a name or a usable view are left out; the first of two
- * entries with the same name wins.
+ * The templates the server sends: { name, view, scope, deletable }, keys in any case (PSU camelCases
+ * them), the view an object or JSON. scope is "shared" or "user"; without it a deletable entry is the
+ * reader's own (pivotkit's rule). Entries without a name or a usable view are left out; the first of two
+ * entries with the same name in the same scope wins.
  */
 export function readTemplates(list) {
     const out = [];
@@ -225,32 +226,95 @@ export function readTemplates(list) {
         const get = (key) => entry[Object.keys(entry).find((k) => k.toLowerCase() === key)];
         const name = get("name");
         const view = parseView(get("view"));
-        if (typeof name !== "string" || !name.trim() || !view || seen.has(name)) {
+        const deletable = get("deletable") === true;
+        const given = String(get("scope") ?? "").toLowerCase();
+        const scope = given === "shared" || given === "user" ? given : deletable ? "user" : "shared";
+        if (typeof name !== "string" || !name.trim() || !view || seen.has(templateKey(scope, name))) {
             continue;
         }
-        seen.add(name);
-        out.push({ name, view, deletable: get("deletable") === true });
+        seen.add(templateKey(scope, name));
+        out.push({ name, view, scope, deletable });
+    }
+    return out;
+}
+
+// one template per scope and name
+export function templateKey(scope, name) {
+    return `${scope === "shared" ? "shared" : "user"}\u0000${name}`;
+}
+
+/*
+ * The templates the report shows: the server's, then the ones saved or published since the page
+ * loaded (until the server sends them itself), without the deleted ones (by scope and name). A saved
+ * view replaces a deletable one of the same name and scope, never a read-only one; a published view
+ * (scope shared, from an admin) replaces the shared view of its name.
+ */
+export function mergeTemplates(server, saved, deleted) {
+    const out = server.filter((t) => !deleted.has(templateKey(t.scope, t.name)));
+    for (const t of saved) {
+        if (deleted.has(templateKey(t.scope, t.name))) {
+            continue;
+        }
+        const i = out.findIndex((o) => o.name === t.name && o.scope === t.scope);
+        if (i < 0) {
+            out.push(t);
+        } else if (out[i].deletable || t.scope === "shared") {
+            out[i] = t;
+        }
     }
     return out;
 }
 
 /*
- * The templates the report shows: the server's, then the ones the user saved since the page loaded
- * (until the server sends them itself), without the deleted ones. A saved template replaces a
- * deletable one of the same name, never a built-in one.
+ * The source the report shows (-SourceId, -SourceName): { id, name } with plain text of at most 256
+ * characters, or undefined without an id.
  */
-export function mergeTemplates(server, saved, deleted) {
-    const out = server.filter((t) => !deleted.has(t.name));
-    for (const t of saved) {
-        if (deleted.has(t.name)) {
-            continue;
-        }
-        const i = out.findIndex((o) => o.name === t.name);
-        if (i < 0) {
-            out.push(t);
-        } else if (out[i].deletable) {
-            out[i] = t;
-        }
+export function sourceOf(source) {
+    if (!source || typeof source !== "object") return undefined;
+    const text = (v) => (typeof v === "string" && v.trim() ? v.trim().slice(0, 256) : undefined);
+    const id = text(source.id);
+    if (!id) return undefined;
+    const name = text(source.name);
+    return name ? { id, name } : { id };
+}
+
+/* -SchemaUrl: undefined (pivotkit's default), null for '' (no $schema), else the address. */
+export function schemaUrlOf(value) {
+    if (value === undefined || value === null) return undefined;
+    const text = String(value).trim();
+    return text ? text : null;
+}
+
+/* "open" or "collapsed" for -FieldList, else undefined. */
+export function fieldListOf(value) {
+    const v = String(value ?? "").toLowerCase();
+    return v === "open" || v === "collapsed" ? v : undefined;
+}
+
+/*
+ * The admin panel's table of the columns: name, type, distinct values and blanks, from pivotkit-core's
+ * encoded data (encode()).
+ */
+export function columnSummary(encoded) {
+    const columns = encoded && Array.isArray(encoded.columns) ? encoded.columns : [];
+    return columns
+        .filter((c) => !c.derived)
+        .map((c) => {
+            let blanks = 0;
+            if (c.codes) for (let i = 0; i < c.codes.length; i++) if (c.codes[i] < 0) blanks++;
+            return { name: c.name, type: c.type, distinct: Array.isArray(c.dict) ? c.dict.length : 0, blanks };
+        });
+}
+
+// the browser's own timings of the report (pivotkit measures them into the performance timeline)
+export const TIMING_NAMES = ["encode", "computePivot", "toGrid"];
+
+export function lastTimings(entriesByName) {
+    const out = {};
+    for (const name of TIMING_NAMES) {
+        const list = entriesByName(`pivotkit:${name}`) || [];
+        const last = list[list.length - 1];
+        if (last && Number.isFinite(last.duration)) out[name] = Math.round(last.duration * 10) / 10;
     }
     return out;
 }
@@ -439,7 +503,7 @@ export function tipsOf(tips) {
     return list;
 }
 
-/* "on" or "off" for -FieldInfo and -ZoneInfo, else undefined (the reader decides in Options). */
+/* "on" or "off" for -FieldInfo, -ZoneInfo, -SettingInfo and -Grow, else undefined (the reader or pivotkit decides). */
 export function switchOf(value) {
     const v = String(value ?? "").toLowerCase();
     return v === "on" || v === "off" ? v : undefined;
