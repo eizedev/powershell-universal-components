@@ -10,7 +10,7 @@ sorting, totals, table or chart. It is the start view, a template and an undo st
 checks every view against the data and drops what does not fit (an unknown field, an aggregator that
 does not suit the field); a view never runs as code.
 
-## The start view: -View
+## The start view: `-View`
 
 ```powershell
 New-UDPivotReport -Id 'tickets' -Data $tickets -View @{

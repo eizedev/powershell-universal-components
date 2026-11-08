@@ -4,7 +4,8 @@ const path = require("path");
  * The live examples of the documentation site: charts.js mounts the modules' own React components (the
  * same files PSU loads) into the Zensical pages, with React and ReactDOM bundled here - in PSU they come
  * from the page. Perspective and the pivot report are lazy chunks (perspective.js, pivot.js), loaded only
- * by a page that shows them. Packages resolve from this folder first, then from the modules' own
+ * by a page that shows them; the pivot chunk carries its stylesheets as text for the shadow root it is
+ * drawn in. Packages resolve from this folder first, then from the modules' own
  * node_modules (Perspective and its CSS loaders, pivotkit), so every package keeps the version pinned in
  * its module's lock file.
  */
@@ -45,7 +46,18 @@ module.exports = {
             { test: /\.(js|jsx|mjs)$/, resolve: { fullySpecified: false } },
             // Perspective: its WebAssembly inline (Components/engine.js decodes it), its themes as CSS
             { test: /\.wasm$/, type: "asset/inline" },
-            { test: /\.css$/, use: ["style-loader", "css-loader"] }
+            {
+                test: /\.css$/,
+                oneOf: [
+                    // the pivot report's styles as text: charts.jsx puts them into the report's shadow root
+                    // (the module's side-effect imports of them then add nothing to the page)
+                    {
+                        include: [path.join(pivotModules, "pivotkit-react"), path.join(repoRoot, "modules", "PowerShellUniversal.Component.Pivot", "Components")],
+                        use: [{ loader: "css-loader", options: { exportType: "string" } }]
+                    },
+                    { use: ["style-loader", "css-loader"] }
+                ]
+            }
         ]
     },
     experiments: { asyncWebAssembly: false, syncWebAssembly: false },

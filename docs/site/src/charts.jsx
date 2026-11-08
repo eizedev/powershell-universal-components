@@ -7,6 +7,12 @@
  * PSU switches light and dark with <html data-theme>; Zensical with data-md-color-scheme on <body>
  * ("slate" is dark). The script mirrors the one onto the other, so the component follows the site's
  * palette toggle exactly as it follows PSU's.
+ *
+ * The pivot report and its placeholder are drawn into a shadow root of the placeholder element, with
+ * their stylesheets inside it. The page's typography (Zensical's .md-typeset rules for h2, lists,
+ * details, tables and code, and the design's dot before every h2) would otherwise style the report's
+ * own headings, field list and admin panel, which PSU's pages leave alone. Perspective's viewer has a
+ * shadow root of its own; ECharts draws on a canvas.
  */
 import React from "react";
 import { createRoot } from "react-dom/client";
@@ -74,32 +80,60 @@ function propsOf(example, el) {
 
 const roots = new Map();
 
+// the components each example type draws, loaded on demand; pivot ones come with their stylesheets as text
+const COMPONENTS = {
+    echarts: async () => ({ Component: EChart }),
+    perspective: async () => ({ Component: (await import(/* webpackChunkName: "perspective" */ "./perspective.js")).default }),
+    pivot: async () => {
+        const m = await import(/* webpackChunkName: "pivot" */ "./pivot.js");
+        return { Component: m.default, styles: m.styles };
+    },
+    "pivot-placeholder": async () => {
+        const m = await import(/* webpackChunkName: "pivot" */ "./pivot.js");
+        return { Component: m.Placeholder, styles: m.styles };
+    }
+};
+
+// what differs from PSU inside the shadow root: Zensical's root font size is 20 px, PSU's 16 px, and the
+// module's admin panel sizes its text in rem
+const SITE_STYLES = ".ud-pivot-admin, .ud-pivot-admin h3 { font-size: 0.7rem; }";
+
+// a shadow root with the component's stylesheets and one element to render into
+function isolatedContainer(el, styles) {
+    const shadow = el.shadowRoot || el.attachShadow({ mode: "open" });
+    for (const css of [...styles, SITE_STYLES]) {
+        const style = document.createElement("style");
+        style.textContent = css;
+        shadow.append(style);
+    }
+    const container = document.createElement("div");
+    shadow.append(container);
+    return container;
+}
+
 async function mount(el) {
     if (roots.has(el)) {
         return;
     }
-    const root = createRoot(el);
-    roots.set(el, root);
+    roots.set(el, null);
     const id = el.getAttribute("data-example");
+    let root = null;
     try {
         const all = await loadExamples();
         const example = all[id];
         if (!example) {
             throw new Error(`no example "${id}" in examples.json`);
         }
-        if (example.component === "perspective") {
-            const { default: Perspective } = await import(/* webpackChunkName: "perspective" */ "./perspective.js");
-            root.render(<Perspective {...propsOf(example, el)} />);
-        } else if (example.component === "pivot") {
-            const { default: PivotReport } = await import(/* webpackChunkName: "pivot" */ "./pivot.js");
-            root.render(<PivotReport {...propsOf(example, el)} />);
-        } else if (example.component === "pivot-placeholder") {
-            const { Placeholder } = await import(/* webpackChunkName: "pivot" */ "./pivot.js");
-            root.render(<Placeholder {...propsOf(example, el)} />);
-        } else {
-            root.render(<EChart {...propsOf(example, el)} />);
-        }
+        const load = COMPONENTS[example.component] || COMPONENTS.echarts;
+        const { Component, styles } = await load();
+        root = createRoot(styles ? isolatedContainer(el, styles) : el);
+        roots.set(el, root);
+        root.render(<Component {...propsOf(example, el)} />);
     } catch (e) {
+        if (!root) {
+            root = createRoot(el);
+            roots.set(el, root);
+        }
         root.render(<div role="alert" className="psu-example-error">Example {id}: {String(e && e.message ? e.message : e)}</div>);
     }
 }
@@ -108,7 +142,9 @@ async function mount(el) {
 function scan() {
     for (const [el, root] of roots) {
         if (!el.isConnected) {
-            root.unmount();
+            if (root) {
+                root.unmount();
+            }
             roots.delete(el);
         }
     }

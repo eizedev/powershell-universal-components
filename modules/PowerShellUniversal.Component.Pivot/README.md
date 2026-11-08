@@ -8,6 +8,7 @@ choice; roles decide who publishes shared views), undo every step and export to 
 OpenAPI schema. Light and dark theme in PSU's colours, English and German, from a phone to a wide screen.
 
 ```powershell
+New-UDPivotReport -Id 'python' -Data (Invoke-RestMethod 'https://endoflife.date/api/python.json')
 New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -Locale de-DE
 ```
 
@@ -33,7 +34,7 @@ the server and admins publish shared ones.
 
 | Topic | Page |
 | --- | --- |
-| What readers can do, data, dates and time zones, language, theme and height, the placeholder while the data loads, performance | [Overview](https://powershell-universal-components.eize.dev/pivot/) |
+| Three examples on public data (one line; start view, field names and templates; an app with loading, views per reader and roles), what readers can do, data, dates and time zones, language, theme and height, the placeholder while the data loads, performance | [Overview](https://powershell-universal-components.eize.dev/pivot/) |
 | Corporate design from the app's stylesheet, shared with the ECharts module | [Themes and corporate design](https://powershell-universal-components.eize.dev/pivot/themes/) |
 | `-FieldDefaults`, `-FieldDescriptions`, SQL Server column descriptions (`Get-UDPivotSqlColumnDescription`), `-Schema` (JSON Schema, OpenAPI) | [Field names and descriptions](https://powershell-universal-components.eize.dev/pivot/fields/) |
 | `-View`, `-SavedView`, several tabs, the address bar | [Views](https://powershell-universal-components.eize.dev/pivot/views/) |

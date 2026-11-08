@@ -19,6 +19,7 @@ nav = [
   { "Getting started" = "getting-started.md" },
   { "ECharts" = [
     { "Overview" = "echarts/index.md" },
+    { "Showcase app (demo)" = "demo.md" },
     { "Data" = "echarts/data.md" },
     { "Chart types" = [
       { "Bars" = "echarts/bars.md" },
@@ -63,7 +64,6 @@ nav = [
     { "Commands and parameters" = "pivot/reference.md" },
     { "Upgrade notes" = "pivot/upgrade.md" },
   ] },
-  { "Demo" = "demo.md" },
   { "Development" = [
     { "Build and test" = "development/index.md" },
     { "Releases" = "development/release.md" },

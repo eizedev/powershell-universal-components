@@ -15,13 +15,15 @@ function examplesState(page) {
         if (el.querySelector("perspective-viewer")) {
             return { id, perspective: true };
         }
+        // the pivot report and its placeholder are drawn into a shadow root of the example
+        const pivot = el.shadowRoot;
         // the pivot report's placeholder: the report's frame, busy
-        if (el.querySelector(".ud-pivot-placeholder .pk-skeleton")) {
+        if (pivot && pivot.querySelector(".ud-pivot-placeholder .pk-skeleton")) {
             return { id, placeholder: true };
         }
         // the pivot report: rendered once its table or chart region is there
-        if (el.querySelector(".pk-root .pk-result")) {
-            return { id, pivot: true, cells: el.querySelectorAll(".pk-result td").length, chart: Boolean(el.querySelector(".pk-result canvas")) };
+        if (pivot && pivot.querySelector(".pk-root .pk-result")) {
+            return { id, pivot: true, cells: pivot.querySelectorAll(".pk-result td").length, chart: Boolean(pivot.querySelector(".pk-result canvas")), firstSteps: Boolean(pivot.querySelector(".pk-result .pk-empty")) };
         }
         const d = [...el.querySelectorAll("div")].find((x) => x.echarts);
         if (!d) {
@@ -103,6 +105,47 @@ test("Pivot: the report holds the DataTable, follows the switch and shows the $E
     expect(errors).toEqual([]);
 });
 
+test("Pivot: the one-line example gets the API's rows; a click on a field puts it into Rows", async ({ page }) => {
+    const errors = collectErrors(page);
+    await openPage(page, "/pivot/");
+    const report = page.locator('[data-example="pivot-report-from-a-web-api"] .pk-root');
+    // the snapshot of https://endoflife.date/api/python.json: one row per release cycle
+    await report.locator(".pk-field[data-field=cycle] .pk-field-name").click();
+    await expect(report.getByRole("region", { name: "Table" })).toContainText("3.14");
+    expect(errors).toEqual([]);
+});
+
+test("Pivot: the start view, field labels and both templates of the medium example", async ({ page }) => {
+    const errors = collectErrors(page);
+    await openPage(page, "/pivot/");
+    const report = page.locator('[data-example="start-view-field-names-and-templates"] .pk-root');
+    await expect(report.getByRole("region", { name: "Table" })).toContainText("End of life (year)");
+    // -FieldDefaults labels in the field list
+    await expect(report.locator(".pk-field-list")).toContainText("Release cycle");
+    await expect(report.locator(".pk-field-list")).toContainText("Latest version");
+    await openViews(report);
+    const menu = page.locator(".pk-popover").last();
+    await expect(menu).toContainText("End of life per year and product");
+    await expect(menu).toContainText("Releases per year");
+    expect(errors).toEqual([]);
+});
+
+test("Pivot: the app example keeps a reader's view in the template store and shows the admin panel", async ({ page }) => {
+    const errors = collectErrors(page);
+    await openPage(page, "/pivot/");
+    const example = page.locator('[data-example="a-report-app-with-loading-views-per-reader-and-roles"]');
+    const report = example.locator(".pk-root");
+    await expect(report.getByRole("region", { name: "Table" })).toContainText("windows-server");
+    // the reader has the role of -AdminRole
+    await expect(example.locator("[data-testid=pivot-admin]")).toBeVisible();
+    await openViews(report);
+    await page.locator("[data-testid=saved-view-name]").fill("Mine");
+    await page.locator("[data-testid=saved-view-name]").press("Enter");
+    // the store's own event handler, registered by the module
+    await expect(page.locator('[data-example="a-report-app-with-loading-views-per-reader-and-roles"] + .psu-event')).toContainText("-OnSaveTemplate");
+    expect(errors).toEqual([]);
+});
+
 test("Pivot: shared views and my views; a reader with -AdminRole publishes and the page shows the $EventData", async ({ page }) => {
     const errors = collectErrors(page);
     await openPage(page, "/pivot/templates/");
@@ -160,7 +203,9 @@ test("every example on every page renders and draws values, without errors", asy
         for (const e of await examplesState(page)) {
             if (e.perspective || e.placeholder) continue;
             if (e.pivot) {
-                expect(e.cells + (e.chart ? 1 : 0), `${path} ${e.id} draws values`).toBeGreaterThan(0);
+                // the one-line example has no start view: the report shows its first steps instead of values
+                if (e.id === "pivot-report-from-a-web-api") expect(e.firstSteps, `${path} ${e.id} shows its first steps`).toBe(true);
+                else expect(e.cells + (e.chart ? 1 : 0), `${path} ${e.id} draws values`).toBeGreaterThan(0);
                 continue;
             }
             // an example without rows shows its -EmptyText instead of series
