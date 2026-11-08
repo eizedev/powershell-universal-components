@@ -193,7 +193,8 @@ test.describe("pivot showcase on PSU", () => {
         await expect(menu.locator("[data-testid=store-note]")).toBeVisible();
         await expect(menu.locator("[data-testid^=publish-view-]")).toHaveCount(0);
         await menu.locator("[data-testid=saved-view-name]").fill(name);
-        await menu.locator("[data-testid=saved-view-name]").press("Enter");
+        // the Save button, not Enter: the lazily loaded menu may move the focus while it renders
+        await menu.getByRole("button", { name: "Save", exact: true }).click();
         await expect(report.locator(".pk-toast-dock")).toContainText(`“${name}” saved`);
         await page.keyboard.press("Escape");
         // a view file of the folder loads its chart: a donut
@@ -565,7 +566,8 @@ test.describe("pivot templates with sign-in on PSU", () => {
         await expect(admin.page.locator("[data-testid=pivot-admin]")).toBeVisible();
         let menu = await openViews(admin.report);
         await menu.locator("[data-testid=saved-view-name]").fill(shared);
-        await menu.locator("[data-testid=saved-view-name]").press("Enter");
+        // the Save button, not Enter: the lazily loaded menu may move the focus while it renders
+        await menu.getByRole("button", { name: "Save", exact: true }).click();
         await expect(admin.report.locator(".pk-toast-dock")).toContainText(`“${shared}” saved`, { timeout: 15000 });
         await admin.page.keyboard.press("Escape");
         menu = await openViews(admin.report);
@@ -588,7 +590,8 @@ test.describe("pivot templates with sign-in on PSU", () => {
         await expect(menu.locator("[data-testid^=publish-view-]")).toHaveCount(0);
         await expect(menu.locator("[data-testid=store-note]")).toHaveCount(0);
         await menu.locator("[data-testid=saved-view-name]").fill(own);
-        await menu.locator("[data-testid=saved-view-name]").press("Enter");
+        // the Save button, not Enter: the lazily loaded menu may move the focus while it renders
+        await menu.getByRole("button", { name: "Save", exact: true }).click();
         await expect(reader.report.locator(".pk-toast-dock")).toContainText(`“${own}” saved`, { timeout: 15000 });
         await reader.page.keyboard.press("Escape");
         // a forged request: the reader's delete sent for the shared view; the server refuses it
@@ -614,8 +617,10 @@ test.describe("pivot templates with sign-in on PSU", () => {
         for (const left of [1, 0]) {
             menu = await openViews(admin.page.locator(REPORT));
             await menu.locator(`[data-testid='delete-view-${shared}']`).first().click();
+            // the server's answer, not the toast: the first delete's toast may still be shown
+            const answered = admin.page.waitForResponse((r) => /onDeleteTemplate/.test(r.url()), { timeout: 15000 });
             await menu.locator("[data-testid=confirm-delete]").click();
-            await expect(admin.page.locator(`${REPORT} .pk-toast-dock`)).toContainText(`“${shared}” deleted`, { timeout: 15000 });
+            expect((await answered).ok()).toBe(true);
             await expect(menu.locator(`[data-testid='saved-view-${shared}']`)).toHaveCount(left);
             await admin.page.keyboard.press("Escape");
         }
