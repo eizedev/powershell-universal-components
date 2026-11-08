@@ -19,10 +19,9 @@
 **Documentation: [powershell-universal-components.eize.dev](https://powershell-universal-components.eize.dev/)** - every module, every parameter and
 every chart type, with live examples next to their code.
 
-<p align="center">
-  <img src="assets/screenshot-data-platform-dark.png" alt="Data platform page: coverage heatmap of source systems and assets per number of sources, dark theme" width="49%">
-  <img src="assets/screenshot-service-review-light.png" alt="Service review page: KPI matrix of sparklines per customer, light theme" width="49%">
-</p>
+| ECharts | Perspective | Pivot |
+| --- | --- | --- |
+| <img src="assets/screenshot-data-platform-dark.png" alt="ECharts: data platform page with a coverage heatmap of source systems, dark theme"> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/perspective-viewer-1-dark.png"><img src="docs/assets/perspective-viewer-1-light.png" alt="Perspective: datagrid grouped and split by the reader"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pivot-report-dark.png"><img src="docs/assets/pivot-report-light.png" alt="Pivot: report builder with field list, zones and a table"></picture> |
 
 ## Modules
 
@@ -82,7 +81,7 @@ column name that matches no column shows the columns the data has instead of a c
 More in the documentation: [Getting started](https://powershell-universal-components.eize.dev/getting-started/) (your own data from SQL, REST and
 PowerShell), [chart types](https://powershell-universal-components.eize.dev/echarts/), [interaction and events](https://powershell-universal-components.eize.dev/echarts/interaction/),
 [themes and corporate design](https://powershell-universal-components.eize.dev/echarts/themes/), [Perspective](https://powershell-universal-components.eize.dev/perspective/), [Pivot](https://powershell-universal-components.eize.dev/pivot/) and the
-[showcase app](https://powershell-universal-components.eize.dev/demo/) with 14 pages of examples.
+[ECharts showcase app](https://powershell-universal-components.eize.dev/demo/) with 14 pages of examples.
 
 <p align="center">
   <img src="assets/screenshot-ticket-report-dark.png" alt="Ticket report page: SLA gauge, opened per day against the previous period, lead time histogram with median and SLA, boxplot per team" width="80%">
