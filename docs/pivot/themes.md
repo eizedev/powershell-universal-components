@@ -133,4 +133,4 @@ a pinned dark report its own values in a light app, set them on the report:
 .ud-pivot-report [data-pk-theme="dark"] { --psu-chart-text: #e6e9ef; --psu-chart-muted: #a9b1bf; --psu-chart-accent: #6fa8dc; }
 ```
 
-Next: [Views and templates](views.md), [Events, security and limits](events.md), [Reference](reference.md).
+Next: [Views](views.md), [Templates, view files and roles](templates.md), [Events, security and limits](events.md), [Reference](reference.md).

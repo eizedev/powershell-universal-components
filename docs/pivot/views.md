@@ -1,9 +1,9 @@
 ---
-title: Views and templates
-description: "The start view of New-UDPivotReport, views per browser tab and -SavedView, templates in the Templates menu, and how readers save their own templates - stored by your app, checked with ConvertFrom-UDPivotView."
+title: Views
+description: "The start view of New-UDPivotReport, its keys, views per browser tab and in the address bar, -SavedView, and where templates come in."
 ---
 
-# Views and templates
+# Views
 
 A **view** is what the report shows, as plain JSON: the fields on rows, columns, values and filters,
 sorting, totals, table or chart. It is the start view, a template and an undo step at once. The report
@@ -30,10 +30,11 @@ The keys of a view:
 | `derived` | Grouped dates and number ranges: `@{ name = 'Created (Month)'; field = 'Created'; by = 'yearMonth' }` (units `year`, `yearQuarter`, `yearMonth`, `yearWeek`, `day`, `quarter`, `month`, `week`, `weekday`, `hour`); the name then goes into `rows` or `cols`. |
 | `sort` | `@{ field = 'Team'; by = 'value'; order = 'desc' }`. |
 | `totals` | `@{ grandTotalRow = $true; grandTotalColumn = $true; rowSubtotals = $true; colSubtotals = $true }`. |
-| `display`, `chart` | `'table'` or `'chart'`; `@{ type = 'bar'; stacked = $false; horizontal = $false }`, types `bar`, `line`, `area`, `pie`, `heatmap`. |
+| `display`, `chart` | `'table'` or `'chart'`; `@{ type = 'bar'; stacked = $false; horizontal = $false }`, types `auto` (the default: lines over dates, bars otherwise), `bar`, `line`, `area`, `pie`, `donut`, `heatmap`; the Display settings `valueLabels` (`auto`, `off`, `value`, `percent`, `both`), `legend` (`auto`, `bottom`, `right`, `off`), `title`, `smooth`, `axisLabels` (`auto`, `all`, `nth`), `groupLabels` (`auto`, `on`, `off`) and, for a pie or donut, `labelPosition` (`outside`, `inside`). |
 
-The simplest way to a view is to build it in the report, save it as a template and copy the JSON
-(`$EventData.json` of `-OnSaveTemplate` or `-OnViewChange`). `-View` takes that JSON as it is.
+The simplest way to a view is to build it in the report and copy it: **Views, Copy view as JSON** (a
+[view file](templates.md#view-files); `-View` takes its `view`), or `$EventData.json` of `-OnViewChange`.
+`-View` takes that JSON as it is.
 
 `Reset` in the toolbar goes back to `-View`. `Set-UDElement -Id <id> -Properties @{ view = $view }`
 shows another view (the reader can undo it), and `(Get-UDElement -Id <id>).view` is the view the reader
@@ -94,67 +95,17 @@ and `Reset` goes back to `-View`. The difference matters because PSU's scopes ar
 `-View $Session:PivotView` would hand the last change of one tab to every other tab on its next
 reload. `$Page:` is per tab but gone after a reload, which the address bar and the tab's storage
 already cover.
-For a view that follows the reader to other devices, store it per `$User` (as the
-[templates](#templates-readers-save) below), either on every change or with an explicit "save as my
-default", and pass it as `-SavedView`.
+For a view that follows the reader to other devices, store it per `$User` (as a
+[template store](templates.md#template-stores-templatestore) does), either on every change or with an
+explicit "save as my default", and pass it as `-SavedView`.
 
 Without `-Id` the report is identified by its page and its place in the app script (the line of the
 `New-UDPivotReport` call) together with its column names, so two reports on one page keep their own
 views. Set `-Id` if reports are added or removed dynamically, or when one call builds several reports
 (a loop): they would share one view otherwise.
 
-## Templates: -Templates
+## Templates
 
-```powershell
-New-UDPivotReport -Id 'tickets' -Data $tickets -Templates @(
-    @{ Name = 'Tickets per team'; View = @{ rows = @('Team'); values = @(@{ field = 'Ticket'; agg = 'count' }) } }
-    @{ Name = 'Lead time per month'; View = (Get-Content -LiteralPath ./lead-time.json -Raw) }
-)
-```
-
-The Templates menu lists them; the first three are also offered on an empty report.
-
-## Templates readers save
-
-`-OnSaveTemplate` shows "Save current view" in the menu; `-OnDeleteTemplate` a delete button on every
-template marked `Deletable = $true`. The module only raises the events: your app decides where
-templates go - a file per user, a database table, `$Cache` for everyone. The report shows a saved
-template (or removes a deleted one) once the script block finished without an error.
-
-The view comes from the browser: treat it as untrusted input. `ConvertFrom-UDPivotView` is the check
-before it is stored. It accepts JSON, a hashtable or an object, goes through one
-`ConvertTo-Json`/`ConvertFrom-Json` round trip (nothing is evaluated), refuses anything that is not
-a view of at most 64 KB and eight levels, keeps only the keys of a view and returns it as an object,
-or with `-AsJson` as compact JSON to store. Check the name too, and never build a file path from it.
-
-```powershell
-New-UDPivotReport -Id 'tickets' -Data $tickets -Templates $templates -OnSaveTemplate {
-    try {
-        $name = ([string]$EventData.name).Trim()
-        if ($name.Length -gt 80) { throw 'A template name has at most 80 characters.' }
-        $json = ConvertFrom-UDPivotView -InputObject $EventData.view -AsJson
-        # store $name and $json for $User: a database row, or a file named after a hash of $User
-    }
-    catch {
-        # the reader sees this text in the report; nothing was stored
-        @{ error = $_.Exception.Message }
-    }
-} -OnDeleteTemplate {
-    # remove $EventData.name of $User
-}
-```
-
-A script block that throws refuses too, but the reader then sees only "the server reported an error"
-(PSU does not pass the message on); return `@{ error = '...' }` to say why.
-
-The [showcase app](https://github.com/eizedev/powershell-universal-components/blob/main/modules/PowerShellUniversal.Component.Pivot/examples/showcase.ps1)
-keeps templates as one JSON file per user next to the PSU repository, with built-in templates no user
-template may replace, a limit per user, a lock against two saves at once, and every stored view checked
-again when it is read.
-
-Event handlers run in a runspace of their own: functions defined in the app script are not there, and
-PSU does not load the module by itself. Call `Import-Module PowerShellUniversal.Component.Pivot` in a
-handler that uses `ConvertFrom-UDPivotView`, and keep shared code in a module or a script block
-variable. A script block defined in the app script runs where it was defined: it does not see `$User`
-and `$Roles` of the page or the event that calls it (measured on PSU 2026.2.5 and 2026.3.4, an app
-with authentication). Pass them as parameters, as the showcase passes `-UserName $User` to its store.
+Named views in the **Views** menu - shared views your app ships (`-Templates`, view files from
+`-TemplatePath`), the reader's own views (`-TemplateStore`) and who may publish shared ones
+(`-AdminRole`) - have a page of their own: [Templates, view files and roles](templates.md).

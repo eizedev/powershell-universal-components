@@ -48,19 +48,29 @@ New-UDDynamic -Id 'tickets-report' -LoadingComponent {
   soon as it is placed (by day, month, quarter or year, from the span of its values), and its menu
   groups along the time line or across years (month of the year, weekday, hour).
 - **Filters**: the values of a field with their row counts, search, "only this value", text conditions.
-- **Table or chart**: bars, stacked or horizontal bars, lines, area, pie, heatmap; value labels,
-  legend, title, smooth lines and axis labels in the chart type's Display settings.
-- **Drill-down**: a click on a value or a chart point opens the source rows behind it.
-- **Undo and redo** (Ctrl/Cmd+Z), **Reset** to the start view, **Templates** (with "Copy view as
-  JSON", "Download view" and "Load view" from JSON or a file), and **Export** to Excel (XLSX with number
-  formats and merged headers), CSV and PNG.
-- **Tips** above the result for a layout that could be clearer (at most two, each dismissible and
-  remembered per report in the browser); `-Tips Off` or a list of tip ids limits them.
+- **Table or chart**: bars, stacked or horizontal bars, lines, area, pie, donut, heatmap, or Automatic
+  (lines over dates, bars otherwise); value labels, legend, title, smooth lines, axis and group labels,
+  and for a pie or donut labels inside or outside, in the chart type's Display settings.
+- **Enlarge** lets the table or chart fill the report (the field list and the zones step aside;
+  Escape brings them back), **Full screen** shows the report on the whole screen where the browser
+  allows it. Neither is part of the view.
+- **Drill-down**: a click on a value or a chart point opens the source rows behind it; the panel has
+  its own Enlarge and an Export menu (Copy for a spreadsheet, Copy as JSON, Download CSV and Excel).
+- **Undo and redo** (Ctrl/Cmd+Z), **Reset** to the start view, **Views** with shared views and the
+  reader's own ([Templates, view files and roles](templates.md)), "Copy view as JSON", "Download view"
+  (a view file) and "Load view…", and **Export** to Excel (XLSX with number formats and merged
+  headers), CSV and PNG, or Copy table and Copy data as JSON.
+- **Tips** above the result for a layout that could be clearer (one at a time, each dismissible and
+  remembered per report in the browser); `-Tips Off` or a list of tip ids limits them. Options, Help
+  has "Show tips" and "Show explanations" (every "i" next to fields, zones and settings);
+  `-FieldInfo`, `-ZoneInfo` and `-SettingInfo` decide one kind for the reader.
+- **Field list**: « collapses it to a narrow rail (the reader's choice is remembered); `-FieldList
+  Collapsed` or `Open` starts every reader so.
 
 The report adapts to its own width: in a narrow column or on a phone the field list opens as a drawer
-and the zones stack above the table. Below 540 pixels of height the zones start folded into one line
-(the toolbar's Layout button opens them). Several reports on one page need one `-Label` each, the
-name screen readers hear for the report.
+and the zones stack above the table. Below 600 pixels of height (820 in the narrow layout) the zones
+start folded into one line (the toolbar's Layout button opens them). Several reports on one page need
+one `-Label` each, the name screen readers hear for the report.
 
 ## Data
 
@@ -83,7 +93,8 @@ name such as `Europe/Berlin`). Pass `-TimeZone UTC`, or the zone your readers ar
 numbers, dates and sorting look. The default is `en-US` for every reader: the report never takes the
 browser's or the server's language on its own, so a report and its exports look the same for
 everyone. `-Labels` replaces single texts (the keys of pivotkit-react's `LABELS`, e.g.
-`@{ zones = @{ values = 'Kennzahlen' }; tips = @{ values = '...' } }`).
+`@{ zones = @{ values = 'Kennzahlen' }; tips = @{ values = '...' }; sharedViews = 'Team-Ansichten' }`).
+pivotkit-react's `pivotkit-react/labels` entry lists every key, the texts of the menus included.
 
 ### Field names and descriptions
 
@@ -110,8 +121,11 @@ pages and MUI's primary blue. `-Theme Light` or `-Theme Dark` pins it. A corpora
 app's stylesheet, the same one that themes the ECharts charts: [Themes and corporate design](themes.md). Its height is the window's
 height minus the app bar and a page title (between 480 and 1400 pixels, almost the whole window on a
 phone); `-Height` sets another one. Give it at least 600 pixels where readers build reports: the zones
-take about 300 of them. Inside `New-UDTabs`, `New-UDCard`, `New-UDStack` and expansion panels it fits
-its container and grows when a hidden tab is shown.
+take about 300 of them. The report stays inside its height - in a card of a fixed size too: the table
+scrolls inside it, however small it gets (measured in a 560-pixel `New-UDCard` on PSU 2026.3.4).
+`-Grow On` lets it grow past the height instead when the table would get too small, and the page
+scrolls. Inside `New-UDTabs`, `New-UDCard`, `New-UDStack` and expansion panels it fits its container
+and grows when a hidden tab is shown.
 
 ## Loading and performance
 
@@ -155,4 +169,4 @@ What makes it slower is the size of the data: every row and every column travels
 Select the columns readers need (`SELECT Team, Priority, Created ...` instead of `SELECT *`), and
 aggregate in SQL where readers never look at single rows.
 
-Next: [Field names and descriptions](fields.md), [Themes and corporate design](themes.md), [Views and templates](views.md), [Events, security and limits](events.md), [Reference](reference.md).
+Next: [Field names and descriptions](fields.md), [Themes and corporate design](themes.md), [Views](views.md), [Templates, view files and roles](templates.md), [Events, security and limits](events.md), [Reference](reference.md).

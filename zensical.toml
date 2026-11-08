@@ -57,9 +57,11 @@ nav = [
     { "Overview" = "pivot/index.md" },
     { "Themes and corporate design" = "pivot/themes.md" },
     { "Field names and descriptions" = "pivot/fields.md" },
-    { "Views and templates" = "pivot/views.md" },
+    { "Views" = "pivot/views.md" },
+    { "Templates, view files and roles" = "pivot/templates.md" },
     { "Events, security and limits" = "pivot/events.md" },
     { "Commands and parameters" = "pivot/reference.md" },
+    { "Upgrade notes" = "pivot/upgrade.md" },
   ] },
   { "Demo" = "demo.md" },
   { "Development" = [

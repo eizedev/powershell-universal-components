@@ -9,10 +9,15 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Added
 
-- `New-UDPivotReport` on pivotkit 0.1.0: a field list with search, Rows, Columns, Values and Filters
-  with drag and drop and a menu on every field, aggregators and "show values as", date grouping,
-  filters with value counts, table or chart (bars, lines, area, pie, heatmap), drill-down to the source
-  rows, undo and redo, templates, and Excel, CSV and PNG export.
+- `New-UDPivotReport` on pivotkit 0.1.0 (built from its main branch at 4bb1d91): a field list with
+  search that collapses to a rail, Rows, Columns, Values and Filters with drag and drop and a menu on
+  every field, aggregators and "show values as", date grouping, filters with value counts, table or
+  chart (bars, lines, area, pie, donut, heatmap, Automatic) with display settings, Enlarge and Full
+  screen, drill-down to the source rows with its own Enlarge, Copy and CSV/Excel export, undo and redo,
+  the Views menu (shared views and my views, view files: Copy, Download, Load), and Excel, CSV and PNG
+  export, Copy table and Copy data as JSON. pivotkit's lazily loaded menus are part of the module's one
+  bundle (PSU serves only the registered bundle). Copying works over plain http too (pivotkit's
+  fallback without the Clipboard API, measured in Chromium, Firefox and WebKit).
 - Data straight from DataTables, REST results and PowerShell objects with their original column names;
   dates stay dates, `-TimeZone` (default: the server's zone) for dates with an offset.
 - `New-UDPivotReportPlaceholder` for `New-UDDynamic -LoadingComponent`: pivotkit's own skeleton of the
@@ -30,10 +35,24 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 - `-ChartOptions` (plain JSON over the chart's ECharts option), `-Tips` (On, Off or tip ids; dismissed
   tips are remembered per report), `-Label` (the report's name for screen readers, also on the
   placeholder).
-- `-View` (hashtable or JSON), `-Templates`, `-Labels`, `-Locale` (English and
+- Templates: `-Templates` (Scope shared or user, `File` for a view file), `-TemplatePath` (folders of
+  pivotkit view files, checked on the server, read-only shared views), `-TemplateStore` with `Browser`,
+  `New-UDPivotFileTemplateStore` (view files per user and shared, next to the PSU repository, lock and
+  atomic writes, caps) or `New-UDPivotTemplateStore` (Get/Save/Delete/Publish script blocks for a
+  database, Valkey, S3: the module checks users, roles, names, views and limits). `-AdminRole`: who
+  publishes and deletes shared views, checked in the event handlers with the event's `$Roles`, and the
+  admin panel under the report (view JSON, columns and types, timings). Without a signed-in user the
+  reader's own views stay in the browser. `-UserName` and `-Roles` for calls from script blocks that
+  do not see `$User` and `$Roles`.
+- View files: `ConvertFrom-UDPivotViewFile`, `ConvertTo-UDPivotViewFile`; `-SourceId`, `-SourceName`
+  (the data a view file or link was made for) and `-SchemaUrl`.
+- `-SettingInfo`, `-FieldList` and `-Grow` (a report with a height stays inside it, also in a card of a
+  fixed size).
+- `-View` (hashtable or JSON), `-Labels`, `-Locale` (English and
   German, default en-US), `-Theme`, `-Height` (default: the window's height), `-FileName`, `-NoDrillDown`, `-NoAddressBar`.
-- `-OnViewChange`, `-OnCellClick`, `-OnSaveTemplate` and `-OnDeleteTemplate`; saving and deleting show
-  in the report once the server confirmed them, and a server's refusal shows its message.
+- `-OnViewChange`, `-OnCellClick`, `-OnSaveTemplate`, `-OnDeleteTemplate` (with the entry's `scope`)
+  and `-OnPublishTemplate` (for `-AdminRole`); saving, publishing and deleting show in the report once
+  the server confirmed them, and a server's refusal shows its message.
 - `Private/SHARED.txt`: the content hashes of the repository's `shared/` code the module was built from.
 - `ConvertFrom-UDPivotView`: checks a view from the browser (size, depth, shape, known keys only) before
   it is stored.
@@ -51,5 +70,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   its own and never replaces the view another tab shows; the showcase uses it instead of
   `-View $Session:PivotView`, which made every tab of a browser take over the last change of another
   tab on reload.
-- `examples/showcase.ps1`: a 5,000-row DataTable with templates saved per user, a language switch, the
-  events and the report in page layouts.
+- `examples/showcase.ps1`: a 5,000-row DataTable with shipped views (`examples/views`), a file template
+  store, a language switch, the events and the report in page layouts (a card of a fixed height among
+  them); `examples/templates.ps1`: an app with sign-in, readers' views on the server, publishing for
+  two roles and the admin panel.

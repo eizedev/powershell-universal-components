@@ -14,7 +14,7 @@ import EChart from "../../../modules/PowerShellUniversal.Component.ECharts/Compo
 
 const EVENTS = {
     onClick: "-OnClick", onSelect: "-OnSelect", onZoom: "-OnZoom", onLegendChange: "-OnLegendChange",
-    onViewChange: "-OnViewChange", onCellClick: "-OnCellClick", onSaveTemplate: "-OnSaveTemplate", onDeleteTemplate: "-OnDeleteTemplate"
+    onViewChange: "-OnViewChange", onCellClick: "-OnCellClick", onSaveTemplate: "-OnSaveTemplate", onDeleteTemplate: "-OnDeleteTemplate", onPublishTemplate: "-OnPublishTemplate"
 };
 // where this script was loaded from: examples.json and the Perspective and pivot chunks lie next to it
 const base = new URL(".", document.currentScript ? document.currentScript.src : window.location.href).href;

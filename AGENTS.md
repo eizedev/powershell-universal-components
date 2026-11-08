@@ -23,7 +23,8 @@ hashtable PSU renders; see [README.md](README.md).
   parameter or chart type gets its description on the matching page and an example there.
 - `tests/js/` (node --test), `tests/browser/` (Playwright: the documentation site in Chromium, Firefox and
   WebKit; `psu.spec.mjs` runs the showcase app on a PSU instance when `PSU_URL` is set, `psu-pivot.spec.mjs`
-  the pivot module's showcase when `PSU_PIVOT_URL` is set),
+  the pivot module's showcase when `PSU_PIVOT_URL` is set, and its template roles against `examples/templates.ps1`
+  with two identities when `PSU_PIVOT_AUTH_URL` is set),
   `tests/powershell/` (Pester).
 
 ## Commands
@@ -33,6 +34,7 @@ npm ci && npm test                                   # JavaScript unit tests (re
 npx playwright install chromium firefox webkit && npm run test:browser   # after building the site
 PSU_URL=<app url> npm run test:browser -- tests/browser/psu.spec   # the showcase app on a PSU instance, all browsers
 PSU_PIVOT_URL=<app url> npm run test:browser -- tests/browser/psu-pivot.spec   # the pivot module's showcase
+# plus PSU_PIVOT_AUTH_URL=<templates.ps1 app with sign-in> PSU_PIVOT_READER_USER/_PASSWORD PSU_PIVOT_ADMIN_USER/_PASSWORD for the role tests
 pwsh ./build/Build-Module.ps1 -Module PowerShellUniversal.Component.ECharts   # output/<Module>/<Version>
 pwsh ./docs/site/Build-Site.ps1                      # examples, reference, charts script for the site
 uv run --with-requirements <eizedev/brand>/docs-site/requirements.txt zensical build   # site/ (copy site.css from there into docs/assets/ first)

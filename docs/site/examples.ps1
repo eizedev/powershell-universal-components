@@ -367,9 +367,28 @@
             ) -OnCellClick {
                 Show-UDToast -Message ('{0} tickets' -f $EventData.count)
             } -OnSaveTemplate {
-                # checked before it is stored anywhere (see "Views and templates")
+                # checked before it is stored anywhere (see "Templates, view files and roles")
                 $json = ConvertFrom-UDPivotView -InputObject $EventData.view -AsJson
                 Show-UDToast -Message ('{0} saved ({1} characters)' -f $EventData.name, $json.Length)
+            }
+        }
+    }
+    @{ Section = 'Pivot'; Title = 'Shared views and my views'; Text = 'Open Views: shared views from -Templates, the reader''s own under My views. This reader has the role of -AdminRole, so each own view can be published and shared views deleted; the page shows the $EventData the server would get. On a PSU server -TemplateStore does the storing.'; Code = {
+            $rng = [System.Random]::new(21)
+            $rows = foreach ($i in 1..400) {
+                [pscustomobject]@{ Ticket = $i; Team = ('Service Desk', 'Network', 'Server')[$rng.Next(0, 3)]; Priority = 'P{0}' -f $rng.Next(1, 5); 'Lead hours' = [math]::Round(2 + 30 * $rng.NextDouble(), 1) }
+            }
+            $perTeam = @{ rows = @('Team'); values = @(@{ field = 'Ticket'; agg = 'count' }) }
+            New-UDPivotReport -Id 'pivot-templates' -Data $rows -View $perTeam -Height 560px -TimeZone UTC -Templates @(
+                @{ Name = 'Tickets per team'; View = $perTeam }
+                @{ Name = 'Lead time per priority'; View = @{ rows = @('Priority'); values = @(@{ field = 'Lead hours'; agg = 'average'; format = 'number:1' }); display = 'chart'; chart = @{ type = 'donut'; labelPosition = 'inside' } } }
+                @{ Name = 'My priorities'; Scope = 'user'; Deletable = $true; View = @{ rows = @('Priority'); cols = @('Team'); values = @(@{ field = 'Ticket'; agg = 'count' }) } }
+            ) -AdminRole 'Administrator' -UserName 'kim' -Roles 'Administrator' -OnSaveTemplate {
+                $json = ConvertTo-UDPivotViewFile -View $EventData.view -Name $EventData.name -SourceId 'pivot-templates'
+            } -OnDeleteTemplate {
+                # $EventData.scope: user or shared; a shared delete needs the role (check $Roles here)
+            } -OnPublishTemplate {
+                if ($Roles -notcontains 'Administrator') { return @{ error = 'Only admins can change shared views.' } }
             }
         }
     }

@@ -129,4 +129,4 @@ a cycle, a cap - is left out and named in the browser's console; the report work
 OpenAPI document travels to the browser with every page: for a big API, save the schema of the row as
 a file and pass that.
 
-Next: [Views and templates](views.md), [Events, security and limits](events.md), [Reference](reference.md).
+Next: [Views](views.md), [Templates, view files and roles](templates.md), [Events, security and limits](events.md), [Reference](reference.md).
