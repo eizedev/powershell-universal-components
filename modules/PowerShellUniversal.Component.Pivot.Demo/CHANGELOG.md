@@ -5,6 +5,11 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
+### Fixed
+
+- A click on the free space beside the "Live data" switch no longer switches it
+  ([#75](https://github.com/eizedev/powershell-universal-components/issues/75)).
+
 ## [0.1.0] - 2026-11-08
 
 ### Added

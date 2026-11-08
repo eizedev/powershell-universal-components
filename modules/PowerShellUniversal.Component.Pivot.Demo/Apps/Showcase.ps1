@@ -49,9 +49,13 @@ New-UDElement -Tag 'div' -Attributes @{ style = @{ display = 'flex'; flexWrap = 
         Sync-UDElement -Id '<<ID>>-content'
     }
     if ($<<LIVE>>) {
-        New-UDSwitch -Id '<<ID>>-live' -Label 'Live data' -Checked $live -OnChange {
-            $Session:PivotShowcaseLive = [bool]::Parse("$EventData")
-            Sync-UDElement -Id '<<ID>>-content'
+        # New-UDSwitch draws its label as a full-width grid: the wrapper keeps it as wide as the
+        # switch and its text, so a click beside them does not toggle it
+        New-UDElement -Tag 'div' -Attributes @{ style = @{ flex = '0 0 auto' } } -Content {
+            New-UDSwitch -Id '<<ID>>-live' -Label 'Live data' -Checked $live -OnChange {
+                $Session:PivotShowcaseLive = [bool]::Parse("$EventData")
+                Sync-UDElement -Id '<<ID>>-content'
+            }
         }
     }
 }
