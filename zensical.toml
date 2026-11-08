@@ -62,13 +62,16 @@ nav = [
     { "Templates, view files and roles" = "pivot/templates.md" },
     { "Events, security and limits" = "pivot/events.md" },
     { "Commands and parameters" = "pivot/reference.md" },
-    { "Upgrade notes" = "pivot/upgrade.md" },
   ] },
   { "Development" = [
     { "Build and test" = "development/index.md" },
     { "Releases" = "development/release.md" },
   ] },
 ]
+
+# addresses of pages that are gone, to the page that has their content now
+[project.plugins.redirects.redirect_maps]
+"pivot/upgrade.md" = "pivot/templates.md"
 
 [project.theme]
 language = "en"

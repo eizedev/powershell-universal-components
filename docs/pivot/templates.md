@@ -14,7 +14,9 @@ groups:
 
 Each entry loads its view with one click (one undo step); the first three are also offered on the
 empty report. Views also has **Copy view as JSON**, **Download view** (a [view file](#view-files)) and
-**Load view…** (a view file, JSON or a link).
+**Load view…** (a view file, JSON or a link). Toolbar buttons that do not fit move into **More**, Views among the
+first: in the showcase's report in a window 1,440 pixels wide, Views is in More (measured on PSU
+2026.3.4).
 
 | What you want | Parameters |
 | --- | --- |

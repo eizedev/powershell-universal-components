@@ -41,7 +41,6 @@ the server and admins publish shared ones.
 | `-Templates`, `-TemplatePath`, view files, `-TemplateStore` (browser, files, your own storage), `-AdminRole` and the admin panel | [Templates, view files and roles](https://powershell-universal-components.eize.dev/pivot/templates/) |
 | `-OnViewChange`, `-OnCellClick`, `-OnSaveTemplate`, `-OnDeleteTemplate`, `-OnPublishTemplate`, security | [Events, security and limits](https://powershell-universal-components.eize.dev/pivot/events/) |
 | Parameters | [Reference](https://powershell-universal-components.eize.dev/pivot/reference/) |
-| What changes for an app between builds | [Upgrade notes](https://powershell-universal-components.eize.dev/pivot/upgrade/) |
 
 ## Security notes
 

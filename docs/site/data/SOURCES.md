@@ -16,6 +16,9 @@ Fetched on 2026-11-08, unchanged.
 
 ## endoflife.date
 
+- Endpoint version: the API's v0 endpoints (`/api/<product>.json`, flat rows per release cycle), not
+  v1 (`/api/v1/products/<product>`, nested, used by pivotkit's playground). A switch to v1 changes
+  the addresses in `../examples.ps1`, these files and the row mapping in the examples.
 - Request: `https://endoflife.date/api/<product>.json`, for example
   `https://endoflife.date/api/python.json`; one row per release cycle with `cycle`, `releaseDate`,
   `eol`, `latest`, `latestReleaseDate`, `lts` and, depending on the product, `support`,
