@@ -255,6 +255,15 @@ Describe 'Save over a stored view (upsert by name): <Kind> store' -ForEach @(@{ 
             else { $script:data[$Key] = $Json }
         }
         $script:userKey = { param($User = 'alex') & $script:module { param($u) Get-UDPivotSha256 -Text $u -Length 24 } $User }
+        # a view file as version 0.1.0 wrote it, at the key 0.1.0 gave it (a hash of the name in lower case)
+        $script:placeLegacy = {
+            param($Name, $View = $script:view)
+            $key = 'users/{0}/{1}' -f (& $script:userKey), (& $script:module { param($n) Get-UDPivotViewFileName -Name $n -SourceId 'tickets' -Legacy } $Name)
+            $json = (ConvertTo-UDPivotViewFile -View $View -Name $Name -SourceId 'tickets') -replace '("generator": \{\s*"name": "PowerShellUniversal\.Component\.Pivot",\s*"version": )"[^"]*"', '$1"0.1.0"'
+            $json | Should -Match '"version": "0\.1\.0"'
+            & $script:place $key $json
+            $key
+        }
         $script:other = @{ rows = @('Team'); cols = @('Hours'); values = @(@{ field = 'Hours'; agg = 'count' }) }
     }
     AfterEach { if (Test-Path $script:folder) { Remove-Item -LiteralPath $script:folder -Recurse -Force } }
@@ -312,8 +321,7 @@ Describe 'Save over a stored view (upsert by name): <Kind> store' -ForEach @(@{ 
 
     It 'replaces a view stored under another file name (version 0.1.0, by hand) and never writes over it with another name' {
         # 0.1.0 named the file after a hash of the name in lower case
-        $legacy = 'users/{0}/{1}' -f (& $script:userKey), (& $script:module { Get-UDPivotViewFileName -Name 'Sales' -SourceId 'tickets' -Legacy })
-        & $script:place $legacy (ConvertTo-UDPivotViewFile -View $script:view -Name 'Sales' -SourceId 'tickets')
+        $legacy = & $script:placeLegacy 'Sales'
         & $script:save 'Sales' $script:other
         $stored = @(& $script:stored)
         $stored.Count | Should -Be 1
@@ -327,7 +335,20 @@ Describe 'Save over a stored view (upsert by name): <Kind> store' -ForEach @(@{ 
     }
 
     # a store whose Get does not say where a view is cannot replace one stored elsewhere (documented)
-    It 'replaces a view made for no named data in place, and it stays one; leaves one of a view stored twice' -Skip:($Kind -eq 'CustomJsonOnly') {
+    It 'deletes a view of version 0.1.0 whose old key a new view of the name in another case shares' {
+        & $script:placeLegacy 'Sales'
+        & $script:save 'sales'
+        & $script:names | Should -Be @('sales', 'Sales')
+        & $script:invoke @{ Store = $script:store; Action = 'Delete'; Scope = 'user'; UserName = 'alex'; Name = 'Sales'; SourceId = 'tickets' }
+        & $script:names | Should -Be @('sales')
+        @(& $script:stored).Count | Should -Be 1
+    }
+
+    It 'replaces a view made for no named data in place, and it stays one; leaves one of a view stored twice' {
+        if ($Kind -eq 'CustomJsonOnly') {
+            Set-ItResult -Skipped -Because 'a store whose -Get returns no FileName cannot say where a view put there by hand is stored, so it cannot replace it there (documented on docs/pivot/templates.md)'
+            return
+        }
         $plain = 'users/{0}/plain.pivotkit.json' -f (& $script:userKey)
         & $script:place $plain '{"name":"For any data","view":{"rows":["Team"]}}'
         & $script:save 'For any data' $script:other
@@ -343,6 +364,54 @@ Describe 'Save over a stored view (upsert by name): <Kind> store' -ForEach @(@{ 
         & $script:save 'Twice' $script:other
         @(& $script:stored | Where-Object { $_ -like '*copy-*' }).Count | Should -Be 1
         & $script:names | Should -Be @('For any data', 'Twice')
+    }
+}
+
+Describe 'A custom store whose -Delete fails for a missing key' {
+    BeforeEach {
+        $script:data = [System.Collections.Generic.Dictionary[string, string]]::new()
+        $script:refuseAll = $false
+        $script:store = New-UDPivotTemplateStore -Get {
+            param($Request)
+            $prefix = 'users/{0}/' -f $Request.UserKey
+            foreach ($k in @($script:data.Keys | Where-Object { $_.StartsWith($prefix) })) { $script:data[$k] }
+        } -Save { param($Request) $script:data[$Request.Key] = $Request.Json } -Delete {
+            param($Request)
+            if ($script:refuseAll -or -not $script:data.ContainsKey($Request.Key)) { throw "no such key: $($Request.Key)" }
+            $null = $script:data.Remove($Request.Key)
+        }
+        $script:run = { param([hashtable]$a) & $script:module { param($x) Invoke-UDPivotTemplateStore @x } (@{ Store = $script:store; Scope = 'user'; UserName = 'alex'; SourceId = 'tickets' } + $a) }
+        $script:names = { @(& $script:run @{ Action = 'List' } | ForEach-Object Name | Sort-Object -CaseSensitive) }
+        # a view file as version 0.1.0 wrote it, at the key 0.1.0 gave it
+        $script:legacy = {
+            param($Name)
+            $key = 'users/{0}/{1}' -f (& $script:module { Get-UDPivotSha256 -Text 'alex' -Length 24 }), (& $script:module { param($n) Get-UDPivotViewFileName -Name $n -SourceId 'tickets' -Legacy } $Name)
+            $script:data[$key] = (ConvertTo-UDPivotViewFile -View $script:view -Name $Name -SourceId 'tickets') -replace '("generator": \{\s*"name": "PowerShellUniversal\.Component\.Pivot",\s*"version": )"[^"]*"', '$1"0.1.0"'
+        }
+    }
+
+    It 'a save that worked is no error when a cleanup delete fails: a warning' {
+        & $script:legacy 'Sales'
+        $script:refuseAll = $true
+        $warned = @(& $script:run @{ Action = 'Save'; Name = 'Sales'; View = $script:view } 3>&1 | Where-Object { $_ -is [System.Management.Automation.WarningRecord] })
+        "$warned" | Should -BeLike '*could not be removed*'
+        & $script:names | Should -Contain 'Sales'
+    }
+
+    It 'deletes a view of this version (its one key) and one of 0.1.0 (one of the keys it may be under) without an error' {
+        & $script:run @{ Action = 'Save'; Name = 'New one'; View = $script:view }
+        $warnedNew = @(& $script:run @{ Action = 'Delete'; Name = 'New one' } 3>&1 | Where-Object { $_ -is [System.Management.Automation.WarningRecord] })
+        $warnedNew | Should -BeNullOrEmpty
+        & $script:legacy 'Old One'
+        $null = & $script:run @{ Action = 'Delete'; Name = 'Old One' } 3>&1
+        & $script:names | Should -BeNullOrEmpty
+        $script:data.Count | Should -Be 0
+    }
+
+    It 'a delete that removed nothing is the error the reader sees' {
+        & $script:run @{ Action = 'Save'; Name = 'Kept'; View = $script:view }
+        $script:refuseAll = $true
+        { & $script:run @{ Action = 'Delete'; Name = 'Kept' } } | Should -Throw '*no such key*'
     }
 }
 

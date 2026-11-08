@@ -29,7 +29,7 @@ your own `-OnSaveTemplate` and `-OnPublishTemplate` must do the same. Undo and R
 name with the view; Reset and New take it away. Views also has **Copy view as JSON**, **Download
 view** (a [view file](#view-files)) and **Load view…** (a view file, JSON or a link). Toolbar buttons
 that do not fit move into **More**; Views is the last to go (pivotkit's order: Reset, Layout,
-Options, the chart type, Views), so it stays in the toolbar from a window about 1,280 pixels wide.
+Options, the chart type, Views), so it moves under More only when the report is narrow.
 
 | What you want | Parameters |
 | --- | --- |
@@ -172,8 +172,22 @@ block gets one argument, `$Request`:
 Saving a name the scope has replaces that view, as in the file store: the module finds it in what
 `-Get` returns (same name, same case) and passes its `FileName`, so `-Save` writes over it. For a
 new name `FileName` is `<name>-<hash>.pivotkit.json` (a hash of the name and the `-SourceId`), one no
-stored view has. Without `FileName` from `-Get` the module assumes that one; return `FileName` when
-views can be stored under another (put there by hand or by another tool), or a save adds a second.
+stored view has; when that one is taken, another (`<name>-<hash>.pivotkit.json` with another hash).
+
+Return `FileName` from `-Get` (objects with `FileName` and `Json`). Without it the module can only
+assume where a view is stored: the `FileName` a save of its name gives it. A view stored under another
+one - put there by hand or by another tool, or given another `FileName` because the first was taken -
+is then not found again, and the next save of its name adds a second entry instead of replacing it.
+
+`-Delete` must succeed for a `Key` that is not stored (as `DELETE`, `HDEL` and S3 do): after a save the
+module removes the other places a view of that name may be stored (a copy, the key version 0.1.0 gave
+it), and where it has to guess, the key may not exist. A delete that fails there is a warning in the
+app's log, not an error for a save that worked.
+
+The lock the module holds while it lists and writes is a named mutex on one machine. With several PSU
+nodes, two saves of a new name on two nodes at the same moment can both add it: give the storage a
+unique key on scope, user and `FileName` (the SQL Server example's primary key), so the second
+replaces the first instead of adding a row.
 
 Throw to refuse; the reader sees the message. Like the file store, a report lists only the views made
 for its `-SourceId` and those that name no data, so one store serves several reports. The script blocks run in the runspace of the app script

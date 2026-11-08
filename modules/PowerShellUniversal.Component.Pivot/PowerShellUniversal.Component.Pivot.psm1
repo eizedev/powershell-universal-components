@@ -713,7 +713,8 @@ function ConvertFrom-UDPivotViewFile {
     .EXAMPLE
         ConvertFrom-UDPivotViewFile -InputObject (Get-Content -LiteralPath ./open-work.pivotkit.json -Raw)
     .OUTPUTS
-        System.Management.Automation.PSCustomObject with Name, Description, Source (id, name) and View.
+        System.Management.Automation.PSCustomObject with Name, Description, Source (id, name), Generator
+        (name, version: what wrote the file) and View.
     .LINK
         https://powershell-universal-components.eize.dev/pivot/templates/
     #>
@@ -759,6 +760,7 @@ function ConvertFrom-UDPivotViewFile {
         if ($title -isnot [string] -or [string]::IsNullOrWhiteSpace($title)) { $title = $Name }
         $description = & $get 'description'
         $source = & $get 'source'
+        $generator = & $get 'generator'
         [pscustomobject]@{
             Name        = ConvertTo-UDPivotTemplateName -Name $title
             Description = if ($description -is [string]) { Limit-UDPivotText -Text ($description -replace '[\p{Cc}\p{Cf}]', ' ') -MaxLength $Script:MaxViewFileDescription }
@@ -766,6 +768,12 @@ function ConvertFrom-UDPivotViewFile {
                 [pscustomobject]@{
                     id   = if ($source.id -is [string]) { Limit-UDPivotText -Text $source.id -MaxLength $Script:MaxNameLength }
                     name = if ($source.name -is [string]) { Limit-UDPivotText -Text $source.name -MaxLength $Script:MaxNameLength }
+                }
+            }
+            Generator   = if ($generator -is [System.Management.Automation.PSCustomObject]) {
+                [pscustomobject]@{
+                    name    = if ($generator.name -is [string]) { Limit-UDPivotText -Text $generator.name -MaxLength $Script:MaxNameLength }
+                    version = if ($generator.version -is [string]) { Limit-UDPivotText -Text $generator.version -MaxLength 40 }
                 }
             }
             View        = $checked
@@ -1129,7 +1137,9 @@ function Invoke-UDPivotTemplateStore {
     # the views of every report of the store, so the list is capped by what a report takes, not by $max.
     # File: where a view is stored (its file; for a custom store the FileName Get returns, else the one a
     # save gives it), so a save over it replaces it in place. Files: every place it may be stored: for a
-    # custom store without FileName also the one version 0.1.0 gave it (a hash of the name in lower case).
+    # custom store without FileName also the one version 0.1.0 gave it (a hash of the name in lower case,
+    # which "Sales" and "sales" share), unless the stored file says this module wrote it from 0.2.0 on,
+    # which never uses that place: so a view saved now never claims the place of an old one.
     $list = {
         if ($Store.Kind -eq 'File') { return @(Get-UDPivotTemplateFile -Path $folder -MaxCount $Script:MaxTemplates | ForEach-Object { $_ | Add-Member -NotePropertyName Files -NotePropertyValue @($_.File) -PassThru }) }
         $index = 0
@@ -1145,9 +1155,12 @@ function Invoke-UDPivotTemplateStore {
                     $read = ConvertFrom-UDPivotViewFile -InputObject $source
                     $sourceId = if ($read.Source) { $read.Source.id }
                     $stored = if ($entry -isnot [string]) { Get-UDPivotEntryValue -InputObject $entry -Name 'FileName' }
+                    $writtenBy = $read.Generator
+                    $version = $null
+                    $current = $writtenBy -and $writtenBy.name -ceq 'PowerShellUniversal.Component.Pivot' -and [version]::TryParse([string]$writtenBy.version, [ref]$version) -and $version -ge [version]'0.2.0'
                     $files = @(if ($stored -is [string] -and $stored -match '^[^\\/\p{Cc}]{1,255}$' -and $stored -notin '.', '..') { $stored } else {
                             Get-UDPivotViewFileName -Name $read.Name -SourceId $sourceId
-                            Get-UDPivotViewFileName -Name $read.Name -SourceId $sourceId -Legacy
+                            if (-not $current) { Get-UDPivotViewFileName -Name $read.Name -SourceId $sourceId -Legacy }
                         }) | Select-Object -Unique
                     $files = @($files)
                     [pscustomobject]@{ Name = $read.Name; View = $read.View; File = $files[0]; Files = @($files); SourceId = $sourceId }
@@ -1191,12 +1204,25 @@ function Invoke-UDPivotTemplateStore {
         else { $null = & $Store.Delete ([pscustomobject](& $requestFor $FileName)) }
     }
     # takes the view of this name out of every place it may be stored but -Keep (a copy; the place version
-    # 0.1.0 gave it), never out of a place another view may be in
+    # 0.1.0 gave it), never out of a place another view may be in. Some of these places are guesses (a
+    # custom store without FileName), so a failed delete there is a warning; with -Strict (Delete) a view
+    # of which no place could be deleted is an error the reader sees.
     $clear = {
-        param([object[]]$Found, [object[]]$All, [string]$Keep)
+        param([object[]]$Found, [object[]]$All, [string]$Keep, [switch]$Strict)
         $claimed = @($All | Where-Object { $Found -notcontains $_ } | ForEach-Object { $_.Files })
-        foreach ($file in @($Found | ForEach-Object { $_.Files } | Select-Object -Unique)) {
-            if ($file -ne $Keep -and $claimed -notcontains $file) { & $remove $file }
+        $done = @{}
+        foreach ($entry in $Found) {
+            $failed = $null
+            $removed = 0
+            foreach ($file in @($entry.Files | Where-Object { $_ -ne $Keep -and $claimed -notcontains $_ })) {
+                if ($done.ContainsKey($file)) { $removed++; continue }
+                try { & $remove $file; $done[$file] = $true; $removed++ }
+                catch { if (-not $failed) { $failed = $_ } }
+            }
+            if ($failed) {
+                if ($Strict -and -not $removed) { throw $failed }
+                Write-Warning ('Pivot template store: "{0}" could not be removed from one place: {1}' -f $checkedName, $failed.Exception.Message)
+            }
         }
     }
     # a folder, or a custom store's scope and user: list and write as one step, so two saves of a new
@@ -1208,7 +1234,7 @@ function Invoke-UDPivotTemplateStore {
             $all = @(& $list)
             $found = @(& $named $all)
             # none listed (a stored view broken by hand): the file a save of this name gives it
-            if ($found.Count) { & $clear $found $all '' }
+            if ($found.Count) { & $clear $found $all '' -Strict }
             else { & $remove (Get-UDPivotViewFileName -Name $checkedName -SourceId $reportData) }
         }
         return

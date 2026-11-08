@@ -22,6 +22,11 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   key on its next save, and the old key is deleted.
 - `New-UDPivotTemplateStore`: `-Get` may return objects with `Json` and `FileName`; a save over such a
   view gets its `FileName`, so `-Save` replaces it where it is stored. The SQL Server example returns it.
+  `-Delete` must succeed for a key that is not stored: after a save the module also removes the other
+  places a view of the name may be under, and a failure there is a warning in the log, not an error
+  for the save. On several PSU nodes the store's own unique key (scope, user, `FileName`) keeps a
+  name once; the module's lock holds on one machine only.
+- `ConvertFrom-UDPivotViewFile` also returns `Generator` (name and version of what wrote the file).
 
 ### Fixed
 
