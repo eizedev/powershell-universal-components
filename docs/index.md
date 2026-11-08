@@ -71,7 +71,7 @@ New-UDPivotReport -Id 'python' -Data (Invoke-RestMethod 'https://endoflife.date/
 ![The pivot report in the light theme: release cycles of nine products from endoflife.date per product and LTS, with the field list and the admin panel](assets/pivot-report-light.png#only-light)
 ![The pivot report in the dark theme: release cycles of nine products from endoflife.date per product and LTS, with the field list and the admin panel](assets/pivot-report-dark.png#only-dark)
 
-<small>Release data by [endoflife.date](https://endoflife.date/), MIT licence, Copyright 2020 endoflife.date contributors ([sources and licence](https://github.com/eizedev/powershell-universal-components/blob/main/docs/site/data/SOURCES.md)).</small>
+<small>Release data by [endoflife.date](https://endoflife.date/), MIT licence, Copyright 2020 endoflife.date contributors ([sources and licence](https://github.com/eizedev/powershell-universal-components/blob/HEAD/docs/site/data/SOURCES.md)).</small>
 
 [Pivot overview](pivot/index.md){ .md-button .md-button--primary }
 [Templates, view files and roles](pivot/templates.md){ .md-button }

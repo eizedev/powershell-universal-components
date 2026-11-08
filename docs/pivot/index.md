@@ -11,6 +11,8 @@ description: "New-UDPivotReport - a pivot report builder for PSU apps: readers d
 pass the rows to `-Data`, and the report is there. Everything runs in the browser; the server is only
 asked for what the [event parameters](events.md) do.
 
+Install it from the PowerShell Gallery on the PSU server:
+
 ```powershell
 Install-PSResource -Name PowerShellUniversal.Component.Pivot
 ```
@@ -18,6 +20,9 @@ Install-PSResource -Name PowerShellUniversal.Component.Pivot
 ## Pivot report from a web API
 
 --8<-- "examples/pivot-report-from-a-web-api.md"
+
+Some products on endoflife.date mix dates and `true`/`false` in `eol`; the next example keeps the dates
+only.
 
 Then, depending on what the report needs:
 

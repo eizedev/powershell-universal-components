@@ -176,7 +176,7 @@ foreach ($example in & (Join-Path $site 'examples.ps1')) {
     $code = Format-ExampleCode $example.Code
     $snippet = "$text<div class=`"psu-example`" data-example=`"$id`"></div>`n`n``````powershell`n$code`n```````n"
     if ($example.App) {
-        $snippet += "`nThe same as a whole app (admin console > Apps > create, the app's script):`n`n``````powershell`n$(Format-AppScript $example.App $code)`n```````n"
+        $snippet += "`nThe same as a whole app script:`n`n``````powershell`n$(Format-AppScript $example.App $code)`n```````n"
     }
     if ($example.Source) { $snippet += "`n<small>$($example.Source)</small>`n" }
     Write-Generated (Join-Path $generated 'examples' "$id.md") $snippet

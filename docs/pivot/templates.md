@@ -326,8 +326,8 @@ Event handlers run in a runspace of their own: functions defined in the app scri
 PSU does not load the module by itself. Call `Import-Module PowerShellUniversal.Component.Pivot` in a
 handler that uses the module's commands.
 
-The [showcase app](https://github.com/eizedev/powershell-universal-components/blob/main/modules/PowerShellUniversal.Component.Pivot/examples/showcase.ps1)
+The [showcase app](https://github.com/eizedev/powershell-universal-components/blob/HEAD/modules/PowerShellUniversal.Component.Pivot/examples/showcase.ps1)
 has no sign-in and shows `-Templates`, `-TemplatePath` and the file store (its readers' own views stay
 in the browser);
-[templates.ps1](https://github.com/eizedev/powershell-universal-components/blob/main/modules/PowerShellUniversal.Component.Pivot/examples/templates.ps1)
+[templates.ps1](https://github.com/eizedev/powershell-universal-components/blob/HEAD/modules/PowerShellUniversal.Component.Pivot/examples/templates.ps1)
 is an app with sign-in, own views on the server, publishing for two roles and the admin panel.

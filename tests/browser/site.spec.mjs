@@ -130,7 +130,7 @@ test("Pivot: the start view, field labels and both templates of the medium examp
     expect(errors).toEqual([]);
 });
 
-test("Pivot: the app example keeps a reader's view in the template store and shows the admin panel", async ({ page }) => {
+test("Pivot: in the app example a saved view is listed under My views, its $EventData shows, and the admin panel is there", async ({ page }) => {
     const errors = collectErrors(page);
     await openPage(page, "/pivot/");
     const example = page.locator('[data-example="a-report-app-with-loading-views-per-reader-and-roles"]');
@@ -143,7 +143,27 @@ test("Pivot: the app example keeps a reader's view in the template store and sho
     await page.locator("[data-testid=saved-view-name]").press("Enter");
     // the store's own event handler, registered by the module
     await expect(page.locator('[data-example="a-report-app-with-loading-views-per-reader-and-roles"] + .psu-event')).toContainText("-OnSaveTemplate");
+    await openViews(report);
+    const menu = example.locator(".pk-popover").last();
+    await expect(menu).toContainText("My views");
+    await expect(menu).toContainText("Mine");
     expect(errors).toEqual([]);
+});
+
+test("Pivot: menus open inside the report's shadow root, styled, never on the page's body", async ({ page }) => {
+    await openPage(page, "/pivot/templates/");
+    const example = page.locator('[data-example="shared-views-and-my-views"]');
+    await openViews(example.locator(".pk-root"));
+    const state = await example.evaluate((el) => {
+        const popover = el.shadowRoot && el.shadowRoot.querySelector(".pk-popover");
+        return {
+            inShadow: Boolean(popover),
+            // pivotkit's own stylesheet reached it: a popover is positioned fixed over the report
+            position: popover ? getComputedStyle(popover).position : null,
+            onBody: document.querySelectorAll("body > .pk-popover").length
+        };
+    });
+    expect(state).toEqual({ inShadow: true, position: "fixed", onBody: 0 });
 });
 
 test("Pivot: shared views and my views; a reader with -AdminRole publishes and the page shows the $EventData", async ({ page }) => {

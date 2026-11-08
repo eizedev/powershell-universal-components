@@ -12,7 +12,7 @@ The code of this repository is MIT licensed; these files are data and keep the l
 | --- | --- | --- | --- |
 | `endoflife.date/api/*.json` | [endoflife.date](https://endoflife.date/), the API's `/api/<product>.json` (release cycles of one product) | [MIT](https://github.com/endoflife-date/endoflife.date/blob/master/LICENSE) | "endoflife.date", with the copyright notice and the licence text below |
 
-Fetched on 2026-11-08, unchanged.
+Fetched on 2026-11-08 (`Update-Data.ps1` writes this date), unchanged.
 
 ## endoflife.date
 
@@ -26,8 +26,11 @@ Fetched on 2026-11-08, unchanged.
 - Mixed types: `eol`, `support` and `extendedSupport` are a date (`"2031-10-31"`) or `true`/`false`
   (ended or not, without a date); the dates are text.
 - Key: none. No rate limit is documented.
-- Licence: the endoflife.date repository, data included, is under the MIT License, which asks to
-  include this notice and the licence text in all copies or substantial portions:
+- Licence: the release data the API serves lives in the endoflife.date repository (one file per
+  product, `products/<product>.md`), which is under the MIT License: its `LICENSE` file and its README
+  ("Licensed under the MIT License"), checked on 2026-11-08. The API documentation names no separate
+  licence for the API's answers. The MIT License asks to include this notice and the licence text in
+  all copies or substantial portions; the text below is the repository's `LICENSE`, word for word:
 
   > Copyright 2020 endoflife.date contributors
   >

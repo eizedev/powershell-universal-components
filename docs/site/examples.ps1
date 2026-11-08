@@ -10,7 +10,7 @@
 #>
 
 # the attribution endoflife.date's licence asks for, under every example with its data
-$endoflife = 'Release data by [endoflife.date](https://endoflife.date/), MIT licence, Copyright 2020 endoflife.date contributors; on this page a snapshot of 2026-11-08 ([sources and licence](https://github.com/eizedev/powershell-universal-components/blob/main/docs/site/data/SOURCES.md)).'
+$endoflife = 'Release data by [endoflife.date](https://endoflife.date/), MIT licence, Copyright 2020 endoflife.date contributors; on this page a snapshot of 2026-11-08 ([sources and licence](https://github.com/eizedev/powershell-universal-components/blob/HEAD/docs/site/data/SOURCES.md)).'
 
 @(
     #region Start
@@ -389,11 +389,11 @@ $endoflife = 'Release data by [endoflife.date](https://endoflife.date/), MIT lic
             )
         }
     }
-    @{ Section = 'Pivot'; Title = 'A report app with loading, views per reader and roles'; App = 'Release cycles'; Source = $endoflife; Text = 'The report in New-UDDynamic with New-UDPivotReportPlaceholder while the server asks the API; readers keep their own views on the server (New-UDPivotFileTemplateStore), readers with the role of -AdminRole publish shared views and see the admin panel, and -OnCellClick runs on the server. On this page the report appears at once, the reader is signed in with the role Administrator, and the page shows the $EventData the server would get.'; Code = {
+    @{ Section = 'Pivot'; Title = 'A report app with loading, views per reader and roles'; App = 'Release cycles'; Source = $endoflife; Text = 'The report in New-UDDynamic with New-UDPivotReportPlaceholder while the server asks the API; readers keep their own views on the server (New-UDPivotFileTemplateStore), readers with the role of -AdminRole publish shared views and see the admin panel, and -OnCellClick runs on the server. The app needs authentication and the role -AdminRole names: without a signed-in $User the readers'' own views stay in the browser, and without that role in $Roles there is no Publish and no admin panel. On this page the report appears at once, the reader is signed in with the role Administrator, and the page shows the $EventData the server would get.'; Code = {
             $products = 'python', 'nodejs', 'postgresql', 'ubuntu', 'debian', 'powershell', 'dotnet', 'mssqlserver', 'windows-server'
             # view files next to the PSU repository: users/<hash>/ for each reader, shared/ for everyone
             $store = New-UDPivotFileTemplateStore -MaxUserViews 20
-            New-UDDynamic -Id 'release-cycles' -LoadingComponent {
+            New-UDDynamic -Id 'release-cycles-report' -LoadingComponent {
                 New-UDPivotReportPlaceholder -Height 640px -Locale en-GB -Label 'Release cycles'
             } -Content {
                 $cycles = foreach ($product in $products) {
