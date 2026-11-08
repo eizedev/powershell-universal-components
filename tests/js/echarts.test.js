@@ -801,3 +801,34 @@ test("text sizes: the plot of a chart without a grid starts below a larger title
     assert.equal(normal, 35);
     assert.ok(plotBands(scaleFonts(o, 18), 800).top > normal + 10);
 });
+
+// ---- the theme contract between the modules ------------------------------------------------------
+
+test("theme contract: docs/echarts/themes.md lists exactly the --psu-chart-* properties the charts and the pivot report read", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { readCssTokens } = await import("../../modules/PowerShellUniversal.Component.ECharts/Components/themes.js");
+    const doc = readFileSync(new URL("../../docs/echarts/themes.md", import.meta.url), "utf8");
+    const pivotCss = readFileSync(new URL("../../modules/PowerShellUniversal.Component.Pivot/Components/psu.css", import.meta.url), "utf8");
+    // what the ECharts module reads: every name its token reader asks the page for
+    const asked = new Set();
+    readCssTokens((name) => {
+        asked.add(name);
+        return "";
+    });
+    const echarts = [...asked].filter((n) => n.startsWith("--psu-chart-")).sort();
+    // what the pivot report reads: every var(--psu-chart-*) of its theme bridge
+    const pivot = [...new Set([...pivotCss.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/var\((--psu-chart-[a-z0-9-]+)/g)].map((m) => m[1]))].sort();
+    // the table: property (a name, or a range "`--psu-chart-1` ... `--psu-chart-12`"), ECharts, pivot ("-": not read)
+    const rows = doc.split("\n").filter((l) => l.startsWith("| `--psu-chart-")).map((line) => {
+        const cells = line.split("|").slice(1, -1).map((c) => c.trim());
+        const range = /^`--psu-chart-(\d+)` \.\.\. `--psu-chart-(\d+)`$/.exec(cells[0]);
+        const names = range ? Array.from({ length: range[2] - range[1] + 1 }, (_, k) => `--psu-chart-${Number(range[1]) + k}`) : [/^`([^`]+)`$/.exec(cells[0])[1]];
+        // "1 to 8: ..." in the pivot column: only those positions
+        const part = /^(\d+) to (\d+):/.exec(cells[2]);
+        const pivotNames = cells[2] === "-" ? [] : part ? names.filter((n) => { const i = Number(n.split("-").pop()); return i >= Number(part[1]) && i <= Number(part[2]); }) : names;
+        return { echarts: cells[1] === "-" ? [] : names, pivot: pivotNames };
+    });
+    assert.ok(rows.length > 0, "the table is there");
+    assert.deepEqual(rows.flatMap((r) => r.echarts).sort(), echarts, "ECharts column");
+    assert.deepEqual(rows.flatMap((r) => r.pivot).sort(), pivot, "pivot column");
+});

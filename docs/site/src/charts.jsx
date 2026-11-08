@@ -12,10 +12,13 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import EChart from "../../../modules/PowerShellUniversal.Component.ECharts/Components/EChart.jsx";
 
-const EVENTS = { onClick: "-OnClick", onSelect: "-OnSelect", onZoom: "-OnZoom", onLegendChange: "-OnLegendChange" };
-// where this script was loaded from: examples.json and the Perspective chunk lie next to it
+const EVENTS = {
+    onClick: "-OnClick", onSelect: "-OnSelect", onZoom: "-OnZoom", onLegendChange: "-OnLegendChange",
+    onViewChange: "-OnViewChange", onCellClick: "-OnCellClick", onSaveTemplate: "-OnSaveTemplate", onDeleteTemplate: "-OnDeleteTemplate", onPublishTemplate: "-OnPublishTemplate"
+};
+// where this script was loaded from: examples.json and the Perspective and pivot chunks lie next to it
 const base = new URL(".", document.currentScript ? document.currentScript.src : window.location.href).href;
-// webpack loads lazy chunks (Perspective) from the same folder
+// webpack loads lazy chunks (Perspective, pivot) from the same folder
 // eslint-disable-next-line no-undef, camelcase
 __webpack_public_path__ = base;
 
@@ -87,6 +90,12 @@ async function mount(el) {
         if (example.component === "perspective") {
             const { default: Perspective } = await import(/* webpackChunkName: "perspective" */ "./perspective.js");
             root.render(<Perspective {...propsOf(example, el)} />);
+        } else if (example.component === "pivot") {
+            const { default: PivotReport } = await import(/* webpackChunkName: "pivot" */ "./pivot.js");
+            root.render(<PivotReport {...propsOf(example, el)} />);
+        } else if (example.component === "pivot-placeholder") {
+            const { Placeholder } = await import(/* webpackChunkName: "pivot" */ "./pivot.js");
+            root.render(<Placeholder {...propsOf(example, el)} />);
         } else {
             root.render(<EChart {...propsOf(example, el)} />);
         }

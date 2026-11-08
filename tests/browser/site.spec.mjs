@@ -15,6 +15,14 @@ function examplesState(page) {
         if (el.querySelector("perspective-viewer")) {
             return { id, perspective: true };
         }
+        // the pivot report's placeholder: the report's frame, busy
+        if (el.querySelector(".ud-pivot-placeholder .pk-skeleton")) {
+            return { id, placeholder: true };
+        }
+        // the pivot report: rendered once its table or chart region is there
+        if (el.querySelector(".pk-root .pk-result")) {
+            return { id, pivot: true, cells: el.querySelectorAll(".pk-result td").length, chart: Boolean(el.querySelector(".pk-result canvas")) };
+        }
         const d = [...el.querySelectorAll("div")].find((x) => x.echarts);
         if (!d) {
             return { id, error: el.querySelector(".psu-example-error") ? el.textContent : null, pending: true };
@@ -62,6 +70,85 @@ test("the site has its pages", () => {
     expect(pages.length).toBeGreaterThan(20);
     expect(pages).toContain("/echarts/");
     expect(pages).toContain("/perspective/");
+    expect(pages).toContain("/pivot/");
+});
+
+// Views in the toolbar, or in its More menu where a medium-wide report has no room for it
+async function openViews(report) {
+    const views = report.locator("[data-testid=views]");
+    if (await views.isVisible()) {
+        await views.click();
+    } else {
+        await report.locator("[data-testid=more]").click();
+        await report.page().locator("[data-testid=more-views]").click();
+    }
+}
+
+test("Pivot: the report holds the DataTable, follows the switch and shows the $EventData of a save", async ({ page }) => {
+    const errors = collectErrors(page);
+    await openPage(page, "/pivot/");
+    const example = page.locator('[data-example="pivot-report-from-a-datatable"]');
+    const report = example.locator(".pk-root");
+    // 1200 rows: the grand total of the count
+    await expect(report.getByRole("region", { name: "Table" })).toContainText("1,200");
+    const theme = await report.getAttribute("data-pk-theme");
+    await page.locator("[data-md-component=palette] label:visible").first().click();
+    await expect(report).not.toHaveAttribute("data-pk-theme", theme);
+    await openViews(report);
+    await page.locator("[data-testid=saved-view-name]").fill("Mine");
+    await page.locator("[data-testid=saved-view-name]").press("Enter");
+    await expect(page.locator(".psu-event")).toContainText("-OnSaveTemplate");
+    await expect(page.locator(".psu-event")).toContainText('"name": "Mine"');
+    await expect(report.locator(".pk-toast-dock")).toContainText("saved");
+    expect(errors).toEqual([]);
+});
+
+test("Pivot: shared views and my views; a reader with -AdminRole publishes and the page shows the $EventData", async ({ page }) => {
+    const errors = collectErrors(page);
+    await openPage(page, "/pivot/templates/");
+    const report = page.locator('[data-example="shared-views-and-my-views"] .pk-root');
+    await expect(report.getByRole("region", { name: "Table" })).toContainText("400");
+    await openViews(report);
+    const menu = page.locator(".pk-popover").last();
+    await expect(menu).toContainText("Shared views");
+    await expect(menu).toContainText("Lead time per priority");
+    await expect(menu).toContainText("My views");
+    await expect(menu).toContainText("My priorities");
+    await menu.getByRole("button", { name: /Publish/ }).first().click();
+    await menu.getByRole("button", { name: /^Publish$/ }).last().click();
+    await expect(page.locator(".psu-event")).toContainText("-OnPublishTemplate");
+    await expect(page.locator(".psu-event")).toContainText('"name": "My priorities"');
+    await expect(report.locator(".pk-toast-dock")).toContainText("published");
+    expect(errors).toEqual([]);
+});
+
+test("Pivot: the placeholder shows the report's skeleton, tells screen readers it is loading and follows the switch", async ({ page }) => {
+    const errors = collectErrors(page);
+    await openPage(page, "/pivot/");
+    const root = page.locator('[data-example="placeholder-while-the-data-loads"] .pk-root');
+    await expect(root.getByRole("status")).toContainText("Loading the report");
+    // pivotkit's own skeleton: field list, toolbar, four zones
+    await expect(root.locator(".pk-skel-panel")).toHaveCount(1);
+    await expect(root.locator(".pk-skel-zone")).toHaveCount(4);
+    const box = await root.boundingBox();
+    expect(Math.round(box.height)).toBe(420);
+    const theme = await root.getAttribute("data-pk-theme");
+    await page.locator("[data-md-component=palette] label:visible").first().click();
+    await expect(root).not.toHaveAttribute("data-pk-theme", theme);
+    expect(errors).toEqual([]);
+});
+
+test.describe("for readers who asked for reduced motion", () => {
+    test.use({ reducedMotion: "reduce" });
+
+    test("Pivot: the placeholder keeps still", async ({ page }) => {
+        await openPage(page, "/pivot/");
+        const bone = page.locator('[data-example="placeholder-while-the-data-loads"] .pk-skel').first();
+        // pivotkit's rule for reduced motion: one run of a millisecond, then still
+        const style = await bone.evaluate((el) => ({ duration: getComputedStyle(el).animationDuration, count: getComputedStyle(el).animationIterationCount }));
+        expect(parseFloat(style.duration)).toBeLessThanOrEqual(0.001);
+        expect(style.count).toBe("1");
+    });
 });
 
 test("every example on every page renders and draws values, without errors", async ({ page }) => {
@@ -71,7 +158,11 @@ test("every example on every page renders and draws values, without errors", asy
     for (const path of pages) {
         total += await openPage(page, path);
         for (const e of await examplesState(page)) {
-            if (e.perspective) continue;
+            if (e.perspective || e.placeholder) continue;
+            if (e.pivot) {
+                expect(e.cells + (e.chart ? 1 : 0), `${path} ${e.id} draws values`).toBeGreaterThan(0);
+                continue;
+            }
             // an example without rows shows its -EmptyText instead of series
             if (e.id === "when-there-is-nothing-to-show") expect(e.empty, e.id).toBe("No failed jobs today");
             else {

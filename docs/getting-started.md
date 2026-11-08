@@ -7,6 +7,7 @@ From the PowerShell Gallery, on the PSU server:
 ```powershell
 Install-PSResource -Name PowerShellUniversal.Component.ECharts
 Install-PSResource -Name PowerShellUniversal.Component.Perspective
+Install-PSResource -Name PowerShellUniversal.Component.Pivot
 ```
 
 Or copy a built module folder into `Modules/<Module>/<version>/` of your PSU repository (the release
@@ -49,13 +50,23 @@ New-UDEChart -Data $byTeam -Type bar -X Team -Y Tickets -GroupBy Priority -Stack
 
 DataTables, `Invoke-RestMethod` results and PowerShell objects go in as they are; column names are
 matched without regard to case. How the data is read: [ECharts: Data](echarts/data.md),
-[Perspective](perspective/index.md#data).
+[Perspective](perspective/index.md#data), [Pivot](pivot/index.md#data).
 
 The same rows as a table readers rearrange themselves:
 
 ```powershell
 New-UDPerspective -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -GroupBy Team -SplitBy Priority -Columns Id -Aggregates @{ Id = 'count' }
 ```
+
+Or as a report builder, where readers drag the fields into rows, columns and values, save their layouts
+as templates and export to Excel:
+
+```powershell
+New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -Locale de-DE
+```
+
+With thousands of rows, give it a placeholder that shows the report's frame while the server builds the
+data: [Pivot: loading and performance](pivot/index.md#loading-and-performance).
 
 ## Try everything
 

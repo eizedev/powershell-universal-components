@@ -1,0 +1,34 @@
+{
+  "$schema": "https://pivotkit.eize.dev/schema/view-file-1.json",
+  "format": "pivotkit-view",
+  "formatVersion": 1,
+  "name": "Cost per category (donut)",
+  "description": "Share of the cost per ticket category.",
+  "generator": {
+    "name": "PowerShellUniversal.Component.Pivot",
+    "version": "0.1.0"
+  },
+  "source": {
+    "id": "tickets",
+    "name": "Tickets"
+  },
+  "extensions": {},
+  "view": {
+    "display": "chart",
+    "values": [
+      {
+        "agg": "sum",
+        "field": "Cost",
+        "format": "currency:EUR"
+      }
+    ],
+    "rows": [
+      "Category"
+    ],
+    "chart": {
+      "legend": "bottom",
+      "type": "donut",
+      "labelPosition": "inside"
+    }
+  }
+}

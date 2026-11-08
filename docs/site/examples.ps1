@@ -347,4 +347,90 @@
         }
     }
     #endregion
+
+    #region Pivot
+    @{ Section = 'Pivot'; Title = 'Pivot report from a DataTable'; Text = 'Drag fields from the list into Rows, Columns and Values, switch to Chart, click a number for its rows. Saving a template and clicking a value show the $EventData the server would get.'; Code = {
+            # what a SQL query returns: a DataTable with dates, numbers, text and DBNull
+            $rng = [System.Random]::new(5)
+            $tickets = [System.Data.DataTable]::new()
+            foreach ($c in @(@('Ticket', [int]), @('Created', [datetime]), @('Team', [string]), @('Priority', [string]), @('Lead hours', [double]))) { [void]$tickets.Columns.Add($c[0], $c[1]) }
+            foreach ($i in 1..1200) {
+                $open = $rng.NextDouble() -lt 0.2
+                [void]$tickets.Rows.Add(10000 + $i, ([datetime]'2026-10-31').AddDays(-$rng.Next(0, 300)).AddHours($rng.Next(7, 19)),
+                    ('Service Desk', 'Network', 'Server', 'Applications')[$rng.Next(0, 4)], 'P{0}' -f $rng.Next(1, 5),
+                    $(if ($open) { [DBNull]::Value } else { [math]::Round(2 + 40 * $rng.NextDouble(), 1) }))
+            }
+            $view = @{ rows = @('Team'); cols = @('Priority'); values = @(@{ field = 'Ticket'; agg = 'count' }) }
+            New-UDPivotReport -Id 'pivot-datatable' -Data $tickets -View $view -Height 620px -TimeZone UTC -Templates @(
+                @{ Name = 'Tickets per team and priority'; View = $view }
+                @{ Name = 'Lead time per month'; View = @{ rows = @('Created'); values = @(@{ field = 'Lead hours'; agg = 'average'; format = 'number:1' }); display = 'chart'; chart = @{ type = 'line' } } }
+            ) -OnCellClick {
+                Show-UDToast -Message ('{0} tickets' -f $EventData.count)
+            } -OnSaveTemplate {
+                # checked before it is stored anywhere (see "Templates, view files and roles")
+                $json = ConvertFrom-UDPivotView -InputObject $EventData.view -AsJson
+                Show-UDToast -Message ('{0} saved ({1} characters)' -f $EventData.name, $json.Length)
+            }
+        }
+    }
+    @{ Section = 'Pivot'; Title = 'Shared views and my views'; Text = 'Open Views: shared views from -Templates, the reader''s own under My views. This reader has the role of -AdminRole, so each own view can be published and shared views deleted; the page shows the $EventData the server would get. On a PSU server -TemplateStore does the storing.'; Code = {
+            $rng = [System.Random]::new(21)
+            $rows = foreach ($i in 1..400) {
+                [pscustomobject]@{ Ticket = $i; Team = ('Service Desk', 'Network', 'Server')[$rng.Next(0, 3)]; Priority = 'P{0}' -f $rng.Next(1, 5); 'Lead hours' = [math]::Round(2 + 30 * $rng.NextDouble(), 1) }
+            }
+            $perTeam = @{ rows = @('Team'); values = @(@{ field = 'Ticket'; agg = 'count' }) }
+            New-UDPivotReport -Id 'pivot-templates' -Data $rows -View $perTeam -Height 560px -TimeZone UTC -Templates @(
+                @{ Name = 'Tickets per team'; View = $perTeam }
+                @{ Name = 'Lead time per priority'; View = @{ rows = @('Priority'); values = @(@{ field = 'Lead hours'; agg = 'average'; format = 'number:1' }); display = 'chart'; chart = @{ type = 'donut'; labelPosition = 'inside' } } }
+                @{ Name = 'My priorities'; Scope = 'user'; Deletable = $true; View = @{ rows = @('Priority'); cols = @('Team'); values = @(@{ field = 'Ticket'; agg = 'count' }) } }
+            ) -AdminRole 'Administrator' -UserName 'kim' -Roles 'Administrator' -OnSaveTemplate {
+                $json = ConvertTo-UDPivotViewFile -View $EventData.view -Name $EventData.name -SourceId 'pivot-templates'
+            } -OnDeleteTemplate {
+                # $EventData.scope: user or shared; a shared delete needs the role (check $Roles here)
+            } -OnPublishTemplate {
+                if ($Roles -notcontains 'Administrator') { return @{ error = 'Only admins can change shared views.' } }
+            }
+        }
+    }
+    @{ Section = 'Pivot'; Title = 'Placeholder while the data loads'; Text = 'What New-UDPivotReportPlaceholder shows in New-UDDynamic -LoadingComponent until the report arrives: pivotkit''s own skeleton of the report in its colours, moving unless the reader asked for reduced motion.'; Code = {
+            New-UDPivotReportPlaceholder -Height 420px
+        }
+    }
+    @{ Section = 'Pivot'; Title = 'Pivot report in German'; Text = '-Locale de-DE: German labels, numbers and dates; -FieldDefaults gives Lead hours an average with one decimal when it is put into Values.'; Code = {
+            $rng = [System.Random]::new(9)
+            $rows = foreach ($i in 1..600) {
+                [pscustomobject]@{ Ticket = $i; Team = ('Service Desk', 'Netzwerk', 'Server')[$rng.Next(0, 3)]; Kunde = 'Kunde {0}' -f [char](65 + $rng.Next(0, 4)); 'Lead hours' = [math]::Round(2 + 30 * $rng.NextDouble(), 1) }
+            }
+            New-UDPivotReport -Id 'pivot-german' -Data $rows -Locale de-DE -Height 560px -TimeZone UTC -FieldDefaults @{ 'Lead hours' = @{ Agg = 'average'; Format = 'number:1' } } -View @{
+                rows = @('Kunde'); cols = @('Team'); values = @(@{ field = 'Lead hours'; agg = 'average'; format = 'number:1' })
+            }
+        }
+    }
+    @{ Section = 'Pivot'; Title = 'Field names and descriptions'; Text = 'Labels, descriptions with a link, the order of Status and the type of Created from a JSON Schema; one description from -FieldDescriptions (as Get-UDPivotSqlColumnDescription returns them), aggregator and format from -FieldDefaults. Hover or tap the "i" next to a field.'; Code = {
+            $rng = [System.Random]::new(13)
+            $rows = foreach ($i in 1..500) {
+                [pscustomobject]@{
+                    Id        = 20000 + $i
+                    Created   = ([datetime]'2026-10-31').AddDays(-$rng.Next(0, 200)).ToString('yyyy-MM-dd')
+                    Team      = ('Service Desk', 'Network', 'Server')[$rng.Next(0, 3)]
+                    Status    = ('Open', 'Waiting', 'Closed', 'Closed')[$rng.Next(0, 4)]
+                    LeadHours = [math]::Round(2 + 30 * $rng.NextDouble(), 1)
+                }
+            }
+            $schema = @{
+                type       = 'object'
+                properties = @{
+                    Id        = @{ type = 'integer'; title = 'Ticket number' }
+                    Created   = @{ type = 'string'; format = 'date'; description = 'The day the customer reported it.' }
+                    Status    = @{ type = 'string'; enum = @('Open', 'Waiting', 'Closed'); description = 'Open, waiting for the customer, or closed.' }
+                    LeadHours = @{ type = 'number'; title = 'Lead time (h)'; externalDocs = @{ url = 'https://powershell-universal-components.eize.dev/pivot/fields/' } }
+                }
+            }
+            New-UDPivotReport -Id 'pivot-fields' -Data $rows -Schema $schema -Height 560px -TimeZone UTC `
+                -FieldDescriptions @{ Team = 'The team the ticket is assigned to.' } `
+                -FieldDefaults @{ LeadHours = @{ Agg = 'average'; Format = 'number:1'; Description = 'Hours from creation to closing.' } } `
+                -View @{ rows = @('Team'); cols = @('Status'); values = @(@{ field = 'LeadHours'; agg = 'average'; format = 'number:1' }) }
+        }
+    }
+    #endregion
 )

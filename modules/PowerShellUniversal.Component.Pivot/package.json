@@ -1,0 +1,28 @@
+{
+  "name": "powershelluniversal-component-pivot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pivot report builder (pivotkit) for PowerShell Universal apps",
+  "license": "MIT",
+  "scripts": {
+    "build": "webpack"
+  },
+  "dependencies": {
+    "echarts": "6.1.0",
+    "pivotkit-core": "0.1.0",
+    "pivotkit-react": "0.1.0",
+    "universal-dashboard": "1.1.2"
+  },
+  "devDependencies": {
+    "@babel/core": "8.0.10",
+    "@babel/preset-env": "8.0.7",
+    "@babel/preset-react": "8.0.1",
+    "babel-loader": "10.1.1",
+    "css-loader": "7.1.5",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "style-loader": "4.0.0",
+    "webpack": "5.112.2",
+    "webpack-cli": "7.2.3"
+  }
+}
