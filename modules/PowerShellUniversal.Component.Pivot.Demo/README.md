@@ -23,7 +23,9 @@ New-UDPivotShowcase
 Public data comes from snapshots shipped with the module (`Data/`, with sources and licences in
 `Data/SOURCES.md`), so the app works without internet access; the "Live data" switch on those pages,
 or `New-UDPivotShowcase -LiveData`, fetches it from the APIs on the PSU server. The language switch
-shows the reports in English or German (`-Locale de-DE` to start in German).
+shows the reports in English or German (`-Locale de-DE` to start in German). The offline snapshot is
+the default: the switch calls Open-Meteo's free API, whose terms allow non-commercial use only, so a
+company that uses the demo internally keeps the snapshot or uses an Open-Meteo API key.
 
 Uploaded files are read on the server and deleted at once; their rows stay in the memory of the
 reader's session only (CSV with comma, semicolon or tab, JSON as an array of objects; up to 5 MB and

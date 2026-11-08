@@ -78,11 +78,20 @@ Fetched on 2026-11-08 (`Update-Data.ps1` writes this date), unchanged.
   next to any location Open-Meteo data are displayed", for example "Weather data by Open-Meteo.com"
   linked to open-meteo.com. The app shows that credit with a link to the licence under the report.
 - Underlying data: the licence page lists "Weather reanalysis, air quality forecasts and elevation
-  data from Copernicus Climate Change Service C3S" under a separate Copernicus licence, and ECMWF
-  forecasts under CC BY. The app shows this Copernicus attribution under the Open-Meteo credit; the
-  text is the one pivotkit's playground uses for the same data (its SOURCES.md names the Climate Data
-  Store as the place that asks for it) and was not checked again here:
+  data from Copernicus Climate Change Service C3S" with a link to a Copernicus licence PDF (that link
+  answered 404 on 2026-11-08), and ECMWF forecasts under CC BY. The Climate Data Store's catalogue
+  (API, read on 2026-11-08) gives ERA5 single levels and ERA5-Land the licence CC-BY-4.0, with the DOIs
+  [10.24381/cds.adbb2d47](https://doi.org/10.24381/cds.adbb2d47) and
+  [10.24381/cds.e2161bac](https://doi.org/10.24381/cds.e2161bac).
+- Copernicus attribution: ECMWF's page "How to acknowledge and cite a Climate Data Store (CDS)
+  catalogue entry" (last changed 2025-07-03, read on 2026-11-08) says "All users of data uploaded on
+  the Climate Data Store (CDS) must provide clear and visible attribution", besides what the dataset
+  licence asks, with the template "[Generated using/Contains modified] Copernicus Climate Change Service
+  information [year]." and the disclaimer "Neither the European Commission nor ECMWF is responsible for
+  any use that may be made of the Copernicus information or data it contains." The page does not say
+  which year to give; the app gives the year the snapshot was fetched. Under the Open-Meteo credit the
+  app shows:
 
-  > Contains modified Copernicus Climate Change Service information 2023 (ERA5) and 2019 (ERA5-Land),
-  > and ECMWF IFS data. Neither the European Commission nor ECMWF is responsible for any use that may
-  > be made of the Copernicus information or data it contains.
+  > Contains modified Copernicus Climate Change Service information 2026. Neither the European
+  > Commission nor ECMWF is responsible for any use that may be made of the Copernicus information or
+  > data it contains. ERA5: doi:10.24381/cds.adbb2d47, ERA5-Land: doi:10.24381/cds.e2161bac.

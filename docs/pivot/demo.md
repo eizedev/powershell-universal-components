@@ -28,7 +28,7 @@ New-UDPivotShowcase
 ![Weather page of the showcase app in the light theme: mean temperature per city and month as a colour scale](../assets/pivot-showcase-weather-light.png#only-light)
 ![Weather page of the showcase app in the dark theme: mean temperature per city and month as a colour scale](../assets/pivot-showcase-weather-dark.png#only-dark)
 
-<small>Weather data by [Open-Meteo.com](https://open-meteo.com/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); contains modified Copernicus Climate Change Service information 2023 (ERA5) and 2019 (ERA5-Land), and ECMWF IFS data ([sources and licences](https://github.com/eizedev/powershell-universal-components/blob/HEAD/docs/site/data/SOURCES.md)).</small>
+<small>Weather data by [Open-Meteo.com](https://open-meteo.com/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); contains modified Copernicus Climate Change Service information 2026; neither the European Commission nor ECMWF is responsible for any use that may be made of the Copernicus information or data it contains ([sources and licences](https://github.com/eizedev/powershell-universal-components/blob/HEAD/docs/site/data/SOURCES.md)).</small>
 
 ## Public data, offline or live
 
@@ -36,7 +36,7 @@ The pages on endoflife.date and Open-Meteo read snapshots shipped with the modul
 files this site is built from, with their sources, licences and the attribution each source asks for in
 `Data/SOURCES.md`), so the app works on a PSU server without internet access. The **Live data** switch
 on those pages fetches the same addresses from the APIs instead; `New-UDPivotShowcase -LiveData`
-starts with it switched on. Open-Meteo's free API is for non-commercial use; see `Data/SOURCES.md`.
+starts with it switched on. The offline snapshot is the default: the switch calls Open-Meteo's free API, whose terms allow non-commercial use only, so a company that uses the demo internally keeps the snapshot or uses an Open-Meteo API key (`Data/SOURCES.md`).
 
 The **Language** switch shows the reports in English or German (`-Locale de-DE` starts in German).
 Both switches are kept per session.

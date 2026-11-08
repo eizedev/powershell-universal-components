@@ -29,7 +29,7 @@ function ConvertTo-Quoted([string]$Text) { "'" + ($Text -replace "'", "''") + "'
 # the attribution each source asks for (SOURCES.md), under the data it belongs to
 $attribution = @{
     endoflife = 'Release data by [endoflife.date](https://endoflife.date/), MIT licence, Copyright 2020 endoflife.date contributors.'
-    weather   = 'Weather data by [Open-Meteo.com](https://open-meteo.com/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); changed: daily values mapped to rows, sunshine in hours, city, season and rain day added. Contains modified Copernicus Climate Change Service information 2023 (ERA5) and 2019 (ERA5-Land), and ECMWF IFS data. Neither the European Commission nor ECMWF is responsible for any use that may be made of the Copernicus information or data it contains.'
+    weather   = 'Weather data by [Open-Meteo.com](https://open-meteo.com/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); changed: daily values mapped to rows, sunshine in hours, city, season and rain day added. Contains modified Copernicus Climate Change Service information 2026. Neither the European Commission nor ECMWF is responsible for any use that may be made of the Copernicus information or data it contains. ERA5: [doi:10.24381/cds.adbb2d47](https://doi.org/10.24381/cds.adbb2d47), ERA5-Land: [doi:10.24381/cds.e2161bac](https://doi.org/10.24381/cds.e2161bac).'
 }
 
 #region Page template
