@@ -10,13 +10,26 @@ groups:
 
 - **Shared views** - the same for everyone: what your app ships (`-Templates`, view files from
   `-TemplatePath`) and what admins published.
-- **My views** - the reader's own, saved with **Save current view**.
+- **My views** - the reader's own, saved with **Save as…** (**Save current view** before a view is
+  loaded).
 
 Each entry loads its view with one click (one undo step); the first three are also offered on the
-empty report. Views also has **Copy view as JSON**, **Download view** (a [view file](#view-files)) and
-**Load view…** (a view file, JSON or a link). Toolbar buttons that do not fit move into **More**, Views among the
-first: in the showcase's report in a window 1,440 pixels wide, Views is in More (measured on PSU
-2026.3.4).
+empty report. The view loaded has a check mark in the menu, and its name shows in the toolbar next to
+Views, with a dot while it has unsaved changes. The menu starts with **This view**:
+
+| Entry | What it does |
+| --- | --- |
+| **Save “…”** | Writes the loaded view under its own name in one click: one of My views through the store or `-OnSaveTemplate`; a shared view through Publish, only for a reader with a role of `-AdminRole` and after "Replace the shared view “…” for everyone?". Off, with the reason, for a shared view the reader may not change, a view from a file or a link, and an empty report. |
+| **Save as…** | Saves the view as one of My views under a name; a name the reader's views have asks "“…” exists. Replace it?" first (Cancel has the focus). |
+| **New, empty report** | Empties the report to its start screen in one undo step; the report then shows no saved view. |
+
+Save and a confirmed Save as send the name of a view that exists: the store replaces that view (an
+upsert, see [Saving a name that exists](#in-files-on-the-server-new-udpivotfiletemplatestore)), and
+your own `-OnSaveTemplate` and `-OnPublishTemplate` must do the same. Undo and Redo carry the view's
+name with the view; Reset and New take it away. Views also has **Copy view as JSON**, **Download
+view** (a [view file](#view-files)) and **Load view…** (a view file, JSON or a link). Toolbar buttons
+that do not fit move into **More**; Views is the last to go (pivotkit's order: Reset, Layout,
+Options, the chart type, Views), so it stays in the toolbar from a window about 1,280 pixels wide.
 
 | What you want | Parameters |
 | --- | --- |
@@ -130,7 +143,7 @@ delete shared views; everyone else sees shared views read-only. The store keeps 
   `-`, plus a hash of the name and the report's `-SourceId`), so a name never leaves the folder. A user's
   folder is a hash of the user name: the name itself is not on disk.
 - **Saving a name that exists** replaces that view in its file (an upsert): the reader's own view for
-  Save current view, the shared view for Publish. Names match as in pivotkit's Views menu: the same
+  Save and Save as, the shared view for Publish and Save on a shared view. Names match as in pivotkit's Views menu: the same
   characters in the same case after trimming, so `Sales` and `sales` are two views. A report replaces
   the view made for its data, else one that names no data (which then still names none). A view stored
   twice (copied by hand) is left once.
@@ -270,7 +283,8 @@ $store = New-UDPivotTemplateStore -Get {
 `-AdminRole` names PSU roles (`$Roles`), for example `-AdminRole 'Administrator'` or a role of your own
 from claims mapping. A reader with one of them gets:
 
-- **Publish as shared view** next to each of their own views (asked in place),
+- **Publish as shared view** next to each of their own views (asked in place), and **Save “…”** on a
+  shared view they loaded (after "Replace the shared view “…” for everyone?"),
 - a delete button on every shared view, and
 - the **admin panel** under the report: the current view as JSON, the columns with the type pivotkit
   reads them as, their distinct and blank values, how long the server took (converting the data, the

@@ -1631,8 +1631,8 @@ function New-UDPivotReport {
         key paths), rowFields, colFields, filter (one @{ field; value } per level, rows first), valueField,
         value, text (as shown), count (source rows behind the value) and rows (the first 100 of them).
     .PARAMETER OnSaveTemplate
-        Shows "Save current view" in the Views menu and runs when the reader saves. $EventData: name,
-        view, json, scope (user). Save and a confirmed Save as send a name the reader's views already have:
+        Shows Save as (and Save on a loaded view of the reader's own) in the Views menu and runs when the
+        reader saves. $EventData: name, view, json, scope (user). Save and a confirmed Save as send a name the reader's views already have:
         replace that view (an upsert by name, the same characters in the same case), never add a second
         one. The template appears in the menu (deletable) once the script block finished without
         an error; throw, or return @{ error = 'message' }, to refuse - the reader sees the message.

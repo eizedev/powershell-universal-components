@@ -7,6 +7,12 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Changed
 
+- pivotkit 0.2.0 ([pivotkit-react release](https://github.com/eizedev/pivotkit/releases/tag/pivotkit-react%400.2.0)):
+  Save, Save as and New, empty report in the Views menu with the loaded view's name and an
+  unsaved-changes dot in the toolbar; sorting by a click on a table header; a view's unused parts as a
+  warning in plain words; field menus with one line per setting. Labels a `-Labels` override may use
+  changed: `issues`, `viewMissingFields`, `viewOtherIssue(s)` and `valuesFilterHint` are gone (see
+  pivotkit-react's CHANGELOG for the new keys).
 - View names in the template stores match as in pivotkit's Views menu: the same characters in the same
   case (after trimming). `Sales` and `sales` are two views; before, saving `sales` replaced `Sales`
   without pivotkit asking. Files of new views carry a hash of the name as it is. A view saved by 0.1.0

@@ -13,9 +13,9 @@ Every event runs a script block on the server with `$EventData`:
 | --- | --- | --- |
 | `-OnViewChange` | The reader changed the view and paused for 0.6 seconds | `view` (an object), `json` (the same as JSON text) |
 | `-OnCellClick` | A click (or Enter) on a value or a chart point | `row`, `col` (the key paths), `rowFields`, `colFields`, `filter` (one `@{ field; value }` per level, rows first), `valueField`, `value`, `text` (as shown), `count` (source rows), `rows` (the first 100 of them) |
-| `-OnSaveTemplate` | The reader saves the view under a name, also one of their views has (replace that view) | `name`, `view`, `json`, `scope` (`user`) |
+| `-OnSaveTemplate` | The reader saves the view: Save as… under a new name, or Save and a confirmed Save as under the name of one of their views (replace that view) | `name`, `view`, `json`, `scope` (`user`) |
 | `-OnDeleteTemplate` | The reader deletes a template and confirmed it | `name`, `scope` (`user` or `shared`) |
-| `-OnPublishTemplate` | A reader with a role of `-AdminRole` publishes a view as a shared view, also under the name of one (replace that view) | `name`, `view`, `json` |
+| `-OnPublishTemplate` | A reader with a role of `-AdminRole` publishes one of their views as a shared view, or saves a loaded shared view (Save: replace that view) | `name`, `view`, `json` |
 
 With `-TemplateStore` the module registers the three template events itself
 ([Templates, view files and roles](templates.md)).

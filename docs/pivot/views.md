@@ -107,5 +107,7 @@ views. Set `-Id` if reports are added or removed dynamically, or when one call b
 ## Templates
 
 Named views in the **Views** menu - shared views your app ships (`-Templates`, view files from
-`-TemplatePath`), the reader's own views (`-TemplateStore`) and who may publish shared ones
-(`-AdminRole`) - have a page of their own: [Templates, view files and roles](templates.md).
+`-TemplatePath`), the reader's own views (`-TemplateStore`), Save, Save as and New, and who may
+publish shared ones (`-AdminRole`) - have a page of their own: [Templates, view files and roles](templates.md).
+A view loaded from Views shows its name in the toolbar; `-SavedView` and the view of a tab bring
+back the view, not its name.
