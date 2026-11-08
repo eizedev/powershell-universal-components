@@ -22,7 +22,7 @@ always keep the field's own name: a label changes what the reader sees, not what
 
 --8<-- "examples/field-names-and-descriptions.md"
 
-## -FieldDefaults
+## `-FieldDefaults` { #fielddefaults }
 
 ```powershell
 New-UDPivotReport -Id 'tickets' -Data $tickets -FieldDefaults @{
@@ -51,7 +51,7 @@ Readers can switch the "i" off in **Options**, **Help** ("Show field description
 or `-FieldInfo On` decides it for them, and `-ZoneInfo` does the same for the "i" next to the zone
 titles that explains Rows, Columns, Values and Filters.
 
-## -FieldDescriptions and SQL Server column descriptions
+## `-FieldDescriptions` and SQL Server column descriptions { #fielddescriptions-and-sql-server-column-descriptions }
 
 `-FieldDescriptions` takes field name to text, for example the descriptions a database already has.
 In SQL Server they are the extended property `MS_Description` of each column (what SQL Server
@@ -99,7 +99,7 @@ foreach ($row in Invoke-Sqlcmd -ConnectionString $connectionString -Query $query
 }
 ```
 
-## -Schema: JSON Schema and OpenAPI
+## `-Schema`: JSON Schema and OpenAPI { #schema-json-schema-and-openapi }
 
 Data from a REST API usually has a schema. `-Schema` reads the row's properties from it: `title`
 becomes the label, `description` the description, `externalDocs.url` the link (https only), `type` and

@@ -1,4 +1,4 @@
-/* The live examples (docs/site/src/charts.jsx): the chart on the page's surface, the event panel below it. */
+/* The live examples (docs/site/src/charts.jsx): the chart on the page's surface, the event panel below it; and what the site adds to the shared design. */
 .psu-example {
   margin: 1em 0 0.6em;
   padding: 0.6em 0.4em;
@@ -41,3 +41,12 @@
   cursor: pointer;
 }
 .psu-event-close:focus-visible { outline: 2px solid var(--md-accent-fg-color); }
+
+/* Headings with a long command name (Get-UDPivotSqlColumnDescription) wrap on a phone instead of
+   widening the page: the design's h2 is a flex row (eizedev/brand docs-site/site.css), and its text
+   would not shrink below its longest word. */
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3 {
+  overflow-wrap: anywhere;
+}

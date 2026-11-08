@@ -14,7 +14,9 @@ groups:
 
 Each entry loads its view with one click (one undo step); the first three are also offered on the
 empty report. Views also has **Copy view as JSON**, **Download view** (a [view file](#view-files)) and
-**Load view…** (a view file, JSON or a link).
+**Load view…** (a view file, JSON or a link). Toolbar buttons that do not fit move into **More**, Views among the
+first: in the showcase's report in a window 1,440 pixels wide, Views is in More (measured on PSU
+2026.3.4).
 
 | What you want | Parameters |
 | --- | --- |
@@ -28,7 +30,7 @@ Without `-TemplateStore` and without `-OnSaveTemplate` nothing is written: the m
 
 --8<-- "examples/shared-views-and-my-views.md"
 
-## Views you ship: -Templates and -TemplatePath
+## Views you ship: `-Templates` and `-TemplatePath`
 
 ```powershell
 New-UDPivotReport -Id 'tickets' -Data $tickets -TemplatePath (Join-Path $PSScriptRoot 'views') -Templates @(
@@ -86,9 +88,9 @@ another id asks first (Load anyway, Cancel). Give two reports of the same data t
 `-SchemaUrl` sets the file's `$schema`: pivotkit's address by default, an https address of your own
 copy, or `''` to leave it out; loading never depends on it.
 
-## Template stores: -TemplateStore
+## Template stores: `-TemplateStore`
 
-### In the browser: -TemplateStore Browser
+### In the browser: `-TemplateStore Browser`
 
 ```powershell
 New-UDPivotReport -Id 'tickets' -Data $tickets -TemplateStore Browser
@@ -98,7 +100,7 @@ pivotkit keeps each reader's views in the browser's localStorage (`pivotkit:view
 browser on this device, gone when the site's data is cleared, shared with nobody; the menu says so.
 At most 100 views and 500,000 characters. Nothing reaches the server, so nothing needs checking there.
 
-### In files on the server: New-UDPivotFileTemplateStore
+### In files on the server: `New-UDPivotFileTemplateStore`
 
 ```powershell
 $store = New-UDPivotFileTemplateStore
@@ -137,7 +139,7 @@ delete shared views; everyone else sees shared views read-only. The store keeps 
 - **Several PSU nodes** (high availability): a local folder is per node. Use a folder all nodes share,
   or a store on a database.
 
-### On your own storage: New-UDPivotTemplateStore
+### On your own storage: `New-UDPivotTemplateStore`
 
 When views belong in a database, a cache or object storage, write how one is stored; the module does
 the rest - who may do what, the checks of names and views, the limits and the view file. Each script
@@ -252,7 +254,7 @@ $store = New-UDPivotTemplateStore -Get {
 }
 ```
 
-## Who may change shared views: -AdminRole
+## Who may change shared views: `-AdminRole`
 
 `-AdminRole` names PSU roles (`$Roles`), for example `-AdminRole 'Administrator'` or a role of your own
 from claims mapping. A reader with one of them gets:
@@ -291,7 +293,7 @@ what the module registered for it in the PSU process (keyed by app, report and s
 handlers of a page find it after it was rendered; after a restart of the app the reader reloads the
 page ("This page is out of date (the app was restarted); reload it.").
 
-## Your own code: -OnSaveTemplate, -OnDeleteTemplate, -OnPublishTemplate
+## Your own code: `-OnSaveTemplate`, `-OnDeleteTemplate`, `-OnPublishTemplate`
 
 For full control, handle the events yourself instead of a store (the two cannot be combined):
 
@@ -324,8 +326,8 @@ Event handlers run in a runspace of their own: functions defined in the app scri
 PSU does not load the module by itself. Call `Import-Module PowerShellUniversal.Component.Pivot` in a
 handler that uses the module's commands.
 
-The [showcase app](https://github.com/eizedev/powershell-universal-components/blob/main/modules/PowerShellUniversal.Component.Pivot/examples/showcase.ps1)
+The [showcase app](https://github.com/eizedev/powershell-universal-components/blob/HEAD/modules/PowerShellUniversal.Component.Pivot/examples/showcase.ps1)
 has no sign-in and shows `-Templates`, `-TemplatePath` and the file store (its readers' own views stay
 in the browser);
-[templates.ps1](https://github.com/eizedev/powershell-universal-components/blob/main/modules/PowerShellUniversal.Component.Pivot/examples/templates.ps1)
+[templates.ps1](https://github.com/eizedev/powershell-universal-components/blob/HEAD/modules/PowerShellUniversal.Component.Pivot/examples/templates.ps1)
 is an app with sign-in, own views on the server, publishing for two roles and the admin panel.

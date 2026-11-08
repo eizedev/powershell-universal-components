@@ -1,8 +1,16 @@
 <#
     Examples of the documentation site. Each one is shown as its code and as the chart that code
     produces: Build-Site.ps1 runs the script block with the real New-UDEChart. Keep every block
-    self-contained (it creates its own data), so readers can copy it into an app as it is.
+    self-contained (it creates or fetches its own data), so readers can copy it into an app as it is.
+
+    Keys: Section, Title (the id of the page snippet), Text (above the example), Code; App (a title:
+    the page also shows the code as a whole app script) and Source (a line under it, for the
+    attribution of public data). Public data comes from Invoke-RestMethod, answered at build time from
+    the snapshots in data/ (data/SOURCES.md).
 #>
+
+# the attribution endoflife.date's licence asks for, under every example with its data
+$endoflife = 'Release data by [endoflife.date](https://endoflife.date/), MIT licence, Copyright 2020 endoflife.date contributors; on this page a snapshot of 2026-11-08 ([sources and licence](https://github.com/eizedev/powershell-universal-components/blob/HEAD/docs/site/data/SOURCES.md)).'
 
 @(
     #region Start
@@ -349,6 +357,76 @@
     #endregion
 
     #region Pivot
+    @{ Section = 'Pivot'; Title = 'Pivot report from a web API'; App = 'Python releases'; Source = $endoflife; Text = 'One line: the release cycles of Python from endoflife.date, one row each. Click a field to put it into Rows or Values, or drag it into a zone.'; Code = {
+            New-UDPivotReport -Id 'python' -Data (Invoke-RestMethod 'https://endoflife.date/api/python.json')
+        }
+    }
+    @{ Section = 'Pivot'; Title = 'Start view, field names and templates'; App = 'End of life'; Source = $endoflife; Text = 'Five products from the same API. -View opens the report with end of life per year and product, -FieldDefaults gives the fields names, descriptions and types, -Locale en-GB formats dates and numbers, and -Templates puts two views into the Views menu.'; Code = {
+            $cycles = foreach ($product in 'python', 'nodejs', 'postgresql', 'ubuntu', 'powershell') {
+                # eol and lts are a date or $true/$false: keep eol's dates, lts as $true/$false
+                (Invoke-RestMethod "https://endoflife.date/api/$product.json") | Select-Object @{ n = 'product'; e = { $product } }, cycle, releaseDate,
+                    @{ n = 'eol'; e = { if ($_.eol -is [string]) { $_.eol } } }, @{ n = 'lts'; e = { [bool]$_.lts } }, latest
+            }
+            $eolPerYear = @{
+                derived = @(@{ name = 'End of life (year)'; field = 'eol'; by = 'year' })
+                rows    = @('End of life (year)'); cols = @('product'); values = @(@{ field = 'cycle'; agg = 'count' })
+            }
+            New-UDPivotReport -Id 'endoflife' -Data $cycles -Locale en-GB -View $eolPerYear -FieldDefaults @{
+                product     = @{ Label = 'Product' }
+                cycle       = @{ Label = 'Release cycle' }
+                releaseDate = @{ Label = 'Released'; Type = 'date' }
+                eol         = @{ Label = 'End of life'; Type = 'date'; Description = 'The day support ends; empty while endoflife.date knows no date.'; Href = 'https://endoflife.date/' }
+                lts         = @{ Label = 'LTS'; Description = 'A long-term support release.' }
+                latest      = @{ Label = 'Latest version' }
+            } -Templates @(
+                @{ Name = 'End of life per year and product'; View = $eolPerYear }
+                @{ Name = 'Releases per year'; View = @{
+                        derived = @(@{ name = 'Released (year)'; field = 'releaseDate'; by = 'year' })
+                        rows    = @('Released (year)'); cols = @('product'); values = @(@{ field = 'cycle'; agg = 'count' })
+                        display = 'chart'; chart = @{ type = 'bar'; stacked = $true }
+                    }
+                }
+            )
+        }
+    }
+    @{ Section = 'Pivot'; Title = 'A report app with loading, views per reader and roles'; App = 'Release cycles'; Source = $endoflife; Text = 'The report in New-UDDynamic with New-UDPivotReportPlaceholder while the server asks the API; readers keep their own views on the server (New-UDPivotFileTemplateStore), readers with the role of -AdminRole publish shared views and see the admin panel, and -OnCellClick runs on the server. The app needs authentication and the role -AdminRole names: without a signed-in $User the readers'' own views stay in the browser, and without that role in $Roles there is no Publish and no admin panel. On this page the report appears at once, the reader is signed in with the role Administrator, and the page shows the $EventData the server would get.'; Code = {
+            $products = 'python', 'nodejs', 'postgresql', 'ubuntu', 'debian', 'powershell', 'dotnet', 'mssqlserver', 'windows-server'
+            # view files next to the PSU repository: users/<hash>/ for each reader, shared/ for everyone
+            $store = New-UDPivotFileTemplateStore -MaxUserViews 20
+            New-UDDynamic -Id 'release-cycles-report' -LoadingComponent {
+                New-UDPivotReportPlaceholder -Height 640px -Locale en-GB -Label 'Release cycles'
+            } -Content {
+                $cycles = foreach ($product in $products) {
+                    foreach ($cycle in (Invoke-RestMethod "https://endoflife.date/api/$product.json")) {
+                        [pscustomobject]@{
+                            Product          = $product
+                            Cycle            = $cycle.cycle
+                            Released         = $cycle.releaseDate
+                            # a date, or $true/$false when endoflife.date knows none
+                            'End of life'    = if ($cycle.eol -is [string]) { $cycle.eol }
+                            LTS              = [bool]$cycle.lts
+                            'Latest version' = $cycle.latest
+                        }
+                    }
+                }
+                $perProduct = @{ rows = @('Product'); cols = @('LTS'); values = @(@{ field = 'Cycle'; agg = 'count' }) }
+                New-UDPivotReport -Id 'release-cycles' -Data $cycles -Label 'Release cycles' -SourceName 'Release cycles' -Height 640px -Locale en-GB `
+                    -View $perProduct -Templates @(
+                        @{ Name = 'Release cycles per product'; View = $perProduct }
+                        @{ Name = 'End of life per year'; View = @{
+                                derived = @(@{ name = 'End of life (year)'; field = 'End of life'; by = 'year' })
+                                rows    = @('End of life (year)'); values = @(@{ field = 'Cycle'; agg = 'count' }); display = 'chart'; chart = @{ type = 'bar' }
+                            }
+                        }
+                    ) -FieldDefaults @{
+                        Released      = @{ Type = 'date' }
+                        'End of life' = @{ Type = 'date'; Description = 'The day support ends; empty while endoflife.date knows no date.' }
+                    } -TemplateStore $store -AdminRole 'Administrator' -OnCellClick {
+                        Show-UDToast -Message ('{0} release cycles' -f $EventData.count)
+                    }
+            }
+        }
+    }
     @{ Section = 'Pivot'; Title = 'Pivot report from a DataTable'; Text = 'Drag fields from the list into Rows, Columns and Values, switch to Chart, click a number for its rows. Saving a template and clicking a value show the $EventData the server would get.'; Code = {
             # what a SQL query returns: a DataTable with dates, numbers, text and DBNull
             $rng = [System.Random]::new(5)

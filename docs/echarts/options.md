@@ -1,4 +1,4 @@
-# Everything else: -Options
+# Everything else: `-Options`
 
 `-Options` takes any [Apache ECharts option](https://echarts.apache.org/en/option.html) and is merged
 over what the parameters generated: objects key by key, arrays element by element (`series[0]` changes

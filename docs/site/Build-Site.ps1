@@ -5,11 +5,15 @@
     Prepares the live parts of the documentation site: the examples, the command reference and the
     script that draws the charts. Zensical then builds the site from docs/ (zensical build).
 .DESCRIPTION
-    Runs every example in examples.ps1 outside PSU (PSU's [Endpoint] type is replaced by a stub) with
-    the real New-UDEChart, New-UDPerspective or New-UDPivotReport and writes, all of it generated and not committed:
+    Runs every example in examples.ps1 outside PSU with the real New-UDEChart, New-UDPerspective or
+    New-UDPivotReport. What PSU provides is replaced by stubs: its [Endpoint] type, New-UDDynamic (draws
+    its -Content), a signed-in reader ($User, $Roles) and the app's $Repository. Invoke-RestMethod
+    answers from the snapshots in data/ (see data/SOURCES.md), so the build needs no network and the
+    examples still show the real call. It writes, all of it generated and not committed:
 
-    - docs/site/generated/examples/<id>.md: the placeholder the chart is drawn into and the example's
-      code; the pages in docs/ include it with --8<-- "examples/<id>.md".
+    - docs/site/generated/examples/<id>.md: the example's text, the placeholder the chart is drawn into
+      and the example's code, followed by the code as a whole app script when the example has an App
+      title; the pages in docs/ include it with --8<-- "examples/<id>.md".
     - docs/site/generated/reference/<command>.md: the parameters of every exported command, from the
       comment-based help; included by the reference pages.
     - docs/assets/charts/: charts.js (webpack, the modules' own React components), its lazy
@@ -22,6 +26,8 @@
 .EXAMPLE
     ./docs/site/Build-Site.ps1; uv run --with zensical zensical serve
 #>
+# $User, $Roles and $Repository below are read by the examples' commands, not by this script
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '', Justification = 'PSU variables for the examples')]
 [CmdletBinding()]
 param(
     [switch]$SkipNpmInstall
@@ -47,6 +53,29 @@ public class Endpoint {
 }
 '@
 }
+# a public API in an example: the snapshot of that address in data/ (data/<host>/<path>), returned as
+# Invoke-RestMethod returns JSON (an array is one object in the pipeline, as there)
+function Invoke-RestMethod {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidOverwritingBuiltInCmdlets', '', Justification = 'Answers the examples from snapshots while the site is built')]
+    param([Parameter(Mandatory, Position = 0)][uri]$Uri)
+    $file = Join-Path $site 'data' $Uri.Host $Uri.AbsolutePath.TrimStart('/')
+    if ($Uri.Scheme -ne 'https' -or $Uri.Query -or -not (Test-Path -LiteralPath $file -PathType Leaf)) {
+        throw "No snapshot of $Uri in docs/site/data/ (see data/SOURCES.md)."
+    }
+    Get-Content -LiteralPath $file -Raw | ConvertFrom-Json -NoEnumerate
+}
+# PSU's New-UDDynamic: the page shows the content at once (the placeholder has an example of its own)
+function New-UDDynamic {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'Stub of the PSU command')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification = 'The parameters of the PSU command')]
+    param([string]$Id, [scriptblock]$Content, [scriptblock]$LoadingComponent)
+    & $Content
+}
+# a signed-in reader with an admin role, and the app's repository folder (a template store lies next to it)
+$User = 'reader'
+$Roles = @('Administrator')
+$Repository = Join-Path ([System.IO.Path]::GetTempPath()) 'powershell-universal-components-site' 'Repository'
+
 $manifests = [ordered]@{}
 foreach ($name in $moduleNames) {
     $dir = Join-Path $modulesDir $name
@@ -62,7 +91,7 @@ function Get-Slug([string]$Text) {
 
 # the code as written in examples.ps1, without the indentation of the file
 function Format-ExampleCode([scriptblock]$Code) {
-    $lines = $Code.ToString().Trim("`r", "`n") -split '\r?\n'
+    $lines = $Code.ToString().TrimEnd().Trim("`r", "`n") -split '\r?\n'
     $indent = ($lines | Where-Object { $_.Trim() } | ForEach-Object { $_.Length - $_.TrimStart().Length } | Measure-Object -Minimum).Minimum
     ($lines | ForEach-Object { if ($_.Length -ge $indent) { $_.Substring($indent) } else { $_.TrimStart() } }) -join "`n"
 }
@@ -88,6 +117,19 @@ function ConvertTo-SiteValue([object]$Value) {
     return [string]$Value
 }
 
+# the text above an example: parameters, commands and variables as code, like the pages write them
+function Format-ExampleText([string]$Text) {
+    $Text = Format-HelpText $Text
+    $Text = $Text -replace '(?<![\w`$/-])((?:New|Get|Set|Show|Sync|Invoke|ConvertTo|ConvertFrom)-UD[A-Za-z]+|New-PSUApp)\b', '`$1`'
+    $Text -replace '(?<![\w`])(\$[A-Za-z][A-Za-z0-9]*)\b', '`$1`'
+}
+
+# the example as the content of an app script (New-UDApp), for examples that name an App title
+function Format-AppScript([string]$Title, [string]$Code) {
+    $body = ($Code -split '\n' | ForEach-Object { if ($_) { '    ' + $_ } else { '' } }) -join "`n"
+    "New-UDApp -Title '$($Title -replace "'", "''")' -Content {`n$body`n}"
+}
+
 # text for a Markdown table cell
 function Format-Cell([string]$Text) {
     (($Text -replace '\r?\n+', ' ') -replace '\|', '\|').Trim()
@@ -102,6 +144,8 @@ function Format-HelpText([string]$Text) {
         if ($line -match '^\s*- ' -and $previous.Trim() -and $previous -notmatch '^\s*- |^\s{2,}\S') { $out.Add('') }
         # -Name (a parameter) as code; not inside words like Invoke-RestMethod or ranges like 0-100
         $line = $line -replace '(?<![\w`/-])(-[A-Z][A-Za-z]*)\b', '`$1`'
+        # PowerShell's escape for a new line, as code (a lone backtick would start a code span)
+        $line = $line -replace '(?<![\w`])`n\b', '`` `n ``'
         $line = $line -replace '(?<![<(\w])(https?://[^\s)]+[^\s).,;])', '<$1>'
         $line = $line -replace '\((https?://[^\s)]+)\)', '(<$1>)'
         $out.Add($line)
@@ -128,8 +172,13 @@ foreach ($example in & (Join-Path $site 'examples.ps1')) {
     # a fixed id per example, so the page is the same on every build
     $props['id'] = "example-$id"
     $examples[$id] = [ordered]@{ title = $example.Title; component = $component; props = ConvertTo-SiteValue $props }
-    $text = if ($example.Text) { "$($example.Text)`n`n" } else { '' }
-    $snippet = "$text<div class=`"psu-example`" data-example=`"$id`"></div>`n`n``````powershell`n$(Format-ExampleCode $example.Code)`n```````n"
+    $text = if ($example.Text) { "$(Format-ExampleText $example.Text)`n`n" } else { '' }
+    $code = Format-ExampleCode $example.Code
+    $snippet = "$text<div class=`"psu-example`" data-example=`"$id`"></div>`n`n``````powershell`n$code`n```````n"
+    if ($example.App) {
+        $snippet += "`nThe same as a whole app script:`n`n``````powershell`n$(Format-AppScript $example.App $code)`n```````n"
+    }
+    if ($example.Source) { $snippet += "`n<small>$($example.Source)</small>`n" }
     Write-Generated (Join-Path $generated 'examples' "$id.md") $snippet
 }
 
