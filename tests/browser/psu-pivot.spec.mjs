@@ -552,6 +552,63 @@ async function signIn(browser, who) {
     return { context, page, report, errors };
 }
 
+// Save over a view (#69): pivotkit's Save and Save as send a name that exists, the server replaces
+// that view. These helpers wait for the server's answer, not for a toast (another may still show).
+const answer = (page, event) => page.waitForResponse((r) => new RegExp(event).test(r.url()) && r.request().method() === "POST", { timeout: 15000 });
+
+// the views of one name in the menu (shared views come before my views)
+const entries = (menu, name) => menu.locator(`[data-testid='saved-view-${name}']`);
+
+// Save as (or Save before a view is loaded) under a name; with replace, confirms "... exists. Replace it?"
+async function saveAs(signedIn, name, { replace = false } = {}) {
+    const menu = await openViews(signedIn.report);
+    await menu.locator("[data-testid=saved-view-name]").fill(name);
+    const answered = answer(signedIn.page, "onSaveTemplate");
+    // the button, not Enter: the lazily loaded menu may move the focus while it renders
+    await menu.getByRole("button", { name: /^Save( as)?$/ }).click();
+    if (replace) {
+        await expect(menu.locator("[data-testid=replace-confirm]")).toBeVisible();
+        await menu.locator("[data-testid=confirm-replace]").click();
+    }
+    expect((await answered).ok()).toBe(true);
+    await signedIn.page.keyboard.press("Escape");
+}
+
+// loads a view of the menu: the first entry of the name (a shared one before an own one)
+async function load(signedIn, name) {
+    const menu = await openViews(signedIn.report);
+    await entries(menu, name).first().click();
+    // a click on an entry closes the menu (the name shows next to Views, or in More on a narrow toolbar)
+    await expect(menu).toBeHidden();
+}
+
+async function reloadReport(signedIn) {
+    await signedIn.page.reload();
+    signedIn.report = signedIn.page.locator(REPORT);
+    await expect(signedIn.report).toBeVisible({ timeout: 30000 });
+}
+
+// deletes every view of these names the signed-in user may delete; for the end of a test, also after
+// a failure, so it never throws
+async function removeViews(signedIn, names) {
+    for (const name of names) {
+        for (let i = 0; i < 4; i++) {
+            try {
+                await reloadReport(signedIn);
+                const menu = await openViews(signedIn.report);
+                const button = menu.locator(`[data-testid='delete-view-${name}']`).first();
+                if (!(await button.count())) break;
+                await button.click();
+                const answered = answer(signedIn.page, "onDeleteTemplate");
+                await menu.locator("[data-testid=confirm-delete]").click();
+                await answered;
+            } catch {
+                break;
+            }
+        }
+    }
+}
+
 test.describe("pivot templates with sign-in on PSU", () => {
     test.skip(!auth.url || !auth.reader.user || !auth.admin.user, "set PSU_PIVOT_AUTH_URL and the two identities to run these");
     test.describe.configure({ mode: "serial" });
@@ -633,5 +690,103 @@ test.describe("pivot templates with sign-in on PSU", () => {
         expect(reader.errors).toEqual([]);
         await admin.context.close();
         await reader.context.close();
+    });
+    test("Save and a confirmed Save as replace the reader's own view: one entry, the change kept", async ({ browser }) => {
+        const name = `Saved over ${test.info().project.name} ${Date.now()}`;
+        const reader = await signIn(browser, auth.reader);
+        try {
+            await saveAs(reader, name);
+            await load(reader, name);
+            // a change, then Save "..." of the loaded view
+            await reader.report.locator("[data-testid=show-chart]").click();
+            let menu = await openViews(reader.report);
+            const saved = answer(reader.page, "onSaveTemplate");
+            await menu.locator("[data-testid=save-loaded]").click();
+            expect((await saved).ok()).toBe(true);
+            await reloadReport(reader);
+            menu = await openViews(reader.report);
+            await expect(entries(menu, name)).toHaveCount(1);
+            await reader.page.keyboard.press("Escape");
+            await load(reader, name);
+            await expect(reader.report.locator("[data-testid=show-chart]")).toHaveAttribute("aria-pressed", "true");
+
+            // Save as with the same name asks first; Replace keeps one entry, with the new view
+            await reader.report.locator("[data-testid=show-table]").click();
+            await saveAs(reader, name, { replace: true });
+            await reloadReport(reader);
+            menu = await openViews(reader.report);
+            await expect(entries(menu, name)).toHaveCount(1);
+            await reader.page.keyboard.press("Escape");
+            await load(reader, name);
+            await expect(reader.report.locator("[data-testid=show-table]")).toHaveAttribute("aria-pressed", "true");
+            expect(reader.errors).toEqual([]);
+        } finally {
+            await removeViews(reader, [name]);
+            await reader.context.close();
+        }
+    });
+
+    test("an admin's Save on a shared view asks, then replaces it for everyone: one shared entry, changed", async ({ browser }) => {
+        const name = `Shared saved over ${test.info().project.name} ${Date.now()}`;
+        const admin = await signIn(browser, auth.admin);
+        try {
+            await saveAs(admin, name);
+            let menu = await openViews(admin.report);
+            const published = answer(admin.page, "onPublishTemplate");
+            await menu.locator(`[data-testid='publish-view-${name}']`).click();
+            await menu.locator("[data-testid=confirm-publish]").click();
+            expect((await published).ok()).toBe(true);
+            await reloadReport(admin);
+            // the shared view (listed first), changed, then Save "..." with the question for everyone
+            await load(admin, name);
+            await admin.report.locator("[data-testid=show-chart]").click();
+            menu = await openViews(admin.report);
+            await menu.locator("[data-testid=save-loaded]").click();
+            await expect(menu.locator("[data-testid=replace-shared-confirm]")).toBeVisible();
+            const replaced = answer(admin.page, "onPublishTemplate");
+            await menu.locator("[data-testid=confirm-replace-shared]").click();
+            expect((await replaced).ok()).toBe(true);
+
+            // a reader sees one shared view of the name, with the change
+            const reader = await signIn(browser, auth.reader);
+            try {
+                menu = await openViews(reader.report);
+                await expect(entries(menu, name)).toHaveCount(1);
+                await reader.page.keyboard.press("Escape");
+                await load(reader, name);
+                await expect(reader.report.locator("[data-testid=show-chart]")).toHaveAttribute("aria-pressed", "true");
+                expect(reader.errors).toEqual([]);
+            } finally {
+                await reader.context.close();
+            }
+            // the admin: the shared view and the own one of the same name, no third
+            await reloadReport(admin);
+            menu = await openViews(admin.report);
+            await expect(entries(menu, name)).toHaveCount(2);
+            expect(admin.errors).toEqual([]);
+        } finally {
+            await removeViews(admin, [name]);
+            await admin.context.close();
+        }
+    });
+
+    test("names that differ only in case are two views", async ({ browser }) => {
+        const stamp = `${test.info().project.name} ${Date.now()}`;
+        const upper = `Case View ${stamp}`;
+        const lower = `case view ${stamp}`;
+        const reader = await signIn(browser, auth.reader);
+        try {
+            await saveAs(reader, upper);
+            // no question: pivotkit compares names in their case, and so does the server
+            await saveAs(reader, lower);
+            await reloadReport(reader);
+            const menu = await openViews(reader.report);
+            await expect(entries(menu, upper)).toHaveCount(1);
+            await expect(entries(menu, lower)).toHaveCount(1);
+            expect(reader.errors).toEqual([]);
+        } finally {
+            await removeViews(reader, [upper, lower]);
+            await reader.context.close();
+        }
     });
 });
