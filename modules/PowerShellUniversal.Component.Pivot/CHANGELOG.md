@@ -5,8 +5,27 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-09
+
 ### Changed
 
+- pivotkit 0.3.0 ([pivotkit-react release](https://github.com/eizedev/pivotkit/releases/tag/pivotkit-react%400.3.0)):
+  the menus of a chip, Options and Views are in levels (a first level that says what is set, a topic's
+  level in place with Back, a search that finds a choice of any level, "/" goes to it); the Filter
+  level rebuilt with a summary card (what the table shows of the field and why the rest does not,
+  Reset filter), quick choices for a date (This year, Last N years, months or days, counted back from
+  today or the latest record), Years combined for a grouping that repeats every year, Pick items and
+  Rules (the item itself, its total or its name compared), each applied at once; a field in Filters
+  opens the same level. Views: Save as, Share (Copy link, Copy view as JSON, Download view, Load view)
+  and the questions before a delete or a publish are levels of the menu. A press inside a menu no
+  longer drags the chip that opened it. New filter types in a view, `compare` and `relative` (with
+  `anchor`); views saved by earlier versions load unchanged, and the template stores keep the new
+  filters as they are. Labels a `-Labels` override may use changed again (new `summary*`, `quick*`,
+  `anchor*`, `yearsCombined*`, `rule*`, `back`, `searchMenu` and more; gone: `moreFilters`,
+  `itemsPicked`, `itemsShown*`, `pickedPlus`, `ruleOut`, `quickCustom`, `conditionOnNames`,
+  `removeConditions`, `removeFilter`, `chooseValues`, `valueFilter`, `change`, `removeSetting`,
+  `topStart`, `binsStart`, `filterIs`, `groupBy`, `resetSections`, `resetSectionsDone`; a text for a
+  key that is gone is ignored). The docs describe the menus and the view's filter types.
 - The report's default height (without `-Height`) is one screen: the window's height minus 160
   pixels for PSU's app bar and a page title, between 600 and 1400 pixels (was minus 200, between 480
   and 1400). The whole report is on screen when the page loads, and the table shows more rows below
