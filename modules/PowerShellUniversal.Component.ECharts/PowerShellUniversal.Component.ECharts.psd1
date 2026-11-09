@@ -1,6 +1,6 @@
 @{
     RootModule        = 'PowerShellUniversal.Component.ECharts.psm1'
-    ModuleVersion     = '0.2.0'
+    ModuleVersion     = '0.3.0'
     GUID              = '3f6c2b5e-8a4d-4c1e-9b7a-2d5e6f8a1c34'
     Author            = 'eizedev'
     CompanyName       = 'eizedev'

@@ -5,6 +5,14 @@ All notable changes to PowerShellUniversal.Component.ECharts.Demo. Format:
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-09
+
+### Changed
+
+- Requires PowerShellUniversal.Component.ECharts 0.3.0.
+- Two stacked bar charts with ten series each show the tooltip of the hovered segment and the total,
+  and the same chart with `-TooltipMode Axis`.
+
 ## [0.2.0] - 2026-11-06
 
 ### Changed

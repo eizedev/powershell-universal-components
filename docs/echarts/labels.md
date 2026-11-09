@@ -17,6 +17,42 @@ name. Values are HTML-escaped in tooltips.
 
 `-DataLabels` writes the values on bars, lines and points; `-LabelFormat` formats them.
 
+## Which items the tooltip shows
+
+The element under the pointer wins: a bar, a bar segment or a point on a line shows that element
+only, a stacked segment also the stack total. A position on the axis without an element (between the
+bars, between the points of a line) shows all series there; between stacked bars only the total.
+Switching bars to a stack in the toolbox does the same.
+
+--8<-- "examples/tooltip-on-the-hovered-segment.md"
+
+`-TooltipMode` changes it for one chart:
+
+| Mode | Tooltip |
+| --- | --- |
+| `Auto` (default) | as above |
+| `Item` | one element, nothing between them; stacked bars with the total |
+| `Axis` | all series at the position, wherever the pointer is; stacked bars with the total |
+| `None` | no tooltip |
+
+`Item` and `Axis` apply to line, area, step and bar. The other chart types keep their own tooltip and
+ignore them: one element where an element is what is pointed at (pie, donut, funnel, scatter, heatmap,
+calendar, gauge, treemap, sunburst, sankey, graph, chord, tree, parallel, boxplot, radar, polar,
+radialbar, bump, gantt), the values at the position where a position is (candlestick with its
+volume, histogram, waterfall, themeriver, matrix, sparklines, `-Facet` panels). `None` works for every
+type.
+
+A hashtable sets the mode per chart type, `'*'` for the others; with `$PSDefaultParameterValues` it
+applies to every chart of an app, and a chart's own `-TooltipMode` still wins. For an app used mostly
+on touch screens, where a finger rarely hits a point of a line:
+
+```powershell
+$PSDefaultParameterValues['New-UDEChart:TooltipMode'] = @{ line = 'Axis'; area = 'Axis'; '*' = 'Auto' }
+```
+
+With `-TooltipColumns` or `-TooltipTemplate` the text of each item comes from its row; the mode decides
+which items. Totals are not part of a template.
+
 ## Legend
 
 `-Legend Bottom | Top | Left | Right | None` places the legend; `-LegendType Scroll` (default) pages
