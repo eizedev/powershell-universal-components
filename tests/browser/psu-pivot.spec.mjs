@@ -50,11 +50,37 @@ async function openToolbarMenu(report, id) {
     }
 }
 
+// the Views menu (pivotkit 0.3.0): a flat first level (This view, Shared views, My views, Share this
+// view); Save as, Share and the questions before a delete or a publish open levels of their own
 async function openViews(report) {
     const page = report.page();
     await openToolbarMenu(report, "views");
     const menu = page.locator(".pk-popover").last();
     await expect(menu).toContainText("Share");
+    return menu;
+}
+
+// a topic's level in an open menu in levels: its row on the first level, then the level itself
+async function openLevel(menu, topic) {
+    await menu.locator(`[data-testid=topic-${topic}]`).click();
+    await expect(menu.locator(`[data-testid=level-${topic}]`)).toBeVisible();
+}
+
+// the Save as level of an open Views menu ("Save current view…" before a view is loaded, "Save as…" after)
+async function openSaveAs(menu) {
+    await menu.locator("[data-testid=save-as]").click();
+    await expect(menu.locator("[data-testid=saved-view-name]")).toBeVisible();
+}
+
+// the Share level of an open Views menu: Copy view as JSON, Download view, Load view…
+const openShare = (menu) => openLevel(menu, "share");
+
+// the menu of a chip (by its text) and, with a topic ("filter", "top", ...), that topic's level
+async function chipMenu(report, chip, topic) {
+    await report.locator(`[data-testid='chip-menu-${chip}']`).click();
+    const menu = report.page().locator(".pk-chip-menu");
+    await expect(menu.locator(".pk-levels")).toBeVisible();
+    if (topic) await openLevel(menu, topic);
     return menu;
 }
 
@@ -198,11 +224,14 @@ test.describe("pivot showcase on PSU", () => {
         // the app has no sign-in: the reader's own views stay in this browser, and the menu says so
         await expect(menu.locator("[data-testid=store-note]")).toBeVisible();
         await expect(menu.locator("[data-testid^=publish-view-]")).toHaveCount(0);
+        // Save current view opens its level with the name field
+        await openSaveAs(menu);
         await menu.locator("[data-testid=saved-view-name]").fill(name);
         // the Save button, not Enter: the lazily loaded menu may move the focus while it renders
         await menu.getByRole("button", { name: "Save", exact: true }).click();
         await expect(report.locator(".pk-toast-dock")).toContainText(`“${name}” saved`);
-        await page.keyboard.press("Escape");
+        // a save closes the menu by itself
+        await expect(menu).toBeHidden();
         // a view file of the folder loads its chart: a donut
         await page.reload();
         await expect(page.locator(REPORT)).toBeVisible({ timeout: 30000 });
@@ -234,10 +263,44 @@ test.describe("pivot showcase on PSU", () => {
             await expect(panel.locator("button").first()).toBeVisible();
             await page.keyboard.press("Escape");
         }
+        // the Views menu's Share level, and a chip menu with its Filter level: all from the same bundle
         const views = await openViews(report);
+        await openShare(views);
         await expect(views).toContainText("Copy view as JSON");
+        await page.keyboard.press("Escape");
+        await page.keyboard.press("Escape");
+        const chip = await chipMenu(report, "Team", "filter");
+        await expect(chip.locator("[data-testid=filter-summary-head]")).toBeVisible();
+        await expect(chip).not.toContainText("could not be loaded");
         // PSU serves only the registered bundle: no file is fetched next to it
         expect(chunks).toEqual([]);
+        expect(errors).toEqual([]);
+    });
+
+    // pivotkit's menus in levels are part of the module's bundle: this fails here first when an update
+    // of pivotkit changes the Filter level's testids or breaks its lazily loaded menus
+    test("a date chip's Filter level: the summary card, the quick choices and the rules", async ({ page }) => {
+        const errors = await open(page, "tickets");
+        const report = page.locator(REPORT);
+        // the shipped view with Created by month on Rows
+        const views = await openViews(report);
+        await views.locator("[data-testid='saved-view-Tickets per month and category']").click();
+        await expect(views).toBeHidden();
+        const rows = report.getByRole("region", { name: "Rows" });
+        await expect(rows.getByRole("button", { name: "Created (Month)", exact: true })).toBeVisible();
+        const menu = await chipMenu(report, "Created (Month)", "filter");
+        await expect(menu.locator("[data-testid=level-title]")).toHaveText(/› Filter$/);
+        // the summary card: nothing filtered yet, so every month shows and Reset filter is off
+        await expect(menu.locator("[data-testid=filter-summary-head]")).toHaveText(/^All \d+ months shown$/);
+        await expect(menu.locator("[data-testid=filter-summary-meta]")).toContainText("5,000 of 5,000 rows");
+        await expect(menu.locator("[data-testid=filter-reset]")).toBeDisabled();
+        // a date along the time line: the quick choices, Pick items and Rules
+        await expect(menu.locator("[data-testid=quick-choices]")).toBeVisible();
+        await expect(menu.locator("[data-testid=section-picks]")).toBeVisible();
+        await expect(menu.locator("[data-testid=section-rules]")).toBeVisible();
+        await page.keyboard.press("Escape");
+        await page.keyboard.press("Escape");
+        await expect(menu).toBeHidden();
         expect(errors).toEqual([]);
     });
 
@@ -584,6 +647,7 @@ const entries = (menu, name) => menu.locator(`[data-testid='saved-view-${name}']
 // Save as (or Save before a view is loaded) under a name; with replace, confirms "... exists. Replace it?"
 async function saveAs(signedIn, name, { replace = false } = {}) {
     const menu = await openViews(signedIn.report);
+    await openSaveAs(menu);
     await menu.locator("[data-testid=saved-view-name]").fill(name);
     const answered = answer(signedIn.page, "onSaveTemplate");
     // the button, not Enter: the lazily loaded menu may move the focus while it renders
@@ -644,11 +708,13 @@ test.describe("pivot templates with sign-in on PSU", () => {
         const admin = await signIn(browser, auth.admin);
         await expect(admin.page.locator("[data-testid=pivot-admin]")).toBeVisible();
         let menu = await openViews(admin.report);
+        await openSaveAs(menu);
         await menu.locator("[data-testid=saved-view-name]").fill(shared);
         // the Save button, not Enter: the lazily loaded menu may move the focus while it renders
         await menu.getByRole("button", { name: "Save", exact: true }).click();
         await expect(admin.report.locator(".pk-toast-dock")).toContainText(`“${shared}” saved`, { timeout: 15000 });
-        await admin.page.keyboard.press("Escape");
+        // a save closes the menu by itself; Publish next to the entry asks in a level of the menu
+        await expect(menu).toBeHidden();
         menu = await openViews(admin.report);
         await menu.locator(`[data-testid='publish-view-${shared}']`).click();
         await menu.locator("[data-testid=confirm-publish]").click();
@@ -668,11 +734,12 @@ test.describe("pivot templates with sign-in on PSU", () => {
         await expect(menu.locator(`[data-testid='delete-view-${shared}']`)).toHaveCount(0);
         await expect(menu.locator("[data-testid^=publish-view-]")).toHaveCount(0);
         await expect(menu.locator("[data-testid=store-note]")).toHaveCount(0);
+        await openSaveAs(menu);
         await menu.locator("[data-testid=saved-view-name]").fill(own);
         // the Save button, not Enter: the lazily loaded menu may move the focus while it renders
         await menu.getByRole("button", { name: "Save", exact: true }).click();
         await expect(reader.report.locator(".pk-toast-dock")).toContainText(`“${own}” saved`, { timeout: 15000 });
-        await reader.page.keyboard.press("Escape");
+        await expect(menu).toBeHidden();
         // a forged request: the reader's delete sent for the shared view; the server refuses it
         await reader.page.route(/onDeleteTemplate/, (route) => route.continue({ postData: JSON.stringify({ name: shared, scope: "shared" }) }));
         menu = await openViews(reader.report);
