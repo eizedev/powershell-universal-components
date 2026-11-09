@@ -19,8 +19,11 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
 - Tooltips of bar, line, area and step charts show the element under the pointer: a bar, a stacked
   segment (with the stack total) or a line point alone; between them all series at that position,
   between stacked bars the total only. Before, every series at the position was listed, also when the
-  pointer was on one segment. `-TooltipMode Axis` keeps that behaviour. Stacked tooltips have a total
-  row in every mode; switching bars to a stack in the toolbox does the same.
+  pointer was on one segment. `-TooltipMode Axis` lists every series at the position as before.
+  Stacked tooltips have a total row in every mode (with `-SecondaryY` one per axis); switching line,
+  bar or stack in the toolbox is followed, Restore goes back. The tooltip text of these charts is the
+  module's own now: one line per series (`Name: value`), series without a value at that position left
+  out (ECharts showed "-").
 - A hovered bar or polar bar lights up alone instead of its whole series, matching the tooltip.
 - Data conversion is about ten times faster (a DataTable of 5000 rows and 12 columns: 2.4 to 2.9 s
   before, about 40 ms now, measured on a PSU test instance): no function call per cell, and large

@@ -30,3 +30,38 @@ test.describe("showcase on PSU", () => {
         });
     }
 });
+
+// -Group with -TooltipMode Auto: hovering a bar in one chart shows that bar there and keeps the linked
+// chart's tooltip in step through ECharts' own sync, without errors from the hover redraw
+test.describe("linked charts on PSU", () => {
+    test.skip(!base, "set PSU_URL to the showcase app to run these");
+    test("hovering a bar in one linked chart shows the other chart's tooltip at the same time", async ({ page }) => {
+        const errors = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+        await page.goto(`${base.replace(/\/$/, "")}/technical`);
+        const card = page.locator(".MuiCard-root", { hasText: "Linked charts" }).first();
+        await card.scrollIntoViewIfNeeded();
+        await expect.poll(() => card.evaluate((el) => [...el.querySelectorAll("div")].filter((d) => d.echarts).length), { timeout: 30000 }).toBe(2);
+        const tips = () => card.evaluate((el) => [...el.querySelectorAll("div")].filter((d) => d.echarts).map((d) => {
+            const t = [...d.querySelectorAll("div")].find((x) => x.style.zIndex === "9999999" && getComputedStyle(x).display !== "none" && getComputedStyle(x).opacity !== "0");
+            return t ? t.innerText : "";
+        }));
+        // the middle of bar 100 in the second chart
+        const p = await card.evaluate((el) => {
+            const d = [...el.querySelectorAll("div")].filter((x) => x.echarts)[1];
+            const c = d.echarts;
+            const v = c.getOption().series[0].data[100];
+            const value = v && typeof v === "object" && !Array.isArray(v) ? v.value : v;
+            const [x, y] = c.convertToPixel({ seriesIndex: 0 }, [value[0], value[1] / 2]);
+            const box = d.getBoundingClientRect();
+            return { x: box.left + x, y: box.top + y };
+        });
+        await expect(async () => {
+            await page.mouse.move(p.x - 10, p.y);
+            await page.mouse.move(p.x, p.y, { steps: 3 });
+            await expect.poll(async () => (await tips())[1], { timeout: 1000 }).toContain("Errors");
+            await expect.poll(async () => (await tips())[0], { timeout: 1000 }).toContain("Requests");
+        }).toPass({ timeout: 15000 });
+        expect(errors).toEqual([]);
+    });
+});

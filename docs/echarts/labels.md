@@ -22,7 +22,8 @@ name. Values are HTML-escaped in tooltips.
 The element under the pointer wins: a bar, a bar segment or a point on a line shows that element
 only, a stacked segment also the stack total. A position on the axis without an element (between the
 bars, between the points of a line) shows all series there; between stacked bars only the total.
-Switching bars to a stack in the toolbox does the same.
+Switching bars to a stack in the toolbox does the same. A line shows its points as elements only up to
+200 points per series; above that every position on it is an axis position, as with `Axis`.
 
 --8<-- "examples/tooltip-on-the-hovered-segment.md"
 

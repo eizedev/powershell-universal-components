@@ -1,7 +1,7 @@
 // Tests for the ECharts option builder. Run: node --test tests/js/
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildOption, mergeOptions, boxStats, quantile, displayName, linearFit, CHART_TYPES, LARGE } from "../../modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js";
+import { buildOption, mergeOptions, boxStats, quantile, displayName, linearFit, tooltipTracksHover, CHART_TYPES, LARGE } from "../../modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js";
 
 const days = [
     { day: "2026-11-01T00:00:00", team: "OPS", opened: 3 },
@@ -902,13 +902,58 @@ test("tooltip auto, grouped bars and lines: the hovered item alone, all series a
     assert.equal(line.series[0].emphasis.focus, "series");
 });
 
-test("tooltip auto: a stack switched on in the toolbox shows the total in the gap", () => {
+test("tooltip auto: the toolbox's line/bar/stack switch is followed, and forgotten when the series are as built again", () => {
     const state = tooltipState();
     const o = buildOption({ chartType: "bar", data: weather, x: "City", y: ["Temp"], groupBy: "Month" }, { tooltipState: state });
-    state.stacked = true;
-    const gap = text(o.tooltip.formatter(axisParams(o, 0))).split("\n");
+    const params = axisParams(o, 0);
+    // stacked in the toolbox (EChart.jsx reads the series as drawn): the gap shows the total only
+    state.live = o.series.map(() => ({ type: "bar", stack: "__ec_magicType_stack__" }));
+    const gap = text(o.tooltip.formatter(params)).split("\n");
     assert.equal(gap.length, 2);
     assert.match(gap[1], /^Total: /);
+    // stacked lines: every month at the position, plus the total
+    state.live = o.series.map(() => ({ type: "line", stack: "__ec_magicType_stack__" }));
+    assert.equal(text(o.tooltip.formatter(params)).split("\n").length, 14);
+    // Restore or a new option: grouped bars again, every month and no total
+    state.live = null;
+    const back = text(o.tooltip.formatter(params)).split("\n");
+    assert.equal(back.length, 13);
+    assert.ok(!back.some((l) => l.startsWith("Total")));
+});
+
+test("tooltip totals on a time axis add the series at the same date, not at the same index", () => {
+    const rows = [["A", "2026-11-01", 1], ["A", "2026-11-02", 2], ["A", "2026-11-03", 3], ["B", "2026-11-02", 10], ["B", "2026-11-03", 20]].map(([G, D, V]) => ({ G, D, V }));
+    for (const tooltipMode of ["auto", "item"]) {
+        const o = buildOption({ chartType: "area", data: rows, x: "D", y: ["V"], groupBy: "G", stacked: true, tooltipMode }, { tooltipState: tooltipState() });
+        assert.equal(o.xAxis.type, "time");
+        // A's third point and B's second are both 2026-11-03
+        const a = { seriesIndex: 0, dataIndex: 2, seriesName: "A", marker: "", data: o.series[0].data[2], value: o.series[0].data[2].value };
+        const b = { seriesIndex: 1, dataIndex: 1, seriesName: "B", marker: "", data: o.series[1].data[1], value: o.series[1].data[1].value };
+        const t = text(o.tooltip.formatter(tooltipMode === "item" ? a : [a, b]));
+        assert.match(t, /Total: 23$/, `${tooltipMode}: ${t}`);
+    }
+});
+
+test("tooltip: two stacks with -SecondaryY name the second total by its axis; -Normalize without categories keeps its rows", () => {
+    const rows = [{ x: "h", a: 1, b: 2, c: 100, d: 200 }];
+    const o = buildOption({ chartType: "bar", data: rows, x: "x", y: ["a", "b", "c", "d"], secondaryY: ["c", "d"], stacked: true }, { tooltipState: tooltipState() });
+    const gap = text(o.tooltip.formatter(axisParams(o, 0))).split("\n");
+    assert.deepEqual(gap, ["h", "Total: 3", "Total (secondary axis): 300"]);
+    // a 100 % stack on a time axis is not normalized (see -Normalize): rows show their values
+    const t = buildOption({ chartType: "line", data: days, x: "Day", y: ["Opened"], groupBy: "Team", normalize: true, tooltipMode: "axis" }, {});
+    const p = { seriesIndex: 0, dataIndex: 0, seriesName: "DEV", marker: "", data: t.series[0].data[0], value: t.series[0].data[0].value };
+    assert.match(text(t.tooltip.formatter([p])), /DEV: 5/);
+});
+
+test("tooltipTracksHover: only cartesian charts in Auto read the hovered element; bubbles keep their size format", () => {
+    assert.equal(tooltipTracksHover({ chartType: "bar" }), true);
+    assert.equal(tooltipTracksHover({ chartType: "Line", tooltipMode: { line: "auto" } }), true);
+    for (const props of [{ chartType: "bar", tooltipMode: "Item" }, { chartType: "bar", tooltipMode: "None" }, { chartType: "scatter" }, { chartType: "pie" }, { chartType: "line", sparkline: true }, { chartType: "bar", facet: "City" }]) {
+        assert.equal(tooltipTracksHover(props), false, JSON.stringify(props));
+    }
+    const bubble = buildOption({ chartType: "scatter", data: [{ x: 1, y: 2, s: 3000 }], x: "x", y: ["y"], size: "s", format: "integer" }, {});
+    assert.equal(bubble.tooltip.formatter, undefined);
+    assert.equal(bubble.tooltip.valueFormatter([1, 2, 3000]), "3,000");
 });
 
 test("tooltip item and axis: plain ECharts triggers, stacks get a total, none hides it, other types keep theirs", () => {
