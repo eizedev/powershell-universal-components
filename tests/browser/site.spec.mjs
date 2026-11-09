@@ -329,3 +329,107 @@ test("Perspective: the grid holds the rows and follows the switch", async ({ pag
     await page.locator("[data-md-component=palette] label:visible").first().click();
     await expect.poll(theme).not.toBe(before);
 });
+
+// -TooltipMode Auto with a real mouse: the segment under the pointer, the total between the stacks
+// the ECharts instance of an example and the page pixel of a value
+async function chartPoint(example, seriesIndex, dataIndex, part = 0.5) {
+    return example.evaluate((el, [si, di, f]) => {
+        const d = [...el.querySelectorAll("div")].find((x) => x.echarts);
+        const c = d.echarts;
+        const box = d.getBoundingClientRect();
+        const s = c.getOption().series;
+        // the middle of segment si: the sum of the segments below it plus a share of its own value
+        const valueAt = (i) => { const v = s[i].data[di]; return v && typeof v === "object" ? v.value : v; };
+        let below = 0;
+        for (let i = 0; i < si; i++) below += valueAt(i) || 0;
+        const [x, y] = c.convertToPixel({ seriesIndex: si }, [di, below + f * (valueAt(si) || 0)]);
+        return { x: box.left + x, y: box.top + y, name: s[si].name, names: s.map((x) => x.name) };
+    }, [seriesIndex, dataIndex, part]);
+}
+async function tooltipText(example) {
+    return example.evaluate((el) => {
+        const d = [...el.querySelectorAll("div")].find((x) => x.echarts);
+        // ECharts' tooltip is the HTML element it adds to the chart, shown with opacity 1
+        const tip = [...d.querySelectorAll("div")].find((x) => x.style.zIndex === "9999999" && getComputedStyle(x).display !== "none" && getComputedStyle(x).opacity !== "0");
+        return tip ? tip.innerText : "";
+    });
+}
+
+test("tooltip on a stacked bar: the hovered segment and the total, between the stacks the total only", async ({ page }) => {
+    await openPage(page, "/echarts/labels/");
+    const example = page.locator('[data-example="tooltip-on-the-hovered-segment"]');
+    await example.scrollIntoViewIfNeeded();
+    const seg = await chartPoint(example, 5, 2);
+    // the bars grow into place while the chart animates in: point again until it has settled
+    await expect(async () => {
+        await page.mouse.move(seg.x - 30, seg.y + 4);
+        await page.mouse.move(seg.x, seg.y, { steps: 4 });
+        await expect.poll(() => tooltipText(example), { timeout: 1000 }).toContain(seg.name);
+        await expect.poll(() => tooltipText(example), { timeout: 1000 }).not.toContain(seg.names.find((n) => n !== seg.name));
+    }).toPass({ timeout: 15000 });
+    const onSegment = await tooltipText(example);
+    expect(onSegment).toContain("Total");
+    // no other department in the tooltip
+    for (const other of seg.names.filter((n) => n !== seg.name)) expect(onSegment).not.toContain(other);
+    // the same height, between the third and fourth stack
+    const next = await chartPoint(example, 5, 3);
+    await page.mouse.move((seg.x + next.x) / 2, seg.y, { steps: 4 });
+    await expect.poll(() => tooltipText(example)).not.toContain(seg.name);
+    const gap = await tooltipText(example);
+    expect(gap).toContain("Total");
+    for (const n of seg.names) expect(gap).not.toContain(n);
+});
+
+test("tooltip on a line: the hovered point alone, between the points every series", async ({ page }) => {
+    await openPage(page, "/echarts/lines-and-time/");
+    const example = page.locator('[data-example="pins-on-single-values"]');
+    await example.scrollIntoViewIfNeeded();
+    const at = (si, x) => example.evaluate((el, [s, xi]) => {
+        const d = [...el.querySelectorAll("div")].find((n) => n.echarts);
+        const c = d.echarts;
+        const box = d.getBoundingClientRect();
+        const series = c.getOption().series;
+        const v = series[s].data[Math.round(xi)];
+        const [px, py] = c.convertToPixel({ seriesIndex: s }, [xi, v && typeof v === "object" ? v.value : v]);
+        return { x: box.left + px, y: box.top + py, names: series.map((n) => n.name) };
+    }, [si, x]);
+    const point = await at(1, 4);
+    const [windows, linux] = point.names;
+    // the symbols move into place while the chart animates in: point again until it has settled
+    await expect(async () => {
+        await page.mouse.move(point.x - 20, point.y - 20);
+        await page.mouse.move(point.x, point.y, { steps: 4 });
+        await expect.poll(() => tooltipText(example), { timeout: 1000 }).not.toContain(windows);
+    }).toPass({ timeout: 15000 });
+    expect(await tooltipText(example)).toContain(linux);
+    // halfway to the next week, clear of both lines
+    const next = await at(1, 5);
+    await page.mouse.move((point.x + next.x) / 2, Math.min(point.y, next.y) - 60, { steps: 4 });
+    await expect.poll(() => tooltipText(example)).toContain(windows);
+    expect(await tooltipText(example)).toContain(linux);
+});
+
+test("tooltip after the toolbox stacks grouped bars: between the stacks the total only", async ({ page }) => {
+    await openPage(page, "/echarts/");
+    const example = page.locator('[data-example="a-bar-chart-from-any-powershell-objects"]');
+    await example.scrollIntoViewIfNeeded();
+    // the toolbox's Stack button, found by its title in the chart's own drawing
+    const stackButton = await example.evaluate((el) => {
+        const d = [...el.querySelectorAll("div")].find((n) => n.echarts);
+        const box = d.getBoundingClientRect();
+        const icon = d.echarts.getZr().storage.getDisplayList().find((e) => e.__title === "Stack");
+        const r = icon.getBoundingRect().clone();
+        r.applyTransform(icon.getComputedTransform());
+        return { x: box.left + r.x + r.width / 2, y: box.top + r.y + r.height / 2 };
+    });
+    await page.mouse.click(stackButton.x, stackButton.y);
+    await expect.poll(() => example.evaluate((el) => [...el.querySelectorAll("div")].find((n) => n.echarts).echarts.getOption().series[0].stack)).toBeTruthy();
+    const a = await chartPoint(example, 0, 1);
+    const b = await chartPoint(example, 0, 2);
+    await expect(async () => {
+        await page.mouse.move(a.x, a.y);
+        await page.mouse.move((a.x + b.x) / 2, a.y, { steps: 4 });
+        await expect.poll(() => tooltipText(example), { timeout: 1000 }).toContain("Total");
+    }).toPass({ timeout: 15000 });
+    for (const n of a.names) expect(await tooltipText(example)).not.toContain(n);
+});

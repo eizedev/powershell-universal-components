@@ -4,6 +4,7 @@ import { html, joinHtml, trusted } from "../../../shared/js/html.js";
 import { compileTemplate, columnsTemplate } from "../../../shared/js/template.js";
 import { applyColorMap } from "./colormap.js";
 import { timeAxisLabel } from "./timeaxis.js";
+import { cartesianTooltipFormatter, resolveTooltipMode } from "./tooltipMode.js";
 
 /*
  * Turns the simple parameters of New-UDEChart (chartType, x, y, groupBy, ...) and the rows into an
@@ -550,7 +551,8 @@ function cartesian(props_, rows, keys, ctx) {
             type: seriesType,
             name: def.name,
             data,
-            emphasis: { focus: "series" },
+            // a bar lights up alone, as the tooltip names it alone; a line lights up as a whole
+            emphasis: { focus: seriesType === "bar" ? "self" : "series" },
             yAxisIndex: secondary.has(def.y) ? 1 : 0
         };
         if (seriesType === "line") {
@@ -774,26 +776,52 @@ function cartesian(props_, rows, keys, ctx) {
         pieces.push({ gt: stops[stops.length - 1].value, color: stops[stops.length - 1].color });
         visualMap = { type: "piecewise", show: false, dimension: 1, seriesIndex: lines, pieces, outOfRange: { color: stops[stops.length - 1].color } };
     }
+    // -TooltipMode (tooltipMode.js): scatter has no axis position to show, so it is always item
+    const tipMode = seriesType === "scatter" ? "item" : ctx.tooltipMode === "item" || ctx.tooltipMode === "axis" ? ctx.tooltipMode : "auto";
+    const cartesianTooltip = () => {
+        const pctF = formatter("percent100:1", ctx.locale);
+        const pick = (v) => (Array.isArray(v) ? v[horizontal ? 0 : 1] : v);
+        // the number behind an item: the original value in a 100 % stack, else the value on the value axis
+        const valueOf = (p) => (props.normalize && p.data && typeof p.data === "object" ? p.data.raw : pick(p.value));
+        const tip = {
+            trigger: tipMode === "item" ? "item" : "axis",
+            axisPointer: { type: seriesType === "bar" ? "shadow" : "cross", label: { formatter: (p) => String((horizontal ? p.axisDimension === "y" : p.axisDimension === "x") ? (xFmt && xType !== "category" ? xFmt(p.value) : p.value) : pointerFmt(p.value)) } },
+            valueFormatter: fmt ? (v) => fmt(pick(v)) : undefined,
+            confine: true
+        };
+        if (seriesType === "scatter" && !props.normalize) {
+            // ECharts' own text for a point (x, y and -Size)
+            return tip;
+        }
+        tip.formatter = cartesianTooltipFormatter({
+            mode: tipMode,
+            series,
+            stacked: Boolean(props.stacked),
+            isBar: seriesType === "bar",
+            valueOf,
+            // normalized: the share and the original value
+            rowText: (p) => (props.normalize ? `${pctF(p.value)} (${fmt ? fmt(p.data.raw) : p.data.raw})` : pointerFmt(pick(p.value))),
+            header: (items) => {
+                const p = items[0];
+                if (p.axisValueLabel !== undefined) return p.axisValueLabel;
+                if (categories) return p.name;
+                const x = Array.isArray(p.value) ? p.value[horizontal ? 1 : 0] : undefined;
+                return x === undefined ? p.name : xFmt ? xFmt(x) : String(x);
+            },
+            fmt: pointerFmt,
+            state: ctx.tooltipState
+        });
+        return tip;
+    };
     const legend = legendOf(props, series.length > 1);
     return {
         title: titleOf(props),
         legend,
         visualMap,
         grid: gridOf(props, legend),
-        tooltip: {
-            trigger: seriesType === "scatter" ? "item" : "axis",
-            // normalized: the share and the original value
-            formatter: props.normalize
-                ? (ps) => {
-                    const pctF = formatter("percent100:1", ctx.locale);
-                    const items = Array.isArray(ps) ? ps : [ps];
-                    return html`${items[0] ? items[0].name : ""}<br/>${joinHtml(items.map((p) => html`${trusted(p.marker)}${p.seriesName}: <b>${pctF(p.value)}</b> (${fmt ? fmt(p.data.raw) : p.data.raw})`), "<br/>")}`;
-                }
-                : undefined,
-            axisPointer: { type: seriesType === "bar" ? "shadow" : "cross", label: { formatter: (p) => String((horizontal ? p.axisDimension === "y" : p.axisDimension === "x") ? (xFmt && xType !== "category" ? xFmt(p.value) : p.value) : pointerFmt(p.value)) } },
-            valueFormatter: fmt ? (v) => fmt(Array.isArray(v) ? v[v.length - 1] : v) : undefined,
-            confine: true
-        },
+        tooltip: cartesianTooltip(),
+        // auto: the axis position does not highlight every bar, only the one under the pointer lights up
+        axisPointer: tipMode === "auto" && seriesType === "bar" ? { triggerEmphasis: false } : undefined,
         xAxis: horizontal ? yAxes : categoryAxis,
         yAxis: horizontal ? { ...categoryAxis, inverse: true } : yAxes,
         dataZoom: dataZoomOf(props, horizontal, legend.show && legend.bottom !== undefined),
@@ -806,7 +834,8 @@ function cartesian(props_, rows, keys, ctx) {
 // ---- sparkline: a tiny trend without axes, for tiles and tables ----------------------------------
 
 function sparkline(props, rows, keys, ctx) {
-    const base = cartesian({ ...props, legend: "none", toolbox: false, zoom: "none", dataLabels: false, markLine: undefined }, rows, keys, ctx);
+    // too small to hit a point: always the values at the position
+    const base = cartesian({ ...props, legend: "none", toolbox: false, zoom: "none", dataLabels: false, markLine: undefined }, rows, keys, { ...ctx, tooltipMode: "axis" });
     const last = (data) => {
         for (let i = data.length - 1; i >= 0; i--) {
             const v = data[i] && typeof data[i] === "object" && !Array.isArray(data[i]) ? data[i].value : data[i];
@@ -851,7 +880,8 @@ function facets(props, rows, keys, ctx) {
     const values = unique(rows.map((r) => r[facetKey])).map(String);
     const columns = Math.max(1, Math.min(props.facetColumns || Math.min(4, values.length), values.length));
     const rowsOfGrid = Math.ceil(values.length / columns);
-    const parts = values.map((v) => cartesian({ ...props, facet: undefined, title: undefined, toolbox: false, legend: "none", zoom: "none", brush: false }, rows.filter((r) => String(r[facetKey] ?? "") === v), keys, ctx));
+    // linked panels compare one position across all of them: always the values at the position
+    const parts = values.map((v) => cartesian({ ...props, facet: undefined, title: undefined, toolbox: false, legend: "none", zoom: "none", brush: false }, rows.filter((r) => String(r[facetKey] ?? "") === v), keys, { ...ctx, tooltipMode: "axis" }));
     // one value scale for all: comparable at a glance
     const allValues = parts.flatMap((p) => p.series.flatMap((s) => s.data.map((d) => (d && typeof d === "object" && !Array.isArray(d) ? d.value : d)).map((v) => (Array.isArray(v) ? v[1] : v)))).filter((v) => typeof v === "number");
     const max = props.yMax ?? (allValues.length ? Math.max(...allValues) : undefined);
@@ -1823,6 +1853,9 @@ function applyTemplates(option, props, rows, keys, ctx) {
     if (tooltipTemplate !== undefined) {
         const render = compileTemplate(tooltipTemplate, keys, ctx.locale);
         const previous = option.tooltip && option.tooltip.formatter;
+        // -TooltipMode Auto: the template covers the same items as the chart's own text (the hovered
+        // one); none left (the gap of a stacked bar chart) means the chart's own text, the total
+        const reduce = previous && typeof previous.reduce === "function" ? previous.reduce : (items) => items;
         const one = (p) => {
             const r = rowOf(p);
             if (!r) return undefined;
@@ -1832,7 +1865,8 @@ function applyTemplates(option, props, rows, keys, ctx) {
         option.tooltip = {
             ...(option.tooltip || {}),
             formatter: (p) => {
-                const items = Array.isArray(p) ? p : [p];
+                const items = reduce(Array.isArray(p) ? p : [p]);
+                if (items.length === 0 && typeof previous === "function") return previous(p);
                 const parts = items.map(one);
                 if (parts.some((x) => x !== undefined)) {
                     return joinHtml(parts.map((x, i) => x ?? html`${trusted(items[i].marker)}${items[i].seriesName}`), "<br/>");
@@ -1929,7 +1963,7 @@ function polarChart(props, rows, keys, ctx) {
             coordinateSystem: "polar",
             stack: props.stacked ? "total" : undefined,
             roundCap: type === "radialbar" && !props.stacked,
-            emphasis: { focus: "series" },
+            emphasis: { focus: "self" },
             // radialbar: one colour per ring, the value at the ring's end
             colorBy: type === "radialbar" && defs.length === 1 ? "data" : undefined,
             label: type === "radialbar" ? { show: props.dataLabels !== false, position: "end", fontSize: 11, formatter: (p) => (fmt ? fmt(p.value) : String(p.value ?? "")) } : undefined,
@@ -2086,7 +2120,9 @@ export function buildOption(props, ctx = {}) {
     const keys = columnsOf(rows);
     checkColumns(props, rows, keys);
     const type = String(props.chartType || "line").toLowerCase();
-    const context = { locale: ctx.locale || "en-US", exportIcons: ctx.exportIcons };
+    // tooltipState: the hover state EChart.jsx keeps for -TooltipMode Auto (tooltipMode.js)
+    const tooltipMode = resolveTooltipMode(props.tooltipMode, type);
+    const context = { locale: ctx.locale || "en-US", exportIcons: ctx.exportIcons, tooltipMode, tooltipState: ctx.tooltipState };
     let option;
     if (CARTESIAN.has(type) && props.sparkline) {
         option = sparkline({ ...props, chartType: type }, rows, keys, context);
@@ -2108,6 +2144,9 @@ export function buildOption(props, ctx = {}) {
     option.animation = rows.length <= LARGE;
     option.aria = { enabled: true, decal: { show: Boolean(props.decal) } };
     applyTemplates(option, props, rows, keys, context);
+    if (tooltipMode === "none") {
+        option.tooltip = { ...(Array.isArray(option.tooltip) ? {} : option.tooltip || {}), show: false };
+    }
     if (rows.length === 0 && !option.graphic) {
         // an empty chart says so instead of showing bare axes
         option.graphic = { type: "text", left: "center", top: "middle", silent: true, style: { text: props.emptyText || "No data", fontSize: 14, fill: "#8a8f98" } };

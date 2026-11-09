@@ -142,6 +142,6 @@ result; `dataset` and `transform` are used through -Options only if needed.
 | Gallery | How |
 | --- | --- |
 | data zoom (inside, slider, on value) | Parameter: `-Zoom`, `-ZoomAxis` |
-| touch tooltips (line-tooltip-touch, candlestick-touch) | Parameter: tooltips are on; `confine` keeps them inside the chart |
+| touch tooltips (line-tooltip-touch, candlestick-touch) | Parameter: tooltips are on; `confine` keeps them inside the chart; `-TooltipMode Axis` for lines a finger rarely hits |
 | rich text labels | -Options (`label.rich`) |
 | graphic elements, loading, stroke and wave animations, symbol morphing | Not included: decoration |

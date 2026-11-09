@@ -1,7 +1,8 @@
 # Interaction and events
 
-On by default: tooltips, hover highlighting, legend toggles, zoom with the mouse wheel, and a toolbox
-with box zoom, line/bar/stack switch, restore, PNG, CSV, Excel and full screen (the chart alone on the
+On by default: tooltips (the element under the pointer, or every series at an axis position; see
+[Which items the tooltip shows](labels.md#which-items-the-tooltip-shows)), hover highlighting, legend
+toggles, zoom with the mouse wheel, and a toolbox with box zoom, line/bar/stack switch, restore, PNG, CSV, Excel and full screen (the chart alone on the
 whole screen, zoom and selection kept; Esc returns; not offered where the browser cannot do it, e.g.
 iPhone Safari).
 

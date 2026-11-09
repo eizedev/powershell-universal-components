@@ -187,3 +187,28 @@ Describe 'Demo module' {
         Join-Path $built.FullName 'Apps' 'Showcase.ps1' | Should -Exist
     }
 }
+
+Describe '-TooltipMode' {
+    It 'sends a mode name in lower case and nothing when not given' {
+        (New-UDEChart -Data @() -Type bar -TooltipMode Item).tooltipMode | Should -Be 'item'
+        (New-UDEChart -Data @() -Type bar).ContainsKey('tooltipMode') | Should -BeFalse
+    }
+    It 'sends a map per chart type with lower-case keys and values' {
+        $c = New-UDEChart -Data @() -Type line -TooltipMode @{ Line = 'Axis'; '*' = 'Auto' }
+        $c.tooltipMode['line'] | Should -Be 'axis'
+        $c.tooltipMode['*'] | Should -Be 'auto'
+    }
+    It 'rejects unknown modes and chart types' {
+        { New-UDEChart -Data @() -TooltipMode 'Hover' } | Should -Throw '*Auto, Item, Axis, None*'
+        { New-UDEChart -Data @() -TooltipMode @{ lines = 'Axis' } } | Should -Throw '*not a chart type*'
+        { New-UDEChart -Data @() -TooltipMode @{ line = 'All' } } | Should -Throw '*Auto, Item, Axis, None*'
+    }
+    It 'takes the central default from $PSDefaultParameterValues, and the chart''s own value wins' {
+        $PSDefaultParameterValues['New-UDEChart:TooltipMode'] = @{ bar = 'Axis' }
+        try {
+            (New-UDEChart -Data @() -Type bar).tooltipMode['bar'] | Should -Be 'axis'
+            (New-UDEChart -Data @() -Type bar -TooltipMode Item).tooltipMode | Should -Be 'item'
+        }
+        finally { $PSDefaultParameterValues.Remove('New-UDEChart:TooltipMode') }
+    }
+}

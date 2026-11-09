@@ -832,3 +832,130 @@ test("theme contract: docs/echarts/themes.md lists exactly the --psu-chart-* pro
     assert.deepEqual(rows.flatMap((r) => r.echarts).sort(), echarts, "ECharts column");
     assert.deepEqual(rows.flatMap((r) => r.pivot).sort(), pivot, "pivot column");
 });
+
+// ---- -TooltipMode -------------------------------------------------------------------------------
+
+import { resolveTooltipMode, tooltipState } from "../../modules/PowerShellUniversal.Component.ECharts/Components/tooltipMode.js";
+
+// as in issue 79: twelve months of temperatures per city, one series per month
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const CITIES = ["Berlin", "London", "Madrid", "New York", "Sydney", "Tokyo"];
+const weather = CITIES.flatMap((city, c) => MONTHS.map((month, m) => ({ City: city, Month: month, Temp: Math.round((5 + c * 2 + 10 * Math.sin((m / 11) * Math.PI)) * 10) / 10 })));
+
+// the params ECharts hands an axis-trigger formatter at one category: every series' item there
+function axisParams(option, dataIndex) {
+    return option.series.map((s, seriesIndex) => {
+        const d = s.data[dataIndex];
+        return { seriesIndex, dataIndex, seriesName: s.name, marker: "", data: d, value: d && typeof d === "object" ? d.value : d, name: option.xAxis.data ? option.xAxis.data[dataIndex] : "", axisValueLabel: option.xAxis.data ? option.xAxis.data[dataIndex] : undefined };
+    });
+}
+const text = (v) => String(v).replace(/<br\/>/g, "\n").replace(/<[^>]+>/g, "");
+
+test("resolveTooltipMode: a name or a map per chart type with '*', case-insensitive, auto otherwise", () => {
+    assert.equal(resolveTooltipMode(undefined, "bar"), "auto");
+    assert.equal(resolveTooltipMode("Item", "bar"), "item");
+    assert.equal(resolveTooltipMode("bogus", "bar"), "auto");
+    const central = { Line: "Axis", "*": "item" };
+    assert.equal(resolveTooltipMode(central, "line"), "axis");
+    assert.equal(resolveTooltipMode(central, "bar"), "item");
+    assert.equal(resolveTooltipMode({ line: "Axis" }, "bar"), "auto");
+});
+
+test("tooltip auto, stacked bars: a segment shows itself and the stack total, the gap the total only", () => {
+    const state = tooltipState();
+    const o = buildOption({ chartType: "bar", data: weather, x: "City", y: ["Temp"], groupBy: "Month", stacked: true }, { tooltipState: state });
+    assert.equal(o.tooltip.trigger, "axis");
+    // the axis position lights up nothing, the hovered segment lights up alone
+    assert.equal(o.axisPointer.triggerEmphasis, false);
+    assert.equal(o.series[0].emphasis.focus, "self");
+    const madrid = CITIES.indexOf("Madrid");
+    const params = axisParams(o, madrid);
+    const total = params.reduce((sum, p) => sum + p.value, 0);
+    const nov = o.series.findIndex((s) => s.name === "Nov");
+    // pointer between the stacks: no row per month, the total
+    const gap = text(o.tooltip.formatter(params));
+    assert.ok(gap.startsWith("Madrid"));
+    assert.ok(!gap.includes("Nov"), gap);
+    assert.match(gap, new RegExp(`Total: ${total.toFixed(1).replace(".", "\\.")}`));
+    // pointer on November's segment
+    state.hover = { seriesIndex: nov, dataIndex: madrid };
+    const lines = text(o.tooltip.formatter(params)).split("\n");
+    assert.equal(lines.length, 3, lines.join(" | "));
+    assert.equal(lines[1], `Nov: ${params[nov].value}`);
+    assert.match(lines[2], /^Total: /);
+});
+
+test("tooltip auto, grouped bars and lines: the hovered item alone, all series at an axis position", () => {
+    for (const chartType of ["bar", "line"]) {
+        const state = tooltipState();
+        const o = buildOption({ chartType, data: weather, x: "City", y: ["Temp"], groupBy: "Month" }, { tooltipState: state });
+        const params = axisParams(o, 0);
+        const all = text(o.tooltip.formatter(params)).split("\n");
+        assert.equal(all.length, 13, `${chartType}: header and twelve months`);
+        assert.ok(!all.some((l) => l.startsWith("Total")), "no total without a stack");
+        state.hover = { seriesIndex: 3, dataIndex: 0 };
+        assert.deepEqual(text(o.tooltip.formatter(params)).split("\n"), ["Berlin", `${params[3].seriesName}: ${params[3].value}`]);
+    }
+    // only bars give up the highlight of the whole position; lines keep it and light up as a whole
+    const line = buildOption({ chartType: "line", data: weather, x: "City", y: ["Temp"], groupBy: "Month" }, {});
+    assert.equal(line.axisPointer, undefined);
+    assert.equal(line.series[0].emphasis.focus, "series");
+});
+
+test("tooltip auto: a stack switched on in the toolbox shows the total in the gap", () => {
+    const state = tooltipState();
+    const o = buildOption({ chartType: "bar", data: weather, x: "City", y: ["Temp"], groupBy: "Month" }, { tooltipState: state });
+    state.stacked = true;
+    const gap = text(o.tooltip.formatter(axisParams(o, 0))).split("\n");
+    assert.equal(gap.length, 2);
+    assert.match(gap[1], /^Total: /);
+});
+
+test("tooltip item and axis: plain ECharts triggers, stacks get a total, none hides it, other types keep theirs", () => {
+    const item = buildOption({ chartType: "bar", data: weather, x: "City", y: ["Temp"], groupBy: "Month", stacked: true, tooltipMode: "Item" }, {});
+    assert.equal(item.tooltip.trigger, "item");
+    assert.equal(item.axisPointer, undefined);
+    const p = axisParams(item, 2)[5];
+    assert.deepEqual(text(item.tooltip.formatter(p)).split("\n").slice(1, 2), [`${p.seriesName}: ${p.value}`]);
+    assert.match(text(item.tooltip.formatter(p)), /Total: /);
+
+    const axis = buildOption({ chartType: "bar", data: weather, x: "City", y: ["Temp"], groupBy: "Month", stacked: true, tooltipMode: { bar: "axis" } }, { tooltipState: tooltipState() });
+    assert.equal(axis.tooltip.trigger, "axis");
+    assert.equal(text(axis.tooltip.formatter(axisParams(axis, 0))).split("\n").length, 14, "header, twelve months, total");
+
+    const none = buildOption({ chartType: "pie", data: weather.slice(0, 5), x: "Month", y: ["Temp"], tooltipMode: "None" }, {});
+    assert.equal(none.tooltip.show, false);
+    // a mode a type cannot honour is ignored: a pie stays item, a candlestick-like axis type keeps axis
+    const pie = buildOption({ chartType: "pie", data: weather.slice(0, 5), x: "Month", y: ["Temp"], tooltipMode: "Axis" }, {});
+    assert.equal(pie.tooltip.trigger, "item");
+    const hist = buildOption({ chartType: "histogram", data: weather, y: ["Temp"], tooltipMode: "Item" }, {});
+    assert.equal(hist.tooltip.trigger, "axis");
+});
+
+test("tooltip auto: 100 % stacks show share, raw value and the raw total; -TooltipColumns follows the hovered item", () => {
+    const state = tooltipState();
+    const o = buildOption({ chartType: "bar", data: weather, x: "City", y: ["Temp"], groupBy: "Month", normalize: true }, { tooltipState: state });
+    const params = axisParams(o, 0);
+    state.hover = { seriesIndex: 0, dataIndex: 0 };
+    const lines = text(o.tooltip.formatter(params)).split("\n");
+    assert.match(lines[1], new RegExp(`^${params[0].seriesName}: [\\d.]+% \\(${params[0].data.raw}\\)$`));
+    const raw = params.reduce((s, x) => s + x.data.raw, 0);
+    assert.equal(lines[2], `Total: ${raw.toFixed(1)}`);
+
+    const t = tooltipState();
+    const withColumns = buildOption({ chartType: "bar", data: weather, x: "City", y: ["Temp"], groupBy: "Month", stacked: true, tooltipColumns: ["Month", "Temp"] }, { tooltipState: t });
+    const wp = axisParams(withColumns, 1);
+    t.hover = { seriesIndex: 6, dataIndex: 1 };
+    const one = text(withColumns.tooltip.formatter(wp));
+    // the template of the hovered month only
+    assert.ok(one.includes(wp[6].seriesName) && !one.includes(wp[5].seriesName), one);
+    t.hover = null;
+    assert.match(text(withColumns.tooltip.formatter(wp)), /^London\nTotal: /);
+});
+
+test("sparklines and small multiples keep the values at the position", () => {
+    const spark = buildOption({ chartType: "line", data: weather, x: "City", y: ["Temp"], groupBy: "Month", sparkline: true }, { tooltipState: tooltipState() });
+    assert.equal(spark.tooltip.trigger, "axis");
+    const facet = buildOption({ chartType: "bar", data: weather, x: "Month", y: ["Temp"], facet: "City", tooltipMode: "Item" }, {});
+    assert.equal(facet.tooltip.trigger, "axis");
+});
