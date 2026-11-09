@@ -3,6 +3,7 @@
 // playwright test psu-pivot); skipped in CI. The app is modules/PowerShellUniversal.Component.Pivot/
 // examples/showcase.ps1. The template test saves and deletes a template of the anonymous user.
 import { test, expect } from "@playwright/test";
+import { chipMenu, openSaveAs, openShare, openToolbarMenu, openViews } from "./pivot-menus.mjs";
 
 const base = (process.env.PSU_PIVOT_URL || "").replace(/\/$/, "");
 // the report itself, never the placeholder the Tickets page shows while its data loads
@@ -39,50 +40,7 @@ async function reset(report) {
     await (await resetButton(report)).button.click();
 }
 
-// Views in the toolbar, or in its More menu where the toolbar has no room for it; returns the menu
-// a toolbar menu: its button, or its entry under "More" when the report is too narrow for it
-async function openToolbarMenu(report, id) {
-    const page = report.page();
-    if (await report.locator(`[data-testid=${id}]`).isVisible()) await report.locator(`[data-testid=${id}]`).click();
-    else {
-        await report.locator("[data-testid=more]").click();
-        await page.locator(`[data-testid=more-${id}]`).click();
-    }
-}
-
-// the Views menu (pivotkit 0.3.0): a flat first level (This view, Shared views, My views, Share this
-// view); Save as, Share and the questions before a delete or a publish open levels of their own
-async function openViews(report) {
-    const page = report.page();
-    await openToolbarMenu(report, "views");
-    const menu = page.locator(".pk-popover").last();
-    await expect(menu).toContainText("Share");
-    return menu;
-}
-
-// a topic's level in an open menu in levels: its row on the first level, then the level itself
-async function openLevel(menu, topic) {
-    await menu.locator(`[data-testid=topic-${topic}]`).click();
-    await expect(menu.locator(`[data-testid=level-${topic}]`)).toBeVisible();
-}
-
-// the Save as level of an open Views menu ("Save current view…" before a view is loaded, "Save as…" after)
-async function openSaveAs(menu) {
-    await menu.locator("[data-testid=save-as]").click();
-    await expect(menu.locator("[data-testid=saved-view-name]")).toBeVisible();
-}
-
-// the Share level of an open Views menu: Copy view as JSON, Download view, Load view…
-const openShare = (menu) => openLevel(menu, "share");
-
-// the menu of a chip (by its text) and, with a topic ("filter", "top", ...), that topic's level
-async function chipMenu(report, chip, topic) {
-    await report.locator(`[data-testid='chip-menu-${chip}']`).click();
-    const menu = report.page().locator(".pk-chip-menu");
-    await expect(menu.locator(".pk-levels")).toBeVisible();
-    if (topic) await openLevel(menu, topic);
-    return menu;
-}
+// the Views menu, its levels and the chip menus: tests/browser/pivot-menus.mjs
 
 // Reset is disabled while the report shows its start view
 async function expectAtStart(report) {
