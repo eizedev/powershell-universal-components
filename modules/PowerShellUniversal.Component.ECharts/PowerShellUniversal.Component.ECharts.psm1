@@ -246,6 +246,7 @@ function New-UDEChart {
         their own tooltip and ignore them. A hashtable sets a mode per chart type, '*' for the rest,
         for every chart of an app at once:
         $PSDefaultParameterValues['New-UDEChart:TooltipMode'] = @{ line = 'Axis'; '*' = 'Auto' }
+        An unknown mode, or a hashtable key that is not a chart type, is an error.
     .PARAMETER Trend
         Linear: a dashed least-squares trend line per series (line, area, bar, scatter).
     .PARAMETER Forecast
@@ -392,6 +393,8 @@ function New-UDEChart {
         [string]$LabelTemplate,
         [string[]]$TooltipColumns,
         [string]$TooltipTemplate,
+        # tab completion for the mode names; the third argument is the word typed so far
+        [ArgumentCompleter({ $word = $args[2]; 'Auto', 'Item', 'Axis', 'None' | Where-Object { $_ -like "$word*" } })]
         [ValidateScript({ Test-UDEChartTooltipMode -TooltipMode $_ })][object]$TooltipMode,
         [ValidateSet('Linear')][string]$Trend,
         [ValidateRange(1, 10000)][int]$Forecast,

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
-import { buildOption, responsive, optionForWidth, NARROW, TINY } from "./buildOption";
+import { buildOption, responsive, optionForWidth, tooltipTracksHover, NARROW, TINY } from "./buildOption";
 import { tooltipState } from "./tooltipMode";
 import { ensureTheme, themeObject, pageFontSize } from "./themes";
 import { scaleFonts } from "./fonts";
@@ -189,6 +189,8 @@ export default function EChart(props) {
         const placed = fitPlot(sized, { width, height: chart.getHeight() }, props.options);
         const theme = themeObject(mode, psuTheme, customTheme);
         chart.setOption(insideLabelColors(placed, theme.color, theme.textStyle && theme.textStyle.color), { replaceMerge: REPLACED });
+        // the series are as built again (a toolbox switch to line, bar or stack is gone)
+        tipState.current.live = null;
     }, [option, layoutKey, mode, psuTheme.text, customKey]);
 
     // linked charts: same -Group share tooltip, zoom and legend; a removed group unlinks the chart
@@ -279,15 +281,20 @@ export default function EChart(props) {
         };
         // -TooltipMode Auto: remember the element under the pointer and redraw the tooltip at once
         // (ECharts computes the tooltip before it reports the new element); helper series without a
-        // data index (a line's polyline, an area's fill) do not count as an element
+        // data index (a line's polyline, an area's fill) do not count as an element. Only charts whose
+        // tooltip reads it (tooltipTracksHover) get these handlers; the others keep ECharts' own tooltip.
         const tip = tipState.current;
+        tip.hover = null;
+        const tracks = tooltipTracksHover(latest.current);
         const redraw = (e) => {
             const ev = e && e.event;
             if (ev && typeof ev.offsetX === "number") {
                 // hideTip first: at the same axis position ECharts keeps the content it drew
-                // (TooltipView _updateContentNotChangedOnAxis) and would not call the formatter again
-                chart.dispatchAction({ type: "hideTip" });
-                chart.dispatchAction({ type: "showTip", x: ev.offsetX, y: ev.offsetY });
+                // (TooltipView _updateContentNotChangedOnAxis) and would not call the formatter again.
+                // escapeConnect: charts of the same -Group have their own layout and hover state; they
+                // follow through ECharts' own tooltip sync, not through these pixel positions
+                chart.dispatchAction({ type: "hideTip", escapeConnect: true });
+                chart.dispatchAction({ type: "showTip", x: ev.offsetX, y: ev.offsetY, escapeConnect: true });
             }
         };
         const onOver = (e) => {
@@ -305,16 +312,21 @@ export default function EChart(props) {
         const onGlobalOut = () => {
             tip.hover = null;
         };
-        // the toolbox switched bars to a stack or back: the gap then shows the stack's total
-        const onMagicType = (e) => {
-            if (e && (e.currentType === "stack" || e.currentType === "tiled")) {
-                tip.stacked = e.currentType === "stack";
-            }
+        // the toolbox switched line, bar or stack: the tooltip follows the series as drawn now
+        // (stack totals, the gap of stacked bars); Restore and every new option bring the built ones back
+        const onMagicType = () => {
+            tip.live = (chart.getOption().series || []).map((s) => ({ type: s.type, stack: s.stack || undefined }));
         };
-        chart.on("mouseover", onOver);
-        chart.on("mouseout", onOut);
-        chart.on("globalout", onGlobalOut);
+        const onRestore = () => {
+            tip.live = null;
+        };
+        if (tracks) {
+            chart.on("mouseover", onOver);
+            chart.on("mouseout", onOut);
+            chart.on("globalout", onGlobalOut);
+        }
         chart.on("magictypechanged", onMagicType);
+        chart.on("restore", onRestore);
         chart.on("axisareaselected", onAxisArea);
         chart.on("click", onClick);
         chart.on("brushEnd", onBrush);
@@ -326,6 +338,7 @@ export default function EChart(props) {
             chart.off("mouseout", onOut);
             chart.off("globalout", onGlobalOut);
             chart.off("magictypechanged", onMagicType);
+            chart.off("restore", onRestore);
             chart.off("axisareaselected", onAxisArea);
             chart.off("click", onClick);
             chart.off("brushEnd", onBrush);

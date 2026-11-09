@@ -776,17 +776,30 @@ function cartesian(props_, rows, keys, ctx) {
         pieces.push({ gt: stops[stops.length - 1].value, color: stops[stops.length - 1].color });
         visualMap = { type: "piecewise", show: false, dimension: 1, seriesIndex: lines, pieces, outOfRange: { color: stops[stops.length - 1].color } };
     }
-    // -TooltipMode (tooltipMode.js): scatter has no axis position to show, so it is always item
-    const tipMode = seriesType === "scatter" ? "item" : ctx.tooltipMode === "item" || ctx.tooltipMode === "axis" ? ctx.tooltipMode : "auto";
+    // -TooltipMode (tooltipMode.js); scatter has no axis position to show, so it is always item
+    const tipMode = cartesianTooltipMode(props, ctx.tooltipMode);
     const cartesianTooltip = () => {
         const pctF = formatter("percent100:1", ctx.locale);
         const pick = (v) => (Array.isArray(v) ? v[horizontal ? 0 : 1] : v);
+        // a 100 % stack keeps the original value on the item (only on a category axis, see -Normalize above)
+        const rawOf = (p) => (props.normalize && p.data && typeof p.data === "object" && p.data.raw !== undefined ? p.data.raw : undefined);
         // the number behind an item: the original value in a 100 % stack, else the value on the value axis
-        const valueOf = (p) => (props.normalize && p.data && typeof p.data === "object" ? p.data.raw : pick(p.value));
+        const valueOf = (p) => rawOf(p) ?? pick(p.value);
+        // x of an item on a time or value axis, where every series holds only its own rows
+        const xOf = (v) => (Array.isArray(v) ? v[horizontal ? 1 : 0] : undefined);
+        // an unreadable date matches nothing (two of them would both read as null)
+        const sameX = (a, b) => (xType === "time" ? toTime(a) !== null && toTime(a) === toTime(b) : String(a) === String(b));
+        const pointAt = (i, ref) => {
+            const data = Array.isArray(series[i].data) ? series[i].data : [];
+            const valueOfData = (d) => (d && typeof d === "object" && !Array.isArray(d) ? d.value : d);
+            const d = categories ? data[ref.dataIndex] : data.find((e) => sameX(xOf(valueOfData(e)), xOf(ref.value)));
+            return d === undefined ? undefined : { data: d, value: valueOfData(d) };
+        };
         const tip = {
             trigger: tipMode === "item" ? "item" : "axis",
             axisPointer: { type: seriesType === "bar" ? "shadow" : "cross", label: { formatter: (p) => String((horizontal ? p.axisDimension === "y" : p.axisDimension === "x") ? (xFmt && xType !== "category" ? xFmt(p.value) : p.value) : pointerFmt(p.value)) } },
-            valueFormatter: fmt ? (v) => fmt(pick(v)) : undefined,
+            // scatter keeps ECharts' own text, which hands the formatter each value of the point
+            valueFormatter: fmt ? (v) => fmt(Array.isArray(v) ? v[v.length - 1] : v) : undefined,
             confine: true
         };
         if (seriesType === "scatter" && !props.normalize) {
@@ -796,11 +809,12 @@ function cartesian(props_, rows, keys, ctx) {
         tip.formatter = cartesianTooltipFormatter({
             mode: tipMode,
             series,
-            stacked: Boolean(props.stacked),
-            isBar: seriesType === "bar",
             valueOf,
+            pointAt,
             // normalized: the share and the original value
-            rowText: (p) => (props.normalize ? `${pctF(p.value)} (${fmt ? fmt(p.data.raw) : p.data.raw})` : pointerFmt(pick(p.value))),
+            rowText: (p) => (rawOf(p) !== undefined ? `${pctF(p.value)} (${fmt ? fmt(rawOf(p)) : rawOf(p)})` : pointerFmt(pick(p.value))),
+            // with -SecondaryY two stacks can show: name the second by its axis
+            totalLabel: (stack, several) => (several && stack === "secondary" ? "Total (secondary axis)" : "Total"),
             header: (items) => {
                 const p = items[0];
                 if (p.axisValueLabel !== undefined) return p.axisValueLabel;
@@ -829,6 +843,25 @@ function cartesian(props_, rows, keys, ctx) {
         toolbox: toolboxOf(props, true, ctx.exportIcons),
         series
     };
+}
+
+/*
+ * The tooltip mode a cartesian chart uses: scatter is always item (no axis position to show),
+ * sparklines and -Facet panels always axis (too small to hit, linked panels), else -TooltipMode
+ * (none is applied by buildOption for every type). One place for buildOption and EChart.jsx.
+ */
+function cartesianTooltipMode(props, resolved) {
+    const type = String(props.chartType || "").toLowerCase();
+    if (type === "scatter") return "item";
+    if (props.sparkline || props.facet) return "axis";
+    return resolved === "item" || resolved === "axis" ? resolved : "auto";
+}
+
+// whether a chart's tooltip reads the hovered element (EChart.jsx tracks it only then)
+export function tooltipTracksHover(props) {
+    const type = String(props.chartType || "line").toLowerCase();
+    const resolved = resolveTooltipMode(props.tooltipMode, type);
+    return CARTESIAN.has(type) && resolved !== "none" && cartesianTooltipMode({ ...props, chartType: type }, resolved) === "auto";
 }
 
 // ---- sparkline: a tiny trend without axes, for tiles and tables ----------------------------------

@@ -425,3 +425,32 @@ test("tooltip after the toolbox stacks grouped bars: between the stacks the tota
     }).toPass({ timeout: 15000 });
     for (const n of a.names) expect(await tooltipText(example)).not.toContain(n);
 });
+
+test("tooltip after Restore in the toolbox: grouped bars list every series again", async ({ page }) => {
+    await openPage(page, "/echarts/");
+    const example = page.locator('[data-example="a-bar-chart-from-any-powershell-objects"]');
+    await example.scrollIntoViewIfNeeded();
+    const button = (title) => example.evaluate((el, t) => {
+        const d = [...el.querySelectorAll("div")].find((n) => n.echarts);
+        const box = d.getBoundingClientRect();
+        const icon = d.echarts.getZr().storage.getDisplayList().find((e) => e.__title === t);
+        const r = icon.getBoundingRect().clone();
+        r.applyTransform(icon.getComputedTransform());
+        return { x: box.left + r.x + r.width / 2, y: box.top + r.y + r.height / 2 };
+    }, title);
+    const stack = await button("Stack");
+    await page.mouse.click(stack.x, stack.y);
+    const restore = await button("Restore");
+    await page.mouse.click(restore.x, restore.y);
+    await expect.poll(() => example.evaluate((el) => [...el.querySelectorAll("div")].find((n) => n.echarts).echarts.getOption().series[0].stack || "")).toBe("");
+    const a = await chartPoint(example, 0, 1);
+    const b = await chartPoint(example, 0, 2);
+    await expect(async () => {
+        await page.mouse.move(a.x, a.y - 80);
+        await page.mouse.move((a.x + b.x) / 2, a.y - 80, { steps: 4 });
+        await expect.poll(() => tooltipText(example), { timeout: 1000 }).toContain(a.names[1]);
+    }).toPass({ timeout: 15000 });
+    const t = await tooltipText(example);
+    for (const n of a.names) expect(t).toContain(n);
+    expect(t).not.toContain("Total");
+});
