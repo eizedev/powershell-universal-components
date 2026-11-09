@@ -183,6 +183,32 @@ test("tipsOf and switchOf", () => {
     assert.equal(mod.switchOf(undefined), undefined);
 });
 
+/** The pixels of a clamp(min, calc(100svh - offset), max) for a window `svh` pixels high. */
+function defaultHeightAt(svh) {
+    const m = /^clamp\((\d+)px, calc\(100svh - (\d+)px\), (\d+)px\)$/.exec(mod.DEFAULT_HEIGHT);
+    assert.ok(m, `DEFAULT_HEIGHT has the documented form: ${mod.DEFAULT_HEIGHT}`);
+    const [min, offset, max] = m.slice(1).map(Number);
+    return { px: Math.min(max, Math.max(min, svh - offset)), min, offset, max };
+}
+
+test("the default height fills a desktop window below PSU's app bar and a page title", () => {
+    // a 1080p screen: the browser shows about 940 pixels of page; a 1440 x 900 window: 900
+    assert.equal(defaultHeightAt(940).px, 760);
+    assert.equal(defaultHeightAt(900).px, 720);
+    // a low window: enough for the open zones (pivotkit folds them below 600) and rows below them
+    assert.equal(defaultHeightAt(700).px, 600);
+    // a tall screen: the report stops growing
+    assert.equal(defaultHeightAt(2160).px, 1400);
+    // the help of -Height and the page that describes it give the same numbers
+    const { min, offset, max } = defaultHeightAt(0);
+    const psm1 = readFileSync(new URL("../../modules/PowerShellUniversal.Component.Pivot/PowerShellUniversal.Component.Pivot.psm1", import.meta.url), "utf8");
+    const page = readFileSync(new URL("../../docs/pivot/index.md", import.meta.url), "utf8");
+    for (const [name, text] of [["the help of -Height", psm1], ["docs/pivot/index.md", page]]) {
+        assert.ok(text.includes(`minus ${offset} pixels`), `${name} names the ${offset} pixels`);
+        assert.ok(text.includes(`between ${min} and ${max} pixels`), `${name} names ${min} and ${max}`);
+    }
+});
+
 test("heightOf and themeOf", () => {
     assert.equal(mod.heightOf(500), 500);
     assert.equal(mod.heightOf(" 70vh "), "70vh");

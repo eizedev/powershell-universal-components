@@ -5,6 +5,13 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
+### Changed
+
+- The pages' reports (Weather, Your data) and the placeholder while the data loads take the pivot
+  report's default height, one screen, instead of 640 pixels, which left only a few rows below the
+  zones on a desktop window. The ticket pages (Templates, Fields) do the same with the pivot module's
+  examples; this needs the pivot module's next release for the new default.
+
 ### Fixed
 
 - A click on the free space beside the "Live data" switch no longer switches it

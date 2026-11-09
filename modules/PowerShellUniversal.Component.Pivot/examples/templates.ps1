@@ -38,7 +38,8 @@ New-UDApp -Title 'Pivot templates with sign-in' -Pages @(
             if (@($Roles) | Where-Object { $_ -in $adminRoles }) { "Signed in as ${User}, an admin: Views offers Publish as shared view, and the admin panel is under the report." }
             else { "Signed in as ${User}: save your own views under Views; shared views are read-only for you." }
         )
-        # -UserName and -Roles default to $User and $Roles of this page
+        # -UserName and -Roles default to $User and $Roles of this page; 640 pixels, not the default of
+        # one screen, so an admin sees the admin panel under the report
         New-UDPivotReport -Id 'requests' -Data $requests -SourceName 'Service requests' -Height 640px `
             -View @{ rows = @('Service'); cols = @('Site'); values = @(@{ field = 'Request'; agg = 'count' }) } `
             -FieldDefaults @{ Minutes = @{ Agg = 'average'; Format = 'number:0'; Description = 'Minutes of work on the request.' }; Request = @{ DrillFormat = 'text' } } `
