@@ -787,7 +787,8 @@ function cartesian(props_, rows, keys, ctx) {
         const valueOf = (p) => rawOf(p) ?? pick(p.value);
         // x of an item on a time or value axis, where every series holds only its own rows
         const xOf = (v) => (Array.isArray(v) ? v[horizontal ? 1 : 0] : undefined);
-        const sameX = (a, b) => (xType === "time" ? toTime(a) === toTime(b) : String(a) === String(b));
+        // an unreadable date matches nothing (two of them would both read as null)
+        const sameX = (a, b) => (xType === "time" ? toTime(a) !== null && toTime(a) === toTime(b) : String(a) === String(b));
         const pointAt = (i, ref) => {
             const data = Array.isArray(series[i].data) ? series[i].data : [];
             const valueOfData = (d) => (d && typeof d === "object" && !Array.isArray(d) ? d.value : d);

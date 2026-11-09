@@ -934,6 +934,17 @@ test("tooltip totals on a time axis add the series at the same date, not at the 
     }
 });
 
+test("tooltip totals on a time axis: an unreadable date is no position, so it adds nothing", () => {
+    const rows = [["A", "2026-11-01", 1], ["A", "2026-13-45", 2], ["B", "2026-11-01", 10], ["B", "2026-13-40", 20]].map(([G, D, V]) => ({ G, D, V }));
+    const o = buildOption({ chartType: "area", data: rows, x: "D", y: ["V"], groupBy: "G", stacked: true, tooltipMode: "item" }, {});
+    assert.equal(o.xAxis.type, "time");
+    const a = { seriesIndex: 0, dataIndex: 1, seriesName: "A", marker: "", data: o.series[0].data[1], value: o.series[0].data[1].value };
+    // before: both dates read as null, so B's 20 was added to A's 2
+    assert.doesNotMatch(text(o.tooltip.formatter(a)), /Total: 22/);
+    const ok = { seriesIndex: 0, dataIndex: 0, seriesName: "A", marker: "", data: o.series[0].data[0], value: o.series[0].data[0].value };
+    assert.match(text(o.tooltip.formatter(ok)), /Total: 11$/);
+});
+
 test("tooltip: two stacks with -SecondaryY name the second total by its axis; -Normalize without categories keeps its rows", () => {
     const rows = [{ x: "h", a: 1, b: 2, c: 100, d: 200 }];
     const o = buildOption({ chartType: "bar", data: rows, x: "x", y: ["a", "b", "c", "d"], secondaryY: ["c", "d"], stacked: true }, { tooltipState: tooltipState() });
