@@ -4,6 +4,7 @@
 // zensical build (see docs/development/index.md).
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { openSaveAs, openViews } from "./pivot-menus.mjs";
 
 // the pages of the built site, as paths ("/echarts/bars/")
 const pages = [...readFileSync(new URL("../../site/sitemap.xml", import.meta.url), "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname);
@@ -75,15 +76,12 @@ test("the site has its pages", () => {
     expect(pages).toContain("/pivot/");
 });
 
-// Views in the toolbar, or in its More menu where a medium-wide report has no room for it
-async function openViews(report) {
-    const views = report.locator("[data-testid=views]");
-    if (await views.isVisible()) {
-        await views.click();
-    } else {
-        await report.locator("[data-testid=more]").click();
-        await report.page().locator("[data-testid=more-views]").click();
-    }
+// saves the report's view under a name through the Views menu's Save as level (pivot-menus.mjs)
+async function saveView(report, name) {
+    const menu = await openViews(report);
+    await openSaveAs(menu);
+    await menu.locator("[data-testid=saved-view-name]").fill(name);
+    await menu.locator("[data-testid=saved-view-name]").press("Enter");
 }
 
 test("Pivot: the report holds the DataTable, follows the switch and shows the $EventData of a save", async ({ page }) => {
@@ -96,9 +94,7 @@ test("Pivot: the report holds the DataTable, follows the switch and shows the $E
     const theme = await report.getAttribute("data-pk-theme");
     await page.locator("[data-md-component=palette] label:visible").first().click();
     await expect(report).not.toHaveAttribute("data-pk-theme", theme);
-    await openViews(report);
-    await page.locator("[data-testid=saved-view-name]").fill("Mine");
-    await page.locator("[data-testid=saved-view-name]").press("Enter");
+    await saveView(report, "Mine");
     await expect(page.locator(".psu-event")).toContainText("-OnSaveTemplate");
     await expect(page.locator(".psu-event")).toContainText('"name": "Mine"');
     await expect(report.locator(".pk-toast-dock")).toContainText("saved");
@@ -123,8 +119,7 @@ test("Pivot: the start view, field labels and both templates of the medium examp
     // -FieldDefaults labels in the field list
     await expect(report.locator(".pk-field-list")).toContainText("Release cycle");
     await expect(report.locator(".pk-field-list")).toContainText("Latest version");
-    await openViews(report);
-    const menu = page.locator(".pk-popover").last();
+    const menu = await openViews(report);
     await expect(menu).toContainText("End of life per year and product");
     await expect(menu).toContainText("Releases per year");
     expect(errors).toEqual([]);
@@ -138,13 +133,10 @@ test("Pivot: in the app example a saved view is listed under My views, its $Even
     await expect(report.getByRole("region", { name: "Table" })).toContainText("windows-server");
     // the reader has the role of -AdminRole
     await expect(example.locator("[data-testid=pivot-admin]")).toBeVisible();
-    await openViews(report);
-    await page.locator("[data-testid=saved-view-name]").fill("Mine");
-    await page.locator("[data-testid=saved-view-name]").press("Enter");
+    await saveView(report, "Mine");
     // the store's own event handler, registered by the module
     await expect(page.locator('[data-example="a-report-app-with-loading-views-per-reader-and-roles"] + .psu-event')).toContainText("-OnSaveTemplate");
-    await openViews(report);
-    const menu = example.locator(".pk-popover").last();
+    const menu = await openViews(report);
     await expect(menu).toContainText("My views");
     await expect(menu).toContainText("Mine");
     expect(errors).toEqual([]);
@@ -171,14 +163,14 @@ test("Pivot: shared views and my views; a reader with -AdminRole publishes and t
     await openPage(page, "/pivot/templates/");
     const report = page.locator('[data-example="shared-views-and-my-views"] .pk-root');
     await expect(report.getByRole("region", { name: "Table" })).toContainText("400");
-    await openViews(report);
-    const menu = page.locator(".pk-popover").last();
+    const menu = await openViews(report);
     await expect(menu).toContainText("Shared views");
     await expect(menu).toContainText("Lead time per priority");
     await expect(menu).toContainText("My views");
     await expect(menu).toContainText("My priorities");
-    await menu.getByRole("button", { name: /Publish/ }).first().click();
-    await menu.getByRole("button", { name: /^Publish$/ }).last().click();
+    // Publish next to the entry asks in a level of the menu
+    await menu.locator("[data-testid='publish-view-My priorities']").click();
+    await menu.locator("[data-testid=confirm-publish]").click();
     await expect(page.locator(".psu-event")).toContainText("-OnPublishTemplate");
     await expect(page.locator(".psu-event")).toContainText('"name": "My priorities"');
     await expect(report.locator(".pk-toast-dock")).toContainText("published");

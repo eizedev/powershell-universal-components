@@ -26,8 +26,10 @@ Views, with a dot while it has unsaved changes. The menu starts with **This view
 Save and a confirmed Save as send the name of a view that exists: the store replaces that view (an
 upsert, see [Saving a name that exists](#in-files-on-the-server-new-udpivotfiletemplatestore)), and
 your own `-OnSaveTemplate` and `-OnPublishTemplate` must do the same. Undo and Redo carry the view's
-name with the view; Reset and New take it away. Views also has **Copy view as JSON**, **Download
-view** (a [view file](#view-files)) and **Load view…** (a view file, JSON or a link). Toolbar buttons
+name with the view; Reset and New take it away. The menu is a flat list to scan; Save as…, Share and
+the questions before a delete, a publish or a Save over a shared view open levels of their own, with
+‹ Back. **Share** (under its own heading, Share this view) has **Copy link**, **Copy view as JSON**,
+**Download view** (a [view file](#view-files)) and **Load view…** (a view file, JSON or a link). Toolbar buttons
 that do not fit move into **More**; Views is the last to go (pivotkit's order: Reset, Layout,
 Options, the chart type, Views), so it moves under More only when the report is narrow.
 
@@ -126,7 +128,7 @@ New-UDApp -Title 'Tickets' -Pages @(
 ```
 
 Every signed-in reader saves views under My views and finds them on every device. Readers with a role
-of `-AdminRole` publish their views as shared views (Publish as shared view, asked in place) and
+of `-AdminRole` publish their views as shared views (Publish as shared view, asked in a level of the menu) and
 delete shared views; everyone else sees shared views read-only. The store keeps view files:
 
 | Path below `-Path` | What |
@@ -297,7 +299,7 @@ $store = New-UDPivotTemplateStore -Get {
 `-AdminRole` names PSU roles (`$Roles`), for example `-AdminRole 'Administrator'` or a role of your own
 from claims mapping. A reader with one of them gets:
 
-- **Publish as shared view** next to each of their own views (asked in place), and **Save “…”** on a
+- **Publish as shared view** next to each of their own views (asked in a level of the menu), and **Save “…”** on a
   shared view they loaded (after "Replace the shared view “…” for everyone?"),
 - a delete button on every shared view, and
 - the **admin panel** under the report: the current view as JSON, the columns with the type pivotkit

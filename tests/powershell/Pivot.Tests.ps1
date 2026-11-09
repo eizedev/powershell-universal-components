@@ -462,7 +462,7 @@ Describe 'The pivot module' {
         $manifest.PrivateData.PSData.Tags | Should -Contain 'PowerShellUniversal'
         $manifest.FunctionsToExport | Should -Be @('New-UDPivotReport', 'New-UDPivotReportPlaceholder', 'ConvertFrom-UDPivotView', 'ConvertFrom-UDPivotViewFile', 'ConvertTo-UDPivotViewFile', 'New-UDPivotFileTemplateStore', 'New-UDPivotTemplateStore', 'Invoke-UDPivotTemplateRequest', 'Get-UDPivotSqlColumnDescription')
         (Get-Command -Module $script:module.Name).Name | Sort-Object | Should -Be ($manifest.FunctionsToExport | Sort-Object)
-        $manifest.ModuleVersion | Should -Be '0.2.0'
+        $manifest.ModuleVersion | Should -Be '0.3.0'
     }
 
     It 'documents every parameter with an example' {

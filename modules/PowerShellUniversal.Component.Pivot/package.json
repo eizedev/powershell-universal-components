@@ -9,8 +9,8 @@
   },
   "dependencies": {
     "echarts": "6.1.0",
-    "pivotkit-core": "0.2.0",
-    "pivotkit-react": "0.2.0",
+    "pivotkit-core": "0.3.0",
+    "pivotkit-react": "0.3.0",
     "universal-dashboard": "1.1.2"
   },
   "devDependencies": {

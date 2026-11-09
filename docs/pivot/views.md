@@ -26,13 +26,20 @@ The keys of a view:
 | --- | --- |
 | `rows`, `cols` | Field names, outermost first. |
 | `values` | `@{ field = 'Cost'; agg = 'sum'; format = 'currency:EUR' }`: aggregators `sum`, `count`, `countUnique`, `average`, `median`, `min`, `max`, `stdev`, `var`, `first`, `last`, ...; formats `number`, `number:2`, `integer`, `percent`, `currency:EUR`, `compact`, `bytes`, `duration:h`, `date`, `datetime`, `time`; `showAs = @{ type = 'percentOfGrandTotal' }` and the other "show as" types. |
-| `filters` | `@{ field = 'Status'; type = 'include'; items = @('Open', 'Waiting') }`; also `exclude`, `label` (text conditions), `top`, `value`. |
+| `filters` | `@{ field = 'Status'; type = 'include'; items = @('Open', 'Waiting') }`; also `exclude`, `label` (a rule on the names), `compare` (the item itself compared: `@{ field = 'Created (Year)'; type = 'compare'; op = '>='; value = 2022 }`, a date by its calendar day `'2025-01-01'`, `op` one of `=`, `!=`, `>`, `>=`, `<`, `<=`, `between`, `notBetween` with `value2`), `relative` (the last N years, months or days, today's included: `@{ field = 'Created'; type = 'relative'; unit = 'year'; count = 2 }`; `anchor = 'latest'` counts back from the latest date of the field's data instead of today), `top`, `value` (a rule on the total). |
 | `derived` | Grouped dates and number ranges: `@{ name = 'Created (Month)'; field = 'Created'; by = 'yearMonth' }` (units `year`, `yearQuarter`, `yearMonth`, `yearWeek`, `day`, `quarter`, `month`, `week`, `weekday`, `hour`); the name then goes into `rows` or `cols`. |
 | `sort` | `@{ field = 'Team'; by = 'value'; order = 'desc' }`. |
 | `totals` | `@{ grandTotalRow = $true; grandTotalColumn = $true; rowSubtotals = $true; colSubtotals = $true }`. |
 | `display`, `chart` | `'table'` or `'chart'`; `@{ type = 'bar'; stacked = $false; horizontal = $false }`, types `auto` (the default: lines over dates, bars otherwise), `bar`, `line`, `area`, `pie`, `donut`, `heatmap`; the Display settings `valueLabels` (`auto`, `off`, `value`, `percent`, `both`), `legend` (`auto`, `bottom`, `right`, `off`), `title`, `smooth`, `axisLabels` (`auto`, `all`, `nth`), `groupLabels` (`auto`, `on`, `off`) and, for a pie or donut, `labelPosition` (`outside`, `inside`). |
 
-The simplest way to a view is to build it in the report and copy it: **Views, Copy view as JSON** (a
+A `relative` filter and the quick choices of the Filter level keep a rule, not dates: "today" is read
+when the report computes, in the browser, from the reader's clock at the wall time of `-TimeZone`
+(pivotkit-core's `now` option; the module passes none, so a view saved today still shows "last 2
+years" next year). A view with a `compare` or `relative` filter loaded by a report on pivotkit 0.2.0
+(this module before 0.3.0) reports that filter as an unused part and leaves it out; views saved by
+earlier versions load unchanged (the view file format stays version 1).
+
+The simplest way to a view is to build it in the report and copy it: **Views, Share, Copy view as JSON** (a
 [view file](templates.md#view-files); `-View` takes its `view`), or `$EventData.json` of `-OnViewChange`.
 `-View` takes that JSON as it is.
 
