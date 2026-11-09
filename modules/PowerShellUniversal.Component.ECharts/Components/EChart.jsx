@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
 import { buildOption, responsive, optionForWidth, NARROW, TINY } from "./buildOption";
+import { tooltipState } from "./tooltipMode";
 import { ensureTheme, themeObject, pageFontSize } from "./themes";
 import { scaleFonts } from "./fonts";
 import { fitPlot, insideLabelColors, legendRows, needsFit } from "./layout";
@@ -69,6 +70,11 @@ export default function EChart(props) {
     // the latest props for event handlers registered once
     const latest = useRef(props);
     latest.current = props;
+    // -TooltipMode Auto: the element under the pointer, read by the tooltip formatter
+    const tipState = useRef(null);
+    if (tipState.current === null) {
+        tipState.current = tooltipState();
+    }
 
     const option = useMemo(() => {
         try {
@@ -78,7 +84,7 @@ export default function EChart(props) {
                 onXlsx: props.export === false ? undefined : () => exportAs("xlsx"),
                 onFullscreen: props.fullscreen === false || !canFullscreen() ? undefined : () => toggleFullscreen()
             };
-            const base = buildOption(props, { locale, exportIcons, mode });
+            const base = buildOption(props, { locale, exportIcons, mode, tooltipState: tipState.current });
             return { value: base, rules: responsive(base, props, { locale }) };
         } catch (e) {
             return { error: e.message };
@@ -271,6 +277,44 @@ export default function EChart(props) {
                 call("onSelect", payload);
             }, 250);
         };
+        // -TooltipMode Auto: remember the element under the pointer and redraw the tooltip at once
+        // (ECharts computes the tooltip before it reports the new element); helper series without a
+        // data index (a line's polyline, an area's fill) do not count as an element
+        const tip = tipState.current;
+        const redraw = (e) => {
+            const ev = e && e.event;
+            if (ev && typeof ev.offsetX === "number") {
+                // hideTip first: at the same axis position ECharts keeps the content it drew
+                // (TooltipView _updateContentNotChangedOnAxis) and would not call the formatter again
+                chart.dispatchAction({ type: "hideTip" });
+                chart.dispatchAction({ type: "showTip", x: ev.offsetX, y: ev.offsetY });
+            }
+        };
+        const onOver = (e) => {
+            if (e.componentType === "series" && typeof e.dataIndex === "number") {
+                tip.hover = { seriesIndex: e.seriesIndex, dataIndex: e.dataIndex };
+                redraw(e);
+            }
+        };
+        const onOut = (e) => {
+            if (tip.hover) {
+                tip.hover = null;
+                redraw(e);
+            }
+        };
+        const onGlobalOut = () => {
+            tip.hover = null;
+        };
+        // the toolbox switched bars to a stack or back: the gap then shows the stack's total
+        const onMagicType = (e) => {
+            if (e && (e.currentType === "stack" || e.currentType === "tiled")) {
+                tip.stacked = e.currentType === "stack";
+            }
+        };
+        chart.on("mouseover", onOver);
+        chart.on("mouseout", onOut);
+        chart.on("globalout", onGlobalOut);
+        chart.on("magictypechanged", onMagicType);
         chart.on("axisareaselected", onAxisArea);
         chart.on("click", onClick);
         chart.on("brushEnd", onBrush);
@@ -278,6 +322,10 @@ export default function EChart(props) {
         chart.on("legendselectchanged", onLegend);
         return () => {
             clearTimeout(areaTimer);
+            chart.off("mouseover", onOver);
+            chart.off("mouseout", onOut);
+            chart.off("globalout", onGlobalOut);
+            chart.off("magictypechanged", onMagicType);
             chart.off("axisareaselected", onAxisArea);
             chart.off("click", onClick);
             chart.off("brushEnd", onBrush);

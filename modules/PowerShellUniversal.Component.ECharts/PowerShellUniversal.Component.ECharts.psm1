@@ -237,6 +237,15 @@ function New-UDEChart {
     .PARAMETER TooltipTemplate
         Tooltip text from the row, placeholders as in -LabelTemplate; `n starts a new line. Values are
         HTML-escaped.
+    .PARAMETER TooltipMode
+        Which items the tooltip covers. Auto (default): the element under the pointer wins - a bar,
+        a bar segment or a line point shows that element only (stacked bars: plus the stack total),
+        a position on the axis without an element shows all series there (stacked bars: the total
+        only). Item: always one element, nothing between them. Axis: all series at the position.
+        None: no tooltip. Item and Axis apply to line, area, step and bar; the other chart types keep
+        their own tooltip and ignore them. A hashtable sets a mode per chart type, '*' for the rest,
+        for every chart of an app at once:
+        $PSDefaultParameterValues['New-UDEChart:TooltipMode'] = @{ line = 'Axis'; '*' = 'Auto' }
     .PARAMETER Trend
         Linear: a dashed least-squares trend line per series (line, area, bar, scatter).
     .PARAMETER Forecast
@@ -383,6 +392,7 @@ function New-UDEChart {
         [string]$LabelTemplate,
         [string[]]$TooltipColumns,
         [string]$TooltipTemplate,
+        [ValidateScript({ Test-UDEChartTooltipMode -TooltipMode $_ })][object]$TooltipMode,
         [ValidateSet('Linear')][string]$Trend,
         [ValidateRange(1, 10000)][int]$Forecast,
         [Nullable[double]]$TrendTarget,
@@ -506,6 +516,7 @@ function New-UDEChart {
     foreach ($name in 'LightTheme', 'DarkTheme') {
         if ($PSBoundParameters.ContainsKey($name)) { $props[$name.Substring(0, 1).ToLowerInvariant() + $name.Substring(1)] = ConvertTo-UDEChartTheme -Theme $PSBoundParameters[$name] }
     }
+    if ($PSBoundParameters.ContainsKey('TooltipMode')) { $props['tooltipMode'] = ConvertTo-UDEChartTooltipMode -TooltipMode $TooltipMode }
     if ($PSBoundParameters.ContainsKey('LegendType')) { $props['legendType'] = $LegendType.ToLowerInvariant() }
     if ($PSBoundParameters.ContainsKey('Aggregate')) { $props['aggregate'] = $Aggregate.ToLowerInvariant() }
     if ($PSBoundParameters.ContainsKey('EmptyText')) { $props['emptyText'] = $EmptyText }
@@ -605,6 +616,48 @@ function ConvertTo-UDEChartTheme {
         throw 'This is an ECharts theme builder project file. Use "Download theme" in the builder and choose JSON.'
     }
     $Theme
+}
+
+function Test-UDEChartTooltipMode {
+    <#
+    .SYNOPSIS
+        Validates -TooltipMode: a mode name, or a hashtable of chart type (or '*') to mode name.
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param([Parameter(Mandatory)][AllowNull()][object]$TooltipMode)
+
+    $modes = 'Auto', 'Item', 'Axis', 'None'
+    if ($TooltipMode -is [string]) {
+        if ($TooltipMode -in $modes) { return $true }
+        throw ('-TooltipMode {0}: use {1}, or a hashtable of chart type to mode.' -f $TooltipMode, ($modes -join ', '))
+    }
+    if ($TooltipMode -is [System.Collections.IDictionary]) {
+        $types = @((Get-Command New-UDEChart).Parameters['Type'].Attributes.ValidValues) + '*'
+        foreach ($key in $TooltipMode.Keys) {
+            if ([string]$key -notin $types) { throw ('-TooltipMode: {0} is not a chart type. Use one of {1}.' -f $key, ($types -join ', ')) }
+            if ([string]$TooltipMode[$key] -notin $modes) { throw ('-TooltipMode {0} = {1}: use {2}.' -f $key, $TooltipMode[$key], ($modes -join ', ')) }
+        }
+        return $true
+    }
+    throw '-TooltipMode is a mode name (Auto, Item, Axis, None) or a hashtable of chart type to mode.'
+}
+
+function ConvertTo-UDEChartTooltipMode {
+    <#
+    .SYNOPSIS
+        Turns -TooltipMode into what the chart reads: a lower-case mode, or a map of chart type to mode.
+    #>
+    [CmdletBinding()]
+    [OutputType([string], [hashtable])]
+    param([Parameter(Mandatory)][object]$TooltipMode)
+
+    if ($TooltipMode -is [System.Collections.IDictionary]) {
+        $map = @{}
+        foreach ($key in $TooltipMode.Keys) { $map[([string]$key).ToLowerInvariant()] = ([string]$TooltipMode[$key]).ToLowerInvariant() }
+        return $map
+    }
+    ([string]$TooltipMode).ToLowerInvariant()
 }
 
 function New-UDEChartTimeBreak {

@@ -292,6 +292,15 @@ $endoflife = 'Release data by [endoflife.date](https://endoflife.date/), MIT lic
             } -Height 320px
         }
     }
+    @{ Section = 'Interaction'; Title = 'Tooltip on the hovered segment'; Text = 'Point at a segment: its value and the stack total. Point between the stacks: the total only. -TooltipMode Axis lists every series instead.'; Code = {
+            $storage = foreach ($site in 'Berlin', 'Hamburg', 'Munich', 'Vienna', 'Zurich', 'Prague') {
+                foreach ($dept in 'Finance', 'HR', 'IT', 'Legal', 'Marketing', 'Production', 'Sales', 'Support') {
+                    [pscustomobject]@{ Site = $site; Department = $dept; GB = 40 + 9 * $site.Length + 13 * $dept.Length }
+                }
+            }
+            New-UDEChart -Data $storage -Type bar -X Site -Y GB -GroupBy Department -Stacked -Format 'integer' -Height 340px
+        }
+    }
     @{ Section = 'Interaction'; Title = 'Corporate design'; Text = 'An ECharts theme per mode - a hashtable, or the JSON the ECharts theme builder downloads - merged over the module''s own. Set it once for an app with $PSDefaultParameterValues.'; Code = {
             $quarters = 'Q1', 'Q2', 'Q3', 'Q4' | ForEach-Object -Begin { $q = 0 } -Process { $q++; [pscustomobject]@{ Quarter = $_; Managed = 300 + 40 * $q; Projects = 180 + 25 * $q; Licences = 90 + 10 * $q } }
             $light = @{ color = @('#003b6f', '#f28c28', '#6c8ebf'); title = @{ textStyle = @{ color = '#003b6f' } } }
