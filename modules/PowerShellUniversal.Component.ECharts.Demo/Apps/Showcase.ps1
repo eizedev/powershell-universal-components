@@ -113,6 +113,10 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
             Add-ChartCard 'Stacked' 4 { New-UDEChart -Data $statusRows -Type bar -X Team -Y Open, Waiting, Closed -Stacked -Height 300px }
             Add-ChartCard 'Stacked horizontal' 6 { New-UDEChart -Data $statusRows -Type bar -Horizontal -X Team -Y Open, Waiting, Closed -Stacked -DataLabels -Height 340px }
             Add-ChartCard 'Stacked to 100 % (share per team; tooltip shows the counts)' 6 { New-UDEChart -Data $statusRows -Type bar -Horizontal -X Team -Y Open, Waiting, Closed -Normalize -DataLabels -LabelFormat 'percent100:0' -Height 340px }
+            # -TooltipMode: with ten series per stack the tooltip names the hovered segment and the total
+            $ticketsPerMonth = foreach ($t in $teams) { foreach ($m in $months) { [pscustomobject]@{ Team = $t; Month = $m; Tickets = $rng.Next(10, 90) } } }
+            Add-ChartCard 'Stacked, ten series: point at a segment (its value and the total) or between the bars (the total)' 6 { New-UDEChart -Data $ticketsPerMonth -Type bar -X Team -Y Tickets -GroupBy Month -Stacked -Height 340px }
+            Add-ChartCard 'The same with -TooltipMode Axis: every series at the position' 6 { New-UDEChart -Data $ticketsPerMonth -Type bar -X Team -Y Tickets -GroupBy Month -Stacked -TooltipMode Axis -Height 340px }
             Add-ChartCard 'Negative values, horizontal: budget variance per department' 6 {
                 $variance = foreach ($d in 'IT', 'HR', 'Sales', 'Marketing', 'Logistics', 'Production', 'Finance', 'Legal') { [pscustomobject]@{ Department = $d; Variance = $rng.Next(-180000, 140000) } }
                 New-UDEChart -Data ($variance | Sort-Object Variance) -Type bar -Horizontal -X Department -Y Variance -Format 'currency:EUR' -Locale de-DE -NegativeColor '#e53935' -DataLabels -Height 340px

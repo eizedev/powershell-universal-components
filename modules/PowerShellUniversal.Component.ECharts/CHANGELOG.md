@@ -5,13 +5,23 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-09
+
 ### Added
 
+- `-TooltipMode Auto | Item | Axis | None`, or a hashtable per chart type (`@{ line = 'Axis'; '*' = 'Auto' }`)
+  to set it for every chart of an app with `$PSDefaultParameterValues`.
 - `Private/SHARED.txt` in the built module: the content hashes of the repository's `shared/` code it was
   built from, to compare two builds or releases.
 
 ### Changed
 
+- Tooltips of bar, line, area and step charts show the element under the pointer: a bar, a stacked
+  segment (with the stack total) or a line point alone; between them all series at that position,
+  between stacked bars the total only. Before, every series at the position was listed, also when the
+  pointer was on one segment. `-TooltipMode Axis` keeps that behaviour. Stacked tooltips have a total
+  row in every mode; switching bars to a stack in the toolbox does the same.
+- A hovered bar or polar bar lights up alone instead of its whole series, matching the tooltip.
 - Data conversion is about ten times faster (a DataTable of 5000 rows and 12 columns: 2.4 to 2.9 s
   before, about 40 ms now, measured on a PSU test instance): no function call per cell, and large
   DataTables go through a small class compiled on first use (Add-Type, once per PSU process). The rows
