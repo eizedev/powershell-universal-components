@@ -21,6 +21,8 @@ live examples next to their code, and the parameter reference.
 Install-PSResource -Name PowerShellUniversal.Component.ECharts
 ```
 
+In the PowerShell Gallery: [PowerShellUniversal.Component.ECharts](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.ECharts).
+
 or copy the built module folder into `Modules/PowerShellUniversal.Component.ECharts/<version>/` of your
 PSU repository. Then use `New-UDEChart` in any app.
 

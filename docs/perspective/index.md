@@ -10,6 +10,8 @@ tens of thousands of rows stay fast.
 Install-PSResource -Name PowerShellUniversal.Component.Perspective
 ```
 
+In the PowerShell Gallery: [PowerShellUniversal.Component.Perspective](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Perspective).
+
 ## Datagrid that readers rearrange
 
 --8<-- "examples/datagrid-that-readers-rearrange.md"

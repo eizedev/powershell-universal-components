@@ -7,6 +7,8 @@ as a module: install it and an app needs one line.
 Install-PSResource -Name PowerShellUniversal.Component.ECharts.Demo   # installs the chart module too
 ```
 
+In the PowerShell Gallery: [PowerShellUniversal.Component.ECharts.Demo](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.ECharts.Demo).
+
 App content (admin console > Apps > create, or a script):
 
 ```powershell
