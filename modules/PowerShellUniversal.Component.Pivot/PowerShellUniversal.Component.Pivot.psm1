@@ -1495,7 +1495,7 @@ function New-UDPivotReport {
         (pivotkit); the server is only asked for what the event parameters do.
 
         A view - what the report shows - is plain JSON that pivotkit checks against the data; it never
-        runs as code. -View sets the start view, -Templates the views offered in the Templates menu,
+        runs as code. -View sets the start view, -Templates the views offered in the Views menu,
         -TemplatePath reads view files from folders, and -TemplateStore keeps readers' own views and the
         shared ones (New-UDPivotFileTemplateStore, New-UDPivotTemplateStore) with -AdminRole for who may
         change shared views; -OnSaveTemplate and -OnDeleteTemplate stay for full control. Field names are
