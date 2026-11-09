@@ -10,6 +10,8 @@ Install-PSResource -Name PowerShellUniversal.Component.Perspective
 Install-PSResource -Name PowerShellUniversal.Component.Pivot
 ```
 
+In the PowerShell Gallery: [PowerShellUniversal.Component.ECharts](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.ECharts), [PowerShellUniversal.Component.Perspective](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Perspective), [PowerShellUniversal.Component.Pivot](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot).
+
 Or copy a built module folder into `Modules/<Module>/<version>/` of your PSU repository (the release
 zip on GitHub has that layout). Then use the module's command in any app; PSU loads the component
 when a page uses it.
@@ -71,6 +73,6 @@ data: [Pivot: loading and performance](pivot/index.md#loading-and-performance).
 ## Try everything
 
 The [showcase app](demo.md) has 14 pages of charts with generated and public data:
-`Install-PSResource PowerShellUniversal.Component.ECharts.Demo`, then `New-UDEChartShowcase` as an app's
+`Install-PSResource PowerShellUniversal.Component.ECharts.Demo` ([PowerShell Gallery](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.ECharts.Demo)), then `New-UDEChartShowcase` as an app's
 content. The [pivot showcase app](pivot/demo.md) works the same way:
-`Install-PSResource PowerShellUniversal.Component.Pivot.Demo`, then `New-UDPivotShowcase`.
+`Install-PSResource PowerShellUniversal.Component.Pivot.Demo` ([PowerShell Gallery](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot.Demo)), then `New-UDPivotShowcase`.

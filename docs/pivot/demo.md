@@ -12,6 +12,8 @@ module: install it and an app needs one line.
 Install-PSResource -Name PowerShellUniversal.Component.Pivot.Demo   # installs the pivot module too
 ```
 
+In the PowerShell Gallery: [PowerShellUniversal.Component.Pivot.Demo](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot.Demo).
+
 App content (admin console > Apps > create, or a script):
 
 ```powershell

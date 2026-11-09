@@ -9,7 +9,7 @@ tag `<Module>-v<Version>` on `main`.
    on a commit that is not on `main` stops the workflow before anything is built.
 3. The workflow `release.yml` tests, builds and checks the module, then waits for approval in the
    environment `psgallery`; after it, it publishes to the PowerShell Gallery and creates the GitHub
-   release with the zip and the CHANGELOG section.
+   release with the zip, the CHANGELOG section and a link to the version's page in the gallery.
 
 "Run workflow" on `release.yml` with a tag name checks a release without publishing anything. A module
 that requires another one (a demo requires its component module) is released after it: the gallery checks that

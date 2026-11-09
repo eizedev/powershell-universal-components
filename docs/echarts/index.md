@@ -8,6 +8,8 @@ events, light and dark theme and CSV/Excel export.
 Install-PSResource -Name PowerShellUniversal.Component.ECharts
 ```
 
+In the PowerShell Gallery: [PowerShellUniversal.Component.ECharts](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.ECharts).
+
 ## First charts
 
 ### A bar chart from any PowerShell objects

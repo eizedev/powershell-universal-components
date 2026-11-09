@@ -60,7 +60,11 @@ Describe 'Publish-Module.ps1 release notes' {
             & $script -Module Demo.Module -Version 1.2.3 6>$null | Out-Null
             $notes = (Import-PowerShellDataFile (Join-Path $root 'output' 'Demo.Module' '1.2.3' 'Demo.Module.psd1')).PrivateData.PSData.ReleaseNotes
             $notes | Should -Be "- It's new, ""quoted""."
-            Get-Content (Join-Path $root 'output' 'Demo.Module-1.2.3.notes.md') -Raw | Should -BeLike "*It's new*"
+            $github = Get-Content (Join-Path $root 'output' 'Demo.Module-1.2.3.notes.md') -Raw
+            $github | Should -BeLike "*It's new*"
+            # the GitHub release links the version's page in the gallery; the gallery's own notes do not
+            $github | Should -BeLike '*In the PowerShell Gallery: https://www.powershellgallery.com/packages/Demo.Module/1.2.3*'
+            $notes | Should -Not -BeLike '*powershellgallery*'
         }
         finally { Remove-Item -LiteralPath $root -Recurse -Force }
     }

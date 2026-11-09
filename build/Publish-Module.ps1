@@ -7,7 +7,8 @@
     Used by the release workflow after Build-Module.ps1, in two steps:
     without -Publish it checks that the tag's version is the manifest's ModuleVersion and that
     CHANGELOG.md has a section for it, writes that section into the built manifest's ReleaseNotes,
-    runs Test-ModuleManifest and packs a zip for the GitHub release (no secret needed);
+    runs Test-ModuleManifest and packs a zip for the GitHub release, whose notes add the module's page
+    in the PowerShell Gallery (no secret needed);
     with -Publish it publishes the prepared folder with Publish-PSResource. The API key comes from the
     environment variable PSGALLERY_API_KEY and is never written out.
 .PARAMETER Module
@@ -34,6 +35,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# the module's page in the PowerShell Gallery, linked from the GitHub release
+$galleryPackageUrl = 'https://www.powershellgallery.com/packages/{0}/{1}'
 $repo = Resolve-Path (Join-Path $PSScriptRoot '..')
 if (-not $OutputPath) { $OutputPath = Join-Path $repo 'output' }
 $source = Join-Path $repo 'modules' $Module
@@ -76,8 +79,9 @@ $notes = ($match.Groups['notes'].Value -replace '(?m)^\[[^\]]+\]:\s*\S+\s*$', ''
 # the built manifest carries the notes (the gallery shows them); the source keeps its link.
 # Update-ModuleManifest writes them safely (quotes, several lines) and can run again.
 Update-ModuleManifest -Path $manifestPath -ReleaseNotes $notes
-# the GitHub release takes the same text
-Set-Content -LiteralPath (Join-Path $OutputPath "$Module-$Version.notes.md") -Value $notes -Encoding utf8NoBOM
+# the GitHub release takes the same text and names where the module is installed from
+$releaseNotes = "{0}`n`nIn the PowerShell Gallery: {1}" -f $notes, ($galleryPackageUrl -f $Module, $Version)
+Set-Content -LiteralPath (Join-Path $OutputPath "$Module-$Version.notes.md") -Value $releaseNotes -Encoding utf8NoBOM
 $manifest = Test-ModuleManifest -Path $manifestPath
 foreach ($required in 'LicenseUri', 'ProjectUri') {
     if (-not $manifest.PrivateData.PSData[$required]) { throw ('The manifest has no {0}.' -f $required) }

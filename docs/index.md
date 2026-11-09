@@ -33,6 +33,8 @@ full screen, light and dark theme, corporate themes.
 Install-PSResource -Name PowerShellUniversal.Component.ECharts
 ```
 
+In the PowerShell Gallery: [PowerShellUniversal.Component.ECharts](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.ECharts).
+
 ![The quick start app in the light theme: stacked bars of PowerShell commands per verb, cmdlets and functions](assets/images/screenshot-quickstart-light.png#only-light)
 ![The quick start app in the dark theme: stacked bars of PowerShell commands per verb, cmdlets and functions](assets/images/screenshot-quickstart-dark.png#only-dark)
 
@@ -48,6 +50,8 @@ WebAssembly engine keeps large row counts fast.
 ```powershell
 Install-PSResource -Name PowerShellUniversal.Component.Perspective
 ```
+
+In the PowerShell Gallery: [PowerShellUniversal.Component.Perspective](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Perspective).
 
 ![The Perspective viewer in the light theme with its toolbar: Edit view, Table and Chart](assets/perspective-viewer-1-light.png#only-light)
 ![The Perspective viewer in the dark theme with its toolbar: Edit view, Table and Chart](assets/perspective-viewer-1-dark.png#only-dark)
@@ -67,6 +71,8 @@ the charts.
 Install-PSResource -Name PowerShellUniversal.Component.Pivot
 New-UDPivotReport -Id 'python' -Data (Invoke-RestMethod 'https://endoflife.date/api/python.json')
 ```
+
+In the PowerShell Gallery: [PowerShellUniversal.Component.Pivot](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot).
 
 ![The pivot report in the light theme: release cycles of nine products from endoflife.date per product and LTS, with the field list and the admin panel](assets/pivot-report-light.png#only-light)
 ![The pivot report in the dark theme: release cycles of nine products from endoflife.date per product and LTS, with the field list and the admin panel](assets/pivot-report-dark.png#only-dark)
