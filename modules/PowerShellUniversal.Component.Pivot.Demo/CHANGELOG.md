@@ -5,6 +5,15 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
+### Fixed
+
+- Your data: views saved in the browser belong to the uploaded file. The report's `-SourceId` is the
+  file name and a hash of its column names, so a file with other columns no longer offers the views of
+  the last one, and the same file uploaded again finds its views
+  ([pivotkit#116](https://github.com/eizedev/pivotkit/issues/116)).
+- Your data: a file name longer than 120 characters no longer fails the page (the report's `-Label`
+  takes at most 120); the page shows it shortened.
+
 ## [0.1.1] - 2026-11-09
 
 ### Changed

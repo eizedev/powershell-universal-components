@@ -12,6 +12,14 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   shipped view looked lost; deleting the shared view offers the file again
   ([#73](https://github.com/eizedev/powershell-universal-components/issues/73)).
 
+### Changed
+
+- The help of `-SourceId` and the docs (Templates, view files and roles) say when to set it: a report
+  whose data changes per call under the same `-Id` (an uploaded file, a parameter) sets `-SourceId` per
+  data source, else the views saved for all of its data show together
+  ([pivotkit#116](https://github.com/eizedev/pivotkit/issues/116)). The default stays `-Id`, so views
+  readers saved keep showing.
+
 ## [0.3.0] - 2026-11-09
 
 ### Changed

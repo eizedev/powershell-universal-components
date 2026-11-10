@@ -1560,6 +1560,10 @@ function New-UDPivotReport {
     .PARAMETER SourceId
         The id of the data the report shows, written into view files and links (pivotkit asks before it
         loads a view made for another id). Default: -Id, or the key the module derives without one.
+        The Views menu offers the views of -TemplateStore (also Browser) made for this id and those made
+        for no named data. A report whose data changes from call to call under the same -Id (an uploaded
+        file, a parameter the reader picks) sets -SourceId per data source, e.g. from the file name;
+        otherwise the views made for all of its data show together.
     .PARAMETER SourceName
         The name of that data for people (in view files and the load check). Default: -Label.
     .PARAMETER SchemaUrl

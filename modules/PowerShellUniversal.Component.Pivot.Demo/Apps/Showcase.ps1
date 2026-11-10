@@ -209,7 +209,7 @@ if ($Session:PivotShowcaseUploadError) {
 }
 if ($upload) {
     New-UDTypography -Variant body2 -Text ('{0}: {1} rows, {2} columns' -f $upload.Name, $upload.Rows.Count, $upload.Columns) -Style @{ marginBottom = '8px' }
-    New-UDPivotReport -Id 'upload' -Data $upload.Rows -Label $upload.Name -SourceName $upload.Name -Locale $locale -NoAddressBar
+    New-UDPivotReport -Id 'upload' -Data $upload.Rows -Label $upload.Name -SourceId $upload.SourceId -SourceName $upload.Name -Locale $locale -NoAddressBar
 }
 '@
 $uploadHandler = {
@@ -277,7 +277,14 @@ $uploadHandler = {
             $rows = @($json)
         }
         if ($rows.Count -eq 0) { throw [System.IO.InvalidDataException]::new(('{0} has no rows.' -f $name)) }
-        $Session:PivotShowcaseUpload = @{ Name = $name; Rows = $rows; Columns = @($rows[0].PSObject.Properties).Count }
+        # the name the page shows, within the 120 characters of the report's -Label
+        $shown = if ($name.Length -le 120) { $name } else { $name.Substring(0, 117) + '...' }
+        # the report's -SourceId: the file name and a hash of its column names. pivotkit offers only the
+        # browser views made for this id, so every file keeps its own views (the report's -Id is the same
+        # for every upload) and the same file uploaded again finds them. No server path is in it.
+        $columnHash = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes((@($rows[0].PSObject.Properties.Name) -join [char]0)))
+        $sourceId = '{0}#{1}' -f $shown, [System.Convert]::ToHexString($columnHash, 0, 8).ToLowerInvariant()
+        $Session:PivotShowcaseUpload = @{ Name = $shown; Rows = $rows; Columns = @($rows[0].PSObject.Properties).Count; SourceId = $sourceId }
     }
     catch [System.IO.InvalidDataException] {
         $Session:PivotShowcaseUploadError = $_.Exception.Message

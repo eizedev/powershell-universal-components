@@ -104,6 +104,20 @@ on pivotkit's site. In PowerShell:
 `source` names the data a view was made for: `-SourceId` (default: `-Id`, or the key the module
 derives without one) and `-SourceName` (default: `-Label`) of the report. Loading a view made for
 another id asks first (Load anyway, Cancel). Give two reports of the same data the same `-SourceId`.
+
+The Views menu offers the views of a template store (`Browser` included) made for the report's
+`-SourceId` and those that name no data. The default follows `-Id`, so a report that shows other data
+on every call under the same `-Id` - an uploaded file, a parameter the reader picks - sets
+`-SourceId` per data source: otherwise the views saved for one file or parameter show for all of them,
+and those for fields the data lacks report unused parts when loaded. The pivot demo's upload page
+passes the file name and a hash of its column names:
+
+```powershell
+$columnHash = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes(($columnNames -join [char]0)))
+New-UDPivotReport -Id 'upload' -Data $rows -SourceId ('{0}#{1}' -f $fileName, [System.Convert]::ToHexString($columnHash, 0, 8).ToLowerInvariant())
+```
+
+Use a name the reader may see (it is in view files and links), never a path on the server.
 `-SchemaUrl` sets the file's `$schema`: pivotkit's address by default, an https address of your own
 copy, or `''` to leave it out; loading never depends on it.
 
@@ -117,6 +131,8 @@ New-UDPivotReport -Id 'tickets' -Data $tickets -TemplateStore Browser
 
 pivotkit keeps each reader's views in the browser's localStorage (`pivotkit:views:<id>`): only in this
 browser on this device, gone when the site's data is cleared, shared with nobody; the menu says so.
+Each view names the `-SourceId` it was saved for, and the menu lists those of the report's
+`-SourceId` (see [View files](#view-files) for data that changes per call).
 At most 100 views and 500,000 characters. Nothing reaches the server, so nothing needs checking there.
 
 ### In files on the server: `New-UDPivotFileTemplateStore`

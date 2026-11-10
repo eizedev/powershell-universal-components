@@ -174,9 +174,10 @@ Describe 'Pivot demo upload' {
         # not the report's storage key, which every upload shares
         $costs | Should -Not -Be 'upload'
         $costs.Length | Should -BeLessOrEqual 256
-        # a file name of 255 characters still gives an id New-UDPivotReport takes
+        # a file name of 255 characters (the most a file system allows) still draws the report
         $long = . $sourceAfter (('x' * 251) + '.csv') "Team,Cost`nNetwork,1`n"
         $long.Length | Should -BeLessOrEqual 256
+        $long | Should -Not -Be (. $sourceAfter (('x' * 251) + '.csv') "Ticket,Team`n1,Ops`n")
     }
 
     It 'reads JSON as an array of objects or an object with one array' {
