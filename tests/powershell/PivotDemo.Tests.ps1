@@ -183,6 +183,36 @@ Describe 'Pivot demo upload' {
         $long | Should -Not -Be (. $sourceAfter (('x' * 251) + '.csv') "Ticket,Team`n1,Ops`n")
     }
 
+    It 'keeps the source ids of long, emoji and space-led file names apart and as view files write them' {
+        # the report on the page after an upload of a two-column CSV under this name
+        $reportAfter = {
+            param([string]$Name)
+            $EventData = New-UploadEvent -Name $Name -Text "Team,Cost`nNetwork,1`n"
+            . $script:handler
+            $Session:PivotShowcaseUploadError | Should -BeNullOrEmpty
+            & $script:uploadPage.Content | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }
+        }
+        # two names of 255 characters that differ only after the part the page shows: two files
+        $first = . $reportAfter (('x' * 200) + 'a' + ('x' * 50) + '.csv')
+        $second = . $reportAfter (('x' * 200) + 'b' + ('x' * 50) + '.csv')
+        $first.label | Should -Be $second.label
+        $second.source.id | Should -Not -Be $first.source.id
+
+        # an emoji across the cut: the shown name keeps no half of it (a lone surrogate)
+        $emoji = . $reportAfter (('x' * 116) + [char]::ConvertFromUtf32(0x1F600) + ('y' * 20) + '.csv')
+        foreach ($text in $emoji.label, $emoji.source.id) {
+            [System.Text.Encoding]::UTF8.GetString([System.Text.Encoding]::UTF8.GetBytes($text)) | Should -BeExactly $text
+        }
+
+        # a name with spaces around it: the id a view file writes is the report's id, the same as without them
+        $plain = . $reportAfter 'a.csv'
+        (. $reportAfter ' a.csv').source.id | Should -BeExactly $plain.source.id
+        $spaced = . $reportAfter ' a.csv '
+        $spaced.source.id | Should -BeExactly $plain.source.id
+        $file = ConvertTo-UDPivotViewFile -View @{ rows = @('Team') } -Name 'Per team' -SourceId $spaced.source.id
+        (ConvertFrom-UDPivotViewFile -InputObject $file).Source.id | Should -BeExactly $spaced.source.id
+    }
+
     It 'reads JSON as an array of objects or an object with one array' {
         $EventData = New-UploadEvent -Name 'a.json' -Text '[{"a":1,"b":"x"},{"a":2,"b":"y"}]'
         . $script:handler

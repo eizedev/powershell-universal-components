@@ -224,7 +224,8 @@ $uploadHandler = {
         $maxRows = 100000
         $maxColumns = 200
         $maxCells = 2000000
-        $name = [System.IO.Path]::GetFileName([string]$EventData.Name)
+        # trimmed once: view files write the source id trimmed, so the report's id must be too
+        $name = [System.IO.Path]::GetFileName([string]$EventData.Name).Trim()
         $extension = [System.IO.Path]::GetExtension($name).ToLowerInvariant()
         if ($extension -notin '.csv', '.json') { throw [System.IO.InvalidDataException]::new(('{0}: the showcase reads .csv and .json files.' -f $name)) }
         $size = (Get-Item -LiteralPath $file).Length
@@ -277,13 +278,20 @@ $uploadHandler = {
             $rows = @($json)
         }
         if ($rows.Count -eq 0) { throw [System.IO.InvalidDataException]::new(('{0} has no rows.' -f $name)) }
-        # the name the page shows, within the 120 characters of the report's -Label
-        $shown = if ($name.Length -le 120) { $name } else { $name.Substring(0, 117) + '...' }
-        # the report's -SourceId: the file name and a hash of its column names (the report's -Id is the
-        # same for every upload). The Views menu lists the reader's browser views of this id, view files
-        # and links name it, and pivotkit asks before it loads one made for other data: the same file
-        # uploaded again is the same data, a file with other columns is not. No server path is in it.
-        $columnHash = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes((@($rows[0].PSObject.Properties.Name) -join [char]0)))
+        # the name the page shows, within the 120 characters of the report's -Label (the pivot module's
+        # $Script:MaxLabelLength); the cut never splits a character outside the BMP (an emoji)
+        $maxShown = 120
+        $shown = if ($name.Length -le $maxShown) { $name } else {
+            $cut = $maxShown - 3
+            if ([char]::IsHighSurrogate($name[$cut - 1])) { $cut-- }
+            $name.Substring(0, $cut) + '...'
+        }
+        # the report's -SourceId: the shown name and a hash of the whole name and the column names in
+        # their order (the report's -Id is the same for every upload). The Views menu lists the reader's
+        # browser views of this id and those saved without one, view files and links name it, and
+        # pivotkit asks before it loads one made for other data: the same file uploaded again is the
+        # same data, a file with other or reordered columns is not. No server path is in it.
+        $columnHash = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes((@($name) + @($rows[0].PSObject.Properties.Name) -join [char]0)))
         $sourceId = '{0}#{1}' -f $shown, [System.Convert]::ToHexString($columnHash, 0, 8).ToLowerInvariant()
         $Session:PivotShowcaseUpload = @{ Name = $shown; Rows = $rows; Columns = @($rows[0].PSObject.Properties).Count; SourceId = $sourceId }
     }

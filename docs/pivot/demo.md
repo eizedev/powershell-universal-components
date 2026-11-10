@@ -54,10 +54,12 @@ with one such array in it), up to 5 MB and 100,000 rows. A column whose every va
 becomes a number field. The file is read on the server and deleted at once; its rows stay in the
 memory of the reader's session only, until the next upload or the end of the session. A file the page
 cannot read leaves a message above the report. Readers save their views in their browser
-(`-TemplateStore Browser`), per file: the report's `-SourceId` is the file name and a hash of its
-column names, so the Views menu lists the views made for the file shown, the same file uploaded again
-offers them again, and a view downloaded or shared from one file asks before it loads into the report
-of another (see [View files](templates.md#view-files)). Excel files are planned
+(`-TemplateStore Browser`), per file: the report's `-SourceId` is the file name and a hash of the name
+and the column names in their order, so the Views menu lists the views made for the file shown and
+those saved without a data source, the same file uploaded again offers them again (a file with the
+same columns in another order is another file), and a view downloaded or shared from one file asks
+before it loads into the report of another (see [View files](templates.md#view-files)). All uploaded
+files share the browser store's limits of 100 views and 500,000 characters. Excel files are planned
 ([#64](https://github.com/eizedev/powershell-universal-components/issues/64)).
 
 ## Views stored on the server
