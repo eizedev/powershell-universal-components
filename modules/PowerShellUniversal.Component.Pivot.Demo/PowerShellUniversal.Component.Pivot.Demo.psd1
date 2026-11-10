@@ -1,6 +1,6 @@
 @{
     RootModule        = 'PowerShellUniversal.Component.Pivot.Demo.psm1'
-    ModuleVersion     = '0.1.1'
+    ModuleVersion     = '0.1.2'
     GUID              = 'b551b13d-c6fd-47ba-b311-54643c7d2b72'
     Author            = 'eizedev'
     CompanyName       = 'eizedev'

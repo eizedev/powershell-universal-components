@@ -5,6 +5,8 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-10
+
 ### Fixed
 
 - Your data: views saved in the browser belong to the uploaded file. The report's `-SourceId` is the
