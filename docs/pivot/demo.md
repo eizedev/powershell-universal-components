@@ -53,10 +53,11 @@ with a decimal comma as German Excel writes them) or a JSON file (an array of ob
 with one such array in it), up to 5 MB and 100,000 rows. A column whose every value is a number
 becomes a number field. The file is read on the server and deleted at once; its rows stay in the
 memory of the reader's session only, until the next upload or the end of the session. A file the page
-cannot read leaves a message above the report. The report's `-SourceId` is the file name and a hash
-of its column names: a view downloaded or shared from one file names that file, loading it into the
-report of another file asks first, and the same file uploaded again is the same data (see
-[View files](templates.md#view-files)). Excel files are planned
+cannot read leaves a message above the report. Readers save their views in their browser
+(`-TemplateStore Browser`), per file: the report's `-SourceId` is the file name and a hash of its
+column names, so the Views menu lists the views made for the file shown, the same file uploaded again
+offers them again, and a view downloaded or shared from one file asks before it loads into the report
+of another (see [View files](templates.md#view-files)). Excel files are planned
 ([#64](https://github.com/eizedev/powershell-universal-components/issues/64)).
 
 ## Views stored on the server

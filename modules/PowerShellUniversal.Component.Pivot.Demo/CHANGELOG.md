@@ -7,6 +7,11 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [0.1.2] - 2026-11-10
 
+### Added
+
+- Your data: readers save their views in the browser (`-TemplateStore Browser`), per file: the Views
+  menu lists those made for the file shown, and the same file uploaded again offers them again.
+
 ### Fixed
 
 - Your data: the report's `-SourceId` is the uploaded file's name and a hash of its column names, not

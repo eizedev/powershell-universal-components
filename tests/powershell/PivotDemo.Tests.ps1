@@ -151,8 +151,8 @@ Describe 'Pivot demo upload' {
     }
 
     It 'gives each uploaded file its own source id, so views of one file are not taken for another''s' {
-        # the source id the report on the page gets after an upload (view files and links name it, a
-        # template store lists the views made for it); the server's temporary path must not be in it
+        # the source id the report on the page gets after an upload (its browser store lists the views
+        # made for it, view files and links name it); the server's temporary path must not be in it
         $sourceAfter = {
             param([string]$Name, [string]$Text)
             $EventData = New-UploadEvent -Name $Name -Text $Text
@@ -166,6 +166,9 @@ Describe 'Pivot demo upload' {
         $tickets = . $sourceAfter 'data.csv' "Ticket,Priority,Team`n1,High,Ops`n"
         $costsAgain = . $sourceAfter 'data.csv' "Team,Cost`nServer,7`nNetwork,2`n"
         $otherName = . $sourceAfter 'other.csv' "Team,Cost`nNetwork,1`n"
+        # readers keep their views in the browser, per data source (pivotkit lists those of source.id)
+        $report = & $script:uploadPage.Content | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }
+        $report.templateStore | Should -Be 'browser'
         # different columns under the same file name: different data
         $tickets | Should -Not -Be $costs
         # the same file (name and columns) again, also with other rows: the same id, its views stay

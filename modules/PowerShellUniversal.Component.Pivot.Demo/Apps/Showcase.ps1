@@ -209,7 +209,7 @@ if ($Session:PivotShowcaseUploadError) {
 }
 if ($upload) {
     New-UDTypography -Variant body2 -Text ('{0}: {1} rows, {2} columns' -f $upload.Name, $upload.Rows.Count, $upload.Columns) -Style @{ marginBottom = '8px' }
-    New-UDPivotReport -Id 'upload' -Data $upload.Rows -Label $upload.Name -SourceId $upload.SourceId -SourceName $upload.Name -Locale $locale -NoAddressBar
+    New-UDPivotReport -Id 'upload' -Data $upload.Rows -Label $upload.Name -SourceId $upload.SourceId -SourceName $upload.Name -TemplateStore Browser -Locale $locale -NoAddressBar
 }
 '@
 $uploadHandler = {
@@ -280,9 +280,9 @@ $uploadHandler = {
         # the name the page shows, within the 120 characters of the report's -Label
         $shown = if ($name.Length -le 120) { $name } else { $name.Substring(0, 117) + '...' }
         # the report's -SourceId: the file name and a hash of its column names (the report's -Id is the
-        # same for every upload). View files and links name it, pivotkit asks before it loads one made
-        # for other data, and a template store lists the views of this id: the same file uploaded again
-        # is the same data, a file with other columns is not. No server path is in it.
+        # same for every upload). The Views menu lists the reader's browser views of this id, view files
+        # and links name it, and pivotkit asks before it loads one made for other data: the same file
+        # uploaded again is the same data, a file with other columns is not. No server path is in it.
         $columnHash = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes((@($rows[0].PSObject.Properties.Name) -join [char]0)))
         $sourceId = '{0}#{1}' -f $shown, [System.Convert]::ToHexString($columnHash, 0, 8).ToLowerInvariant()
         $Session:PivotShowcaseUpload = @{ Name = $shown; Rows = $rows; Columns = @($rows[0].PSObject.Properties).Count; SourceId = $sourceId }
