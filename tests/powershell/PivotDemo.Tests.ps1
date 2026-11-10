@@ -150,6 +150,69 @@ Describe 'Pivot demo upload' {
         $report.ContainsKey('height') | Should -BeFalse
     }
 
+    It 'gives each uploaded file its own source id, so views of one file are not taken for another''s' {
+        # the source id the report on the page gets after an upload (its browser store lists the views
+        # made for it, view files and links name it); the server's temporary path must not be in it
+        $sourceAfter = {
+            param([string]$Name, [string]$Text)
+            $EventData = New-UploadEvent -Name $Name -Text $Text
+            . $script:handler
+            $Session:PivotShowcaseUploadError | Should -BeNullOrEmpty
+            $report = & $script:uploadPage.Content | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }
+            $report.source.id | Should -Not -BeLike ('*{0}*' -f [System.IO.Path]::GetFileName($EventData.FileName))
+            $report.source.id
+        }
+        $costs = . $sourceAfter 'data.csv' "Team,Cost`nNetwork,1`n"
+        $tickets = . $sourceAfter 'data.csv' "Ticket,Priority,Team`n1,High,Ops`n"
+        $costsAgain = . $sourceAfter 'data.csv' "Team,Cost`nServer,7`nNetwork,2`n"
+        $otherName = . $sourceAfter 'other.csv' "Team,Cost`nNetwork,1`n"
+        # readers keep their views in the browser, per data source (pivotkit lists those of source.id)
+        $report = & $script:uploadPage.Content | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }
+        $report.templateStore | Should -Be 'browser'
+        # different columns under the same file name: different data
+        $tickets | Should -Not -Be $costs
+        # the same file (name and columns) again, also with other rows: the same id, its views stay
+        $costsAgain | Should -Be $costs
+        $otherName | Should -Not -Be $costs
+        # not the report's storage key, which every upload shares
+        $costs | Should -Not -Be 'upload'
+        $costs.Length | Should -BeLessOrEqual 256
+        # a file name of 255 characters (the most a file system allows) still draws the report
+        $long = . $sourceAfter (('x' * 251) + '.csv') "Team,Cost`nNetwork,1`n"
+        $long.Length | Should -BeLessOrEqual 256
+        $long | Should -Not -Be (. $sourceAfter (('x' * 251) + '.csv') "Ticket,Team`n1,Ops`n")
+    }
+
+    It 'keeps the source ids of long, emoji and space-led file names apart and as view files write them' {
+        # the report on the page after an upload of a two-column CSV under this name
+        $reportAfter = {
+            param([string]$Name)
+            $EventData = New-UploadEvent -Name $Name -Text "Team,Cost`nNetwork,1`n"
+            . $script:handler
+            $Session:PivotShowcaseUploadError | Should -BeNullOrEmpty
+            & $script:uploadPage.Content | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }
+        }
+        # two names of 255 characters that differ only after the part the page shows: two files
+        $first = . $reportAfter (('x' * 200) + 'a' + ('x' * 50) + '.csv')
+        $second = . $reportAfter (('x' * 200) + 'b' + ('x' * 50) + '.csv')
+        $first.label | Should -Be $second.label
+        $second.source.id | Should -Not -Be $first.source.id
+
+        # an emoji across the cut: the shown name keeps no half of it (a lone surrogate)
+        $emoji = . $reportAfter (('x' * 116) + [char]::ConvertFromUtf32(0x1F600) + ('y' * 20) + '.csv')
+        foreach ($text in $emoji.label, $emoji.source.id) {
+            [System.Text.Encoding]::UTF8.GetString([System.Text.Encoding]::UTF8.GetBytes($text)) | Should -BeExactly $text
+        }
+
+        # a name with spaces around it: the id a view file writes is the report's id, the same as without them
+        $plain = . $reportAfter 'a.csv'
+        (. $reportAfter ' a.csv').source.id | Should -BeExactly $plain.source.id
+        $spaced = . $reportAfter ' a.csv '
+        $spaced.source.id | Should -BeExactly $plain.source.id
+        $file = ConvertTo-UDPivotViewFile -View @{ rows = @('Team') } -Name 'Per team' -SourceId $spaced.source.id
+        (ConvertFrom-UDPivotViewFile -InputObject $file).Source.id | Should -BeExactly $spaced.source.id
+    }
+
     It 'reads JSON as an array of objects or an object with one array' {
         $EventData = New-UploadEvent -Name 'a.json' -Text '[{"a":1,"b":"x"},{"a":2,"b":"y"}]'
         . $script:handler

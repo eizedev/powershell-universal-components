@@ -5,6 +5,23 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
+### Added
+
+- Your data: readers save their views in the browser (`-TemplateStore Browser`), per file: the Views
+  menu lists those made for the file shown and those saved without a data source, and the same file
+  uploaded again offers them again. All uploaded files share the browser store's limits (100 views,
+  500,000 characters).
+
+### Fixed
+
+- Your data: the report's `-SourceId` is the uploaded file's name and a hash of the whole name and its
+  column names in their order, not the report's id that every upload shared. A view file or link made from one file names that file, and
+  loading it into the report of another file asks first (Load anyway, Cancel); the same file uploaded
+  again is the same data ([pivotkit#116](https://github.com/eizedev/pivotkit/issues/116)).
+- Your data: a file name longer than 120 characters no longer fails the page (the report's `-Label`
+  takes at most 120); the page shows it shortened, never splitting an emoji. A file name with spaces
+  around it is read without them (a trailing space refused the file).
+
 ## [0.1.1] - 2026-11-09
 
 ### Changed

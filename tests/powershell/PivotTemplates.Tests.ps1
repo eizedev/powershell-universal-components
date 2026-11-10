@@ -483,6 +483,49 @@ Describe 'New-UDPivotReport -TemplateStore and -AdminRole' {
         $c.ContainsKey('templateStore') | Should -BeFalse
     }
 
+    It 'a shared view of the store wins over a -TemplatePath file of the same name, so a published change shows' {
+        $files = & $script:newFolder
+        New-Item -ItemType Directory -Path $files | Out-Null
+        try {
+            $shipped = @{ rows = @('Team'); values = @(@{ field = 'Hours'; agg = 'count' }) }
+            Set-Content -LiteralPath (Join-Path $files 'a.pivotkit.json') -Value (ConvertTo-UDPivotViewFile -View $shipped -Name 'Team view')
+            Set-Content -LiteralPath (Join-Path $files 'b.pivotkit.json') -Value (ConvertTo-UDPivotViewFile -View $shipped -Name 'team view')
+            Set-Content -LiteralPath (Join-Path $files 'c.pivotkit.json') -Value (ConvertTo-UDPivotViewFile -View $shipped -Name 'Only in the file')
+            $render = { New-UDPivotReport -Id 'r' -Data $script:rows -TemplatePath $files -TemplateStore $script:store -AdminRole 'Admin' -UserName 'boss' -Roles 'Admin' }
+            $before = & $render
+            $before.templates | ForEach-Object { '{0}|{1}|{2}' -f $_.name, $_.scope, $_.deletable } | Should -Be @('Team view|shared|False', 'team view|shared|False', 'Only in the file|shared|False')
+
+            # an admin publishes a change of the shipped view under its name (Save on a shared view)
+            Invoke-UDPivotTemplateRequest -Key (& $script:keyOf $before.onPublishTemplate) -Action Publish -EventData @{ name = 'Team view'; view = $script:view } -UserName 'boss' -Roles 'Admin' | Should -BeNullOrEmpty
+            $after = & $render
+            # one entry of the name, the store's in the file's place (deletable for the admin, with the
+            # published view); names compare as in pivotkit's Views menu, so "team view" is another view
+            $after.templates | ForEach-Object { '{0}|{1}|{2}' -f $_.name, $_.scope, $_.deletable } | Should -Be @('Team view|shared|True', 'team view|shared|False', 'Only in the file|shared|False')
+            $published = @($after.templates | Where-Object name -CEQ 'Team view')
+            $published.view.values[0].agg | Should -Be 'sum'
+            # a reader sees the same single entry, read-only
+            $reader = New-UDPivotReport -Id 'r' -Data $script:rows -TemplatePath $files -TemplateStore $script:store -AdminRole 'Admin' -UserName 'alex' -Roles 'Reader'
+            @($reader.templates | Where-Object name -CEQ 'Team view').Count | Should -Be 1
+            # once the admin deletes the store's view, the shipped file is offered again
+            Invoke-UDPivotTemplateRequest -Key (& $script:keyOf $after.onDeleteTemplate) -Action Delete -EventData @{ name = 'Team view'; scope = 'shared' } -UserName 'boss' -Roles 'Admin' | Should -BeNullOrEmpty
+            (& $render).templates | ForEach-Object { '{0}|{1}|{2}' -f $_.name, $_.scope, $_.deletable } | Should -Be @('Team view|shared|False', 'team view|shared|False', 'Only in the file|shared|False')
+        }
+        finally { Remove-Item -LiteralPath $files -Recurse -Force }
+    }
+
+    It 'a shared view the store keeps for other data does not hide a -TemplatePath file of the same name' {
+        $files = & $script:newFolder
+        New-Item -ItemType Directory -Path $files | Out-Null
+        try {
+            Set-Content -LiteralPath (Join-Path $files 'a.pivotkit.json') -Value (ConvertTo-UDPivotViewFile -View $script:view -Name 'Team view')
+            $sales = New-UDPivotReport -Id 'sales' -Data $script:rows -TemplateStore $script:store -AdminRole 'Admin' -UserName 'boss' -Roles 'Admin'
+            Invoke-UDPivotTemplateRequest -Key (& $script:keyOf $sales.onPublishTemplate) -Action Publish -EventData @{ name = 'Team view'; view = $script:view } -UserName 'boss' -Roles 'Admin' | Should -BeNullOrEmpty
+            $tickets = New-UDPivotReport -Id 'tickets' -Data $script:rows -TemplatePath $files -TemplateStore $script:store -AdminRole 'Admin' -UserName 'boss' -Roles 'Admin'
+            $tickets.templates | ForEach-Object { '{0}|{1}|{2}' -f $_.name, $_.scope, $_.deletable } | Should -Be @('Team view|shared|False')
+        }
+        finally { Remove-Item -LiteralPath $files -Recurse -Force }
+    }
+
     It '-TemplateStore Browser, and the combinations it refuses' {
         (New-UDPivotReport -Data $script:rows -TemplateStore Browser).templateStore | Should -Be 'browser'
         { New-UDPivotReport -Data $script:rows -TemplateStore 'Disk' } | Should -Throw '*TemplateStore*'

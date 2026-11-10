@@ -1534,6 +1534,8 @@ function New-UDPivotReport {
         read on the server on every render and offered under "Shared views", read-only. Each file is
         checked (at most 1,000,000 characters, a view ConvertFrom-UDPivotView accepts); a broken one is
         left out with a warning. A module ships its views with -TemplatePath (Join-Path $PSScriptRoot 'views').
+        A shared view of -TemplateStore with the same name (same characters, same case) takes the file's
+        place: an admin's Publish or Save over a shipped view shows, and deleting it brings the file back.
     .PARAMETER TemplateStore
         Where readers keep their own views ("My views") and admins the shared ones. Without it nothing is
         written and Save is not offered (unless -OnSaveTemplate). Browser: pivotkit keeps each reader's
@@ -1558,6 +1560,10 @@ function New-UDPivotReport {
     .PARAMETER SourceId
         The id of the data the report shows, written into view files and links (pivotkit asks before it
         loads a view made for another id). Default: -Id, or the key the module derives without one.
+        The Views menu offers the views of -TemplateStore (also Browser) made for this id and those made
+        for no named data. A report whose data changes from call to call under the same -Id (an uploaded
+        file, a parameter the reader picks) sets -SourceId per data source, e.g. from the file name;
+        otherwise the views made for all of its data show together.
     .PARAMETER SourceName
         The name of that data for people (in view files and the load check). Default: -Label.
     .PARAMETER SchemaUrl
@@ -1813,20 +1819,32 @@ function New-UDPivotReport {
     }
     $templateList = [System.Collections.Generic.List[object]]::new()
     if ($PSBoundParameters.ContainsKey('Templates')) { foreach ($t in @(ConvertTo-UDPivotTemplate -Template $Templates)) { $templateList.Add($t) } }
-    if ($TemplatePath) {
-        foreach ($t in @(Get-UDPivotTemplateFile -Path $TemplatePath)) { $templateList.Add([pscustomobject]@{ name = $t.Name; view = $t.View; scope = 'shared'; deletable = $false }) }
-    }
+    $storeViews = @{ shared = @(); user = @() }
     if ($store) {
         # the store's views: a broken store must not break the page
         foreach ($scope in 'shared', 'user') {
             if ($scope -eq 'user' -and -not $user) { continue }
             try {
-                foreach ($t in @(Invoke-UDPivotTemplateStore -Store $store -Action List -Scope $scope -UserName $user -SourceId $source.id)) {
-                    $templateList.Add([pscustomobject]@{ name = $t.Name; view = $t.View; scope = $scope; deletable = ($scope -eq 'user' -or $isAdmin) })
-                }
+                $storeViews[$scope] = @(foreach ($t in @(Invoke-UDPivotTemplateStore -Store $store -Action List -Scope $scope -UserName $user -SourceId $source.id)) {
+                        [pscustomobject]@{ name = $t.Name; view = $t.View; scope = $scope; deletable = ($scope -eq 'user' -or $isAdmin) }
+                    })
             }
             catch { Write-Warning ('Pivot template store ({0} views) left out: {1}' -f $scope, $_.Exception.Message) }
         }
+    }
+    # a shared view of the store takes the place of the -TemplatePath files of its name: Publish and Save
+    # write a name the files have into the store, and the Views menu must show that change. Names match
+    # as in pivotkit's Views menu and the store's upsert (same characters, same case).
+    $replaced = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    if ($TemplatePath) {
+        foreach ($t in @(Get-UDPivotTemplateFile -Path $TemplatePath)) {
+            $fromStore = @($storeViews['shared'] | Where-Object { $_.name -ceq $t.Name })
+            if (-not $fromStore.Count) { $templateList.Add([pscustomobject]@{ name = $t.Name; view = $t.View; scope = 'shared'; deletable = $false }) }
+            elseif ($replaced.Add($t.Name)) { $templateList.AddRange([object[]]$fromStore) }
+        }
+    }
+    foreach ($t in @($storeViews['shared'] | Where-Object { -not $replaced.Contains($_.name) }) + @($storeViews['user'])) { $templateList.Add($t) }
+    if ($store) {
         $settings = @{
             App        = [string]$PSCmdlet.SessionState.PSVariable.GetValue('DashboardName')
             Report     = $storageKey
