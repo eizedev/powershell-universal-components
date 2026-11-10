@@ -5,6 +5,13 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+### Fixed
+
+- A shared view of `-TemplateStore` with the name of a `-TemplatePath` file takes the file's place in the
+  Views menu. The menu listed the read-only file next to it, so an admin's Publish or Save over a
+  shipped view looked lost; deleting the shared view offers the file again
+  ([#73](https://github.com/eizedev/powershell-universal-components/issues/73)).
+
 ## [0.3.0] - 2026-11-09
 
 ### Changed

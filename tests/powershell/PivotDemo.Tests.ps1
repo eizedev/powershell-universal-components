@@ -150,6 +150,35 @@ Describe 'Pivot demo upload' {
         $report.ContainsKey('height') | Should -BeFalse
     }
 
+    It 'gives each uploaded file its own source id, so browser views of one file are not offered for another' {
+        # the source id the report on the page gets after an upload (pivotkit lists the browser views
+        # made for it); the server's temporary path must not be in it
+        $sourceAfter = {
+            param([string]$Name, [string]$Text)
+            $EventData = New-UploadEvent -Name $Name -Text $Text
+            . $script:handler
+            $Session:PivotShowcaseUploadError | Should -BeNullOrEmpty
+            $report = & $script:uploadPage.Content | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }
+            $report.source.id | Should -Not -BeLike ('*{0}*' -f [System.IO.Path]::GetFileName($EventData.FileName))
+            $report.source.id
+        }
+        $costs = . $sourceAfter 'data.csv' "Team,Cost`nNetwork,1`n"
+        $tickets = . $sourceAfter 'data.csv' "Ticket,Priority,Team`n1,High,Ops`n"
+        $costsAgain = . $sourceAfter 'data.csv' "Team,Cost`nServer,7`nNetwork,2`n"
+        $otherName = . $sourceAfter 'other.csv' "Team,Cost`nNetwork,1`n"
+        # different columns under the same file name: different data
+        $tickets | Should -Not -Be $costs
+        # the same file (name and columns) again, also with other rows: the same id, its views stay
+        $costsAgain | Should -Be $costs
+        $otherName | Should -Not -Be $costs
+        # not the report's storage key, which every upload shares
+        $costs | Should -Not -Be 'upload'
+        $costs.Length | Should -BeLessOrEqual 256
+        # a file name of 255 characters still gives an id New-UDPivotReport takes
+        $long = . $sourceAfter (('x' * 251) + '.csv') "Team,Cost`nNetwork,1`n"
+        $long.Length | Should -BeLessOrEqual 256
+    }
+
     It 'reads JSON as an array of objects or an object with one array' {
         $EventData = New-UploadEvent -Name 'a.json' -Text '[{"a":1,"b":"x"},{"a":2,"b":"y"}]'
         . $script:handler

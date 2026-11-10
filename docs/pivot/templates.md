@@ -62,6 +62,10 @@ New-UDPivotReport -Id 'tickets' -Data $tickets -TemplatePath (Join-Path $PSScrip
   on the server on every render, in the order of their file names, listed under Shared views and
   read-only. A module ships its views this way: `-TemplatePath (Join-Path $PSScriptRoot 'views')`; an
   app script can do the same (PSU sets `$PSScriptRoot` for it, measured on PSU 2026.2.5 and 2026.3.4).
+  With a [template store](#template-stores-templatestore), a shared view of the store with the same
+  name (the same characters in the same case) takes the file's place in the menu: an admin who saves
+  or publishes over a shipped view writes it to the store, and the menu shows that view. The file stays
+  the default: delete the shared view and the file is offered again.
 
 Every file is checked before it reaches the page: at most 1,000,000 characters and 16 levels, a
 format version and a view version this module reads, a name of 1 to 120 characters of plain text, a
