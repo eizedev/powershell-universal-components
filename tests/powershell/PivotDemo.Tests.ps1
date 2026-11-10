@@ -150,9 +150,9 @@ Describe 'Pivot demo upload' {
         $report.ContainsKey('height') | Should -BeFalse
     }
 
-    It 'gives each uploaded file its own source id, so browser views of one file are not offered for another' {
-        # the source id the report on the page gets after an upload (pivotkit lists the browser views
-        # made for it); the server's temporary path must not be in it
+    It 'gives each uploaded file its own source id, so views of one file are not taken for another''s' {
+        # the source id the report on the page gets after an upload (view files and links name it, a
+        # template store lists the views made for it); the server's temporary path must not be in it
         $sourceAfter = {
             param([string]$Name, [string]$Text)
             $EventData = New-UploadEvent -Name $Name -Text $Text
