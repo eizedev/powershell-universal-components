@@ -5,8 +5,6 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
-## [0.1.2] - 2026-11-10
-
 ### Added
 
 - Your data: readers save their views in the browser (`-TemplateStore Browser`), per file: the Views

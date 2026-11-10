@@ -5,8 +5,6 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
-## [0.3.1] - 2026-11-10
-
 ### Fixed
 
 - A shared view of `-TemplateStore` with the name of a `-TemplatePath` file takes the file's place in the
