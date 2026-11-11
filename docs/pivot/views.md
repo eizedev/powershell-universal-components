@@ -58,6 +58,9 @@ the tab keeps `-View`. The view is kept in two places of the tab:
   and a copied address opens the same views for someone else - with their own data and permissions,
   since only the layout is in the link. A view in the address bar wins over `-View`; a view too long
   for it (more than 8000 characters) stays out. `-NoAddressBar` turns this off.
+- While a reader's own file is shown (`-AllowImport`), its view goes into neither the address bar
+  nor sessionStorage ([Readers' own files](import.md#what-stays-in-the-browser)). The keys of both:
+  [how ids and names are built](templates.md#ids).
 - **sessionStorage** (per page and report), for a view that is not in the address bar. It returns
   after a reload as long as the page sends the same `-View`; a different `-View` from the server (the
   app chose another start view) wins. Closing the tab, or a browser that blocks storage, starts from

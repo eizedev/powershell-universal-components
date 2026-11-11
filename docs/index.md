@@ -64,7 +64,8 @@ In the PowerShell Gallery: [PowerShellUniversal.Component.Perspective](https://w
 `New-UDPivotReport` is a pivot report builder on [pivotkit](https://www.npmjs.com/package/pivotkit-react):
 readers drag fields into rows, columns, values and filters and get a table or a chart, with date
 grouping, drill-down to the source rows, shared views and views readers keep (roles decide who
-publishes), undo and Excel, CSV and PNG export; English and German; themed from the same stylesheet as
+publishes), undo and Excel, CSV and PNG export, and readers' own CSV, JSON and Excel files read in the
+browser ([`-AllowImport`](pivot/import.md)); English and German; themed from the same stylesheet as
 the charts.
 
 ```powershell

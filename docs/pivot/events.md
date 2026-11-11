@@ -16,6 +16,10 @@ Every event runs a script block on the server with `$EventData`:
 | `-OnSaveTemplate` | The reader saves the view: Save as… under a new name, or Save and a confirmed Save as under the name of one of their views (replace that view) | `name`, `view`, `json`, `scope` (`user`) |
 | `-OnDeleteTemplate` | The reader deletes a template and confirmed it | `name`, `scope` (`user` or `shared`) |
 | `-OnPublishTemplate` | A reader with a role of `-AdminRole` publishes one of their views as a shared view, or saves a loaded shared view (Save: replace that view) | `name`, `view`, `json` |
+| `-OnDataLoad` | With `-AllowImport`: the data shown changed (a file loaded, the app's data again, Undo or Redo of one of those, the file shown again after PSU drew the report anew) | `cause`, `source`, `file`, `sheet`, `rows`, `columnCount`, `columns` (the first 200), `notes` (codes) - never a value of the file ([Readers' own files](import.md#ondataload)) |
+
+While a reader's file is shown (`-AllowImport`), `-OnViewChange` and `-OnCellClick` do not run and
+saving goes to the browser: they keep to the app's data ([what stays in the browser](import.md#what-stays-in-the-browser)).
 
 With `-TemplateStore` the module registers the three template events itself
 ([Templates, view files and roles](templates.md)).
@@ -65,14 +69,20 @@ templates: [Templates, view files and roles](templates.md).
   pivotkit drops options that are markup or addresses.
 - Exports and copies are made in the browser from what the reader sees; nothing is sent to a server. The CSV
   export guards against formulas (a value starting with `=`, `+`, `-` or `@` is not run by Excel).
+- `-AllowImport` reads a reader's file in the browser; no byte of it goes to the server. Only
+  `-OnDataLoad` sends something about it: the file's name, size and type, its sheet and column names
+  ([Readers' own files](import.md#security)).
 - The report loads nothing from the internet.
 
 ## Size and limits
 
-The module's bundle is about 1 MB (pivotkit, the parts of Apache ECharts the chart uses, drag and drop);
+The module's bundle is about 1.4 MB, 430 KB compressed (pivotkit, the parts of Apache ECharts the
+chart uses, drag and drop, the readers of `-AllowImport` with the Excel reader);
 the browser downloads it once and caches it. The pivot runs in the browser: tens of thousands of rows
 stay fast (measured by hand on one laptop: about a tenth of a second to read 100,000 rows once, a frame
 or two for a change of the view);
 the limit is what the server sends and the browser holds. A layout with more cells than the table can
 show says so instead of drawing them. ECharts, the menus and the Excel export are set up on first use;
-they are all in the module's one bundle, since PSU serves only the bundle it registered.
+they are all in the module's one bundle. The one file next to it is the import worker of
+`-AllowImport` (about 26 KB), which PSU serves like the bundle and the browser loads only when a
+reader's CSV or JSON file is read.

@@ -151,6 +151,26 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
         New-UDTypography -Id 'event-log' -Variant body2 -Text 'No event yet.' -Style @{ marginTop = '12px'; fontFamily = 'monospace'; overflowWrap = 'anywhere' }
     }
 
+    New-UDPage -Name 'Your file' -Url '/your-file' -Content {
+        New-UDTypography -Variant h5 -Text 'Your own file next to the app''s data (-AllowImport)'
+        New-UDTypography -Variant body2 -Text 'Drop a CSV, JSON or Excel file onto the report, or pick it under Data. It is read in your browser; the server only hears that the data changed (-OnDataLoad, below). Views of your file are saved in this browser, per file; Back to original data under Data shows the tickets again.' -Style @{ marginBottom = '12px' }
+        # 640 pixels: the event log below the report stays in view. -OnSaveTemplate saves views of the
+        # tickets on the server (here: only logged); views of a file go to the browser's store.
+        New-UDPivotReport -Id 'import-report' -Data $tickets -View $startView -Height 640px -FieldDefaults $fieldDefaults -SourceId 'tickets' -SourceName 'Tickets' `
+            -Templates $builtInTemplates -AllowImport -OnDataLoad {
+            $file = if ($EventData.file) { $EventData.file.name } else { 'the app''s data' }
+            Set-UDElement -Id 'import-log' -Properties @{ text = 'OnDataLoad: {0}, {1}, {2} rows, {3} columns' -f $EventData.cause, $file, $EventData.rows, $EventData.columnCount }
+        } -OnViewChange {
+            Set-UDElement -Id 'import-event-log' -Properties @{ text = 'OnViewChange: ' + $EventData.json }
+        } -OnCellClick {
+            Set-UDElement -Id 'import-event-log' -Properties @{ text = 'OnCellClick: {0} rows' -f $EventData.count }
+        } -OnSaveTemplate {
+            Set-UDElement -Id 'import-event-log' -Properties @{ text = 'OnSaveTemplate: ' + $EventData.name }
+        }
+        New-UDTypography -Id 'import-log' -Variant body2 -Text 'No data loaded yet.' -Style @{ marginTop = '12px'; fontFamily = 'monospace'; overflowWrap = 'anywhere' }
+        New-UDTypography -Id 'import-event-log' -Variant body2 -Text 'No event yet.' -Style @{ fontFamily = 'monospace'; overflowWrap = 'anywhere' }
+    }
+
     New-UDPage -Name 'Fields' -Url '/fields' -Content {
         New-UDTypography -Variant h5 -Text 'Field names and descriptions from a schema'
         New-UDTypography -Variant body2 -Text 'Display names, descriptions (the "i" next to a field), links, types and orders come from an OpenAPI document; one description comes from -FieldDescriptions, as Get-UDPivotSqlColumnDescription returns them from SQL Server.' -Style @{ marginBottom = '12px' }

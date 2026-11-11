@@ -565,3 +565,35 @@ Describe 'New-UDPivotReport: source, view files and switches' {
         { New-UDPivotReport -Data $script:rows -FieldList Hidden } | Should -Throw
     }
 }
+
+Describe 'How ids and names are built (docs/pivot/templates.md#ids)' {
+    BeforeAll {
+        $script:idsDoc = Get-Content -Raw -LiteralPath (Join-Path $script:repo 'docs' 'pivot' 'templates.md')
+    }
+
+    It 'the snippet that finds a reader''s folder names the folder the file store writes' {
+        $code = [regex]::Match($script:idsDoc, '(?s)To find a reader''s folder.*?```powershell\r?\n(.*?)```').Groups[1].Value
+        $code | Should -Match 'CONTOSO\\Alex'
+        $store = New-UDPivotFileTemplateStore -Path (& $script:newFolder)
+        try {
+            # the same user in another case and with spaces around it: one folder
+            & $script:module { param($s, $v) Invoke-UDPivotTemplateStore -Store $s -Action Save -Scope user -UserName ' contoso\ALEX ' -Name 'Per team' -View $v } $store $script:view | Out-Null
+            $written = @(Get-ChildItem -LiteralPath (Join-Path $store.Path 'users') -Directory)
+            $written.Count | Should -Be 1
+            $shown = & ([scriptblock]::Create($code))
+            $shown | Should -Be (Join-Path $store.Path 'users' $written[0].Name)
+            $written[0].Name | Should -Match '^[0-9a-f]{24}$'
+            $script:idsDoc | Should -Match ([regex]::Escape(('users/{0}` for `CONTOSO\Alex`' -f $written[0].Name)))
+        }
+        finally { Remove-Item -LiteralPath $store.Path -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    It 'the file names in the table are the ones the store gives' {
+        $names = & $script:module {
+            Get-UDPivotViewFileName -Name ("Umsatz je Region ({0})" -f [char]0xDC) -SourceId 'tickets'
+            Get-UDPivotViewFileName -Name ("Umsatz je Region ({0})" -f [char]0xDC) -SourceId 'tickets' -Attempt 1
+            Get-UDPivotViewFileName -Name ("Umsatz je Region ({0})" -f [char]0xDC) -SourceId 'tickets' -Legacy
+        }
+        foreach ($name in $names) { $script:idsDoc | Should -Match ([regex]::Escape($name)) }
+    }
+}

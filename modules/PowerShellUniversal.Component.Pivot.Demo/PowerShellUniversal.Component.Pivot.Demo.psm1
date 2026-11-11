@@ -89,7 +89,7 @@ function New-UDPivotShowcase {
         The app shows New-UDPivotReport on public data and on generated data: the three pivot examples
         of the documentation on software release cycles from endoflife.date (one line; start view,
         field names and templates; an app with loading, views per reader and roles), daily weather of
-        six cities from Open-Meteo, an upload page for CSV and JSON files, and the ticket showcase of the
+        six cities from Open-Meteo, a page for the reader's own CSV, JSON and Excel files (read in the browser), and the ticket showcase of the
         pivot module (5,000 generated tickets, templates, events, field descriptions, page layouts).
         Public data comes from snapshots shipped with the module, so the app works without internet
         access; a switch on each page (or -LiveData) fetches it from the APIs instead. A language switch

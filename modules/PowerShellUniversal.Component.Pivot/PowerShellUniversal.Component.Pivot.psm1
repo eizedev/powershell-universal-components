@@ -1537,7 +1537,9 @@ function New-UDPivotReport {
         A shared view of -TemplateStore with the same name (same characters, same case) takes the file's
         place: an admin's Publish or Save over a shipped view shows, and deleting it brings the file back.
     .PARAMETER TemplateStore
-        Where readers keep their own views ("My views") and admins the shared ones. Without it nothing is
+        Where readers keep their own views ("My views") and admins the shared ones; views of a file loaded
+        with -AllowImport always stay in the browser. Folder and file names of the stores:
+        https://powershell-universal-components.eize.dev/pivot/templates/#ids Without it nothing is
         written and Save is not offered (unless -OnSaveTemplate). Browser: pivotkit keeps each reader's
         views in the browser's localStorage (this browser and device only). A store of
         New-UDPivotFileTemplateStore (view files in a folder on the server) or New-UDPivotTemplateStore
@@ -1563,7 +1565,9 @@ function New-UDPivotReport {
         The Views menu offers the views of -TemplateStore (also Browser) made for this id and those made
         for no named data. A report whose data changes from call to call under the same -Id (an uploaded
         file, a parameter the reader picks) sets -SourceId per data source, e.g. from the file name;
-        otherwise the views made for all of its data show together.
+        otherwise the views made for all of its data show together. A file the reader loads with
+        -AllowImport needs none: pivotkit names its data itself and keeps its views in the browser. How
+        the ids are built: https://powershell-universal-components.eize.dev/pivot/templates/#ids
     .PARAMETER SourceName
         The name of that data for people (in view files and the load check). Default: -Label.
     .PARAMETER SchemaUrl
@@ -1652,6 +1656,22 @@ function New-UDPivotReport {
         requests. Use it for reports whose filter values are sensitive.
     .PARAMETER NoDrillDown
         No panel with the source rows when a value is clicked (-OnCellClick still runs).
+    .PARAMETER AllowImport
+        Readers may load a file of their own into the report: a Data menu in the toolbar, a file dropped
+        onto the report, and a preview (first rows, a type per column, a sheet of a workbook) before the
+        data is replaced. CSV, TSV, text, JSON and Excel workbooks (.xlsx) are read in the browser;
+        nothing is uploaded, and after a reload the app's data is back. While a file's data is shown,
+        its view stays in the browser (the address bar, -SavedView, Get-UDElement and -OnViewChange keep
+        the app's data), -OnCellClick does not run, and views the reader saves go to the browser's store
+        per file (pivotkit names the file's data by its name and a hash of its column names), never to
+        -TemplateStore or -OnSaveTemplate. PSU's light/dark switch and Sync-UDElement keep the file shown
+        (in the page's memory, per report). -Data may be empty: the report then asks for a file.
+    .PARAMETER OnDataLoad
+        With -AllowImport: runs on the server after the data shown changed. It only reports; it cannot
+        refuse a file. $EventData: cause (load, original, undo, redo, restore), source (id, name), file (name,
+        size, type; $null for the app's data), sheet, rows, columnCount, columns (the first 200, name and
+        type) and notes (the codes of the readers' notes). Never a value of the file; the names come from
+        the reader's file, so show them as text.
     .PARAMETER ClassName
         CSS class of the outer element.
     .PARAMETER Style
@@ -1698,6 +1718,11 @@ function New-UDPivotReport {
         # shipped views from a folder, readers' own views and shared views in files next to the repository
         $store = New-UDPivotFileTemplateStore
         New-UDPivotReport -Id 'tickets' -Data $tickets -TemplatePath (Join-Path $PSScriptRoot 'views') -TemplateStore $store -AdminRole 'Administrator'
+    .EXAMPLE
+        # readers pivot a CSV, JSON or Excel file of their own, read in the browser; their views are kept per file
+        New-UDPivotReport -Id 'own-data' -Data @() -AllowImport -TemplateStore Browser -OnDataLoad {
+            if ($EventData.file) { Write-Information ('{0} loaded: {1} rows' -f $EventData.file.name, $EventData.rows) }
+        }
     .EXAMPLE
         # a new tab continues with the reader's last view; open tabs keep their own
         New-UDPivotReport -Id 'tickets' -Data $tickets -View $startView -SavedView $Session:PivotView -OnViewChange {
@@ -1747,16 +1772,19 @@ function New-UDPivotReport {
         [ValidateLength(1, 120)][string]$FileName = 'pivot',
         [switch]$NoAddressBar,
         [switch]$NoDrillDown,
+        [switch]$AllowImport,
         [string]$ClassName,
         [hashtable]$Style,
         [Endpoint]$OnViewChange,
         [Endpoint]$OnCellClick,
         [Endpoint]$OnSaveTemplate,
         [Endpoint]$OnDeleteTemplate,
-        [Endpoint]$OnPublishTemplate
+        [Endpoint]$OnPublishTemplate,
+        [Endpoint]$OnDataLoad
     )
 
     if (-not $Script:AssetId) { throw $Script:MissingAssetMessage }
+    if ($OnDataLoad -and -not $AllowImport) { throw '-OnDataLoad needs -AllowImport: without it the data shown never changes.' }
     $timer = [System.Diagnostics.Stopwatch]::StartNew()
 
     # one array (ConvertTo-PSUComponentData returns it as a single object; @() would nest it)
@@ -1788,6 +1816,7 @@ function New-UDPivotReport {
         drillDown   = -not $NoDrillDown
         addressBar  = -not $NoAddressBar
     }
+    if ($AllowImport) { $props['allowImport'] = $true }
     if ($PSBoundParameters.ContainsKey('View') -and $null -ne $View) {
         try { $props['view'] = ConvertFrom-UDPivotView -InputObject $View }
         catch { throw ('-View: {0}' -f $_.Exception.Message) }
@@ -1905,7 +1934,7 @@ function New-UDPivotReport {
     if ($Labels) { $props['labels'] = $Labels }
     if ($ClassName) { $props['className'] = $ClassName }
     if ($Style) { $props['style'] = $Style }
-    $events = [ordered]@{ OnViewChange = 'onViewChange'; OnCellClick = 'onCellClick'; OnSaveTemplate = 'onSaveTemplate'; OnDeleteTemplate = 'onDeleteTemplate'; OnPublishTemplate = 'onPublishTemplate' }
+    $events = [ordered]@{ OnViewChange = 'onViewChange'; OnCellClick = 'onCellClick'; OnSaveTemplate = 'onSaveTemplate'; OnDeleteTemplate = 'onDeleteTemplate'; OnPublishTemplate = 'onPublishTemplate'; OnDataLoad = 'onDataLoad' }
     foreach ($name in $events.Keys) {
         # a parameter, or a handler of the template store above
         $endpoint = Get-Variable -Name $name -ValueOnly -Scope 0

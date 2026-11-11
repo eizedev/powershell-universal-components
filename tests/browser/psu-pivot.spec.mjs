@@ -4,6 +4,7 @@
 // examples/showcase.ps1. The template test saves and deletes a template of the anonymous user.
 import { test, expect } from "@playwright/test";
 import { chipMenu, openSaveAs, openShare, openToolbarMenu, openViews } from "./pivot-menus.mjs";
+import { assetsXlsx, CSV, dropFiles, fieldNames, fileOf, openDataMenu, pickFile, preview, TICKETS_CSV, XLSX } from "./pivot-import.mjs";
 
 const base = (process.env.PSU_PIVOT_URL || "").replace(/\/$/, "");
 // the report itself, never the placeholder the Tickets page shows while its data loads
@@ -21,19 +22,28 @@ async function open(page, path) {
 
 // PSU's own light/dark switch in the app bar
 async function setTheme(page, mode) {
-    if ((await page.evaluate(() => document.documentElement.dataset.theme)) !== mode) {
-        await page.locator("header .MuiSwitch-input").click();
-    }
-    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe(mode);
+    // clicked again only while the mode is still the other one: a click within a moment of a field's
+    // drop can be taken by dnd-kit still settling it
+    await expect(async () => {
+        if ((await page.evaluate(() => document.documentElement.dataset.theme)) !== mode) {
+            await page.locator("header .MuiSwitch-input").click();
+        }
+        await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme), { timeout: 2000 }).toBe(mode);
+    }).toPass({ timeout: 15000 });
 }
 
-// Reset in the toolbar, or in its More menu where the toolbar has no room for it (WebKit's wider font)
+// Reset in the toolbar's Start over menu, or in More where the toolbar has no room for Start over
+// (WebKit's wider font)
 async function resetButton(report) {
-    const button = report.locator("[data-testid=reset]");
-    if (await button.isVisible()) return { button, close: async () => {} };
-    await report.getByRole("button", { name: "More" }).click();
     const page = report.page();
-    return { button: page.locator("[data-testid=more-reset]"), close: () => page.keyboard.press("Escape") };
+    const close = () => page.keyboard.press("Escape");
+    const startOver = report.locator("[data-testid=start-over]");
+    if (await startOver.isVisible()) {
+        await startOver.click();
+        return { button: page.locator("[data-testid=reset]"), close };
+    }
+    await report.getByRole("button", { name: "More" }).click();
+    return { button: page.locator("[data-testid=more-reset]"), close };
 }
 
 async function reset(report) {
@@ -41,6 +51,22 @@ async function reset(report) {
 }
 
 // the Views menu, its levels and the chip menus: tests/browser/pivot-menus.mjs
+
+// the fields on a zone (rows, cols, values, filters), by their chips
+const chipsIn = (report, zone) => report.locator(`[data-zone=${zone}] [data-testid^=chip-menu-]`).evaluateAll((els) => els.map((e) => e.dataset.testid.replace(/^chip-menu-/, "")));
+
+// a field dragged from the field list onto a zone with the mouse, as a reader does (dnd-kit starts a
+// drag after a few pixels of movement)
+async function dragField(report, field, zone) {
+    const page = report.page();
+    const from = await report.getByRole("button", { name: `Drag ${field}`, exact: true }).boundingBox();
+    const to = await report.getByRole("region", { name: zone }).boundingBox();
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 30, from.y + 10, { steps: 5 });
+    await page.mouse.move(to.x + to.width - 40, to.y + to.height / 2, { steps: 15 });
+    await page.mouse.up();
+}
 
 // Reset is disabled while the report shows its start view
 async function expectAtStart(report) {
@@ -167,6 +193,282 @@ test.describe("pivot showcase on PSU", () => {
         const log = page.locator("#event-log");
         await expect(log).toContainText("OnViewChange", { timeout: 15000 });
         await expect(log).toContainText('"rows":["Priority"]');
+    });
+
+    // -AllowImport (pivotkit#44): the reader's file next to the app's data, on the page "Your file"
+    test("-AllowImport: a CSV dropped onto the report is read in the module's worker, previewed and loaded; -OnDataLoad hears of it", async ({ page }) => {
+        const errors = await open(page, "your-file");
+        const report = page.locator(REPORT);
+        const tickets = await fieldNames(report);
+        expect(tickets).toContain("Lead hours");
+        // the worker is a file of the module, served by PSU next to the bundle (with the bundle's query)
+        const worker = page.waitForEvent("worker", { timeout: 15000 });
+        await dropFiles(page, report.getByTestId("pivot-table"), [fileOf("tickets.csv", CSV, TICKETS_CSV)]);
+        expect((await worker).url()).toMatch(/\/api\/internal\/javascript\/import-worker\.[0-9a-f]+\.js\?dashboardId=\d+$/);
+        const dialog = page.getByRole("dialog", { name: "Load tickets.csv" });
+        const p = await preview(dialog);
+        expect(p.columns).toEqual(["Id", "Team", "Opened", "Hours", "Zip"]);
+        expect(p.types).toEqual(["number", "string", "date", "number", "string"]);
+        expect(p.rows).toHaveLength(4);
+        expect(p.rows[0]).toEqual(["1,001", "Network", "2026-11-10", "1.5", "01067"]);
+        await expect(dialog.locator("li[data-code='ROWS_EMPTY']")).toHaveText("1 empty row was left out.");
+        // the postcode as it is, the Id as text: the preview follows the type
+        await dialog.getByTestId("import-type-0").selectOption("string");
+        expect((await preview(dialog)).rows.map((r) => r[0])).toEqual(["1001", "1002", "1003", "1004"]);
+        await dialog.getByTestId("import-apply").click();
+        await expect(dialog).toHaveCount(0);
+        await expect.poll(() => fieldNames(report)).toEqual(["Id", "Team", "Opened", "Hours", "Zip"]);
+        await expect(report.getByTestId("source-line")).toHaveText("tickets.csv, only in this browser");
+        await expect(page.locator("#import-log")).toHaveText("OnDataLoad: load, tickets.csv, 4 rows, 5 columns", { timeout: 15000 });
+        expect(errors).toEqual([]);
+    });
+
+    test("-AllowImport: an Excel workbook picked under Data, its sheet chosen in the preview", async ({ page }) => {
+        const errors = await open(page, "your-file");
+        const report = page.locator(REPORT);
+        await pickFile(report, fileOf("assets.xlsx", XLSX, assetsXlsx()));
+        const dialog = page.getByRole("dialog", { name: "Load assets.xlsx" });
+        let p = await preview(dialog);
+        expect(p.columns).toEqual(["Asset", "Kind", "Bought", "Price"]);
+        // the date format of the cells makes Bought a date
+        expect(p.types).toEqual(["string", "string", "date", "number"]);
+        expect(p.rows[0]).toEqual(["A100", "Laptop", "2025-01-01", "100"]);
+        const sheet = dialog.getByTestId("import-sheet");
+        await expect(sheet.locator("option")).toHaveText(["Assets", "Legend"]);
+        await sheet.selectOption({ label: "Legend" });
+        await expect.poll(async () => (await preview(dialog)).columns).toEqual(["Kind", "Meaning"]);
+        await sheet.selectOption({ label: "Assets" });
+        await expect.poll(async () => (await preview(dialog)).columns).toEqual(["Asset", "Kind", "Bought", "Price"]);
+        await dialog.getByTestId("import-apply").click();
+        await expect.poll(() => fieldNames(report)).toEqual(["Asset", "Kind", "Bought", "Price"]);
+        await expect(report.getByTestId("source-line")).toHaveText(/^assets\.xlsx, sheet .Assets., only in this browser$/);
+        await expect(page.locator("#import-log")).toHaveText("OnDataLoad: load, assets.xlsx, 30 rows, 4 columns", { timeout: 15000 });
+        expect(errors).toEqual([]);
+    });
+
+    test("-AllowImport: the file's view, cells and saved views stay in the browser; Back to original data brings the tickets and their events back", async ({ page }) => {
+        const errors = await open(page, "your-file");
+        const report = page.locator(REPORT);
+        const startUrl = page.url();
+        const log = page.locator("#import-event-log");
+        const csv = fileOf("tickets.csv", CSV, TICKETS_CSV);
+        await dropFiles(page, report.getByTestId("pivot-table"), [csv]);
+        await page.getByTestId("import-apply").click();
+        await expect.poll(() => fieldNames(report)).toEqual(["Id", "Team", "Opened", "Hours", "Zip"]);
+        // changes of the file's view (Hours into Values, rows and columns swapped): neither
+        // -OnViewChange nor the address bar hear of them
+        await dragField(report, "Hours", "Values");
+        await expect.poll(() => chipsIn(report, "values")).toEqual(["Sum of Hours"]);
+        // a click right after the drop can land while dnd-kit still settles the drop: clicked again
+        // only while nothing is swapped yet
+        await expect(async () => {
+            if ((await chipsIn(report, "cols")).length === 0) await report.locator("[data-testid=swap]").click();
+            expect(await chipsIn(report, "cols")).toEqual(["Team"]);
+        }).toPass({ timeout: 10000 });
+        // a click on a value of the file: its rows never go to the server (-OnCellClick); the
+        // drill-down in the browser still opens
+        await report.getByRole("region", { name: "Table" }).getByRole("cell", { name: "8.25" }).first().click();
+        const drill = page.getByRole("dialog").filter({ has: page.getByRole("heading", { name: "Rows behind this value" }) });
+        await expect(drill).toContainText("4 rows");
+        await drill.getByRole("button", { name: "Close" }).click();
+        await expect(drill).toHaveCount(0);
+        // the reader's view of the file, saved: in the browser's store under the file's id, not to -OnSaveTemplate
+        const name = `File view ${test.info().project.name} ${Date.now()}`;
+        const menu = await openViews(report);
+        await openSaveAs(menu);
+        await menu.locator("[data-testid=saved-view-name]").fill(name);
+        await menu.getByRole("button", { name: "Save", exact: true }).click();
+        await expect(report.locator(".pk-toast-dock")).toContainText(`“${name}” saved`);
+        // the server's event handlers had time to answer: they were never called
+        await page.waitForTimeout(2500);
+        await expect(log).toHaveText("No event yet.");
+        expect(page.url()).toBe(startUrl);
+        const stored = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("pivotkit:views:")).map((k) => JSON.parse(localStorage.getItem(k))).flat());
+        expect(stored.find((v) => v.name === name)?.source?.id).toMatch(/^tickets\.csv#[0-9a-f]{16}$/);
+        // Back to original data: the tickets with their view; the file's view is not offered for them
+        await openDataMenu(report);
+        await expect(page.getByTestId("data-name")).toHaveText("tickets.csv");
+        await page.getByTestId("back-to-original").click();
+        await expect.poll(() => fieldNames(report)).toContain("Lead hours");
+        await expect(report.getByTestId("source-line")).toHaveCount(0);
+        await expect(page.locator("#import-log")).toHaveText("OnDataLoad: original, the app's data, 5000 rows, 12 columns", { timeout: 15000 });
+        await expect(report.getByRole("region", { name: "Table" })).toContainText("5,000");
+        let views = await openViews(report);
+        await expect(views.locator(`[data-testid='saved-view-${name}']`)).toHaveCount(0);
+        await expect(views.locator("[data-testid='saved-view-Tickets per team and priority']")).toBeVisible();
+        await page.keyboard.press("Escape");
+        // the tickets' events work again: a change of their view reaches -OnViewChange
+        await report.locator("[data-testid=swap]").click();
+        await expect(log).toContainText("OnViewChange", { timeout: 15000 });
+        await expect(log).toContainText('"rows":["Priority"]');
+        // the same file again offers its saved view
+        await dropFiles(page, report.getByTestId("pivot-table"), [csv]);
+        await page.getByTestId("import-apply").click();
+        await expect.poll(() => chipsIn(report, "values")).toEqual([]);
+        views = await openViews(report);
+        await views.locator(`[data-testid='saved-view-${name}']`).click();
+        await expect.poll(() => chipsIn(report, "values")).toEqual(["Sum of Hours"]);
+        await expect.poll(() => chipsIn(report, "cols")).toEqual(["Team"]);
+        views = await openViews(report);
+        await views.locator(`[data-testid='delete-view-${name}']`).click();
+        await views.locator("[data-testid=confirm-delete]").click();
+        expect(errors).toEqual([]);
+    });
+
+    test("-AllowImport: Undo and Redo between the file and the tickets; only the tickets' views reach -OnViewChange", async ({ page }) => {
+        const errors = await open(page, "your-file");
+        const report = page.locator(REPORT);
+        const log = page.locator("#import-event-log");
+        await dropFiles(page, report.getByTestId("pivot-table"), [fileOf("tickets.csv", CSV, TICKETS_CSV)]);
+        await page.getByTestId("import-apply").click();
+        await expect.poll(() => fieldNames(report)).toContain("Zip");
+        await dragField(report, "Zip", "Rows");
+        await expect.poll(() => chipsIn(report, "rows")).toEqual(["Team", "Zip"]);
+        await openDataMenu(report);
+        await page.getByTestId("back-to-original").click();
+        await expect(page.locator("#import-log")).toHaveText("OnDataLoad: original, the app's data, 5000 rows, 12 columns", { timeout: 15000 });
+        // the tickets' view is theirs again: -OnViewChange gets it, without a field of the file
+        await expect(log).toContainText('"rows":["Team"]', { timeout: 15000 });
+        // Undo: the file with its view again; Redo: the tickets. The file's view never reaches the server.
+        await report.getByTestId("undo").click();
+        await expect.poll(() => chipsIn(report, "rows")).toEqual(["Team", "Zip"]);
+        await expect(page.locator("#import-log")).toHaveText("OnDataLoad: undo, tickets.csv, 4 rows, 5 columns", { timeout: 15000 });
+        // the log shows the last event only: checked before Redo sends the tickets' view again
+        await page.waitForTimeout(2500);
+        await expect(log).not.toContainText("Zip");
+        await report.getByTestId("redo").click();
+        await expect.poll(() => chipsIn(report, "rows")).toEqual(["Team"]);
+        await expect(page.locator("#import-log")).toHaveText("OnDataLoad: redo, the app's data, 5000 rows, 12 columns", { timeout: 15000 });
+        await page.waitForTimeout(2500);
+        await expect(log).not.toContainText("Zip");
+        // a reload shows the tickets with their view (the address bar never held the file's)
+        await page.reload();
+        await expect(page.locator(REPORT)).toBeVisible({ timeout: 30000 });
+        await expect.poll(() => chipsIn(page.locator(REPORT), "rows")).toEqual(["Team"]);
+        await expect(page.locator(REPORT).getByTestId("source-line")).toHaveCount(0);
+        expect(errors).toEqual([]);
+    });
+
+    test("-AllowImport: Back to original data after more files than Undo keeps shows the tickets' view, never the file's", async ({ page }) => {
+        const errors = await open(page, "your-file");
+        const report = page.locator(REPORT);
+        const log = page.locator("#import-event-log");
+        const csv = fileOf("tickets.csv", CSV, TICKETS_CSV);
+        await dropFiles(page, report.getByTestId("pivot-table"), [csv]);
+        await page.getByTestId("import-apply").click();
+        await expect.poll(() => fieldNames(report)).toContain("Zip");
+        await dragField(report, "Zip", "Rows");
+        await expect.poll(() => chipsIn(report, "rows")).toEqual(["Team", "Zip"]);
+        // three more loads: Undo keeps three data steps, so the tickets' step is let go
+        for (let i = 2; i <= 4; i++) {
+            await dropFiles(page, report.getByTestId("pivot-table"), [csv]);
+            await page.getByTestId("import-apply").click();
+            await expect(page.locator("#import-log")).toHaveText("OnDataLoad: load, tickets.csv, 4 rows, 5 columns", { timeout: 15000 });
+        }
+        await expect.poll(() => chipsIn(report, "rows")).toEqual(["Team", "Zip"]);
+        await openDataMenu(report);
+        await page.getByTestId("back-to-original").click();
+        await expect(page.locator("#import-log")).toHaveText("OnDataLoad: original, the app's data, 5000 rows, 12 columns", { timeout: 15000 });
+        // the tickets with their own view; the server hears that view, not the file's
+        await expect.poll(() => chipsIn(report, "cols")).toEqual(["Priority"]);
+        await expect.poll(() => chipsIn(report, "rows")).toEqual(["Team"]);
+        await page.waitForTimeout(2500);
+        await expect(log).not.toContainText("Zip");
+        expect(new URL(page.url()).hash).not.toContain("Zip");
+        expect(errors).toEqual([]);
+    });
+
+    // PSU's light/dark switch mounts the component again: pivotkit keeps the loaded file per report
+    // (storageKey) in memory and restores it with its view (onDataLoad "restore"); the wrapper keeps the
+    // file's view away from the server as after a load
+    test("-AllowImport: the loaded file and its view stay over PSU's light/dark switch; nothing of it reaches the server", async ({ page }) => {
+        const errors = await open(page, "your-file");
+        await setTheme(page, "light");
+        const report = page.locator(REPORT);
+        const log = page.locator("#import-event-log");
+        // a view of the tickets other than -View: the address bar and the tab keep it, and a new mount
+        // reads it - the restored file's view must win over it
+        await report.locator("[data-testid=swap]").click();
+        await expect(log).toContainText('"rows":["Priority"]', { timeout: 15000 });
+        const before = page.url();
+        expect(new URL(before).hash).toContain("pivot-import-report=");
+        await dropFiles(page, report.getByTestId("pivot-table"), [fileOf("tickets.csv", CSV, TICKETS_CSV)]);
+        await page.getByTestId("import-apply").click();
+        await expect.poll(() => fieldNames(report)).toContain("Zip");
+        await expect.poll(() => chipsIn(report, "cols")).toEqual(["Team"]);
+        await dragField(report, "Zip", "Rows");
+        await expect.poll(() => chipsIn(report, "rows")).toEqual(["Zip"]);
+        // a mark on the report's element: gone after the switch shows that it was mounted anew
+        await report.evaluate((el) => el.setAttribute("data-test-mark", "before"));
+        await setTheme(page, "dark");
+        const again = page.locator(REPORT);
+        await expect(again).toBeVisible({ timeout: 30000 });
+        await expect(page.locator("[data-test-mark]")).toHaveCount(0);
+        await expect.poll(() => fieldNames(again)).toEqual(["Id", "Team", "Opened", "Hours", "Zip"]);
+        await expect(again.getByTestId("source-line")).toHaveText("tickets.csv, only in this browser");
+        await expect.poll(() => chipsIn(again, "rows")).toEqual(["Zip"]);
+        await expect.poll(() => chipsIn(again, "cols")).toEqual(["Team"]);
+        await expect(page.locator("#import-log")).toHaveText("OnDataLoad: restore, tickets.csv, 4 rows, 5 columns", { timeout: 15000 });
+        await page.waitForTimeout(2500);
+        await expect(log).not.toContainText("Zip");
+        expect(page.url()).toBe(before);
+        expect(await page.evaluate(() => JSON.stringify(sessionStorage))).not.toContain("Zip");
+        // still the file's mode: Back to original data brings the tickets with their view (swapped)
+        await openDataMenu(again);
+        await page.getByTestId("back-to-original").click();
+        await expect.poll(() => chipsIn(again, "cols")).toEqual(["Team"]);
+        await expect.poll(() => chipsIn(again, "rows")).toEqual(["Priority"]);
+        await expect(page.locator("#import-log")).toHaveText("OnDataLoad: original, the app's data, 5000 rows, 12 columns", { timeout: 15000 });
+        expect(errors).toEqual([]);
+    });
+
+    test("-AllowImport: after Back to original data, PSU's light/dark switch shows the tickets, not the file", async ({ page }) => {
+        const errors = await open(page, "your-file");
+        await setTheme(page, "light");
+        const report = page.locator(REPORT);
+        await dropFiles(page, report.getByTestId("pivot-table"), [fileOf("tickets.csv", CSV, TICKETS_CSV)]);
+        await page.getByTestId("import-apply").click();
+        await expect.poll(() => fieldNames(report)).toContain("Zip");
+        await openDataMenu(report);
+        await page.getByTestId("back-to-original").click();
+        await expect.poll(() => fieldNames(report)).toContain("Lead hours");
+        await setTheme(page, "dark");
+        const again = page.locator(REPORT);
+        await expect(again).toBeVisible({ timeout: 30000 });
+        await expect.poll(() => fieldNames(again)).toContain("Lead hours");
+        await expect(again.getByTestId("source-line")).toHaveCount(0);
+        await expect.poll(() => chipsIn(again, "rows")).toEqual(["Team"]);
+        await expect(page.locator("#import-log")).toHaveText("OnDataLoad: original, the app's data, 5000 rows, 12 columns");
+        expect(errors).toEqual([]);
+    });
+
+    test("-AllowImport: a change of the tickets' view still waiting for -OnViewChange is sent before a file loads", async ({ page }) => {
+        const errors = await open(page, "your-file");
+        const report = page.locator(REPORT);
+        const log = page.locator("#import-event-log");
+        // the swap waits 0.6 seconds for -OnViewChange; the file is dropped at once
+        await report.locator("[data-testid=swap]").click();
+        await expect.poll(() => chipsIn(report, "rows")).toEqual(["Priority"]);
+        await dropFiles(page, report.getByTestId("pivot-table"), [fileOf("tickets.csv", CSV, TICKETS_CSV)]);
+        await page.getByTestId("import-apply").click();
+        await expect(page.locator("#import-log")).toHaveText("OnDataLoad: load, tickets.csv, 4 rows, 5 columns", { timeout: 15000 });
+        await expect(log).toContainText('"rows":["Priority"]', { timeout: 15000 });
+        await page.waitForTimeout(2500);
+        await expect(log).toContainText('"rows":["Priority"]');
+        expect(errors).toEqual([]);
+    });
+
+    test("-AllowImport: where the worker cannot load, the file is read on the page", async ({ page }) => {
+        // as under a Content-Security-Policy without worker-src for it, or a module copied without it
+        await page.route(/\/import-worker\.[0-9a-f]+\.js/, (route) => route.fulfill({ status: 404, body: "" }));
+        const errors = await open(page, "your-file");
+        const report = page.locator(REPORT);
+        await dropFiles(page, report.getByTestId("pivot-table"), [fileOf("tickets.csv", CSV, TICKETS_CSV)]);
+        const dialog = page.getByRole("dialog", { name: "Load tickets.csv" });
+        expect((await preview(dialog)).columns).toEqual(["Id", "Team", "Opened", "Hours", "Zip"]);
+        await dialog.getByTestId("import-apply").click();
+        await expect.poll(() => fieldNames(report)).toEqual(["Id", "Team", "Opened", "Hours", "Zip"]);
+        expect(errors).toEqual([]);
     });
 
     test("templates: shared views from -Templates and view files, my views in the browser without sign-in", async ({ page }) => {

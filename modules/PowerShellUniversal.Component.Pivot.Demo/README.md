@@ -19,7 +19,7 @@ New-UDPivotShowcase
 | --- | --- | --- |
 | Python releases, End of life, Release cycles | [endoflife.date](https://endoflife.date/) | The three pivot examples of the documentation: one line; a start view, field names and templates; an app with a loading placeholder, views per reader on the server, roles and a server event |
 | Weather | [Open-Meteo](https://open-meteo.com/) | Daily weather of six cities in 2024 and 2025, with questions in the Views menu |
-| Your data | an uploaded file | A CSV or JSON file of your own as a pivot report |
+| Your data | your own file | A CSV, TSV, JSON or Excel file of your own as a pivot report, read in the browser |
 | Tickets, Templates, Events, Fields, Layouts, Without Id | generated | The pivot module's ticket showcase: 5,000 tickets from a DataTable, shared and own views, the events, field descriptions from an OpenAPI document, page layouts |
 
 Public data comes from snapshots shipped with the module (`Data/`, with sources and licences in
@@ -29,9 +29,9 @@ shows the reports in English or German (`-Locale de-DE` to start in German). The
 the default: the switch calls Open-Meteo's free API, whose terms allow non-commercial use only, so a
 company that uses the demo internally keeps the snapshot or uses an Open-Meteo API key.
 
-Uploaded files are read on the server and deleted at once; their rows stay in the memory of the
-reader's session only (CSV with comma, semicolon or tab, JSON as an array of objects; up to 5 MB and
-100,000 rows).
+Your data reads the reader's file in the browser (`New-UDPivotReport -AllowImport`): it is never
+uploaded, the server does not see it, and after a reload it is gone. Views of a file are kept in the
+reader's browser, per file.
 
 Views stored on the server: the page Release cycles and the ticket pages use
 `New-UDPivotFileTemplateStore`, which keeps views as files in a folder `pivot-views` next to the PSU

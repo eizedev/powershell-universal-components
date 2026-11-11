@@ -1,11 +1,14 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { fieldDefaultsFromSchema } from "pivotkit-core";
 import { PivotReport as Report } from "pivotkit-react";
+// Excel workbooks for -AllowImport: a small descriptor; its reader is imported on the first workbook
+import xlsxReader from "pivotkit-xlsx";
+import { bundleScriptOf, importWorkerOf, workerUrlOf } from "./importWorker";
 import "pivotkit-react/styles.css";
 import "./psu.css";
 import { useNarrowWindow } from "./hooks";
 import AdminPanel from "./AdminPanel";
-import { callEndpoint, cellEvent, fieldListOf, heightOf, MAX_OPTIONS_LENGTH, MAX_SCHEMA_LENGTH, mergeFieldDefaults, mergeTemplates, parseJsonObject, parseView, readLinkView, readTemplates, restoreRows, schemaUrlOf, sourceOf, startViewOf, switchOf, templateKey, themeOf, tipsOf, VIEW_EVENT_DELAY_MS, viewStoreKey, writeLinkView, writeStoredView } from "./prepare";
+import { callEndpoint, cellEvent, dataLoadEvent, fieldListOf, heightOf, MAX_OPTIONS_LENGTH, MAX_SCHEMA_LENGTH, mergeFieldDefaults, mergeTemplates, parseJsonObject, parseView, readLinkView, readTemplates, restoreRows, schemaUrlOf, sourceOf, startViewOf, switchOf, templateKey, themeOf, tipsOf, VIEW_EVENT_DELAY_MS, viewStoreKey, writeLinkView, writeStoredView } from "./prepare";
 
 /*
  * What -Schema says about the fields (pivotkit-core's fieldDefaultsFromSchema: names, descriptions,
@@ -24,6 +27,14 @@ function schemaDefaults(text, name) {
         return undefined;
     }
 }
+
+// the reader plugins of -AllowImport (CSV, TSV, text and JSON are built into pivotkit)
+const IMPORT_PLUGINS = [xlsxReader];
+// the worker that reads CSV and JSON files off the page, found next to this bundle while it runs
+// (__PIVOT_IMPORT_WORKER__: its file name, defined by the module's webpack.config.js; a build without
+// it, such as the documentation site's, reads files on the page)
+const WORKER_FILE = typeof __PIVOT_IMPORT_WORKER__ === "string" ? __PIVOT_IMPORT_WORKER__ : "";
+const importWorker = typeof document !== "undefined" && typeof location !== "undefined" ? importWorkerOf(workerUrlOf(bundleScriptOf(document), WORKER_FILE, location.origin)) : undefined;
 
 // sessionStorage, or null where the browser blocks it (the accessor itself can throw)
 function sessionStorageOrNull() {
@@ -76,6 +87,10 @@ export default function PsuPivotReport(props) {
     }, [showInLink]);
     // pivotkit's Reset goes back to the view of the first render: always -View, never a restored one
     const [view, setView] = useState(() => parseView(props.view) ?? {});
+    // -AllowImport: whether a reader's file is shown, and the app's view while it is (what comes back
+    // when pivotkit no longer keeps it)
+    const fileRef = useRef(false);
+    const hostView = useRef(view);
     const shownKey = useRef(serverViewKey);
     const lastServerKey = useRef(serverViewKey);
     useLayoutEffect(() => {
@@ -93,8 +108,13 @@ export default function PsuPivotReport(props) {
         const link = typeof window !== "undefined" && props.addressBar !== false ? readLinkView(window.location.hash, id) : undefined;
         const start = startViewOf(s.storage, s.key, s.mountedWith, props.savedView, link);
         if (start && JSON.stringify(start.view) !== serverViewKey) {
-            shownKey.current = JSON.stringify(start.view);
-            setView(start.view);
+            hostView.current = start.view;
+            // pivotkit restored a loaded file in its own layout effect, before this one (onDataLoad
+            // "restore", then the file's view): the app's view waits for Back to original data
+            if (!fileRef.current) {
+                shownKey.current = JSON.stringify(start.view);
+                setView(start.view);
+            }
             // from now on the tab keeps it in both places, whatever -SavedView a later render of the
             // page brings; storage that has it already is left as it is
             if (start.inStorage) showInLink(start.view);
@@ -109,12 +129,25 @@ export default function PsuPivotReport(props) {
         if (serverViewKey === lastServerKey.current) return;
         lastServerKey.current = serverViewKey;
         if (serverViewKey !== shownKey.current) {
-            shownKey.current = serverViewKey;
             const next = JSON.parse(serverViewKey) ?? {};
+            hostView.current = next;
+            // while a reader's file is shown, the server's view waits for the app's data
+            if (fileRef.current) return;
+            shownKey.current = serverViewKey;
             setView(next);
             remember(next);
         }
     }, [serverViewKey, remember]);
+
+    // ---- a file the reader loaded (-AllowImport) ---------------------------------------------------
+    // While a file's data is shown, its view, its cells and its saved views stay in the browser: the
+    // address bar, sessionStorage, Get-UDElement, -OnViewChange and -OnCellClick keep to the app's data,
+    // and saving goes to the browser's store under the file's source id instead of the server's.
+    const [fileShown, setFileShown] = useState(false);
+    // the last view pivotkit reported; the one in the same task as onDataLoad (pivotkit's own view of
+    // the data it switches to)
+    const lastView = useRef(null);
+    const recentView = useRef(null);
 
     const pending = useRef(null);
     const flush = useCallback(() => {
@@ -129,11 +162,10 @@ export default function PsuPivotReport(props) {
     }, []);
     useEffect(() => () => flush(), [flush]);
 
-    const onViewChange = useCallback(
+    // the view of the app's data leaves the component: remembered, in the state, to -OnViewChange
+    const publish = useCallback(
         (next) => {
-            const key = JSON.stringify(next);
-            shownKey.current = key;
-            setView(next);
+            hostView.current = next;
             remember(next);
             // Get-UDElement reads the view from the component's state
             if (typeof latest.current.setState === "function") latest.current.setState({ view: next });
@@ -143,6 +175,59 @@ export default function PsuPivotReport(props) {
             }
         },
         [flush, remember]
+    );
+    const onViewChange = useCallback(
+        (next) => {
+            shownKey.current = JSON.stringify(next);
+            lastView.current = next;
+            recentView.current = next;
+            setView(next);
+            // pivotkit shows the view of another data set (Undo, Redo, Back to original data) before it
+            // says which data that is (onDataLoad, in the same call): decide once both are known
+            queueMicrotask(() => {
+                if (recentView.current === next) recentView.current = null;
+                if (!fileRef.current && lastView.current === next) publish(next);
+            });
+        },
+        [publish]
+    );
+    const onDataLoad = useCallback(
+        (detail) => {
+            const file = Boolean(detail && detail.file);
+            if (file && !fileRef.current && pending.current) {
+                // a change of the app's view still waiting for -OnViewChange: send it now, before the file's
+                flush();
+            }
+            fileRef.current = file;
+            setFileShown(file);
+            if (!file) {
+                // back on the app's data. pivotkit shows its view again in the same task, before this
+                // call, while it still keeps that data's step (Undo keeps three); once that step is
+                // let go it shows the file's view on the app's data: then the app's last view comes back
+                let shown = recentView.current;
+                if (!shown) {
+                    shown = hostView.current;
+                    shownKey.current = JSON.stringify(shown);
+                    lastView.current = shown;
+                    setView(shown);
+                }
+                queueMicrotask(() => {
+                    if (!fileRef.current && lastView.current === shown) publish(shown);
+                });
+            }
+            const handler = latest.current.onDataLoad;
+            try {
+                if (typeof handler === "function") handler(dataLoadEvent(detail));
+            } catch (error) {
+                // never into pivotkit: an error there would refuse a file this component already shows
+                setTimeout(() => {
+                    throw error;
+                }, 0);
+            }
+            // never false: the server is told, it cannot refuse a file (pivotkit does not wait for it)
+            return undefined;
+        },
+        [flush, publish]
     );
 
     // ---- templates -------------------------------------------------------------------------------
@@ -156,6 +241,9 @@ export default function PsuPivotReport(props) {
         setDeleted(new Set());
     }, [templatesKey]);
     const templates = useMemo(() => mergeTemplates(serverTemplates, saved, deleted), [serverTemplates, saved, deleted]);
+    // while a file is shown, "My views" are the browser's views of that file: the reader's own views of
+    // the app's data on the server stay out (they cannot be saved over or deleted from here)
+    const shownTemplates = useMemo(() => (fileShown ? templates.filter((t) => t.scope !== "user") : templates), [fileShown, templates]);
 
     // a template the server confirmed: shown until the server sends the templates again
     const keep = useCallback((template) => {
@@ -168,13 +256,15 @@ export default function PsuPivotReport(props) {
             return next;
         });
     }, []);
-    const onSaveTemplate = typeof props.onSaveTemplate === "function"
+    // a file's views are kept by the browser's store (pivotkit keeps them per file), not by the server
+    const serverSaves = !fileShown;
+    const onSaveTemplate = serverSaves && typeof props.onSaveTemplate === "function"
         ? async (name, current) => {
               await callEndpoint(latest.current.onSaveTemplate, { name, view: current, json: JSON.stringify(current), scope: "user" });
               keep({ name, view: current, scope: "user", deletable: true });
           }
         : undefined;
-    const onDeleteTemplate = typeof props.onDeleteTemplate === "function"
+    const onDeleteTemplate = serverSaves && typeof props.onDeleteTemplate === "function"
         ? async (name, how) => {
               const scope = how && how.scope === "shared" ? "shared" : "user";
               await callEndpoint(latest.current.onDeleteTemplate, { name, scope });
@@ -182,7 +272,7 @@ export default function PsuPivotReport(props) {
           }
         : undefined;
     // -AdminRole: the server sends canPublish only to readers with one of its roles, and checks again
-    const onPublishTemplate = props.canPublish === true && typeof props.onPublishTemplate === "function"
+    const onPublishTemplate = serverSaves && props.canPublish === true && typeof props.onPublishTemplate === "function"
         ? async (name, current) => {
               await callEndpoint(latest.current.onPublishTemplate, { name, view: current, json: JSON.stringify(current), scope: "shared" });
               keep({ name, view: current, scope: "shared", deletable: true });
@@ -205,7 +295,8 @@ export default function PsuPivotReport(props) {
     // ---- clicks ----------------------------------------------------------------------------------
     const viewRef = useRef(view);
     viewRef.current = view;
-    const onCellClick = typeof props.onCellClick === "function"
+    // the rows of a loaded file never go to the server: -OnCellClick runs on the app's data only
+    const onCellClick = !fileShown && typeof props.onCellClick === "function"
         ? (cell) => {
               const handler = latest.current.onCellClick;
               if (typeof handler === "function") handler(cellEvent(cell, viewRef.current));
@@ -218,15 +309,19 @@ export default function PsuPivotReport(props) {
                 data={rows}
                 view={view}
                 onViewChange={onViewChange}
-                templates={templates}
+                templates={shownTemplates}
                 onSaveTemplate={onSaveTemplate}
                 onDeleteTemplate={onDeleteTemplate}
                 onPublishTemplate={onPublishTemplate}
                 canPublish={Boolean(onPublishTemplate)}
-                templateStore={String(props.templateStore || "").toLowerCase() === "browser" ? "browser" : undefined}
+                templateStore={fileShown || String(props.templateStore || "").toLowerCase() === "browser" ? "browser" : undefined}
                 source={source}
                 {...(schemaUrl !== undefined ? { schemaUrl } : {})}
                 onCellClick={onCellClick}
+                allowImport={props.allowImport === true}
+                plugins={props.allowImport === true ? IMPORT_PLUGINS : undefined}
+                onDataLoad={props.allowImport === true ? onDataLoad : undefined}
+                importWorker={props.allowImport === true ? importWorker : undefined}
                 drillDown={props.drillDown !== false}
                 fieldDefaults={fieldDefaults}
                 chartOptions={chartOptions}

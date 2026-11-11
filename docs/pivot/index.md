@@ -86,6 +86,7 @@ New-UDDynamic -Id 'tickets-report' -LoadingComponent {
 | **Drill-down** | A click on a value or a chart point opens the source rows behind it; the panel has its own Enlarge and an Export menu (Copy for a spreadsheet, Copy as JSON, Download CSV and Excel). |
 | **Undo, Reset, Views, Export** | **Undo and redo** (Ctrl/Cmd+Z), **Reset** to the start view, **Views** with shared views and the reader's own, Save, Save as and New, empty report ([Templates, view files and roles](templates.md)), and its Share level with "Copy link", "Copy view as JSON", "Download view" (a view file) and "Load view…", and **Export** to Excel (XLSX with number formats and merged headers), CSV and PNG, or Copy table and Copy data as JSON. |
 | **Tips** | Above the result, for a layout that could be clearer: one at a time, each dismissible and remembered per report in the browser. `-Tips Off` or a list of tip ids limits them. Options, Help has "Show tips" and "Show explanations" (every "i" next to fields, zones and settings); `-FieldInfo`, `-ZoneInfo` and `-SettingInfo` decide one kind for the reader. |
+| **Own files** | With `-AllowImport`: drop a CSV, TSV, JSON or Excel file onto the report, or pick it under Data, check a preview with a type per column, and pivot it; read in the browser, never uploaded; views kept per file; Back to original data ([Readers' own files](import.md)). |
 | **Field list** | « collapses it to a narrow rail (the reader's choice is remembered); `-FieldList Collapsed` or `Open` starts every reader so. |
 
 The report adapts to its own width:
