@@ -105,14 +105,9 @@ test.describe("pivot demo showcase on PSU", () => {
         expect(errors).toEqual([]);
     });
 
-    // Expected to fail until pivotkit keeps the restored view when the host mounts the report twice in
-    // a row: PSU's language switch here mounts it twice within about 30 ms, and the first mount writes
-    // its view history from before the restore into pivotkit's kept entry (data-keep.js, the keep
-    // effect runs with the first render's snapshot), so the second mount shows the file with an empty
-    // view. The theme switch mounts once and keeps the view (psu-pivot.spec.mjs). Remove test.fail()
-    // once pivotkit is fixed.
+    // PSU's language switch mounts the report twice within about 30 ms: pivotkit keeps the restored
+    // file with its view over both mounts (pivotkit#135)
     test("Your data: the file's view stays when the language switch mounts the report twice", async ({ page }) => {
-        test.fail();
         await page.goto(`${base}/upload`);
         const report = page.locator(".ud-pivot-report .pk-root");
         await expect(report).toBeVisible({ timeout: 30000 });

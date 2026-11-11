@@ -44,10 +44,6 @@ when the reader moves to another page of the app and back. After **Back to origi
 of the load) nothing is kept, and the next mount shows the app's data with its view. pivotkit keeps
 the files of at most four reports at once; the one written longest ago goes first.
 
-A page that draws the report twice in a row (the demo's language switch does, within a moment)
-shows the file again, but with an empty view: the reader puts the fields back. PSU's light/dark
-switch draws it once and keeps the view.
-
 Give every report with `-AllowImport` an `-Id` of its own in the app: two reports with the same
 `-Id` (on two pages, or in a loop without `-Id`, where the module derives the same key) and the same
 columns share what pivotkit keeps, so one would show the other's file.
