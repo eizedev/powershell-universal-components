@@ -31,8 +31,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Changed
 
-- pivotkit-react, pivotkit-core and the new pivotkit-xlsx of the next pivotkit release (after 0.3.0;
-  the exact versions come with that release): the Start over menu (Reset and New, empty report) after
+- pivotkit 0.4.0 ([pivotkit-react release](https://github.com/eizedev/pivotkit/releases/tag/pivotkit-react%400.4.0))
+  and the new pivotkit-xlsx 0.1.0: the Start over menu (Reset and New, empty report) after
   Undo and Redo, the Views menu regrouped (This view, Shared views, My views, Share this view), menu
   groups and a More menu only for buttons that do not fit.
 
