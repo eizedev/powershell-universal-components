@@ -10,19 +10,21 @@
 const BUNDLE_PATTERN = /\/index\.[0-9a-f]+\.bundle\.js$/;
 
 /**
- * The worker's address next to the bundle's, or null when the bundle's address is unknown.
+ * The worker's address next to the bundle's, or null when the bundle's address is unknown or on
+ * another origin than the page (a worker runs only from the page's own origin anyway).
  * @param {string | null | undefined} bundleUrl  the src of the bundle's script element
  * @param {string} workerFile  import-worker.<hash>.js
+ * @param {string} pageOrigin  location.origin
  */
-export function workerUrlOf(bundleUrl, workerFile) {
-    if (typeof bundleUrl !== "string" || !workerFile) return null;
+export function workerUrlOf(bundleUrl, workerFile, pageOrigin) {
+    if (typeof bundleUrl !== "string" || !workerFile || !pageOrigin) return null;
     let url;
     try {
         url = new URL(bundleUrl);
     } catch {
         return null;
     }
-    if (!BUNDLE_PATTERN.test(url.pathname)) return null;
+    if (url.origin !== pageOrigin || !BUNDLE_PATTERN.test(url.pathname)) return null;
     url.pathname = url.pathname.replace(BUNDLE_PATTERN, `/${workerFile}`);
     return url.href;
 }

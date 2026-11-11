@@ -353,8 +353,12 @@ export function cellEvent(cell, view, limit = EVENT_ROWS) {
 export const EVENT_COLUMNS = 200;
 export const EVENT_TEXT_LENGTH = 256;
 
+// control characters (C0, C1) and the characters that turn text around (U+202A-202E, U+2066-2069):
+// a file name with a line break must not forge a line in the server's log
+const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g;
+
 function eventText(value) {
-    return typeof value === "string" ? value.slice(0, EVENT_TEXT_LENGTH) : null;
+    return typeof value === "string" ? value.replace(UNSAFE_TEXT, " ").slice(0, EVENT_TEXT_LENGTH) : null;
 }
 
 /*

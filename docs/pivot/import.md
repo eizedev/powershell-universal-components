@@ -44,10 +44,10 @@ app's data:
 
 | Part | While a file is shown |
 | --- | --- |
-| The view | Stays out of the address bar and the tab's `sessionStorage`; `Get-UDElement` and `-OnViewChange` keep the view of the app's data. **Back to original data** (or Undo back to it) shows that view again and reports it. |
+| The view | Stays out of the address bar and the tab's `sessionStorage`; `Get-UDElement` and `-OnViewChange` keep the view of the app's data. **Back to original data** (or Undo back to it) shows that view again and reports it, also after more loads than Undo keeps. A `-View` the server sets meanwhile (`Set-UDElement`) waits for the app's data. |
 | `-OnCellClick` | Does not run: its `$EventData` would carry rows of the file. The panel with the source rows still opens. |
-| Saved views | Go to the browser's store, per file (below), never to `-TemplateStore` or `-OnSaveTemplate`. The app's shared views stay in the Views menu; a view for fields the file lacks says which parts it leaves out. |
-| `-OnDataLoad` | Runs: it says that the data changed, never what is in it. |
+| Saved views | Go to the browser's store, per file (below), never to `-TemplateStore` or `-OnSaveTemplate`. The app's shared views stay in the Views menu (a view for fields the file lacks says which parts it leaves out); the reader's own views of the app's data on the server are left out of "My views" until the app's data is back. |
+| `-OnDataLoad` | Runs: it says that the data changed and names the file and its columns, never a value of the file. |
 
 ## Views per file
 
@@ -66,7 +66,9 @@ reordered columns is other data.
 | `-Templates`, `-TemplatePath`, shared views | offered | offered too: a shipped view fits a file with the same columns, such as a monthly export of the same table |
 
 Views saved for a file stay in that browser only. The store holds at most 100 views and 500,000
-characters per report, for the app's data and all files together.
+characters per report, for the app's data and all files together. It is the browser's `localStorage`
+of the PSU server's address, which every app on that server shares: its pages can read the names of
+the files and views kept there.
 
 ## `-OnDataLoad` { #ondataload }
 
@@ -91,9 +93,12 @@ New-UDPivotReport -Id 'tickets' -Data $tickets -AllowImport -OnDataLoad {
 }
 ```
 
-No value of the file is sent. Its name, its sheet and its column names are, cut to 256 characters:
-they come from the reader's file, so treat them as user input and show them as text. Leave
-`-OnDataLoad` out where even the names of a reader's files must not reach the server.
+No value of the file is sent. Its name, its sheet and its column names are: the browser cuts each to
+256 characters, replaces line breaks and other control characters with spaces and sends the first
+200 columns. These come from the reader's file, and the endpoint takes whatever a client posts, so
+the server checks them like any user input: type and length before storing them, never in a path,
+a query or `Invoke-Expression`, and shown as text. Leave `-OnDataLoad` out where even the names of a
+reader's files must not reach the server.
 
 ## Large files and the import worker
 

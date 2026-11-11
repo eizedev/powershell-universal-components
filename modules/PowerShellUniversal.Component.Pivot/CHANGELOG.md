@@ -14,11 +14,13 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   (pivotkit-xlsx) is part of the bundle and runs only when the first workbook is read; CSV and JSON
   files are read in a worker the module ships next to its bundle (`import-worker.<hash>.js`, about
   26 KB), or on the page where a Content-Security-Policy keeps the worker from starting. `-Data` may
-  be empty: the report then asks for a file.
+  be empty: the report then asks for a file. The bundle grows from 1.27 MB (391 KB gzip) to 1.41 MB
+  (434 KB gzip): 69 KB (19 KB gzip) are the Excel reader, the rest pivotkit's import UI and menus.
 - While a reader's file is shown, its view stays out of the address bar, `sessionStorage`,
   `Get-UDElement` and `-OnViewChange`, `-OnCellClick` does not run (its rows would carry the file's),
   and views the reader saves go to the browser's store per file, never to `-TemplateStore` or
-  `-OnSaveTemplate`.
+  `-OnSaveTemplate`; the reader's own server views of the app's data leave "My views" meanwhile.
+  Back to original data shows the app's last view, also after more loads than Undo keeps.
 - `-OnDataLoad`: runs on the server when the data shown changes (a file loaded, the app's data again,
   Undo, Redo) with the cause, the file's name, size and type, the sheet, rows, columns (the first 200
   names and types) and the codes of the readers' notes; never a value of the file.
@@ -27,10 +29,10 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Changed
 
-- pivotkit X (waits for the pivotkit release): the Start over menu (Reset and New, empty report) after
+- pivotkit-react, pivotkit-core and the new pivotkit-xlsx of the next pivotkit release (after 0.3.0;
+  the exact versions come with that release): the Start over menu (Reset and New, empty report) after
   Undo and Redo, the Views menu regrouped (This view, Shared views, My views, Share this view), menu
-  groups and a More menu only for buttons that do not fit. The bundle grows from 1.27 MB (391 KB
-  gzip) to 1.41 MB (434 KB gzip); the Excel reader is 69 KB of it (19 KB gzip).
+  groups and a More menu only for buttons that do not fit.
 
 ### Fixed
 

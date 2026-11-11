@@ -484,6 +484,7 @@ test("theme bridge: docs/pivot/themes.md lists every property the bridge reads, 
 test("dataLoadEvent: what -OnDataLoad sends - who, how much and the note codes, never a value of the file", () => {
     const columns = Array.from({ length: mod.EVENT_COLUMNS + 5 }, (_, i) => ({ name: `C${i}`, type: "number" }));
     columns[0] = { name: "x".repeat(mod.EVENT_TEXT_LENGTH + 10), type: "string" };
+    columns[1] = { name: "Team\r\nINFO forged line\u202e", type: "string" };
     const out = mod.dataLoadEvent({
         cause: "load",
         source: { id: "tickets.csv#0123456789abcdef", name: "tickets.csv" },
@@ -502,6 +503,9 @@ test("dataLoadEvent: what -OnDataLoad sends - who, how much and the note codes, 
     assert.equal(out.columnCount, mod.EVENT_COLUMNS + 5);
     assert.equal(out.columns.length, mod.EVENT_COLUMNS);
     assert.equal(out.columns[0].name.length, mod.EVENT_TEXT_LENGTH);
+    // no line breaks or direction characters from the file reach the server's log
+    assert.equal(out.columns[1].name, "Team  INFO forged line ");
+    assert.equal(mod.dataLoadEvent({ file: { name: "a\nb.csv", size: 1, type: "text/csv" } }).file.name, "a b.csv");
     assert.deepEqual(out.notes, ["ENCODING", "SEPARATOR"]);
     assert.ok(!JSON.stringify(out).includes("utf-8"), "no note parameters (they quote the file)");
     // the app's data again: no file
@@ -516,12 +520,15 @@ test("dataLoadEvent: what -OnDataLoad sends - who, how much and the note codes, 
 test("import worker: its address is the bundle's, with the file name replaced and PSU's query kept", async () => {
     const w = await import("../../modules/PowerShellUniversal.Component.Pivot/Components/importWorker.js");
     const bundle = "https://psu.example.com/api/internal/javascript/index.0123abcd.bundle.js?dashboardId=12";
-    assert.equal(w.workerUrlOf(bundle, "import-worker.ff00.js"), "https://psu.example.com/api/internal/javascript/import-worker.ff00.js?dashboardId=12");
-    // only a module bundle's address: anything else gives no worker (pivotkit then reads on the page)
-    for (const bad of [null, "", "not a url", "https://psu.example.com/app/3f0d01ed.bundle.js", "https://psu.example.com/index.js"]) {
-        assert.equal(w.workerUrlOf(bad, "import-worker.ff00.js"), null, String(bad));
+    const origin = "https://psu.example.com";
+    assert.equal(w.workerUrlOf(bundle, "import-worker.ff00.js", origin), "https://psu.example.com/api/internal/javascript/import-worker.ff00.js?dashboardId=12");
+    // only a module bundle's address of the page's origin: anything else gives no worker (pivotkit
+    // then reads on the page)
+    for (const bad of [null, "", "not a url", "https://psu.example.com/app/3f0d01ed.bundle.js", "https://psu.example.com/index.js", "https://cdn.example.net/x/index.0123abcd.bundle.js"]) {
+        assert.equal(w.workerUrlOf(bad, "import-worker.ff00.js", origin), null, String(bad));
     }
-    assert.equal(w.workerUrlOf(bundle, ""), null);
+    assert.equal(w.workerUrlOf(bundle, "", origin), null);
+    assert.equal(w.workerUrlOf(bundle, "import-worker.ff00.js", "https://other.example.com"), null);
     // the script element: the one running, else a module bundle of the page; PSU's own bundles do not count
     const script = (src) => ({ src });
     assert.equal(w.bundleScriptOf({ currentScript: script(bundle), scripts: [] }), bundle);

@@ -1537,7 +1537,8 @@ function New-UDPivotReport {
         A shared view of -TemplateStore with the same name (same characters, same case) takes the file's
         place: an admin's Publish or Save over a shipped view shows, and deleting it brings the file back.
     .PARAMETER TemplateStore
-        Where readers keep their own views ("My views") and admins the shared ones. Without it nothing is
+        Where readers keep their own views ("My views") and admins the shared ones; views of a file loaded
+        with -AllowImport always stay in the browser. Without it nothing is
         written and Save is not offered (unless -OnSaveTemplate). Browser: pivotkit keeps each reader's
         views in the browser's localStorage (this browser and device only). A store of
         New-UDPivotFileTemplateStore (view files in a folder on the server) or New-UDPivotTemplateStore
@@ -1563,7 +1564,8 @@ function New-UDPivotReport {
         The Views menu offers the views of -TemplateStore (also Browser) made for this id and those made
         for no named data. A report whose data changes from call to call under the same -Id (an uploaded
         file, a parameter the reader picks) sets -SourceId per data source, e.g. from the file name;
-        otherwise the views made for all of its data show together.
+        otherwise the views made for all of its data show together. A file the reader loads with
+        -AllowImport needs none: pivotkit names its data itself and keeps its views in the browser.
     .PARAMETER SourceName
         The name of that data for people (in view files and the load check). Default: -Label.
     .PARAMETER SchemaUrl

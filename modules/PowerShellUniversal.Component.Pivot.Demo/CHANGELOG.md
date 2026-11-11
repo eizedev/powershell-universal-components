@@ -5,6 +5,13 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
+### Added
+
+- Your data: readers save their views in the browser (`-TemplateStore Browser`), per file: the Views
+  menu lists those made for the file shown and those saved without a data source, and the same file
+  uploaded again offers them again. All uploaded files share the browser store's limits (100 views,
+  500,000 characters).
+
 ### Changed
 
 - Your data reads the reader's file in the browser with `New-UDPivotReport -AllowImport`: CSV, TSV,
@@ -14,13 +21,6 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
   name and a hash of the name and column names, the scheme the upload used), so views readers saved
   for an uploaded file are offered for the same file (same name, same column names) loaded in the browser
   ([#64](https://github.com/eizedev/powershell-universal-components/issues/64)).
-
-### Added
-
-- Your data: readers save their views in the browser (`-TemplateStore Browser`), per file: the Views
-  menu lists those made for the file shown and those saved without a data source, and the same file
-  uploaded again offers them again. All uploaded files share the browser store's limits (100 views,
-  500,000 characters).
 
 ### Fixed
 
