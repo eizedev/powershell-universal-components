@@ -5,6 +5,8 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-11
+
 ### Added
 
 - Your data: readers save their views in the browser (`-TemplateStore Browser`), per file: the Views
@@ -14,6 +16,7 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ### Changed
 
+- Requires PowerShellUniversal.Component.Pivot 0.4.0 or later (Your data uses `-AllowImport`).
 - Your data reads the reader's file in the browser with `New-UDPivotReport -AllowImport`: CSV, TSV,
   JSON and Excel workbooks (`.xlsx`), dropped onto the report or picked under Data, with a preview
   before the data is replaced. The file is never uploaded; the server-side upload (`New-UDUpload`,
@@ -60,3 +63,8 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
   where the app starts.
 - `Get-UDPivotShowcaseData`: answers the app's public API calls from the snapshots shipped in `Data/`
   (with their sources and licences, `Data/SOURCES.md`), or live.
+
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.2.0...HEAD
+[0.2.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.1.1...PowerShellUniversal.Component.Pivot.Demo-v0.2.0
+[0.1.1]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.1.0...PowerShellUniversal.Component.Pivot.Demo-v0.1.1
+[0.1.0]: https://github.com/eizedev/powershell-universal-components/releases/tag/PowerShellUniversal.Component.Pivot.Demo-v0.1.0

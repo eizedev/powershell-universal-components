@@ -5,6 +5,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-11
+
 ### Added
 
 - `-AllowImport`: readers load a CSV, TSV, JSON or Excel file (`.xlsx`) of their own into the report,
@@ -35,6 +37,11 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   and the new pivotkit-xlsx 0.1.0: the Start over menu (Reset and New, empty report) after
   Undo and Redo, the Views menu regrouped (This view, Shared views, My views, Share this view), menu
   groups and a More menu only for buttons that do not fit.
+- The help of `-SourceId` and the docs (Templates, view files and roles) say when to set it: a report
+  whose data changes per call under the same `-Id` (an uploaded file, a parameter) sets `-SourceId` per
+  data source, else the views saved for all of its data show together
+  ([pivotkit#116](https://github.com/eizedev/pivotkit/issues/116)). The default stays `-Id`, so views
+  readers saved keep showing.
 
 ### Fixed
 
@@ -42,14 +49,6 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   Views menu. The menu listed the read-only file next to it, so an admin's Publish or Save over a
   shipped view looked lost; deleting the shared view offers the file again
   ([#73](https://github.com/eizedev/powershell-universal-components/issues/73)).
-
-### Changed
-
-- The help of `-SourceId` and the docs (Templates, view files and roles) say when to set it: a report
-  whose data changes per call under the same `-Id` (an uploaded file, a parameter) sets `-SourceId` per
-  data source, else the views saved for all of its data show together
-  ([pivotkit#116](https://github.com/eizedev/pivotkit/issues/116)). The default stays `-Id`, so views
-  readers saved keep showing.
 
 ## [0.3.0] - 2026-11-09
 
@@ -181,3 +180,9 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   store, a language switch, the events and the report in page layouts (a card of a fixed height among
   them); `examples/templates.ps1`: an app with sign-in, readers' views on the server, publishing for
   two roles and the admin panel.
+
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.4.0...HEAD
+[0.4.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.3.0...PowerShellUniversal.Component.Pivot-v0.4.0
+[0.3.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.2.0...PowerShellUniversal.Component.Pivot-v0.3.0
+[0.2.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.1.0...PowerShellUniversal.Component.Pivot-v0.2.0
+[0.1.0]: https://github.com/eizedev/powershell-universal-components/releases/tag/PowerShellUniversal.Component.Pivot-v0.1.0
