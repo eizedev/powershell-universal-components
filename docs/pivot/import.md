@@ -31,11 +31,16 @@ file on [Loading files](https://pivotkit.eize.dev/reference/import/). The pivot 
 "Your data" ([Showcase app](demo.md#your-own-data)) is a report with `-AllowImport` and no data of its
 own.
 
-!!! note "The file is not kept when the report is drawn anew"
-    PSU's light/dark switch, a reload and a page that draws the report again (`Sync-UDElement` on a
-    `New-UDDynamic` around it, such as the demo's language switch) show the app's data again: the
-    loaded file lives in the report's own state, and the reader loads it again. Views saved for it are
-    still offered.
+## When the report is drawn again
+
+PSU mounts the report anew on its light/dark switch and when the page draws it again
+(`Sync-UDElement` on a `New-UDDynamic` around it, such as the demo's language switch). The loaded
+file stays: pivotkit keeps it per report (the report's `-Id`, or the key the module derives without
+one) in the page's memory, with its view and its Undo steps, and shows it again over the same data
+of the app; `-OnDataLoad` hears `restore`. Nothing of it goes into browser storage, so a reload or
+another tab shows the app's data again. After **Back to original data** (or Undo of the load) nothing
+is kept, and the next mount shows the app's data with its view. pivotkit keeps the files of at most
+four reports of a page at once.
 
 ## What stays in the browser
 
@@ -52,7 +57,9 @@ app's data:
 ## Views per file
 
 pivotkit names a loaded file's data by its name and a hash of its name and column names in their
-order (`tickets.csv#0123456789abcdef`; [how ids and names are built](templates.md#ids)). Views a reader saves while the file is shown carry that id and
+order (`tickets.csv#0123456789abcdef`; the rule: pivotkit's
+[How a loaded file is named](https://pivotkit.eize.dev/reference/import/#how-a-loaded-file-is-named),
+the module's other ids: [how ids and names are built](templates.md#ids)). Views a reader saves while the file is shown carry that id and
 are kept in the browser's store (`localStorage`, the store of `-TemplateStore Browser`, under the
 report's `-Id`): the Views menu offers them when the same file is loaded again (same name, same
 columns), not for another file and not for the app's data. A file with the same name and other or
@@ -77,7 +84,7 @@ server, so it cannot refuse a file.
 
 | Key | What |
 | --- | --- |
-| `cause` | `load` (a file), `original` (the app's data again), `undo`, `redo` |
+| `cause` | `load` (a file), `original` (the app's data again), `undo`, `redo`, `restore` (the report was drawn again and shows the file it had) |
 | `source` | `id`, `name` of the data shown: the file's, or the report's `-SourceId` and `-SourceName` |
 | `file` | `name`, `size` (bytes), `type` of the file shown; `$null` for the app's data |
 | `sheet` | the sheet of a workbook, else `$null` |

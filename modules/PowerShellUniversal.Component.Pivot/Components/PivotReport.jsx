@@ -108,9 +108,13 @@ export default function PsuPivotReport(props) {
         const link = typeof window !== "undefined" && props.addressBar !== false ? readLinkView(window.location.hash, id) : undefined;
         const start = startViewOf(s.storage, s.key, s.mountedWith, props.savedView, link);
         if (start && JSON.stringify(start.view) !== serverViewKey) {
-            shownKey.current = JSON.stringify(start.view);
             hostView.current = start.view;
-            setView(start.view);
+            // pivotkit restored a loaded file in its own layout effect, before this one (onDataLoad
+            // "restore", then the file's view): the app's view waits for Back to original data
+            if (!fileRef.current) {
+                shownKey.current = JSON.stringify(start.view);
+                setView(start.view);
+            }
             // from now on the tab keeps it in both places, whatever -SavedView a later render of the
             // page brings; storage that has it already is left as it is
             if (start.inStorage) showInLink(start.view);

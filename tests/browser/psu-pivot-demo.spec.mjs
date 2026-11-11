@@ -75,4 +75,30 @@ test.describe("pivot demo showcase on PSU", () => {
         }
         expect(errors).toEqual([]);
     });
+
+    test("Your data: the loaded file stays when the language switch draws the report again (Sync-UDElement)", async ({ page }) => {
+        const errors = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+        await page.goto(`${base}/upload`);
+        const report = page.locator(".ud-pivot-report .pk-root");
+        await expect(report).toBeVisible({ timeout: 30000 });
+        await dropFiles(page, report, [fileOf("tickets.csv", CSV, TICKETS_CSV)]);
+        await page.getByRole("dialog", { name: "Load tickets.csv" }).getByTestId("import-apply").click();
+        await expect.poll(() => fieldNames(report)).toEqual(["Id", "Team", "Opened", "Hours", "Zip"]);
+        // a mark on the report's element: gone after the switch shows that the report was mounted anew
+        await report.evaluate((el) => el.setAttribute("data-test-mark", "before"));
+        // the page's language select: New-UDDynamic draws the report again with -Locale de-DE
+        await page.getByRole("combobox", { name: "Language" }).click();
+        await page.getByRole("option", { name: "Deutsch" }).click();
+        const again = page.locator(".ud-pivot-report .pk-root");
+        // German now: the report was drawn again
+        await expect(again.getByRole("region", { name: "Zeilen" })).toBeVisible({ timeout: 30000 });
+        await expect(page.locator("[data-test-mark]")).toHaveCount(0);
+        await expect.poll(() => fieldNames(again)).toEqual(["Id", "Team", "Opened", "Hours", "Zip"]);
+        await expect(again.getByTestId("source-line")).toContainText("tickets.csv");
+        // back to English for the other tests (the language is kept per session)
+        await page.getByRole("combobox", { name: "Language" }).click();
+        await page.getByRole("option", { name: "English" }).click();
+        expect(errors).toEqual([]);
+    });
 });

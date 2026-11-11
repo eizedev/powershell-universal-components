@@ -512,6 +512,8 @@ test("dataLoadEvent: what -OnDataLoad sends - who, how much and the note codes, 
     const back = mod.dataLoadEvent({ cause: "original", source: { id: "tickets" }, file: null, sheet: null, rows: 10, columns: [], notes: [] });
     assert.equal(back.file, null);
     assert.deepEqual(back.source, { id: "tickets", name: null });
+    // a report mounted again shows the file it had: reported as such
+    assert.equal(mod.dataLoadEvent({ cause: "restore", file: { name: "t.csv", size: 1, type: "text/csv" } }).cause, "restore");
     // anything else is not trusted
     assert.equal(mod.dataLoadEvent({ cause: "<img>" }).cause, null);
     assert.equal(mod.dataLoadEvent(null).rows, 0);

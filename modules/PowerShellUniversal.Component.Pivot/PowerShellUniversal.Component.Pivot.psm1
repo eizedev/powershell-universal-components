@@ -1664,10 +1664,11 @@ function New-UDPivotReport {
         its view stays in the browser (the address bar, -SavedView, Get-UDElement and -OnViewChange keep
         the app's data), -OnCellClick does not run, and views the reader saves go to the browser's store
         per file (pivotkit names the file's data by its name and a hash of its column names), never to
-        -TemplateStore or -OnSaveTemplate. -Data may be empty: the report then asks for a file.
+        -TemplateStore or -OnSaveTemplate. PSU's light/dark switch and Sync-UDElement keep the file shown
+        (in the page's memory, per report). -Data may be empty: the report then asks for a file.
     .PARAMETER OnDataLoad
         With -AllowImport: runs on the server after the data shown changed. It only reports; it cannot
-        refuse a file. $EventData: cause (load, original, undo, redo), source (id, name), file (name,
+        refuse a file. $EventData: cause (load, original, undo, redo, restore), source (id, name), file (name,
         size, type; $null for the app's data), sheet, rows, columnCount, columns (the first 200, name and
         type) and notes (the codes of the readers' notes). Never a value of the file; the names come from
         the reader's file, so show them as text.

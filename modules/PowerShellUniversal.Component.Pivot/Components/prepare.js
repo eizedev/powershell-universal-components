@@ -374,7 +374,7 @@ export function dataLoadEvent(detail) {
     const file = d.file && typeof d.file === "object" ? d.file : null;
     const source = d.source && typeof d.source === "object" ? d.source : null;
     return {
-        cause: ["load", "original", "undo", "redo"].includes(d.cause) ? d.cause : null,
+        cause: ["load", "original", "undo", "redo", "restore"].includes(d.cause) ? d.cause : null,
         source: source ? { id: eventText(source.id), name: eventText(source.name) } : null,
         file: file ? { name: eventText(file.name), size: Number.isFinite(file.size) ? file.size : null, type: eventText(file.type) } : null,
         sheet: eventText(d.sheet),

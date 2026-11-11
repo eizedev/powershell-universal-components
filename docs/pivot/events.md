@@ -16,7 +16,7 @@ Every event runs a script block on the server with `$EventData`:
 | `-OnSaveTemplate` | The reader saves the view: Save as… under a new name, or Save and a confirmed Save as under the name of one of their views (replace that view) | `name`, `view`, `json`, `scope` (`user`) |
 | `-OnDeleteTemplate` | The reader deletes a template and confirmed it | `name`, `scope` (`user` or `shared`) |
 | `-OnPublishTemplate` | A reader with a role of `-AdminRole` publishes one of their views as a shared view, or saves a loaded shared view (Save: replace that view) | `name`, `view`, `json` |
-| `-OnDataLoad` | With `-AllowImport`: the data shown changed (a file loaded, the app's data again, Undo or Redo of one of those) | `cause`, `source`, `file`, `sheet`, `rows`, `columnCount`, `columns` (the first 200), `notes` (codes) - never a value of the file ([Readers' own files](import.md#ondataload)) |
+| `-OnDataLoad` | With `-AllowImport`: the data shown changed (a file loaded, the app's data again, Undo or Redo of one of those, the file shown again after PSU drew the report anew) | `cause`, `source`, `file`, `sheet`, `rows`, `columnCount`, `columns` (the first 200), `notes` (codes) - never a value of the file ([Readers' own files](import.md#ondataload)) |
 
 While a reader's file is shown (`-AllowImport`), `-OnViewChange` and `-OnCellClick` do not run and
 saving goes to the browser: they keep to the app's data ([what stays in the browser](import.md#what-stays-in-the-browser)).

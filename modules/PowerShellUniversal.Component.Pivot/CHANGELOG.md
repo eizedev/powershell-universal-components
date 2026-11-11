@@ -20,7 +20,9 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   `Get-UDElement` and `-OnViewChange`, `-OnCellClick` does not run (its rows would carry the file's),
   and views the reader saves go to the browser's store per file, never to `-TemplateStore` or
   `-OnSaveTemplate`; the reader's own server views of the app's data leave "My views" meanwhile.
-  Back to original data shows the app's last view, also after more loads than Undo keeps.
+  Back to original data shows the app's last view, also after more loads than Undo keeps. PSU's
+  light/dark switch and `Sync-UDElement` keep the file shown with its view (pivotkit keeps it per
+  report in the page's memory; `-OnDataLoad` hears `restore`).
 - `-OnDataLoad`: runs on the server when the data shown changes (a file loaded, the app's data again,
   Undo, Redo) with the cause, the file's name, size and type, the sheet, rows, columns (the first 200
   names and types) and the codes of the readers' notes; never a value of the file.

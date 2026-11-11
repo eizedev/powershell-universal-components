@@ -378,25 +378,64 @@ test.describe("pivot showcase on PSU", () => {
         expect(errors).toEqual([]);
     });
 
-    // A documented gap (docs/pivot/import.md): PSU's light/dark switch mounts the component again, and
-    // pivotkit keeps a loaded file in its own state only, so the reader is back on the app's data with
-    // its view. When pivotkit can hand a loaded file back, this test changes with the docs.
-    test("-AllowImport: PSU's light/dark switch shows the app's data with its view again; the file's view stays out", async ({ page }) => {
+    // PSU's light/dark switch mounts the component again: pivotkit keeps the loaded file per report
+    // (storageKey) in memory and restores it with its view (onDataLoad "restore"); the wrapper keeps the
+    // file's view away from the server as after a load
+    test("-AllowImport: the loaded file and its view stay over PSU's light/dark switch; nothing of it reaches the server", async ({ page }) => {
+        const errors = await open(page, "your-file");
+        await setTheme(page, "light");
+        const report = page.locator(REPORT);
+        const log = page.locator("#import-event-log");
+        // a view of the tickets other than -View: the address bar and the tab keep it, and a new mount
+        // reads it - the restored file's view must win over it
+        await report.locator("[data-testid=swap]").click();
+        await expect(log).toContainText('"rows":["Priority"]', { timeout: 15000 });
+        const before = page.url();
+        expect(new URL(before).hash).toContain("pivot-import-report=");
+        await dropFiles(page, report.getByTestId("pivot-table"), [fileOf("tickets.csv", CSV, TICKETS_CSV)]);
+        await page.getByTestId("import-apply").click();
+        await expect.poll(() => fieldNames(report)).toContain("Zip");
+        await expect.poll(() => chipsIn(report, "cols")).toEqual(["Team"]);
+        await dragField(report, "Zip", "Rows");
+        await expect.poll(() => chipsIn(report, "rows")).toEqual(["Zip"]);
+        await setTheme(page, "dark");
+        const again = page.locator(REPORT);
+        await expect(again).toBeVisible({ timeout: 30000 });
+        await expect.poll(() => fieldNames(again)).toEqual(["Id", "Team", "Opened", "Hours", "Zip"]);
+        await expect(again.getByTestId("source-line")).toHaveText("tickets.csv, only in this browser");
+        await expect.poll(() => chipsIn(again, "rows")).toEqual(["Zip"]);
+        await expect.poll(() => chipsIn(again, "cols")).toEqual(["Team"]);
+        await expect(page.locator("#import-log")).toHaveText("OnDataLoad: restore, tickets.csv, 4 rows, 5 columns", { timeout: 15000 });
+        await page.waitForTimeout(2500);
+        await expect(log).not.toContainText("Zip");
+        expect(page.url()).toBe(before);
+        expect(await page.evaluate(() => JSON.stringify(sessionStorage))).not.toContain("Zip");
+        // still the file's mode: Back to original data brings the tickets with their view (swapped)
+        await openDataMenu(again);
+        await page.getByTestId("back-to-original").click();
+        await expect.poll(() => chipsIn(again, "cols")).toEqual(["Team"]);
+        await expect.poll(() => chipsIn(again, "rows")).toEqual(["Priority"]);
+        await expect(page.locator("#import-log")).toHaveText("OnDataLoad: original, the app's data, 5000 rows, 12 columns", { timeout: 15000 });
+        expect(errors).toEqual([]);
+    });
+
+    test("-AllowImport: after Back to original data, PSU's light/dark switch shows the tickets, not the file", async ({ page }) => {
         const errors = await open(page, "your-file");
         await setTheme(page, "light");
         const report = page.locator(REPORT);
         await dropFiles(page, report.getByTestId("pivot-table"), [fileOf("tickets.csv", CSV, TICKETS_CSV)]);
         await page.getByTestId("import-apply").click();
         await expect.poll(() => fieldNames(report)).toContain("Zip");
-        await dragField(report, "Zip", "Rows");
-        await expect.poll(() => chipsIn(report, "rows")).toEqual(["Team", "Zip"]);
+        await openDataMenu(report);
+        await page.getByTestId("back-to-original").click();
+        await expect.poll(() => fieldNames(report)).toContain("Lead hours");
         await setTheme(page, "dark");
         const again = page.locator(REPORT);
         await expect(again).toBeVisible({ timeout: 30000 });
         await expect.poll(() => fieldNames(again)).toContain("Lead hours");
         await expect(again.getByTestId("source-line")).toHaveCount(0);
         await expect.poll(() => chipsIn(again, "rows")).toEqual(["Team"]);
-        await expect.poll(() => chipsIn(again, "cols")).toEqual(["Priority"]);
+        await expect(page.locator("#import-log")).toHaveText("OnDataLoad: original, the app's data, 5000 rows, 12 columns");
         expect(errors).toEqual([]);
     });
 
