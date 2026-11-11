@@ -349,6 +349,38 @@ export function cellEvent(cell, view, limit = EVENT_ROWS) {
     };
 }
 
+// -OnDataLoad: at most this many columns are named in $EventData, each name at most this long
+export const EVENT_COLUMNS = 200;
+export const EVENT_TEXT_LENGTH = 256;
+
+function eventText(value) {
+    return typeof value === "string" ? value.slice(0, EVENT_TEXT_LENGTH) : null;
+}
+
+/*
+ * What -OnDataLoad sends to the server as $EventData when the data shown changed (pivotkit's
+ * onDataLoad): why (cause), which data (source, the file's name, size and type, the sheet), how
+ * much (rows, columnCount, the first EVENT_COLUMNS columns with their types) and the codes of the
+ * readers' notes. Never a value of the file: names come from the file, so they are cut and sent as
+ * text. Names and messages are the reader's; the server shows them as text.
+ */
+export function dataLoadEvent(detail) {
+    const d = detail && typeof detail === "object" ? detail : {};
+    const columns = Array.isArray(d.columns) ? d.columns : [];
+    const file = d.file && typeof d.file === "object" ? d.file : null;
+    const source = d.source && typeof d.source === "object" ? d.source : null;
+    return {
+        cause: ["load", "original", "undo", "redo"].includes(d.cause) ? d.cause : null,
+        source: source ? { id: eventText(source.id), name: eventText(source.name) } : null,
+        file: file ? { name: eventText(file.name), size: Number.isFinite(file.size) ? file.size : null, type: eventText(file.type) } : null,
+        sheet: eventText(d.sheet),
+        rows: Number.isFinite(d.rows) ? d.rows : 0,
+        columnCount: columns.length,
+        columns: columns.slice(0, EVENT_COLUMNS).map((c) => ({ name: eventText(c && c.name), type: eventText(c && c.type) })),
+        notes: (Array.isArray(d.notes) ? d.notes : []).map((n) => eventText(n && n.code)).filter(Boolean)
+    };
+}
+
 // what the reader sees when the server failed without saying why
 export const SERVER_ERROR = "the server reported an error";
 

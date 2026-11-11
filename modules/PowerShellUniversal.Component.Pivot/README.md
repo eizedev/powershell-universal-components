@@ -5,11 +5,13 @@ readers drag fields from a searchable list into Rows, Columns, Values and Filter
 totals or a chart. Dates are grouped by month, quarter or year, a click on a value opens the source
 rows behind it, readers keep their layouts as views (in the browser, in files or a database of your
 choice; roles decide who publishes shared views), undo every step and export to Excel, CSV and PNG. Fields get display names and descriptions from your script, SQL Server column descriptions or an
-OpenAPI schema. Light and dark theme in PSU's colours, English and German, from a phone to a wide screen.
+OpenAPI schema. With `-AllowImport` readers pivot a CSV, JSON or Excel file of their own, read in the
+browser and never uploaded. Light and dark theme in PSU's colours, English and German, from a phone to a wide screen.
 
 ```powershell
 New-UDPivotReport -Id 'python' -Data (Invoke-RestMethod 'https://endoflife.date/api/python.json')
 New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -Locale de-DE
+New-UDPivotReport -Id 'own-data' -Data @() -AllowImport -TemplateStore Browser   # the reader's own file
 ```
 
 Requires PowerShell Universal 2026 (PowerShell 7.4+). Tested on PSU 2026.3.4 and 2026.2.5 in Chromium,
@@ -43,6 +45,7 @@ is a showcase app in one line (`New-UDPivotShowcase`).
 | `-FieldDefaults`, `-FieldDescriptions`, SQL Server column descriptions (`Get-UDPivotSqlColumnDescription`), `-Schema` (JSON Schema, OpenAPI) | [Field names and descriptions](https://powershell-universal-components.eize.dev/pivot/fields/) |
 | `-View`, `-SavedView`, several tabs, the address bar | [Views](https://powershell-universal-components.eize.dev/pivot/views/) |
 | `-Templates`, `-TemplatePath`, view files, `-TemplateStore` (browser, files, your own storage), `-AdminRole` and the admin panel | [Templates, view files and roles](https://powershell-universal-components.eize.dev/pivot/templates/) |
+| `-AllowImport`: readers' own CSV, JSON and Excel files, views per file, `-OnDataLoad` | [Readers' own files](https://powershell-universal-components.eize.dev/pivot/import/) |
 | `-OnViewChange`, `-OnCellClick`, `-OnSaveTemplate`, `-OnDeleteTemplate`, `-OnPublishTemplate`, security | [Events, security and limits](https://powershell-universal-components.eize.dev/pivot/events/) |
 | Parameters | [Reference](https://powershell-universal-components.eize.dev/pivot/reference/) |
 
@@ -50,10 +53,11 @@ is a showcase app in one line (`New-UDPivotShowcase`).
 
 All rows go to the browser and readers see every column: select the columns a reader may see first.
 Views and `$EventData` come from the browser: check views with `ConvertFrom-UDPivotView` before
-storing them; the template stores do that themselves and check `-AdminRole` on the server. Details: [Events, security and limits](https://powershell-universal-components.eize.dev/pivot/events/).
+storing them; the template stores do that themselves and check `-AdminRole` on the server. A file a
+reader loads with `-AllowImport` stays in the browser; only `-OnDataLoad` sends its name and column names. Details: [Events, security and limits](https://powershell-universal-components.eize.dev/pivot/events/).
 
 ## License
 
-MIT. Includes pivotkit-core and pivotkit-react (MIT), dnd-kit (MIT), the parts of Apache ECharts the
+MIT. Includes pivotkit-core, pivotkit-react and pivotkit-xlsx (MIT), read-excel-file (MIT), dnd-kit (MIT), the parts of Apache ECharts the
 chart uses (Apache-2.0) with ZRender (BSD-3-Clause), fflate (MIT) and tslib (0BSD); their licence texts
 are in `THIRD-PARTY-NOTICES.txt` of the built module.

@@ -28,7 +28,7 @@ hashtable PSU renders; see [README.md](README.md).
   the pivot module's showcase when `PSU_PIVOT_URL` is set, and its template roles against `examples/templates.ps1`
   with two identities when `PSU_PIVOT_AUTH_URL` is set, `psu-pivot-demo.spec.mjs` the Pivot demo module's
   showcase when `PSU_PIVOT_DEMO_URL` is set; `pivot-menus.mjs` drives pivotkit's menus in levels for both
-  pivot specs),
+  pivot specs, `pivot-import.mjs` drops and picks real CSV and Excel files for `-AllowImport`),
   `tests/powershell/` (Pester).
 
 ## Commands
@@ -56,6 +56,10 @@ rendering.
 
 - PSU provides React 18.3.1, ReactDOM and `UniversalDashboard` at runtime: they are webpack externals.
   Never bundle them, never depend on a library that needs React 19 or its own MUI.
+- PSU serves only the files a module registers, at `/api/internal/javascript/<file>?dashboardId=<n>`
+  (500 without the query): lazy chunks are merged into the one bundle. A Web Worker is a file of its
+  own next to the bundle, found from the bundle's script address (the pivot module's import worker,
+  `Components/importWorker.js`); a page where it cannot start must still work without it.
 - Props reach the browser camelCased by PSU's serializer (`Team` arrives as `team`): match column names
   case-insensitively (`shared/js/columns.js`), never by exact key.
 - Data goes through `ConvertTo-PSUComponentData` (DataTable, DBNull, dates). An `[ordered]` dictionary

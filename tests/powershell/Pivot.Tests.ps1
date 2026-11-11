@@ -49,9 +49,18 @@ Describe 'New-UDPivotReport' {
         $c.drillDown | Should -BeTrue
         $c.addressBar | Should -BeTrue
         (New-UDPivotReport -Id 'p2' -Data $rows -NoAddressBar).addressBar | Should -BeFalse
-        foreach ($key in 'view', 'savedView', 'templates', 'height', 'labels', 'fieldDefaults', 'onViewChange', 'onCellClick', 'onSaveTemplate', 'onDeleteTemplate') {
+        foreach ($key in 'view', 'savedView', 'templates', 'height', 'labels', 'fieldDefaults', 'onViewChange', 'onCellClick', 'onSaveTemplate', 'onDeleteTemplate', 'allowImport', 'onDataLoad') {
             $c.ContainsKey($key) | Should -BeFalse -Because "$key was not passed"
         }
+    }
+
+    It '-AllowImport: sent as allowImport, also on an empty report; -OnDataLoad registered under its own id and only with -AllowImport' {
+        $c = New-UDPivotReport -Id 'own' -Data @() -AllowImport -OnDataLoad ([Endpoint]::new({ 5 }))
+        $c.allowImport | Should -BeTrue
+        @($c.data).Count | Should -Be 0
+        $c.onDataLoad.RegisteredId | Should -Be 'own-onDataLoad'
+        (New-UDPivotReport -Id 'own2' -Data $null -AllowImport).allowImport | Should -BeTrue
+        { New-UDPivotReport -Id 'own3' -Data @() -OnDataLoad ([Endpoint]::new({ 5 })) } | Should -Throw '*-OnDataLoad needs -AllowImport*'
     }
 
     It '-SavedView: checked like -View, sent as savedView; a broken one is left out with a warning' {

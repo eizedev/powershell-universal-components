@@ -61,6 +61,7 @@ nav = [
     { "Field names and descriptions" = "pivot/fields.md" },
     { "Views" = "pivot/views.md" },
     { "Templates, view files and roles" = "pivot/templates.md" },
+    { "Readers' own files" = "pivot/import.md" },
     { "Events, security and limits" = "pivot/events.md" },
     { "Commands and parameters" = "pivot/reference.md" },
   ] },

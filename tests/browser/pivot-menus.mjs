@@ -1,4 +1,4 @@
-// pivotkit's menus in levels (pivotkit-react 0.3.0), shared by the pivot specs: the documentation site
+// pivotkit's menus in levels (pivotkit-react 0.3.0 and later), shared by the pivot specs: the documentation site
 // (site.spec.mjs) and the showcase on a PSU instance (psu-pivot.spec.mjs). A report is the locator of
 // its .pk-root; the menus are rendered next to it (on the site inside the example's shadow root), so
 // they are found from the page.
@@ -36,8 +36,12 @@ export async function openSaveAs(menu) {
     await expect(menu.locator("[data-testid=saved-view-name]")).toBeVisible();
 }
 
-// the Share level of an open Views menu: Copy link, Copy view as JSON, Download view, Load view…
-export const openShare = (menu) => openLevel(menu, "share");
+// the group "Share this view" of an open Views menu (Copy link, Copy view as JSON, Download view,
+// Open view file…): on its first level since pivotkit's Views menu was regrouped
+export async function openShare(menu) {
+    await expect(menu.locator("[data-testid=topic-share]")).toBeVisible();
+    await expect(menu.locator("[data-testid=copy-json]")).toBeVisible();
+}
 
 // the menu of a chip (by its text) and, with a topic ("filter", "top", ...), that topic's level
 export async function chipMenu(report, chip, topic) {
