@@ -398,9 +398,12 @@ test.describe("pivot showcase on PSU", () => {
         await expect.poll(() => chipsIn(report, "cols")).toEqual(["Team"]);
         await dragField(report, "Zip", "Rows");
         await expect.poll(() => chipsIn(report, "rows")).toEqual(["Zip"]);
+        // a mark on the report's element: gone after the switch shows that it was mounted anew
+        await report.evaluate((el) => el.setAttribute("data-test-mark", "before"));
         await setTheme(page, "dark");
         const again = page.locator(REPORT);
         await expect(again).toBeVisible({ timeout: 30000 });
+        await expect(page.locator("[data-test-mark]")).toHaveCount(0);
         await expect.poll(() => fieldNames(again)).toEqual(["Id", "Team", "Opened", "Hours", "Zip"]);
         await expect(again.getByTestId("source-line")).toHaveText("tickets.csv, only in this browser");
         await expect.poll(() => chipsIn(again, "rows")).toEqual(["Zip"]);

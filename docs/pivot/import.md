@@ -35,12 +35,22 @@ own.
 
 PSU mounts the report anew on its light/dark switch and when the page draws it again
 (`Sync-UDElement` on a `New-UDDynamic` around it, such as the demo's language switch). The loaded
-file stays: pivotkit keeps it per report (the report's `-Id`, or the key the module derives without
-one) in the page's memory, with its view and its Undo steps, and shows it again over the same data
-of the app; `-OnDataLoad` hears `restore`. Nothing of it goes into browser storage, so a reload or
-another tab shows the app's data again. After **Back to original data** (or Undo of the load) nothing
-is kept, and the next mount shows the app's data with its view. pivotkit keeps the files of at most
-four reports of a page at once.
+file stays: pivotkit keeps it per report key (the report's `-Id`, or the key the module derives
+without one) in the browser tab's memory, with its view and its Undo steps, and shows it again when
+the report is mounted over data of the app with the same columns (names and types) and the same
+`-SourceId`; other rows do not matter. `-OnDataLoad` hears `restore`. Nothing of it goes into browser
+storage: a reload or another tab shows the app's data again. It stays while the tab is open, also
+when the reader moves to another page of the app and back. After **Back to original data** (or Undo
+of the load) nothing is kept, and the next mount shows the app's data with its view. pivotkit keeps
+the files of at most four reports at once; the one written longest ago goes first.
+
+A page that draws the report twice in a row (the demo's language switch does, within a moment)
+shows the file again, but with an empty view: the reader puts the fields back. PSU's light/dark
+switch draws it once and keeps the view.
+
+Give every report with `-AllowImport` an `-Id` of its own in the app: two reports with the same
+`-Id` (on two pages, or in a loop without `-Id`, where the module derives the same key) and the same
+columns share what pivotkit keeps, so one would show the other's file.
 
 ## What stays in the browser
 

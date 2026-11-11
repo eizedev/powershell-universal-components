@@ -5,6 +5,8 @@ import { test, expect } from "@playwright/test";
 import { assetsXlsx, CSV, dropFiles, fieldNames, fileOf, openDataMenu, pickFile, preview, TICKETS_CSV, XLSX } from "./pivot-import.mjs";
 
 const base = (process.env.PSU_PIVOT_DEMO_URL || "").replace(/\/$/, "");
+// the fields on a zone (rows, cols, values, filters), by their chips
+const chipsOf = (report, zone) => report.locator(`[data-zone=${zone}] [data-testid^=chip-menu-]`).evaluateAll((els) => els.map((e) => e.dataset.testid.replace(/^chip-menu-/, "")));
 
 test.describe("pivot demo showcase on PSU", () => {
     test.skip(!base, "PSU_PIVOT_DEMO_URL is not set");
@@ -96,9 +98,42 @@ test.describe("pivot demo showcase on PSU", () => {
         await expect(page.locator("[data-test-mark]")).toHaveCount(0);
         await expect.poll(() => fieldNames(again)).toEqual(["Id", "Team", "Opened", "Hours", "Zip"]);
         await expect(again.getByTestId("source-line")).toContainText("tickets.csv");
+        expect(await page.evaluate(() => JSON.stringify(sessionStorage))).not.toContain("Zip");
         // back to English for the other tests (the language is kept per session)
         await page.getByRole("combobox", { name: "Language" }).click();
         await page.getByRole("option", { name: "English" }).click();
         expect(errors).toEqual([]);
+    });
+
+    // Expected to fail until pivotkit keeps the restored view when the host mounts the report twice in
+    // a row: PSU's language switch here mounts it twice within about 30 ms, and the first mount writes
+    // its view history from before the restore into pivotkit's kept entry (data-keep.js, the keep
+    // effect runs with the first render's snapshot), so the second mount shows the file with an empty
+    // view. The theme switch mounts once and keeps the view (psu-pivot.spec.mjs). Remove test.fail()
+    // once pivotkit is fixed.
+    test("Your data: the file's view stays when the language switch mounts the report twice", async ({ page }) => {
+        test.fail();
+        await page.goto(`${base}/upload`);
+        const report = page.locator(".ud-pivot-report .pk-root");
+        await expect(report).toBeVisible({ timeout: 30000 });
+        await dropFiles(page, report, [fileOf("tickets.csv", CSV, TICKETS_CSV)]);
+        await page.getByRole("dialog", { name: "Load tickets.csv" }).getByTestId("import-apply").click();
+        await expect.poll(() => fieldNames(report)).toEqual(["Id", "Team", "Opened", "Hours", "Zip"]);
+        // a click on a text field puts it into Rows
+        await report.getByRole("button", { name: "Team", exact: true }).first().click();
+        await expect.poll(() => chipsOf(report, "rows")).toEqual(["Team"]);
+        await page.waitForTimeout(1000);
+        await page.getByRole("combobox", { name: "Language" }).click();
+        await page.getByRole("option", { name: "Deutsch" }).click();
+        const again = page.locator(".ud-pivot-report .pk-root");
+        await expect(again.getByRole("region", { name: "Zeilen" })).toBeVisible({ timeout: 30000 });
+        // the file is shown: only the view is the open question
+        await expect.poll(() => fieldNames(again)).toEqual(["Id", "Team", "Opened", "Hours", "Zip"]);
+        try {
+            await expect.poll(() => chipsOf(again, "rows"), { timeout: 5000 }).toEqual(["Team"]);
+        } finally {
+            await page.getByRole("combobox", { name: "Language" }).click();
+            await page.getByRole("option", { name: "English" }).click();
+        }
     });
 });
