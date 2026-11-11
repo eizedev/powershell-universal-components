@@ -2,8 +2,7 @@
 # Pester tests for PowerShellUniversal.Component.Pivot.Demo outside PSU: the PSU commands the app uses
 # are stubs (New-UDDynamic draws its content, New-UDAlert fails the test), $Session is a variable
 # drive, New-UDPivotReport is the real one.
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', '', Justification = 'PSU provides $Repository; the upload stub hands its handler to the test')]
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '', Justification = '$EventData is read by the dot-sourced upload handler')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', '', Justification = 'PSU provides $Repository')]
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification = 'The stubs take the parameters of the PSU commands')]
 param()
 
@@ -33,7 +32,6 @@ public class Endpoint {
     function global:New-UDAlert { param($Severity, $Text) throw "Alert on the page: $Text" }
     # the pages answer public API calls from the snapshots: a call to the network fails the test
     function global:Invoke-RestMethod { throw "Network call: $args" }
-    function global:New-UDUpload { param($Id, $Text, $Accept, $OnUpload) $global:UploadHandler = $OnUpload }
     function global:New-UDElement { param($Tag, $Attributes, $Content) if ($Content) { & $Content } }
     foreach ($name in 'New-UDTypography', 'New-UDSelect', 'New-UDSelectOption', 'New-UDSwitch', 'New-UDMarkdown', 'New-UDExpansionPanelGroup', 'New-UDExpansionPanel', 'Sync-UDElement', 'Show-UDToast') {
         Set-Item -Path "function:global:$name" -Value { }
@@ -41,7 +39,7 @@ public class Endpoint {
 }
 
 AfterAll {
-    foreach ($name in 'Invoke-RestMethod', 'New-UDApp', 'New-UDPage', 'New-UDDynamic', 'New-UDAlert', 'New-UDUpload', 'New-UDElement', 'New-UDTypography', 'New-UDSelect', 'New-UDSelectOption', 'New-UDSwitch', 'New-UDMarkdown', 'New-UDExpansionPanelGroup', 'New-UDExpansionPanel', 'Sync-UDElement', 'Show-UDToast') {
+    foreach ($name in 'Invoke-RestMethod', 'New-UDApp', 'New-UDPage', 'New-UDDynamic', 'New-UDAlert', 'New-UDElement', 'New-UDTypography', 'New-UDSelect', 'New-UDSelectOption', 'New-UDSwitch', 'New-UDMarkdown', 'New-UDExpansionPanelGroup', 'New-UDExpansionPanel', 'Sync-UDElement', 'Show-UDToast') {
         Remove-Item -Path "function:$name" -ErrorAction Ignore
     }
     Remove-PSDrive -Name Session -ErrorAction Ignore
@@ -72,7 +70,7 @@ Describe 'Pivot demo module' {
         $readme | Should -Match '\]\(https://github\.com/[^)]+/blob/HEAD/modules/PowerShellUniversal\.Component\.Pivot\.Demo/Apps/Showcase\.ps1\)'
     }
 
-    It 'has the documentation''s three endoflife examples, weather, upload and the ticket pages' {
+    It 'has the documentation''s three endoflife examples, weather, your data and the ticket pages' {
         $app = New-UDPivotShowcase
         $names = $app.Pages.Name
         foreach ($name in 'Python releases', 'End of life', 'Release cycles', 'Weather', 'Your data', 'Tickets', 'Templates', 'Events', 'Fields', 'Layouts') {
@@ -120,148 +118,18 @@ Describe 'Pivot demo module' {
     }
 }
 
-Describe 'Pivot demo upload' {
-    BeforeAll {
-        $Session:PivotShowcaseLocale = 'en-GB'
+Describe 'Pivot demo: your data' {
+    It 'reads the reader''s file in the browser: -AllowImport on an empty report, views per file in the browser, no upload to the server' {
+        $Session:PivotShowcaseLocale = 'de-DE'
         $app = New-UDPivotShowcase
-        $script:uploadPage = $app.Pages | Where-Object Name -EQ 'Your data'
-        & $script:uploadPage.Content | Out-Null
-        $script:handler = $global:UploadHandler
-        # the event PSU sends: the uploaded file in a temporary file. The handler is dot-sourced in the
-        # test itself, since the $Session stub is a variable drive and its values live in that scope.
-        function script:New-UploadEvent([string]$Name, [string]$Text) {
-            $file = Join-Path $TestDrive ([guid]::NewGuid().ToString('n'))
-            Set-Content -LiteralPath $file -Value $Text -NoNewline -Encoding utf8
-            [pscustomobject]@{ Name = $Name; FileName = $file }
-        }
-    }
-
-    It 'reads a German CSV with semicolons and decimal commas into numbers and deletes the file' {
-        $EventData = New-UploadEvent -Name 'costs.csv' -Text "Team;Cost`nNetwork;1.234,5`nServer;12,25`n"
-        . $script:handler
-        $EventData.FileName | Should -Not -Exist
-        $Session:PivotShowcaseUploadError | Should -BeNullOrEmpty
-        $Session:PivotShowcaseUpload.Rows.Count | Should -Be 2
-        $Session:PivotShowcaseUpload.Rows[0].Cost | Should -Be 1234.5
-        $Session:PivotShowcaseUpload.Rows[1].Team | Should -Be 'Server'
-        # the report on the page gets the rows, at the report's default height
-        $report = & $script:uploadPage.Content | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }
-        @($report.data).Count | Should -Be 2
-        $report.ContainsKey('height') | Should -BeFalse
-    }
-
-    It 'gives each uploaded file its own source id, so views of one file are not taken for another''s' {
-        # the source id the report on the page gets after an upload (its browser store lists the views
-        # made for it, view files and links name it); the server's temporary path must not be in it
-        $sourceAfter = {
-            param([string]$Name, [string]$Text)
-            $EventData = New-UploadEvent -Name $Name -Text $Text
-            . $script:handler
-            $Session:PivotShowcaseUploadError | Should -BeNullOrEmpty
-            $report = & $script:uploadPage.Content | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }
-            $report.source.id | Should -Not -BeLike ('*{0}*' -f [System.IO.Path]::GetFileName($EventData.FileName))
-            $report.source.id
-        }
-        $costs = . $sourceAfter 'data.csv' "Team,Cost`nNetwork,1`n"
-        $tickets = . $sourceAfter 'data.csv' "Ticket,Priority,Team`n1,High,Ops`n"
-        $costsAgain = . $sourceAfter 'data.csv' "Team,Cost`nServer,7`nNetwork,2`n"
-        $otherName = . $sourceAfter 'other.csv' "Team,Cost`nNetwork,1`n"
-        # readers keep their views in the browser, per data source (pivotkit lists those of source.id)
-        $report = & $script:uploadPage.Content | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }
-        $report.templateStore | Should -Be 'browser'
-        # different columns under the same file name: different data
-        $tickets | Should -Not -Be $costs
-        # the same file (name and columns) again, also with other rows: the same id, its views stay
-        $costsAgain | Should -Be $costs
-        $otherName | Should -Not -Be $costs
-        # not the report's storage key, which every upload shares
-        $costs | Should -Not -Be 'upload'
-        $costs.Length | Should -BeLessOrEqual 256
-        # a file name of 255 characters (the most a file system allows) still draws the report
-        $long = . $sourceAfter (('x' * 251) + '.csv') "Team,Cost`nNetwork,1`n"
-        $long.Length | Should -BeLessOrEqual 256
-        $long | Should -Not -Be (. $sourceAfter (('x' * 251) + '.csv') "Ticket,Team`n1,Ops`n")
-    }
-
-    It 'keeps the source ids of long, emoji and space-led file names apart and as view files write them' {
-        # the report on the page after an upload of a two-column CSV under this name
-        $reportAfter = {
-            param([string]$Name)
-            $EventData = New-UploadEvent -Name $Name -Text "Team,Cost`nNetwork,1`n"
-            . $script:handler
-            $Session:PivotShowcaseUploadError | Should -BeNullOrEmpty
-            & $script:uploadPage.Content | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }
-        }
-        # two names of 255 characters that differ only after the part the page shows: two files
-        $first = . $reportAfter (('x' * 200) + 'a' + ('x' * 50) + '.csv')
-        $second = . $reportAfter (('x' * 200) + 'b' + ('x' * 50) + '.csv')
-        $first.label | Should -Be $second.label
-        $second.source.id | Should -Not -Be $first.source.id
-
-        # an emoji across the cut: the shown name keeps no half of it (a lone surrogate)
-        $emoji = . $reportAfter (('x' * 116) + [char]::ConvertFromUtf32(0x1F600) + ('y' * 20) + '.csv')
-        foreach ($text in $emoji.label, $emoji.source.id) {
-            [System.Text.Encoding]::UTF8.GetString([System.Text.Encoding]::UTF8.GetBytes($text)) | Should -BeExactly $text
-        }
-
-        # a name with spaces around it: the id a view file writes is the report's id, the same as without them
-        $plain = . $reportAfter 'a.csv'
-        (. $reportAfter ' a.csv').source.id | Should -BeExactly $plain.source.id
-        $spaced = . $reportAfter ' a.csv '
-        $spaced.source.id | Should -BeExactly $plain.source.id
-        $file = ConvertTo-UDPivotViewFile -View @{ rows = @('Team') } -Name 'Per team' -SourceId $spaced.source.id
-        (ConvertFrom-UDPivotViewFile -InputObject $file).Source.id | Should -BeExactly $spaced.source.id
-    }
-
-    It 'reads JSON as an array of objects or an object with one array' {
-        $EventData = New-UploadEvent -Name 'a.json' -Text '[{"a":1,"b":"x"},{"a":2,"b":"y"}]'
-        . $script:handler
-        $Session:PivotShowcaseUpload.Rows.Count | Should -Be 2
-        $EventData = New-UploadEvent -Name 'b.json' -Text '{"count":2,"items":[{"a":1},{"a":2},{"a":3}]}'
-        . $script:handler
-        $Session:PivotShowcaseUpload.Rows.Count | Should -Be 3
-    }
-
-    It 'refuses <Name> with a message and keeps no file' -ForEach @(
-        @{ Name = 'notes.txt'; Text = 'a,b'; Message = '*reads .csv and .json*' }
-        @{ Name = 'bad.json'; Text = '{"a":[1,2]}'; Message = '*must be an object*' }
-        @{ Name = 'two.json'; Text = '{"a":[],"b":[]}'; Message = '*exactly one array*' }
-        @{ Name = 'empty.csv'; Text = 'a,b'; Message = '*no rows*' }
-        @{ Name = 'broken.json'; Text = '{"a":'; Message = '*not valid JSON*' }
-        @{ Name = 'deep.json'; Text = ('[' * 30) + (']' * 30); Message = '*not valid JSON, or nested deeper*' }
-        @{ Name = 'wide.csv'; Text = ((1..201 | ForEach-Object { "c$_" }) -join ',') + "`n" + ((1..201) -join ','); Message = '*201 columns*up to 200*' }
-        @{ Name = 'wide.json'; Text = '[{' + ((1..201 | ForEach-Object { '"c{0}":1' -f $_ }) -join ',') + '}]'; Message = '*201 columns*up to 200*' }
-    ) {
-        $Session:PivotShowcaseUpload = $null
-        $EventData = New-UploadEvent -Name $Name -Text $Text
-        . $script:handler
-        $EventData.FileName | Should -Not -Exist
-        $Session:PivotShowcaseUpload | Should -BeNullOrEmpty
-        $Session:PivotShowcaseUploadError | Should -BeLike $Message
-    }
-
-    It 'refuses a file over 5 MB before reading it' {
-        $EventData = New-UploadEvent -Name 'big.csv' -Text ('a,b' + "`n" + ('1,2' + "`n") * 1500000)
-        . $script:handler
-        $EventData.FileName | Should -Not -Exist
-        $Session:PivotShowcaseUploadError | Should -BeLike '*MB; the showcase reads files up to 5 MB.'
-    }
-
-    It 'refuses more than 100,000 rows before parsing them' {
-        $Session:PivotShowcaseUpload = $null
-        $EventData = New-UploadEvent -Name 'long.csv' -Text ('a' + "`n" + ('1' + "`n") * 100001)
-        . $script:handler
-        $Session:PivotShowcaseUpload | Should -BeNullOrEmpty
-        $Session:PivotShowcaseUploadError | Should -BeLike '*100?001 rows; the showcase reads up to 100?000.'
-    }
-
-    It 'deletes the file and shows no server details when reading it fails' {
-        $Session:PivotShowcaseUpload = $null
-        $EventData = New-UploadEvent -Name 'costs.csv' -Text "a,b`n1,2"
-        # an error with a path in it, as the file system would raise
-        Mock Get-Item { throw "Access to the path '/srv/secret/tmp/x' is denied." }
-        . $script:handler 3>$null
-        $EventData.FileName | Should -Not -Exist
-        $Session:PivotShowcaseUploadError | Should -Be 'The file could not be read. The server log has the details.'
+        $page = $app.Pages | Where-Object Name -EQ 'Your data'
+        $report = @(& $page.Content | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' })
+        $report.Count | Should -Be 1
+        $report[0].allowImport | Should -BeTrue
+        $report[0].templateStore | Should -Be 'browser'
+        $report[0].locale | Should -Be 'de-DE'
+        @($report[0].data).Count | Should -Be 0
+        # no server upload is left on the page (its code is text in Showcase.ps1)
+        Get-Content -Raw -LiteralPath (Join-Path $script:demoDir 'Apps' 'Showcase.ps1') | Should -Not -Match 'New-UDUpload'
     }
 }

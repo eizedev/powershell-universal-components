@@ -1,6 +1,6 @@
 ---
 title: Pivot showcase app
-description: "PowerShellUniversal.Component.Pivot.Demo - the showcase app of the pivot module as a module: the documentation's examples on endoflife.date, weather from Open-Meteo, your own CSV and JSON files and a 5,000-row ticket report, in English and German."
+description: "PowerShellUniversal.Component.Pivot.Demo - the showcase app of the pivot module as a module: the documentation's examples on endoflife.date, weather from Open-Meteo, your own CSV, JSON and Excel files and a 5,000-row ticket report, in English and German."
 ---
 
 # Pivot showcase app
@@ -24,7 +24,7 @@ New-UDPivotShowcase
 | --- | --- | --- |
 | Python releases, End of life, Release cycles | [endoflife.date](https://endoflife.date/) | The three examples of the [overview](index.md): one line; a start view, field names and templates; an app with a loading placeholder, views per reader on the server, roles and `-OnCellClick`. Each page shows its code. |
 | Weather | [Open-Meteo](https://open-meteo.com/) | Daily weather of six cities in 2024 and 2025: the mean temperature per month as a colour scale, and questions in the Views menu (the sunniest city, rain days per season, rain per month). |
-| Your data | an uploaded file | A CSV or JSON file of the reader's own as a pivot report. |
+| Your data | the reader's own file | A CSV, TSV, JSON or Excel file of the reader's own as a pivot report, read in the browser (`-AllowImport`). |
 | Tickets, Templates, Events, Fields, Layouts, Without Id | generated | The pivot module's ticket showcase: 5,000 tickets from a DataTable, shared and own views with a file template store, what the events send, field descriptions from an OpenAPI document, the report in page layouts. |
 
 ![Weather page of the showcase app in the light theme: mean temperature per city and month as a colour scale](../assets/pivot-showcase-weather-light.png#only-light)
@@ -45,22 +45,15 @@ Both switches are kept per session.
 
 ## Your own data
 
-![Upload page in the light theme: an uploaded CSV file with the columns Team, Monat and Kosten in the field list](../assets/pivot-showcase-upload-light.png#only-light)
-![Upload page in the dark theme: an uploaded CSV file with the columns Team, Monat and Kosten in the field list](../assets/pivot-showcase-upload-dark.png#only-dark)
+![Your data in the light theme: a CSV file loaded into the report, with its columns in the field list and "only in this browser" under the table](../assets/pivot-showcase-upload-light.png#only-light)
+![Your data in the dark theme: a CSV file loaded into the report, with its columns in the field list and "only in this browser" under the table](../assets/pivot-showcase-upload-dark.png#only-dark)
 
-The page "Your data" takes a CSV file (comma, semicolon or tab separated; with a semicolon, numbers
-with a decimal comma as German Excel writes them) or a JSON file (an array of objects, or an object
-with one such array in it), up to 5 MB and 100,000 rows. A column whose every value is a number
-becomes a number field. The file is read on the server and deleted at once; its rows stay in the
-memory of the reader's session only, until the next upload or the end of the session. A file the page
-cannot read leaves a message above the report. Readers save their views in their browser
-(`-TemplateStore Browser`), per file: the report's `-SourceId` is the file name and a hash of the name
-and the column names in their order, so the Views menu lists the views made for the file shown and
-those saved without a data source, the same file uploaded again offers them again (a file with the
-same columns in another order is another file), and a view downloaded or shared from one file asks
-before it loads into the report of another (see [View files](templates.md#view-files)). All uploaded
-files share the browser store's limits of 100 views and 500,000 characters. Excel files are planned
-([#64](https://github.com/eizedev/powershell-universal-components/issues/64)).
+The page "Your data" is a report without data of its own and with `-AllowImport`: the reader drops a
+CSV, TSV, JSON or Excel file (`.xlsx`) onto it, or picks one under **Data**, **Load data…**, checks
+the preview with a type per column (and the sheet of a workbook) and loads it. The file is read in the
+browser and never uploaded; after a reload it is gone. Readers save their views in their browser
+(`-TemplateStore Browser`), per file: the same file loaded again offers them, another file does not.
+See [Readers' own files](import.md).
 
 ## Views stored on the server
 

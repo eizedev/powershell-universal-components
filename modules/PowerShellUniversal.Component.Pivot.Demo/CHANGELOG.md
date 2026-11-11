@@ -5,6 +5,16 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
+### Changed
+
+- Your data reads the reader's file in the browser with `New-UDPivotReport -AllowImport`: CSV, TSV,
+  JSON and Excel workbooks (`.xlsx`), dropped onto the report or picked under Data, with a preview
+  before the data is replaced. The file is never uploaded; the server-side upload (`New-UDUpload`,
+  5 MB and 100,000 rows, CSV and JSON only) is gone. Views saved for a file keep their id (the file
+  name and a hash of the name and column names, the scheme the upload used), so views readers saved
+  for an uploaded file are offered for the same file (same name, same column names) loaded in the browser
+  ([#64](https://github.com/eizedev/powershell-universal-components/issues/64)).
+
 ### Added
 
 - Your data: readers save their views in the browser (`-TemplateStore Browser`), per file: the Views
