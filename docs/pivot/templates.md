@@ -399,3 +399,39 @@ has no sign-in and shows `-Templates`, `-TemplatePath` and the file store (its r
 in the browser);
 [templates.ps1](https://github.com/eizedev/powershell-universal-components/blob/HEAD/modules/PowerShellUniversal.Component.Pivot/examples/templates.ps1)
 is an app with sign-in, own views on the server, publishing for two roles and the admin panel.
+
+## How ids and names are built { #ids }
+
+The ids and names the report and the stores build, where they appear and why. Every rule is the
+module's or pivotkit's code; nothing here needs to be set by hand.
+
+| What | Rule | Example | Why |
+| --- | --- | --- | --- |
+| The report's key in the browser | `-Id`; without `-Id`: `auto-` and 16 hex characters of the SHA-256 of the call site in the app script (script, line, column) and the column names | `tickets`, `auto-3f9c0a1b2c4d5e6f` | The same key on every build of the page, so a reader's view comes back after a reload; no server path reaches the browser. |
+| Source id of the app's data | `-SourceId`; default: the report's key above | `tickets` | Written into view files (`source.id`) and links; pivotkit asks before it loads a view made for another id; the Views menu offers the views of a store made for this id and those that name no data. Set it per data source when the data changes under the same `-Id` ([View files](#view-files)). |
+| Source id of a file loaded with `-AllowImport` | pivotkit's rule: the file's name and a short hash of its name and column names ([pivotkit: `allowImport`](https://pivotkit.eize.dev/reference/react/#prop-allowimport)) | `tickets.csv#e51bd4bc21e98ee8` | The same file loaded again finds its views; a file with other or reordered columns is other data. Kept in the browser only ([Readers' own files](import.md#views-per-file)). |
+| A reader's folder in the file store | `users/` and the first 24 hex characters of the SHA-256 (UTF-8) of the user name, trimmed and in lower case | `users/72774cafc3203b941d3eb047` for `CONTOSO\Alex` | The user name is not on disk and cannot leave the folder. Lower case: `CONTOSO\Alex` and `contoso\alex` share one folder, as Windows sign-ins do. |
+| A view's file name | The name in lower case, accents dropped, every run of other characters a `-`, at most 60 characters (`view` when nothing is left); `-`; 10 hex characters of the SHA-256 of the source id and the name as it is, joined with a NUL character; `.pivotkit.json` | `umsatz-je-region-u-4a0d68db25.pivotkit.json` for `Umsatz je Region (Ü)` and source id `tickets` | Readable in a folder; the hash keeps apart names with the same slug, the same name in another case (two views in pivotkit) and the views of two reports. |
+| … when that file name is taken | The source id, the name and the attempt (1, 2, …) joined with NUL, hashed the same way | `umsatz-je-region-u-b29f59675e.pivotkit.json` | A file stored by hand under that name is never overwritten. |
+| … of version 0.1.0 | The hash of the source id, a vertical bar and the name in lower case | `umsatz-je-region-u-a56ef71be3.pivotkit.json` | Still found and replaced by a save of the name; a file name of this version never equals one of 0.1.0 (NUL against a vertical bar). |
+| … on a save over a stored view | The view keeps its file | | A save replaces the view in place, whatever file name it has. |
+| The tab's view in the address bar | `#pivot-<report key>=` and the view as base64url JSON; several reports joined with `&` | `#pivot-tickets=eyJyb3dzIjpbIlRlYW0iXX0` | A reload and a copied link open the same view ([Views](views.md)); left out with `-NoAddressBar`. |
+| The tab's view in sessionStorage | One item `psu-pivot-views`, an entry per page path and report key (`<path>#<report key>`), at most 20 | `/tickets#tickets` | Survives PSU's light/dark switch and a view too long for the address bar. |
+| My views in the browser (`-TemplateStore Browser`) | pivotkit's `localStorage` item `pivotkit:views:<report key>` ([pivotkit: `templateStore`](https://pivotkit.eize.dev/reference/react/#prop-templatestore)) | `pivotkit:views:tickets` | Views of the app's data and of every file loaded into this report, each naming its source id. |
+| Dismissed tips | pivotkit's `localStorage` item `pivotkit:tips:<report key>` ([pivotkit: `storageKey`](https://pivotkit.eize.dev/reference/react/#prop-storagekey)) | `pivotkit:tips:tickets` | A tip a reader closed stays closed in this browser. |
+
+To find a reader's folder in the file store, for example to remove their views:
+
+```powershell
+$userName = 'CONTOSO\Alex'
+$bytes = [System.Text.Encoding]::UTF8.GetBytes($userName.Trim().ToLowerInvariant())
+$folder = [System.Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($bytes)).Substring(0, 24).ToLowerInvariant()
+Join-Path $store.Path 'users' $folder   # $store = New-UDPivotFileTemplateStore
+```
+
+The demo's former server upload built a file's source id by the same formula, from the file name
+trimmed and the column names as `ConvertFrom-Csv` or `ConvertFrom-Json` gave them. pivotkit cleans
+both first (control and direction characters out, line breaks to spaces, trimmed, a file name cut
+at 256 characters, empty or repeated column names renamed), so the ids match for ordinary files; a
+file whose name or column names needed such cleaning gets another id, and its views saved then are
+not offered again.

@@ -19,7 +19,7 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
   before the data is replaced. The file is never uploaded; the server-side upload (`New-UDUpload`,
   5 MB and 100,000 rows, CSV and JSON only) is gone. Views saved for a file keep their id (the file
   name and a hash of the name and column names, the scheme the upload used), so views readers saved
-  for an uploaded file are offered for the same file (same name, same column names) loaded in the browser
+  for an uploaded file are offered for the same file loaded in the browser, unless its name or column names needed cleaning ([how ids are built](https://powershell-universal-components.eize.dev/pivot/templates/#ids))
   ([#64](https://github.com/eizedev/powershell-universal-components/issues/64)).
 
 ### Fixed
