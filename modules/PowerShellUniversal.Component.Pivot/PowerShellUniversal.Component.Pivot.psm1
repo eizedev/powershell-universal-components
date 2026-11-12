@@ -83,13 +83,17 @@ $Script:MissingAssetMessage = 'PowerShellUniversal.Component.Pivot: the JavaScri
 #endregion
 
 #region Limits of files readers load (-AllowImport)
-# the keys of pivotkit-core's LIMITS -ImportLimit may set, with their defaults (docs/concepts/limits.md
-# of pivotkit); Components/prepare.js keeps the same list (IMPORT_LIMIT_KEYS)
+# the keys of pivotkit-core's LIMITS for a loaded file -ImportLimit may set, with their defaults
+# (docs/concepts/limits.md of pivotkit); the report sends them as pivotkit-react's importLimits, merged
+# over its limits for a loaded file only. Components/prepare.js keeps the same list (IMPORT_LIMIT_KEYS)
 $Script:ImportLimitDefaults = [ordered]@{
-    fileBytes   = 104857600
-    rows        = 1000000
-    columns     = 1000
-    importCells = 10000000
+    fileBytes      = 104857600
+    rows           = 1000000
+    columns        = 1000
+    importCells    = 10000000
+    textLength     = 32767
+    archiveEntries = 10000
+    unpackedBytes  = 524288000
 }
 # pivotkit takes whole numbers from 1 up to JavaScript's Number.MAX_SAFE_INTEGER
 $Script:MaxImportLimit = 9007199254740991
@@ -300,10 +304,12 @@ function ConvertTo-UDPivotHeight {
 function ConvertTo-UDPivotImportLimit {
     <#
     .SYNOPSIS
-        Checks -ImportLimit and returns it as the report's limits: pivotkit's key names, whole numbers.
+        Checks -ImportLimit and returns it as the report's import limits: pivotkit's key names, whole numbers.
     .DESCRIPTION
         Used by New-UDPivotReport. The keys are pivotkit-core's limits of a loaded file: fileBytes (bytes
-        of a file), rows, columns and importCells (rows x columns), matched without regard to case and
+        of a file), rows, columns, importCells (rows x columns), textLength (characters of one value),
+        archiveEntries (parts of a workbook) and unpackedBytes (bytes a workbook unpacks to), matched
+        without regard to case and
         returned in pivotkit's spelling and order. Each value is a whole number from 1 to 9007199254740991
         (JavaScript's largest exact integer); 250MB and 2GB are fine. An unknown key, a value that is
         not a whole number or one out of range throws an error that names the key. Keys left out keep
@@ -1746,15 +1752,17 @@ function New-UDPivotReport {
         -TemplateStore or -OnSaveTemplate. PSU's light/dark switch and Sync-UDElement keep the file shown
         (in the page's memory, per report). -Data may be empty: the report then asks for a file.
     .PARAMETER ImportLimit
-        Raises or lowers pivotkit's limits for a file loaded with -AllowImport: a hashtable of fileBytes
-        (bytes of a file, default 100 MiB), rows (default 1,000,000), columns (default 1,000) and
-        importCells (rows x columns, default 10,000,000), e.g. @{ fileBytes = 250MB; rows = 2000000 }.
-        Needs -AllowImport. Keys left out keep pivotkit's defaults; an unknown key or a value that is not
-        a whole number of at least 1 is an error that names it. rows also caps the rows of -Data. A
-        file over a limit is refused in the browser with a message that names it; larger limits cost the
-        reader's browser memory (about 650 MB more for a CSV of 1,000,000 rows and 5 columns in pivotkit's
-        measurement). An Excel workbook is also bounded by what it unpacks to (500 MiB), which this
-        parameter does not change.
+        Raises or lowers pivotkit's limits for a file loaded with -AllowImport (pivotkit-react's
+        importLimits): a hashtable of fileBytes (bytes of a file, default 100 MiB), rows (default
+        1,000,000), columns (default 1,000), importCells (rows x columns, default 10,000,000),
+        textLength (characters of one value, longer text is cut; default 32,767), archiveEntries (parts
+        of an Excel workbook, default 10,000) and unpackedBytes (bytes a workbook unpacks to, default
+        500 MiB), e.g. @{ fileBytes = 250MB; rows = 2000000 }. Needs -AllowImport. Keys left out keep
+        pivotkit's defaults; an unknown key or a value that is not a whole number of at least 1 is an
+        error that names it. Only a loaded file gets these limits; -Data keeps pivotkit's. A file over
+        a limit is refused in the browser with a message that names it; larger limits cost the reader's
+        browser memory (about 650 MB more for a CSV of 1,000,000 rows and 5 columns in pivotkit's
+        measurement).
     .PARAMETER OnDataLoad
         With -AllowImport: runs on the server after the data shown changed. It only reports; it cannot
         refuse a file. $EventData: cause (load, original, undo, redo, restore), source (id, name), file (name,
@@ -1913,7 +1921,7 @@ function New-UDPivotReport {
     if ($AllowImport) { $props['allowImport'] = $true }
     if ($PSBoundParameters.ContainsKey('ImportLimit') -and $null -ne $ImportLimit) {
         $limits = ConvertTo-UDPivotImportLimit -ImportLimit $ImportLimit
-        if (@($limits.PSObject.Properties).Count) { $props['limits'] = $limits }
+        if (@($limits.PSObject.Properties).Count) { $props['importLimits'] = $limits }
     }
     if ($PSBoundParameters.ContainsKey('View') -and $null -ne $View) {
         try { $props['view'] = ConvertFrom-UDPivotView -InputObject $View }

@@ -94,10 +94,11 @@ test("sourceOf, schemaUrlOf, fieldListOf: the props of -SourceId, -SourceName, -
     assert.equal(mod.switchOf("Off"), "off");
 });
 
-test("importLimitsOf: -ImportLimit as pivotkit's limits, only known keys with whole numbers", () => {
+test("importLimitsOf: -ImportLimit as pivotkit's importLimits, only known keys with whole numbers", () => {
     // as PSU sends -ImportLimit @{ fileBytes = 250MB; rows = 2000000 }
     assert.deepEqual(mod.importLimitsOf({ fileBytes: 262144000, rows: 2000000 }), { fileBytes: 262144000, rows: 2000000 });
     assert.deepEqual(mod.importLimitsOf({ columns: 50, importCells: Number.MAX_SAFE_INTEGER }), { columns: 50, importCells: Number.MAX_SAFE_INTEGER });
+    assert.deepEqual(mod.importLimitsOf({ textLength: 100, archiveEntries: 50, unpackedBytes: 1073741824 }), { textLength: 100, archiveEntries: 50, unpackedBytes: 1073741824 });
     // pivotkit throws on an unknown limit or a value that is no whole number of at least 1: left out
     assert.deepEqual(mod.importLimitsOf({ rows: 10, groups: 5, toString: 1, fileBytes: 2.5, columns: 0, importCells: "100" }), { rows: 10 });
     assert.deepEqual(mod.importLimitsOf({ rows: Number.MAX_SAFE_INTEGER + 1, columns: -1, fileBytes: Infinity, importCells: NaN }), undefined);

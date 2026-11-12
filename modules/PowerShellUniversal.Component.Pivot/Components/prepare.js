@@ -293,10 +293,10 @@ export function schemaUrlOf(value) {
  * The limits of -ImportLimit pivotkit-core's LIMITS knows for a loaded file (the module's
  * $Script:ImportLimitDefaults keeps the same list); pivotkit refuses an unknown limit with an error.
  */
-export const IMPORT_LIMIT_KEYS = Object.freeze(["fileBytes", "rows", "columns", "importCells"]);
+export const IMPORT_LIMIT_KEYS = Object.freeze(["fileBytes", "rows", "columns", "importCells", "textLength", "archiveEntries", "unpackedBytes"]);
 
 /*
- * -ImportLimit as pivotkit's limits: the known keys (PSU's serializer camelCases them already) with
+ * -ImportLimit as pivotkit-react's importLimits (merged over its limits for a loaded file only): the known keys (PSU's serializer camelCases them already) with
  * whole numbers from 1 to Number.MAX_SAFE_INTEGER, or undefined when none is left. Anything else is
  * left out, so a wrong value never stops the report (pivotkit throws INVALID_OPTION on it).
  */

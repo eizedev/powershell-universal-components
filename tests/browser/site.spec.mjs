@@ -5,7 +5,7 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { openSaveAs, openViews } from "./pivot-menus.mjs";
-import { CSV, fileOf, pickFile } from "./pivot-import.mjs";
+import { CSV, fileOf, openDataMenu, pickFile } from "./pivot-import.mjs";
 
 // the pages of the built site, as paths ("/echarts/bars/")
 const pages = [...readFileSync(new URL("../../site/sitemap.xml", import.meta.url), "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname);
@@ -181,21 +181,21 @@ test("Pivot: shared views and my views; a reader with -AdminRole publishes and t
 // a CSV of `rows` records under a header, as a reader's export
 const csvOf = (rows) => `Id,Team\n${Array.from({ length: rows }, (_, i) => `${i + 1},Team ${i % 3}`).join("\n")}\n`;
 
-test("Pivot: -ImportLimit refuses a file over its rows or bytes and loads one at the limit", async ({ page }) => {
+test("Pivot: -ImportLimit refuses a file over its rows or bytes, loads one at the limit, and leaves the app's data alone", async ({ page }) => {
     const errors = collectErrors(page);
     await openPage(page, "/pivot/import/");
     const report = page.locator('[data-example="readers-files-with-smaller-limits"] .pk-root');
-    // the app's 300 rows
+    // the app's 300 rows, more than -ImportLimit rows = 200: the app's data keeps pivotkit's limits
     await expect(report.getByRole("region", { name: "Table" })).toContainText("300");
     await expect(report.getByText("300 rows", { exact: true })).toBeVisible();
     const dialog = page.getByTestId("import-dialog");
     const alert = report.getByRole("alert");
 
-    // one row over -ImportLimit rows = 1000: refused with a message that names the limit, the app's
+    // one row over -ImportLimit rows = 200: refused with a message that names the limit, the app's
     // data stays
-    await pickFile(report, fileOf("over.csv", CSV, csvOf(1001)));
+    await pickFile(report, fileOf("over.csv", CSV, csvOf(201)));
     await expect(alert).toContainText("over.csv could not be loaded");
-    await expect(alert).toContainText("more than 1,000 rows (limits.rows)");
+    await expect(alert).toContainText("more than 200 rows (limits.rows)");
     await expect(dialog).toHaveCount(0);
     await expect(report.getByRole("region", { name: "Table" })).toContainText("300");
     await alert.getByRole("button", { name: "Close" }).click();
@@ -209,13 +209,18 @@ test("Pivot: -ImportLimit refuses a file over its rows or bytes and loads one at
     await expect(report.getByRole("region", { name: "Table" })).toContainText("300");
     await alert.getByRole("button", { name: "Close" }).click();
 
-    // exactly 1,000 rows load: the limit is the one set, not a lower one
-    await pickFile(report, fileOf("at-limit.csv", CSV, csvOf(1000)));
-    await expect(dialog.getByTestId("import-meta")).toContainText("1,000 rows");
+    // exactly 200 rows load: the limit is the one set, not a lower one
+    await pickFile(report, fileOf("at-limit.csv", CSV, csvOf(200)));
+    await expect(dialog.getByTestId("import-meta")).toContainText("200 rows");
     await dialog.getByTestId("import-apply").click();
     await expect(report.getByTestId("source-line")).toContainText("at-limit.csv");
     // the row count under the result: every row of the file
-    await expect(report.getByText("1,000 rows", { exact: true })).toBeVisible();
+    await expect(report.getByText("200 rows", { exact: true })).toBeVisible();
+    // Back to original data: the app's 300 rows again, not capped by the file's limits
+    await openDataMenu(report);
+    await page.getByTestId("back-to-original").click();
+    await expect(report.getByTestId("source-line")).toHaveCount(0);
+    await expect(report.getByText("300 rows", { exact: true })).toBeVisible();
     expect(errors).toEqual([]);
 });
 

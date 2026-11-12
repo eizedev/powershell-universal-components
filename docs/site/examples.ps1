@@ -479,12 +479,12 @@ $endoflife = 'Release data by [endoflife.date](https://endoflife.date/), MIT lic
             }
         }
     }
-    @{ Section = 'Pivot'; Title = 'Readers'' files with smaller limits'; Text = 'Drop a CSV, JSON or Excel file of your own onto the report, or pick it under Data, Load data. -ImportLimit lowers pivotkit''s limits for this report to files of at most 1 MB and 1,000 rows: a larger file is refused with a message that names the limit. The file is read in the browser and never uploaded.'; Code = {
+    @{ Section = 'Pivot'; Title = 'Readers'' files with smaller limits'; Text = 'Drop a CSV, JSON or Excel file of your own onto the report, or pick it under Data, Load data. -ImportLimit lowers pivotkit''s limits for files loaded into this report to at most 1 MB and 200 rows: a larger file is refused with a message that names the limit, while the app''s own 300 rows keep pivotkit''s limits. The file is read in the browser and never uploaded.'; Code = {
             $rng = [System.Random]::new(17)
             $rows = foreach ($i in 1..300) {
                 [pscustomobject]@{ Ticket = $i; Team = ('Service Desk', 'Network', 'Server')[$rng.Next(0, 3)]; 'Lead hours' = [math]::Round(2 + 30 * $rng.NextDouble(), 1) }
             }
-            New-UDPivotReport -Id 'pivot-import-limits' -Data $rows -Height 560px -TimeZone UTC -AllowImport -ImportLimit @{ fileBytes = 1MB; rows = 1000 } -View @{
+            New-UDPivotReport -Id 'pivot-import-limits' -Data $rows -Height 560px -TimeZone UTC -AllowImport -ImportLimit @{ fileBytes = 1MB; rows = 200 } -View @{
                 rows = @('Team'); values = @(@{ field = 'Ticket'; agg = 'count' })
             }
         }

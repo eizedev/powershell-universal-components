@@ -322,7 +322,8 @@ export default function PsuPivotReport(props) {
                 plugins={props.allowImport === true ? IMPORT_PLUGINS : undefined}
                 onDataLoad={props.allowImport === true ? onDataLoad : undefined}
                 importWorker={props.allowImport === true ? importWorker : undefined}
-                limits={props.allowImport === true ? importLimitsOf(props.limits) : undefined}
+                // a loaded file's limits; the app's -Data keeps pivotkit's own
+                importLimits={props.allowImport === true ? importLimitsOf(props.importLimits) : undefined}
                 drillDown={props.drillDown !== false}
                 fieldDefaults={fieldDefaults}
                 chartOptions={chartOptions}

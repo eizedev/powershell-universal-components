@@ -8,11 +8,12 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 ### Added
 
 - `-ImportLimit`: pivotkit's limits for a file loaded with `-AllowImport` per report, e.g.
-  `@{ fileBytes = 250MB; rows = 2000000 }` (`fileBytes`, `rows`, `columns`, `importCells`; keys left
-  out keep pivotkit's defaults of 100 MiB, 1,000,000 rows, 1,000 columns and 10,000,000 cells). An
-  unknown key or a value that is not a whole number of at least 1 is an error that names it; `rows`
-  also caps the rows of `-Data`
-  ([#103](https://github.com/eizedev/powershell-universal-components/issues/103)).
+  `@{ fileBytes = 250MB; rows = 2000000 }` (`fileBytes`, `rows`, `columns`, `importCells`,
+  `textLength`, `archiveEntries`, `unpackedBytes`; keys left out keep pivotkit's defaults). They go to
+  pivotkit-react's `importLimits`, so the app's `-Data` keeps pivotkit's own limits. An unknown key or
+  a value that is not a whole number of at least 1 is an error that names it
+  ([#103](https://github.com/eizedev/powershell-universal-components/issues/103),
+  [#106](https://github.com/eizedev/powershell-universal-components/issues/106)).
 
 ### Changed
 

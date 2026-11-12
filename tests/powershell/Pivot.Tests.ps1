@@ -49,7 +49,7 @@ Describe 'New-UDPivotReport' {
         $c.drillDown | Should -BeTrue
         $c.addressBar | Should -BeTrue
         (New-UDPivotReport -Id 'p2' -Data $rows -NoAddressBar).addressBar | Should -BeFalse
-        foreach ($key in 'view', 'savedView', 'templates', 'height', 'labels', 'fieldDefaults', 'onViewChange', 'onCellClick', 'onSaveTemplate', 'onDeleteTemplate', 'allowImport', 'onDataLoad', 'limits') {
+        foreach ($key in 'view', 'savedView', 'templates', 'height', 'labels', 'fieldDefaults', 'onViewChange', 'onCellClick', 'onSaveTemplate', 'onDeleteTemplate', 'allowImport', 'onDataLoad', 'importLimits', 'limits') {
             $c.ContainsKey($key) | Should -BeFalse -Because "$key was not passed"
         }
     }
@@ -63,15 +63,17 @@ Describe 'New-UDPivotReport' {
         { New-UDPivotReport -Id 'own3' -Data @() -OnDataLoad ([Endpoint]::new({ 5 })) } | Should -Throw '*-OnDataLoad needs -AllowImport*'
     }
 
-    It '-ImportLimit: pivotkit''s key names in any case, whole numbers, sent as limits; only with -AllowImport' {
-        $c = New-UDPivotReport -Id 'own' -Data @() -AllowImport -ImportLimit @{ FILEBYTES = 250MB; rows = 2000000; importcells = 2e7 }
-        # the JSON PSU sends: pivotkit's spelling, numbers, only the keys given
-        $c.limits | ConvertTo-Json -Compress | Should -Be '{"fileBytes":262144000,"rows":2000000,"importCells":20000000}'
-        (New-UDPivotReport -Id 'own2' -Data @() -AllowImport -ImportLimit @{ columns = 5GB }).limits.columns | Should -Be 5368709120
-        (New-UDPivotReport -Id 'own3' -Data @() -AllowImport -ImportLimit @{ rows = 9007199254740991 }).limits.rows | Should -Be 9007199254740991
+    It '-ImportLimit: pivotkit''s key names in any case, whole numbers, sent as importLimits (never limits); only with -AllowImport' {
+        $c = New-UDPivotReport -Id 'own' -Data @() -AllowImport -ImportLimit @{ FILEBYTES = 250MB; rows = 2000000; importcells = 2e7; UnpackedBytes = 1GB; textlength = 100; archiveEntries = 50 }
+        # the JSON PSU sends: pivotkit's spelling and order, numbers, only the keys given
+        $c.importLimits | ConvertTo-Json -Compress | Should -Be '{"fileBytes":262144000,"rows":2000000,"importCells":20000000,"textLength":100,"archiveEntries":50,"unpackedBytes":1073741824}'
+        # the app's data keeps pivotkit's limits
+        $c.ContainsKey('limits') | Should -BeFalse
+        (New-UDPivotReport -Id 'own2' -Data @() -AllowImport -ImportLimit @{ columns = 5GB }).importLimits.columns | Should -Be 5368709120
+        (New-UDPivotReport -Id 'own3' -Data @() -AllowImport -ImportLimit @{ rows = 9007199254740991 }).importLimits.rows | Should -Be 9007199254740991
         # an empty hashtable changes nothing
-        (New-UDPivotReport -Id 'own4' -Data @() -AllowImport -ImportLimit @{}).ContainsKey('limits') | Should -BeFalse
-        { New-UDPivotReport -Id 'x' -Data @() -AllowImport -ImportLimit @{ groups = 5 } } | Should -Throw '*unknown limit "groups"*fileBytes, rows, columns, importCells*'
+        (New-UDPivotReport -Id 'own4' -Data @() -AllowImport -ImportLimit @{}).ContainsKey('importLimits') | Should -BeFalse
+        { New-UDPivotReport -Id 'x' -Data @() -AllowImport -ImportLimit @{ groups = 5 } } | Should -Throw '*unknown limit "groups"*fileBytes, rows, columns, importCells, textLength, archiveEntries, unpackedBytes*'
         { New-UDPivotReport -Id 'x' -Data @() -AllowImport -ImportLimit @{ cells = 5 } } | Should -Throw '*unknown limit "cells"*'
         foreach ($bad in 0, -1, 2.5, '100', $true, $null, 9007199254740992, [double]::NaN, [double]::PositiveInfinity) {
             { New-UDPivotReport -Id 'x' -Data @() -AllowImport -ImportLimit @{ rows = $bad } } | Should -Throw '*rows must be a whole number*' -Because "rows = $bad"

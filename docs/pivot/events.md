@@ -88,4 +88,5 @@ they are all in the module's one bundle. The one file next to it is the import w
 reader's CSV or JSON file is read.
 
 A file a reader loads is bounded by pivotkit's limits (100 MiB, 1,000,000 rows, 1,000 columns,
-10,000,000 cells), which `-ImportLimit` changes per report ([Readers' own files](import.md#limits)).
+10,000,000 cells, 500 MiB unpacked for a workbook), which `-ImportLimit` changes per report for
+loaded files only ([Readers' own files](import.md#limits)).
