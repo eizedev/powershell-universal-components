@@ -49,7 +49,7 @@ Describe 'New-UDPivotReport' {
         $c.drillDown | Should -BeTrue
         $c.addressBar | Should -BeTrue
         (New-UDPivotReport -Id 'p2' -Data $rows -NoAddressBar).addressBar | Should -BeFalse
-        foreach ($key in 'view', 'savedView', 'templates', 'height', 'labels', 'fieldDefaults', 'onViewChange', 'onCellClick', 'onSaveTemplate', 'onDeleteTemplate', 'allowImport', 'onDataLoad') {
+        foreach ($key in 'view', 'savedView', 'templates', 'height', 'labels', 'fieldDefaults', 'onViewChange', 'onCellClick', 'onSaveTemplate', 'onDeleteTemplate', 'allowImport', 'onDataLoad', 'limits') {
             $c.ContainsKey($key) | Should -BeFalse -Because "$key was not passed"
         }
     }
@@ -61,6 +61,27 @@ Describe 'New-UDPivotReport' {
         $c.onDataLoad.RegisteredId | Should -Be 'own-onDataLoad'
         (New-UDPivotReport -Id 'own2' -Data $null -AllowImport).allowImport | Should -BeTrue
         { New-UDPivotReport -Id 'own3' -Data @() -OnDataLoad ([Endpoint]::new({ 5 })) } | Should -Throw '*-OnDataLoad needs -AllowImport*'
+    }
+
+    It '-ImportLimit: pivotkit''s key names in any case, whole numbers, sent as limits; only with -AllowImport' {
+        $c = New-UDPivotReport -Id 'own' -Data @() -AllowImport -ImportLimit @{ FILEBYTES = 250MB; rows = 2000000; importcells = 2e7 }
+        # the JSON PSU sends: pivotkit's spelling, numbers, only the keys given
+        $c.limits | ConvertTo-Json -Compress | Should -Be '{"fileBytes":262144000,"rows":2000000,"importCells":20000000}'
+        (New-UDPivotReport -Id 'own2' -Data @() -AllowImport -ImportLimit @{ columns = 5GB }).limits.columns | Should -Be 5368709120
+        (New-UDPivotReport -Id 'own3' -Data @() -AllowImport -ImportLimit @{ rows = 9007199254740991 }).limits.rows | Should -Be 9007199254740991
+        # an empty hashtable changes nothing
+        (New-UDPivotReport -Id 'own4' -Data @() -AllowImport -ImportLimit @{}).ContainsKey('limits') | Should -BeFalse
+        { New-UDPivotReport -Id 'x' -Data @() -AllowImport -ImportLimit @{ groups = 5 } } | Should -Throw '*unknown limit "groups"*fileBytes, rows, columns, importCells*'
+        { New-UDPivotReport -Id 'x' -Data @() -AllowImport -ImportLimit @{ cells = 5 } } | Should -Throw '*unknown limit "cells"*'
+        foreach ($bad in 0, -1, 2.5, '100', $true, $null, 9007199254740992, [double]::NaN, [double]::PositiveInfinity) {
+            { New-UDPivotReport -Id 'x' -Data @() -AllowImport -ImportLimit @{ rows = $bad } } | Should -Throw '*rows must be a whole number*' -Because "rows = $bad"
+        }
+        # a case-sensitive dictionary can hold one limit twice
+        $twice = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+        $twice['rows'] = 5
+        $twice['ROWS'] = 6
+        { New-UDPivotReport -Id 'x' -Data @() -AllowImport -ImportLimit $twice } | Should -Throw '*rows is given twice*'
+        { New-UDPivotReport -Id 'x' -Data @() -ImportLimit @{ rows = 5 } } | Should -Throw '*-ImportLimit needs -AllowImport*'
     }
 
     It '-SavedView: checked like -View, sent as savedView; a broken one is left out with a warning' {

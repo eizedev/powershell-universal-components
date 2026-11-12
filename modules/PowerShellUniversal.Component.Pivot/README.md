@@ -43,9 +43,9 @@ is a showcase app in one line (`New-UDPivotShowcase`).
 | Three examples on public data (one line; start view, field names and templates; an app with loading, views per reader and roles), what readers can do, data, dates and time zones, language, theme and height, the placeholder while the data loads, performance | [Overview](https://powershell-universal-components.eize.dev/pivot/) |
 | Corporate design from the app's stylesheet, shared with the ECharts module | [Themes and corporate design](https://powershell-universal-components.eize.dev/pivot/themes/) |
 | `-FieldDefaults`, `-FieldDescriptions`, SQL Server column descriptions (`Get-UDPivotSqlColumnDescription`), `-Schema` (JSON Schema, OpenAPI) | [Field names and descriptions](https://powershell-universal-components.eize.dev/pivot/fields/) |
-| `-View`, `-SavedView`, several tabs, the address bar | [Views](https://powershell-universal-components.eize.dev/pivot/views/) |
+| `-View`, `-SavedView`, filters, several tabs, the address bar | [Views](https://powershell-universal-components.eize.dev/pivot/views/) |
 | `-Templates`, `-TemplatePath`, view files, `-TemplateStore` (browser, files, your own storage), `-AdminRole` and the admin panel | [Templates, view files and roles](https://powershell-universal-components.eize.dev/pivot/templates/) |
-| `-AllowImport`: readers' own CSV, JSON and Excel files, views per file, `-OnDataLoad` | [Readers' own files](https://powershell-universal-components.eize.dev/pivot/import/) |
+| `-AllowImport`: readers' own CSV, JSON and Excel files, views per file, `-OnDataLoad`, `-ImportLimit` | [Readers' own files](https://powershell-universal-components.eize.dev/pivot/import/) |
 | `-OnViewChange`, `-OnCellClick`, `-OnSaveTemplate`, `-OnDeleteTemplate`, `-OnPublishTemplate`, security | [Events, security and limits](https://powershell-universal-components.eize.dev/pivot/events/) |
 | Parameters | [Reference](https://powershell-universal-components.eize.dev/pivot/reference/) |
 

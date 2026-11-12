@@ -1,6 +1,6 @@
 ---
 title: Readers' own files
-description: "New-UDPivotReport -AllowImport: readers load a CSV, TSV, JSON or Excel file into the report, read in the browser and never uploaded; views per file, -OnDataLoad, how it works with -SourceId, -TemplateStore and the events."
+description: "New-UDPivotReport -AllowImport: readers load a CSV, TSV, JSON or Excel file into the report, read in the browser and never uploaded; views per file, -OnDataLoad, -ImportLimit, how it works with -SourceId, -TemplateStore and the events."
 ---
 
 # Readers' own files
@@ -122,10 +122,40 @@ serves next to the bundle. Where a worker cannot start - a Content-Security-Poli
 and Cancel. Excel workbooks are always read on the page (the plugin is code of the page, never of the
 worker); it starts no worker of its own and needs no `blob:`.
 
-The readers check pivotkit's limits before the expensive steps: 100 MiB per file, 1,000,000 rows,
-1,000 columns, 10,000,000 cells. While the preview is open the browser holds the file's table; a
-CSV of 1,000,000 rows and 5 columns took about 650 MB more memory in pivotkit's own measurement
-(Node, not a browser; approximate).
+The readers check pivotkit's limits before the expensive steps and refuse a file over one with a
+message that names it. While the preview is open the browser holds the file's table; a CSV of
+1,000,000 rows and 5 columns took about 650 MB more memory in pivotkit's own measurement (Node, not a
+browser; approximate).
+
+## Limits: `-ImportLimit` { #limits }
+
+`-ImportLimit` raises or lowers these limits for a report; keys left out keep pivotkit's defaults:
+
+| Key | Default | Counts |
+| --- | --- | --- |
+| `fileBytes` | 104,857,600 (100 MiB) | Bytes of a file, before a byte is read. |
+| `rows` | 1,000,000 | Rows of a loaded table, as they are read; also the rows of `-Data`. |
+| `columns` | 1,000 | Columns of a loaded table. |
+| `importCells` | 10,000,000 | Rows x columns of a loaded table, as the rows are read. |
+
+```powershell
+# exports of up to 250 MB and 2,000,000 rows
+New-UDPivotReport -Id 'own-data' -Data @() -AllowImport -ImportLimit @{ fileBytes = 250MB; rows = 2000000; importCells = 20000000 }
+```
+
+A report with smaller limits; a file over 1 MB or 1,000 rows is refused:
+
+--8<-- "examples/readers-files-with-smaller-limits.md"
+
+`-ImportLimit` needs `-AllowImport`. The keys are matched without regard to case, each value is a
+whole number of at least 1 (`250MB`, `2GB` and `2e6` are fine); an unknown key or another value is
+an error that names it, when the page is built. A file of more rows than `importCells` allows for its
+columns stops at that limit even below `rows`, so raise both for a larger table. An Excel workbook is
+also bounded by what it unpacks to (500 MiB) and its number of parts (10,000), which `-ImportLimit`
+does not change; text longer than 32,767 characters in one value is cut, with a note. pivotkit's
+[limits](https://pivotkit.eize.dev/concepts/limits/#limits) explains every limit and why the defaults
+are what they are. Higher limits cost the reader's browser memory and time: the measurement above
+grows with the rows and columns.
 
 ## Security
 

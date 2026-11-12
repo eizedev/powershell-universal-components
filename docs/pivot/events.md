@@ -86,3 +86,6 @@ show says so instead of drawing them. ECharts, the menus and the Excel export ar
 they are all in the module's one bundle. The one file next to it is the import worker of
 `-AllowImport` (about 26 KB), which PSU serves like the bundle and the browser loads only when a
 reader's CSV or JSON file is read.
+
+A file a reader loads is bounded by pivotkit's limits (100 MiB, 1,000,000 rows, 1,000 columns,
+10,000,000 cells), which `-ImportLimit` changes per report ([Readers' own files](import.md#limits)).

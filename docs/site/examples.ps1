@@ -479,6 +479,16 @@ $endoflife = 'Release data by [endoflife.date](https://endoflife.date/), MIT lic
             }
         }
     }
+    @{ Section = 'Pivot'; Title = 'Readers'' files with smaller limits'; Text = 'Drop a CSV, JSON or Excel file of your own onto the report, or pick it under Data, Load data. -ImportLimit lowers pivotkit''s limits for this report to files of at most 1 MB and 1,000 rows: a larger file is refused with a message that names the limit. The file is read in the browser and never uploaded.'; Code = {
+            $rng = [System.Random]::new(17)
+            $rows = foreach ($i in 1..300) {
+                [pscustomobject]@{ Ticket = $i; Team = ('Service Desk', 'Network', 'Server')[$rng.Next(0, 3)]; 'Lead hours' = [math]::Round(2 + 30 * $rng.NextDouble(), 1) }
+            }
+            New-UDPivotReport -Id 'pivot-import-limits' -Data $rows -Height 560px -TimeZone UTC -AllowImport -ImportLimit @{ fileBytes = 1MB; rows = 1000 } -View @{
+                rows = @('Team'); values = @(@{ field = 'Ticket'; agg = 'count' })
+            }
+        }
+    }
     @{ Section = 'Pivot'; Title = 'Placeholder while the data loads'; Text = 'What New-UDPivotReportPlaceholder shows in New-UDDynamic -LoadingComponent until the report arrives: pivotkit''s own skeleton of the report in its colours, moving unless the reader asked for reduced motion.'; Code = {
             New-UDPivotReportPlaceholder -Height 420px
         }

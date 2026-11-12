@@ -5,6 +5,32 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+### Added
+
+- `-ImportLimit`: pivotkit's limits for a file loaded with `-AllowImport` per report, e.g.
+  `@{ fileBytes = 250MB; rows = 2000000 }` (`fileBytes`, `rows`, `columns`, `importCells`; keys left
+  out keep pivotkit's defaults of 100 MiB, 1,000,000 rows, 1,000 columns and 10,000,000 cells). An
+  unknown key or a value that is not a whole number of at least 1 is an error that names it; `rows`
+  also caps the rows of `-Data`
+  ([#103](https://github.com/eizedev/powershell-universal-components/issues/103)).
+
+### Changed
+
+- pivotkit's view version 2 ([pivotkit#165](https://github.com/eizedev/pivotkit/issues/165)): every
+  filter is `{ field, type, ..., not, blanks }` with the types `in`, `blank`, `text`, `compare`,
+  `relative`, `top` and `value`. Views of version 1 (`include`, `exclude`, `label`, the operators
+  `!=`, `notBetween`, `notEquals`, `notContains`) in `-View`, `-SavedView`, `-Templates`, view files,
+  template stores and links still load with the same result: the report migrates them. The report
+  writes version 2, so `-OnViewChange`, `Get-UDElement` and saved views carry it.
+- View files: `ConvertFrom-UDPivotViewFile`, `-TemplatePath` and the template stores read format
+  versions 1 and 2 and views of version 1 and 2; a newer one is still refused.
+  `ConvertTo-UDPivotViewFile` and the stores write format version 2 with
+  `https://pivotkit.eize.dev/schema/view-file-2.json` for a view of version 2, and format version 1
+  with `view-file-1.json` for a view of version 1 or without a version, so stored views of version 1
+  stay readable by older releases.
+- The shipped view "Open work per team" and the showcase's "Lead time per customer" are views of
+  version 2. Docs: the Views page has a section on filters (types, `not`, `blanks`, version 1).
+
 ## [0.4.0] - 2026-11-11
 
 ### Added

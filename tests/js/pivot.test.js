@@ -94,6 +94,26 @@ test("sourceOf, schemaUrlOf, fieldListOf: the props of -SourceId, -SourceName, -
     assert.equal(mod.switchOf("Off"), "off");
 });
 
+test("importLimitsOf: -ImportLimit as pivotkit's limits, only known keys with whole numbers", () => {
+    // as PSU sends -ImportLimit @{ fileBytes = 250MB; rows = 2000000 }
+    assert.deepEqual(mod.importLimitsOf({ fileBytes: 262144000, rows: 2000000 }), { fileBytes: 262144000, rows: 2000000 });
+    assert.deepEqual(mod.importLimitsOf({ columns: 50, importCells: Number.MAX_SAFE_INTEGER }), { columns: 50, importCells: Number.MAX_SAFE_INTEGER });
+    // pivotkit throws on an unknown limit or a value that is no whole number of at least 1: left out
+    assert.deepEqual(mod.importLimitsOf({ rows: 10, groups: 5, toString: 1, fileBytes: 2.5, columns: 0, importCells: "100" }), { rows: 10 });
+    assert.deepEqual(mod.importLimitsOf({ rows: Number.MAX_SAFE_INTEGER + 1, columns: -1, fileBytes: Infinity, importCells: NaN }), undefined);
+    for (const bad of [undefined, null, "rows", 5, [1, 2], {}]) assert.equal(mod.importLimitsOf(bad), undefined, String(bad));
+    // an inherited key is no limit of the host's
+    assert.equal(mod.importLimitsOf(Object.create({ rows: 5 })), undefined);
+});
+
+test("importLimitsOf: the same keys as -ImportLimit in the module", () => {
+    const psm1 = readFileSync(new URL("../../modules/PowerShellUniversal.Component.Pivot/PowerShellUniversal.Component.Pivot.psm1", import.meta.url), "utf8");
+    const block = psm1.match(/\$Script:ImportLimitDefaults = \[ordered\]@\{([^}]*)\}/);
+    assert.ok(block, "$Script:ImportLimitDefaults in the module");
+    const keys = [...block[1].matchAll(/^\s*(\w+)\s*=/gm)].map((m) => m[1]);
+    assert.deepEqual(keys, [...mod.IMPORT_LIMIT_KEYS]);
+});
+
 test("columnSummary and lastTimings: the admin panel's columns and timings", () => {
     const encoded = {
         columns: [

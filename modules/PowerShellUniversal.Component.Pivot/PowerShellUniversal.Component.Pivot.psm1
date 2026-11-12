@@ -82,6 +82,19 @@ $Script:LocalePattern = '^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$'
 $Script:MissingAssetMessage = 'PowerShellUniversal.Component.Pivot: the JavaScript bundle (index.<hash>.bundle.js) was not found next to the module, or the module was imported outside PowerShell Universal.'
 #endregion
 
+#region Limits of files readers load (-AllowImport)
+# the keys of pivotkit-core's LIMITS -ImportLimit may set, with their defaults (docs/concepts/limits.md
+# of pivotkit); Components/prepare.js keeps the same list (IMPORT_LIMIT_KEYS)
+$Script:ImportLimitDefaults = [ordered]@{
+    fileBytes   = 104857600
+    rows        = 1000000
+    columns     = 1000
+    importCells = 10000000
+}
+# pivotkit takes whole numbers from 1 up to JavaScript's Number.MAX_SAFE_INTEGER
+$Script:MaxImportLimit = 9007199254740991
+#endregion
+
 function ConvertFrom-UDPivotView {
     <#
     .SYNOPSIS
@@ -98,7 +111,9 @@ function ConvertFrom-UDPivotView {
         (version, rows, cols, values, filters, derived, sort, totals, collapsed, display, chart,
         formatting); rows and cols must be lists of at most 64 field names, values, filters, derived and
         sort lists of at most 64 objects, display "table" or "chart". Anything else throws an error that
-        says what is wrong. The report itself checks every field name and setting against the data
+        says what is wrong. Filters pass as they are, of view version 2 (in, blank, text, compare,
+        relative, top, value with not and blanks) and of version 1 (include, exclude, label), which the
+        report migrates. The report itself checks every field name and setting against the data
         again (pivotkit-core's normalize) and drops what does not fit.
     .PARAMETER InputObject
         The view: a JSON string, a hashtable or a PSCustomObject (e.g. $EventData.view).
@@ -280,6 +295,47 @@ function ConvertTo-UDPivotHeight {
     param([Parameter(Mandatory)][string]$Height)
     $value = $Height.Trim()
     if ($value -match '^\d+(\.\d+)?$') { '{0}px' -f $value } else { $value }
+}
+
+function ConvertTo-UDPivotImportLimit {
+    <#
+    .SYNOPSIS
+        Checks -ImportLimit and returns it as the report's limits: pivotkit's key names, whole numbers.
+    .DESCRIPTION
+        Used by New-UDPivotReport. The keys are pivotkit-core's limits of a loaded file: fileBytes (bytes
+        of a file), rows, columns and importCells (rows x columns), matched without regard to case and
+        returned in pivotkit's spelling and order. Each value is a whole number from 1 to 9007199254740991
+        (JavaScript's largest exact integer); 250MB and 2GB are fine. An unknown key, a value that is
+        not a whole number or one out of range throws an error that names the key. Keys left out keep
+        pivotkit's defaults.
+    .PARAMETER ImportLimit
+        The limits, e.g. @{ fileBytes = 250MB; rows = 2000000 }.
+    .EXAMPLE
+        ConvertTo-UDPivotImportLimit -ImportLimit @{ FileBytes = 250MB; rows = 2000000 }
+    .OUTPUTS
+        System.Management.Automation.PSCustomObject
+    #>
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param([Parameter(Mandatory)][System.Collections.IDictionary]$ImportLimit)
+    $limits = [ordered]@{}
+    foreach ($key in $ImportLimit.Keys) {
+        $name = $Script:ImportLimitDefaults.Keys | Where-Object { $_ -eq [string]$key } | Select-Object -First 1
+        if (-not $name) {
+            throw ('-ImportLimit: unknown limit "{0}"; known are {1}.' -f $key, ($Script:ImportLimitDefaults.Keys -join ', '))
+        }
+        if ($limits.Contains($name)) { throw ('-ImportLimit: {0} is given twice.' -f $name) }
+        $value = $ImportLimit[$key]
+        $isNumber = $value -is [int] -or $value -is [long] -or $value -is [double] -or $value -is [decimal] -or $value -is [single]
+        if (-not $isNumber -or $value -ne [math]::Truncate($value) -or $value -lt 1 -or $value -gt $Script:MaxImportLimit) {
+            throw ('-ImportLimit: {0} must be a whole number from 1 to {1}, not "{2}".' -f $name, $Script:MaxImportLimit, $value)
+        }
+        $limits[$name] = [long]$value
+    }
+    # in pivotkit's order, whatever order the hashtable had
+    $ordered = [ordered]@{}
+    foreach ($name in $Script:ImportLimitDefaults.Keys) { if ($limits.Contains($name)) { $ordered[$name] = $limits[$name] } }
+    [pscustomobject]$ordered
 }
 
 function Test-UDPivotJsonText {
@@ -588,13 +644,19 @@ function Get-UDPivotSchemaText {
 }
 
 #region Templates: view files, template folders and template stores
-# pivotkit's view file (pivotkit-core's VIEW_FILE_LIMITS, VIEW_FILE_SCHEMA, VIEW_VERSION)
+# pivotkit's view file (pivotkit-core's VIEW_FILE_LIMITS, VIEW_FILE_SCHEMA, VIEW_VERSION): format version
+# 2 carries views of version 2, format 1 views of version 1; both are read, and a view without a version
+# is version 1 (pivotkit migrates it to version 2 when it reads it)
 $Script:ViewFileFormat = 'pivotkit-view'
-$Script:ViewFileSchemaUrl = 'https://pivotkit.eize.dev/schema/view-file-1.json'
+$Script:ViewFileSchemaUrls = @{
+    1 = 'https://pivotkit.eize.dev/schema/view-file-1.json'
+    2 = 'https://pivotkit.eize.dev/schema/view-file-2.json'
+}
+$Script:KnownViewFileVersions = @(1, 2)
 $Script:MaxViewFileLength = 1000000
 $Script:MaxViewFileDepth = 16
 $Script:MaxViewFileDescription = 2000
-$Script:KnownViewVersion = 1
+$Script:KnownViewVersion = 2
 # a template's name in the Views menu (pivotkit-react's save field takes 120 characters)
 $Script:MaxTemplateNameLength = 120
 # templates the report gets in all (pivotkit-core's TEMPLATE_LIMITS.count)
@@ -700,10 +762,11 @@ function ConvertFrom-UDPivotViewFile {
         source and checked view.
     .DESCRIPTION
         A view file is the JSON pivotkit's Views menu downloads (Download view, Copy view as JSON) and a
-        template store keeps: format "pivotkit-view", formatVersion 1, name, description, source and the
-        view. This function reads one as untrusted input: at most 1,000,000 characters and 16 levels,
-        parsed without evaluating anything; a newer formatVersion or view version is refused (saving it
-        again would lose what the newer version added); the name becomes plain text of 1 to 120
+        template store keeps: format "pivotkit-view", formatVersion 1 or 2, name, description, source and
+        the view. This function reads one as untrusted input: at most 1,000,000 characters and 16 levels,
+        parsed without evaluating anything; a newer formatVersion or view version (above 2) is refused
+        (saving it again would lose what the newer version added); a view of version 1 is read as it is
+        and migrated to version 2 by the report; the name becomes plain text of 1 to 120
         characters; the view goes through ConvertFrom-UDPivotView. An object { name, view } (a saved view
         as an app keeps it) is read as well; a bare view needs -Name.
     .PARAMETER InputObject
@@ -737,11 +800,12 @@ function ConvertFrom-UDPivotViewFile {
         $isFile = (& $get 'format') -ceq $Script:ViewFileFormat
         if ($isFile) {
             $version = & $get 'formatVersion'
-            if ($null -ne $version -and -not (($version -is [int] -or $version -is [long]) -and $version -eq 1)) {
-                if (($version -is [int] -or $version -is [long] -or $version -is [double] -or $version -is [decimal]) -and $version -gt 1) {
-                    throw ('View file: format version {0} is newer than this module reads (1); update PowerShellUniversal.Component.Pivot.' -f $version)
+            $newest = ($Script:KnownViewFileVersions | Measure-Object -Maximum).Maximum
+            if ($null -ne $version -and -not (($version -is [int] -or $version -is [long]) -and $version -in $Script:KnownViewFileVersions)) {
+                if (($version -is [int] -or $version -is [long] -or $version -is [double] -or $version -is [decimal]) -and $version -gt $newest) {
+                    throw ('View file: format version {0} is newer than this module reads ({1}); update PowerShellUniversal.Component.Pivot.' -f $version, $newest)
                 }
-                throw 'View file: formatVersion must be 1.'
+                throw ('View file: formatVersion must be one of {0}.' -f ($Script:KnownViewFileVersions -join ', '))
             }
         }
         $view = & $get 'view'
@@ -788,7 +852,9 @@ function ConvertTo-UDPivotViewFile {
     .DESCRIPTION
         Checks the view with ConvertFrom-UDPivotView and writes the envelope in pivotkit's key order
         ($schema, format, formatVersion, name, description, createdAt, generator, source, extensions,
-        view) with a two-space indent and a trailing newline.
+        view) with a two-space indent and a trailing newline. The format version follows the view: 2 for
+        a view of version 2 (what the report sends), 1 for a view of version 1 or without a version, so
+        a pivotkit that reads only format 1 still loads the file of an older view.
     .PARAMETER View
         The view (JSON text, a hashtable or an object).
     .PARAMETER Name
@@ -800,7 +866,8 @@ function ConvertTo-UDPivotViewFile {
     .PARAMETER SourceName
         The name of that data, for people.
     .PARAMETER SchemaUrl
-        The $schema of the file: pivotkit's schema by default, your own copy, or '' to leave it out.
+        The $schema of the file: by default pivotkit's schema of the format version written
+        (view-file-2.json or view-file-1.json), else your own copy, or '' to leave it out.
     .PARAMETER CreatedAt
         When it was written (UTC). Without it the file is the same bytes for the same view.
     .EXAMPLE
@@ -818,14 +885,21 @@ function ConvertTo-UDPivotViewFile {
         [AllowEmptyString()][string]$Description,
         [AllowEmptyString()][string]$SourceId,
         [AllowEmptyString()][string]$SourceName,
-        [AllowEmptyString()][string]$SchemaUrl = $Script:ViewFileSchemaUrl,
+        [AllowEmptyString()][string]$SchemaUrl,
         [Nullable[datetime]]$CreatedAt
     )
     $checked = ConvertFrom-UDPivotView -InputObject $View
+    $viewVersion = $checked.PSObject.Properties['version'].Value
+    if ($null -ne $viewVersion -and ($viewVersion -ne [math]::Truncate($viewVersion) -or $viewVersion -lt 1 -or $viewVersion -gt $Script:KnownViewVersion)) {
+        # the number as written, whatever the culture of the thread (1.5, not 1,5)
+        throw ([string]::Format([cultureinfo]::InvariantCulture, 'View file: view version {0} is not one this module writes (1 to {1}).', $viewVersion, $Script:KnownViewVersion))
+    }
+    $formatVersion = if ($null -ne $viewVersion -and $viewVersion -ge 2) { 2 } else { 1 }
+    if (-not $PSBoundParameters.ContainsKey('SchemaUrl')) { $SchemaUrl = $Script:ViewFileSchemaUrls[$formatVersion] }
     $file = [ordered]@{}
     if ($SchemaUrl) { $file['$schema'] = $SchemaUrl }
     $file['format'] = $Script:ViewFileFormat
-    $file['formatVersion'] = 1
+    $file['formatVersion'] = $formatVersion
     $file['name'] = ConvertTo-UDPivotTemplateName -Name $Name
     $text = Limit-UDPivotText -Text ($Description -replace '[\p{Cc}\p{Cf}]', ' ') -MaxLength $Script:MaxViewFileDescription
     if ($text) { $file['description'] = $text }
@@ -1100,7 +1174,7 @@ function Invoke-UDPivotTemplateStore {
     .PARAMETER SourceName
         Its name for people.
     .PARAMETER SchemaUrl
-        The $schema of the view file.
+        The $schema of the view file; without it pivotkit's schema of the format version written.
     .EXAMPLE
         Invoke-UDPivotTemplateStore -Store $store -Action List -Scope shared
     .OUTPUTS
@@ -1117,7 +1191,7 @@ function Invoke-UDPivotTemplateStore {
         [AllowNull()][object]$View,
         [AllowEmptyString()][string]$SourceId,
         [AllowEmptyString()][string]$SourceName,
-        [AllowEmptyString()][string]$SchemaUrl = $Script:ViewFileSchemaUrl
+        [AllowEmptyString()][string]$SchemaUrl
     )
     if (-not (Test-UDPivotTemplateStore -Store $Store)) { throw '-TemplateStore: expected a store of New-UDPivotFileTemplateStore or New-UDPivotTemplateStore.' }
     if ($Action -eq 'Publish') { $Scope = 'shared' }
@@ -1172,7 +1246,9 @@ function Invoke-UDPivotTemplateStore {
     # one store serves several reports: a report lists the views of its data and those made for no
     # named data (as pivotkit's browser store)
     $reportData = [string]$SourceId
-    $viewFile = @{ SourceName = $SourceName; SchemaUrl = $SchemaUrl }
+    # -SchemaUrl only when given: ConvertTo-UDPivotViewFile picks pivotkit's schema of the format otherwise
+    $viewFile = @{ SourceName = $SourceName; Schema = @{} }
+    if ($PSBoundParameters.ContainsKey('SchemaUrl')) { $viewFile.Schema['SchemaUrl'] = $SchemaUrl }
     $listed = { param($Entry) -not $reportData -or -not $Entry.SourceId -or $Entry.SourceId -ceq $reportData }
     if ($Action -eq 'List') { return & $list | Where-Object { & $listed $_ } }
 
@@ -1266,7 +1342,8 @@ function Invoke-UDPivotTemplateStore {
             } while ($taken)
             $fileSource = $reportData
         }
-        $json = ConvertTo-UDPivotViewFile -View $checkedView -Name $checkedName -SourceId $fileSource -SourceName $(if ($fileSource) { $viewFile.SourceName }) -SchemaUrl $viewFile.SchemaUrl -CreatedAt ([datetime]::UtcNow)
+        $schemaArgument = $viewFile.Schema
+        $json = ConvertTo-UDPivotViewFile -View $checkedView -Name $checkedName -SourceId $fileSource -SourceName $(if ($fileSource) { $viewFile.SourceName }) -CreatedAt ([datetime]::UtcNow) @schemaArgument
 
         if ($Store.Kind -eq 'File') {
             try { $null = New-Item -ItemType Directory -Path $folder -Force }
@@ -1442,8 +1519,9 @@ function Invoke-UDPivotTemplateRequest {
             Name       = Get-UDPivotEntryValue -InputObject $data -Name 'name'
             SourceId   = $settings.SourceId
             SourceName = $settings.SourceName
-            SchemaUrl  = $settings.SchemaUrl
         }
+        # $null: pivotkit's schema of the format the view file is written in
+        if ($null -ne $settings.SchemaUrl) { $arguments['SchemaUrl'] = $settings.SchemaUrl }
         if ($Action -ne 'Delete') { $arguments['View'] = Get-UDPivotEntryValue -InputObject $data -Name 'view' }
         Invoke-UDPivotTemplateStore @arguments
     }
@@ -1513,10 +1591,11 @@ function New-UDPivotReport {
     .PARAMETER View
         The view the report starts with (and goes back to with Reset): a hashtable or JSON, e.g.
         @{ rows = @('Team'); cols = @('Priority'); values = @(@{ field = 'Id'; agg = 'count' }) }.
-        Keys: rows, cols (field names), values (field, agg: sum, count, average, min, max, ...;
-        format: a format name), filters, sort, totals, display (table or chart), chart (type: bar, line,
-        area, pie, heatmap). A saved template's view goes in as it is. Default: an empty report with the
-        hint where to start. A view in the address bar (#pivot-<id>=..., written by the report on every
+        Keys: version (2), rows, cols (field names), values (field, agg: sum, count, average, min, max,
+        ...; format: a format name), filters (e.g. @{ field = 'Status'; type = 'in'; items = @('Open');
+        blanks = 'exclude' }; a view without version is read as version 1 and migrated), sort, totals,
+        display (table or chart), chart (type: bar, line, area, pie, heatmap). A saved template's view
+        goes in as it is. Default: an empty report with the hint where to start. A view in the address bar (#pivot-<id>=..., written by the report on every
         change unless -NoAddressBar, so a copied link opens the same layout) wins over it.
     .PARAMETER SavedView
         The reader's own view stored by the app (from -OnViewChange or a "save as my default" action),
@@ -1666,6 +1745,16 @@ function New-UDPivotReport {
         per file (pivotkit names the file's data by its name and a hash of its column names), never to
         -TemplateStore or -OnSaveTemplate. PSU's light/dark switch and Sync-UDElement keep the file shown
         (in the page's memory, per report). -Data may be empty: the report then asks for a file.
+    .PARAMETER ImportLimit
+        Raises or lowers pivotkit's limits for a file loaded with -AllowImport: a hashtable of fileBytes
+        (bytes of a file, default 100 MiB), rows (default 1,000,000), columns (default 1,000) and
+        importCells (rows x columns, default 10,000,000), e.g. @{ fileBytes = 250MB; rows = 2000000 }.
+        Needs -AllowImport. Keys left out keep pivotkit's defaults; an unknown key or a value that is not
+        a whole number of at least 1 is an error that names it. rows also caps the rows of -Data. A
+        file over a limit is refused in the browser with a message that names it; larger limits cost the
+        reader's browser memory (about 650 MB more for a CSV of 1,000,000 rows and 5 columns in pivotkit's
+        measurement). An Excel workbook is also bounded by what it unpacks to (500 MiB), which this
+        parameter does not change.
     .PARAMETER OnDataLoad
         With -AllowImport: runs on the server after the data shown changed. It only reports; it cannot
         refuse a file. $EventData: cause (load, original, undo, redo, restore), source (id, name), file (name,
@@ -1724,6 +1813,9 @@ function New-UDPivotReport {
             if ($EventData.file) { Write-Information ('{0} loaded: {1} rows' -f $EventData.file.name, $EventData.rows) }
         }
     .EXAMPLE
+        # files of up to 250 MB and 2,000,000 rows; the other limits stay pivotkit's
+        New-UDPivotReport -Id 'own-data' -Data @() -AllowImport -ImportLimit @{ fileBytes = 250MB; rows = 2000000 }
+    .EXAMPLE
         # a new tab continues with the reader's last view; open tabs keep their own
         New-UDPivotReport -Id 'tickets' -Data $tickets -View $startView -SavedView $Session:PivotView -OnViewChange {
             Import-Module PowerShellUniversal.Component.Pivot
@@ -1773,6 +1865,7 @@ function New-UDPivotReport {
         [switch]$NoAddressBar,
         [switch]$NoDrillDown,
         [switch]$AllowImport,
+        [System.Collections.IDictionary]$ImportLimit,
         [string]$ClassName,
         [hashtable]$Style,
         [Endpoint]$OnViewChange,
@@ -1785,6 +1878,7 @@ function New-UDPivotReport {
 
     if (-not $Script:AssetId) { throw $Script:MissingAssetMessage }
     if ($OnDataLoad -and -not $AllowImport) { throw '-OnDataLoad needs -AllowImport: without it the data shown never changes.' }
+    if ($PSBoundParameters.ContainsKey('ImportLimit') -and -not $AllowImport) { throw '-ImportLimit needs -AllowImport: without it no file is loaded.' }
     $timer = [System.Diagnostics.Stopwatch]::StartNew()
 
     # one array (ConvertTo-PSUComponentData returns it as a single object; @() would nest it)
@@ -1817,6 +1911,10 @@ function New-UDPivotReport {
         addressBar  = -not $NoAddressBar
     }
     if ($AllowImport) { $props['allowImport'] = $true }
+    if ($PSBoundParameters.ContainsKey('ImportLimit') -and $null -ne $ImportLimit) {
+        $limits = ConvertTo-UDPivotImportLimit -ImportLimit $ImportLimit
+        if (@($limits.PSObject.Properties).Count) { $props['limits'] = $limits }
+    }
     if ($PSBoundParameters.ContainsKey('View') -and $null -ne $View) {
         try { $props['view'] = ConvertFrom-UDPivotView -InputObject $View }
         catch { throw ('-View: {0}' -f $_.Exception.Message) }
@@ -1881,7 +1979,7 @@ function New-UDPivotReport {
             AdminRole  = @($AdminRole)
             SourceId   = $source.id
             SourceName = [string]$source['name']
-            SchemaUrl  = if ($PSBoundParameters.ContainsKey('SchemaUrl')) { $SchemaUrl } else { $Script:ViewFileSchemaUrl }
+            SchemaUrl  = if ($PSBoundParameters.ContainsKey('SchemaUrl')) { $SchemaUrl } else { $null }
         }
         $key = Register-UDPivotTemplateStore -Settings $settings
         # without a signed-in user the server cannot tell readers apart: their own views stay in the browser

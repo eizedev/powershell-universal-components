@@ -66,9 +66,11 @@ $builtInTemplates = @(
         }
     }
     @{ Name = 'Lead time per customer'; View = @{
+            # pivotkit's view version 2: one filter shape with not and blanks
+            version = 2
             rows   = @('Customer'); cols = @('Priority')
             values = @(@{ field = 'Lead hours'; agg = 'average'; format = 'number:1' })
-            filters = @(@{ field = 'Status'; type = 'include'; items = @('Closed') })
+            filters = @(@{ field = 'Status'; type = 'in'; items = @('Closed'); blanks = 'exclude' })
         }
     }
     @{ Name = 'Cost per team (share of the total)'; View = @{
