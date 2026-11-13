@@ -6,6 +6,8 @@ import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { openSaveAs, openViews } from "./pivot-menus.mjs";
 import { CSV, fileOf, openDataMenu, pickFile } from "./pivot-import.mjs";
+import { unzipSync, strFromU8 } from "fflate";
+import { writeLinkView } from "../../modules/PowerShellUniversal.Component.Pivot/Components/prepare.js";
 
 // the pages of the built site, as paths ("/echarts/bars/")
 const pages = [...readFileSync(new URL("../../site/sitemap.xml", import.meta.url), "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname);
@@ -221,6 +223,97 @@ test("Pivot: -ImportLimit refuses a file over its rows or bytes, loads one at th
     await page.getByTestId("back-to-original").click();
     await expect(report.getByTestId("source-line")).toHaveCount(0);
     await expect(report.getByText("300 rows", { exact: true })).toBeVisible();
+    expect(errors).toEqual([]);
+});
+
+// the colours of the colour scales in a downloaded workbook, as RRGGBB
+async function workbookScaleColors(download) {
+    const chunks = [];
+    for await (const chunk of await download.createReadStream()) chunks.push(chunk);
+    const files = unzipSync(new Uint8Array(Buffer.concat(chunks)));
+    const sheets = Object.keys(files).filter((name) => /^xl\/worksheets\/sheet\d+\.xml$/.test(name)).map((name) => strFromU8(files[name])).join("");
+    return [...sheets.matchAll(/<colorScale>([\s\S]*?)<\/colorScale>/g)].flatMap((m) => [...m[1].matchAll(/rgb="(?:FF)?([0-9A-Fa-f]{6})"/g)].map((c) => c[1].toUpperCase()));
+}
+
+// a CSS colour as the browser resolves it, as "r,g,b" (a mix comes back as color(srgb ...), a token as
+// rgb(...)), for comparing a token with a cell
+async function resolvedColor(report, value) {
+    const text = await report.evaluate((root, v) => {
+        const probe = root.ownerDocument.createElement("span");
+        probe.style.color = v;
+        root.appendChild(probe);
+        const out = getComputedStyle(probe).color;
+        probe.remove();
+        return out;
+    }, value);
+    const srgb = /^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)/.exec(text);
+    const parts = srgb ? srgb.slice(1).map((c) => Math.round(Number(c) * 255)) : (/^rgba?\((\d+), (\d+), (\d+)/.exec(text) || []).slice(1).map(Number);
+    return parts.length === 3 ? parts.join(",") : text;
+}
+
+test("Pivot: a colour scale without colours runs over the heatmap's blues in both themes; a dark page exports the light colours of the documented stylesheet (#107)", async ({ page }) => {
+    const errors = collectErrors(page);
+    // the DataTable example with a colour scale on the count, as a reader adds it (no colours of its own)
+    const view = { rows: ["Team"], cols: ["Priority"], values: [{ field: "Ticket", agg: "count", conditional: { type: "colorScale" } }] };
+    await page.goto(`/pivot/${writeLinkView("", "pivot-datatable", view)}`);
+    const example = page.locator('[data-example="pivot-report-from-a-datatable"]');
+    const report = example.locator(".pk-root");
+    const table = report.getByRole("region", { name: "Table" });
+    await expect(table).toContainText("1,200");
+
+    // the cells of the values (not the totals): their background, the highest and the lowest count
+    const scaleCells = () => table.evaluate((region) => {
+        // pivotkit paints a cell of a colour scale with its colour in --pk-cell-bg (mixed into the surface)
+        const cells = [...region.querySelectorAll("td.pk-has-scale")];
+        const number = (td) => Number(td.textContent.replace(/[^\d]/g, ""));
+        cells.sort((a, b) => number(a) - number(b));
+        const colour = (td) => td && getComputedStyle(td).getPropertyValue("--pk-cell-bg").trim();
+        return { count: cells.length, low: colour(cells[0]), high: colour(cells.at(-1)), painted: cells.every((td) => getComputedStyle(td).backgroundColor !== getComputedStyle(region).backgroundColor) };
+    });
+    for (const mode of ["light", "dark"]) {
+        if ((await page.locator("html").getAttribute("data-theme")) !== mode) {
+            await page.locator("[data-md-component=palette] label:visible").first().click();
+        }
+        await expect(report).toHaveAttribute("data-pk-theme", mode);
+        const tokens = await report.evaluate((root) => Object.fromEntries(["--pk-heat-low", "--pk-heat-high"].map((n) => [n, getComputedStyle(root).getPropertyValue(n).trim()])));
+        const cells = await scaleCells();
+        // 4 teams x 4 priorities
+        expect(cells.count).toBe(16);
+        expect(cells.painted).toBe(true);
+        expect(await resolvedColor(report, cells.high), `${mode}: the highest count in the heatmap's strong blue`).toBe(await resolvedColor(report, tokens["--pk-heat-high"]));
+        expect(await resolvedColor(report, cells.low), `${mode}: the lowest count in the heatmap's light colour`).toBe(await resolvedColor(report, tokens["--pk-heat-low"]));
+    }
+
+    // the dark page exports the light theme's colours: pivotkit's heat colours, not red, not the dark ones
+    const exportScale = async () => {
+        await report.locator("[data-testid=export]").click();
+        const [download] = await Promise.all([page.waitForEvent("download"), page.locator("[data-testid=export-xlsx]").click()]);
+        return workbookScaleColors(download);
+    };
+    expect(await exportScale()).toEqual(["EAF1FB", "2A78D6"]);
+
+    // a corporate stylesheet as docs/pivot/themes.md writes it: the light values reach the workbook
+    // from the dark page; the same values on the page's data-theme alone would put the dark ones there
+    const corporate = (selectors) => `${selectors.light} { --psu-pivot-heat-low: #e6eef7; --psu-pivot-heat-high: #003b6f; } ${selectors.dark} { --psu-pivot-heat-low: #1a2533; --psu-pivot-heat-high: #6fa8dc; }`;
+    const addStyle = (css) => example.evaluate((el, text) => {
+        // the page's root for :root, the example's shadow root for the report's own theme (in PSU one stylesheet does both)
+        for (const host of [document.head, el.shadowRoot]) {
+            const style = document.createElement("style");
+            style.className = "test-corporate";
+            style.textContent = text;
+            host.appendChild(style);
+        }
+    }, css);
+    const removeStyle = () => example.evaluate((el) => [...document.querySelectorAll(".test-corporate"), ...el.shadowRoot.querySelectorAll(".test-corporate")].forEach((s) => s.remove()));
+    const documented = { light: ':root, .ud-pivot-report [data-pk-theme="light"]', dark: ':root[data-theme="dark"], .ud-pivot-report [data-pk-theme="dark"]' };
+    expect(readFileSync(new URL("../../docs/pivot/themes.md", import.meta.url), "utf8")).toContain(':root[data-theme="dark"],\n.ud-pivot-report [data-pk-theme="dark"] {');
+    await addStyle(corporate(documented));
+    // on screen the dark values
+    expect(await resolvedColor(report, (await scaleCells()).high)).toBe(await resolvedColor(report, "#6fa8dc"));
+    expect(await exportScale()).toEqual(["E6EEF7", "003B6F"]);
+    await removeStyle();
+    await addStyle(corporate({ light: ":root", dark: ':root[data-theme="dark"]' }));
+    expect(await exportScale(), "the page's attribute alone: the dark colours land in the file").toEqual(["1A2533", "6FA8DC"]);
     expect(errors).toEqual([]);
 });
 
