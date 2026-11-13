@@ -30,7 +30,7 @@ The keys of a view:
 | `filters` | `@{ field = 'Status'; type = 'in'; items = @('Open', 'Waiting'); blanks = 'exclude' }`; the types, `not` and `blanks` are under [Filters](#filters). |
 | `derived` | Grouped dates and number ranges: `@{ name = 'Created (Month)'; field = 'Created'; by = 'yearMonth' }` (units `year`, `yearQuarter`, `yearMonth`, `yearWeek`, `day`, `quarter`, `month`, `week`, `weekday`, `hour`); the name then goes into `rows` or `cols`. |
 | `sort` | `@{ field = 'Team'; by = 'value'; order = 'desc' }`. |
-| `totals` | `@{ grandTotalRow = $true; grandTotalColumn = $true; rowSubtotals = $true; colSubtotals = $true }`. |
+| `totals` | `@{ grandTotalRow = $true; grandTotalColumn = $true; rowSubtotals = $true; colSubtotals = $true }`. A key left out keeps the default: both grand totals and the row subtotals on, the column subtotals off; a view with two or more fields in `cols` that should show their subtotals sets `colSubtotals = $true`. The report writes all four into every view it saves or shares. |
 | `display`, `chart` | `'table'` or `'chart'`; `@{ type = 'bar'; stacked = $false; horizontal = $false }`, types `auto` (the default: lines over dates, bars otherwise), `bar`, `line`, `area`, `pie`, `donut`, `heatmap`; the Display settings `valueLabels` (`auto`, `off`, `value`, `percent`, `both`), `legend` (`auto`, `bottom`, `right`, `off`), `title`, `smooth`, `axisLabels` (`auto`, `all`, `nth`), `groupLabels` (`auto`, `on`, `off`) and, for a pie or donut, `labelPosition` (`outside`, `inside`). |
 
 The simplest way to a view is to build it in the report and copy it: **Views, Share, Copy view as JSON** (a

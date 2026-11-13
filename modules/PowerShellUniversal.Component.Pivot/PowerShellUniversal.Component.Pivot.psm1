@@ -1575,7 +1575,7 @@ function New-UDPivotReport {
         Columns, Values, Filters) with drag and drop and a menu on every field, sums, counts, averages
         and "show values as", date grouping by year, quarter, month or day, filters with value counts,
         table or chart (bars, lines, area, pie, heatmap), a click on a value opens the rows behind it,
-        undo and redo, templates, and Excel (XLSX), CSV and PNG export. All of it runs in the browser
+        undo and redo, templates, Excel (XLSX), CSV, PNG, SVG and HTML export and print. All of it runs in the browser
         (pivotkit); the server is only asked for what the event parameters do.
 
         A view - what the report shows - is plain JSON that pivotkit checks against the data; it never
@@ -1689,7 +1689,7 @@ function New-UDPivotReport {
         pivotkit leaves out options that are markup or addresses (formatter strings, rich, link, image).
     .PARAMETER Tips
         The tips above the result: On (default), Off (none, and no switch in Options), or the ids of the
-        tips allowed (showAs, chartOverTime, pieSlices, pieColumns, chartDates, chartTrend, chartSeries,
+        tips allowed (showAs, colSubtotals, chartOverTime, pieSlices, pieColumns, chartDates, chartTrend, chartSeries,
         textValue, dateUngrouped, manyColumns, afterDrag, values, saveTemplate, menus, cells; the
         notices filterEmpty, top and chartCapped always show). Dismissed tips are remembered per report
         in the browser's localStorage.

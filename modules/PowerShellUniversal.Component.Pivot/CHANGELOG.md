@@ -17,6 +17,29 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Changed
 
+- pivotkit 0.5.0 ([pivotkit-react release](https://github.com/eizedev/pivotkit/releases/tag/pivotkit-react%400.5.0),
+  [upgrading from 0.4](https://pivotkit.eize.dev/getting-started/upgrading/)): pivotkit-core and
+  pivotkit-react 0.5.0, pivotkit-xlsx 0.2.0 and pivotkit-report 0.1.0, all pinned and in the one
+  bundle. Export has an HTML report, the chart as SVG and Print or save as PDF; Excel and the HTML
+  report are light also from a dark app. Column subtotals are off unless a view turns them on
+  (`totals = @{ colSubtotals = $true }`); views the report saves name all four totals. The chart's
+  text is 14 px, the font weights are four (`--psu-pivot-weight-*`). `-Tips` knows the tip
+  `colSubtotals`. The filter menus write view version 2 (below).
+- A colour scale without colours of its own runs from light to strong blue, the heatmap's colours,
+  on screen and in the Excel export, not from red over yellow to green: it says "more", not "good" or
+  "bad". `--psu-pivot-scale-low` and `--psu-pivot-scale-high` fall back to `--psu-pivot-heat-low` and
+  `--psu-pivot-heat-high`; `--psu-pivot-scale-mid` adds a middle colour. The Themes page shows how to
+  get red, yellow and green back
+  ([#107](https://github.com/eizedev/powershell-universal-components/issues/107)).
+- Themes: the corporate stylesheet sets each mode for the page and for the theme the report shows
+  (`:root, .ud-pivot-report [data-pk-theme="light"]` and `:root[data-theme="dark"],
+  .ud-pivot-report [data-pk-theme="dark"]`), so the Excel export and the HTML report of a dark app take
+  the light values and a report pinned with `-Theme` takes those of its own theme. A stylesheet with
+  `:root[data-theme="dark"]` alone still themes the screen, but its dark values reach those files.
+- New theme properties: `--psu-pivot-input-border` and `--psu-pivot-rule` (the edge of a text field and
+  the line between a menu's groups, PSU's neutral greys instead of pivotkit's blue-grey) and
+  `--psu-pivot-weight-normal`, `-medium`, `-strong` and `-bold`. The admin panel of `-AdminRole` takes
+  the report's corners, weights and text size (at least 14 px; its code was 13 px).
 - pivotkit's view version 2 ([pivotkit#165](https://github.com/eizedev/pivotkit/issues/165)): every
   filter is `{ field, type, ..., not, blanks }` with the types `in`, `blank`, `text`, `compare`,
   `relative`, `top` and `value`. Views of version 1 (`include`, `exclude`, `label`, the operators

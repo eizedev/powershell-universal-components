@@ -4,7 +4,7 @@ A pivot report builder for PowerShell Universal apps, on [pivotkit](https://www.
 readers drag fields from a searchable list into Rows, Columns, Values and Filters and get a table with
 totals or a chart. Dates are grouped by month, quarter or year, a click on a value opens the source
 rows behind it, readers keep their layouts as views (in the browser, in files or a database of your
-choice; roles decide who publishes shared views), undo every step and export to Excel, CSV and PNG. Fields get display names and descriptions from your script, SQL Server column descriptions or an
+choice; roles decide who publishes shared views), undo every step and export to Excel, CSV, PNG, SVG and an HTML report or print. Fields get display names and descriptions from your script, SQL Server column descriptions or an
 OpenAPI schema. With `-AllowImport` readers pivot a CSV, JSON or Excel file of their own, read in the
 browser and never uploaded. Light and dark theme in PSU's colours, English and German, from a phone to a wide screen.
 

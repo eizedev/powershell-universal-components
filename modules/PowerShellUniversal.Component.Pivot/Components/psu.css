@@ -6,25 +6,48 @@
  *   2. --psu-chart-*  the same properties the ECharts module reads (series colours, text, muted, axis,
  *                     grid, accent), so one corporate palette themes the charts and the report;
  *   3. --psu-default-* below: PSU's own look, per mode.
- * Corporate values are set per mode as :root { ... } and :root[data-theme="dark"] { ... }; custom
- * properties inherit, so the report sees the value of the page's current mode. The list of properties
- * is documented in docs/pivot/themes.md (a test keeps both in step).
+ * Corporate values are set per mode for the page and for the theme the report shows:
+ * `:root, .ud-pivot-report [data-pk-theme="light"]` and `:root[data-theme="dark"], .ud-pivot-report
+ * [data-pk-theme="dark"]`. The Excel export and the HTML report read the light theme by showing it on
+ * the report for a moment (data-pk-theme="light"), so the report's own rule must win over the dark
+ * values it inherits from the page. The list of properties is documented in docs/pivot/themes.md (a
+ * test keeps both in step).
  *
  * PSU's look, measured on PSU 2026.3.4: light page rgb(240, 242, 245) with white cards and app bar,
  * MUI's primary blue #1976d2; dark page black, app bar rgb(31, 31, 31), text white at 85 %, MUI's dark
- * primary #90caf9. pivotkit's own defaults are tinted blue-grey; here the surfaces are PSU's neutral
- * greys and the accent is MUI's primary. Series, heatmap and colour-scale defaults are pivotkit's own
- * (pivotkit-react 0.3.0 styles.css), repeated here because a property cannot fall back to the value it
- * replaces. The report picks light or dark from <html data-theme> itself (data-pk-theme on its root).
+ * primary #90caf9. pivotkit's own defaults are tinted blue-grey; here the surfaces, borders and rules
+ * are PSU's neutral greys and the accent is MUI's primary. Series and heatmap defaults and the font
+ * weights are pivotkit's own (pivotkit-react 0.5.0 styles.css), repeated here because a property
+ * cannot fall back to the value it replaces. The colour scale is the heatmap's (light to strong blue,
+ * pivotkit's default): it says "more", not "good" or "bad". The report picks light or dark from
+ * <html data-theme> itself (data-pk-theme on its root); the dark defaults below are written for that
+ * attribute, never for the page's, so an export from a dark app takes the light colours.
  *
- * The selectors carry one class more than pivotkit's (zero specificity), so they win in any order.
+ * Every visual value is a token (pivotkit's rule): the literals live only in the --psu-default-*
+ * blocks; the rules below them use var(). The selectors carry one class more than pivotkit's (zero
+ * specificity), so they win in any order.
  */
 
-/* ---- PSU's defaults, light ------------------------------------------------------------------- */
-.ud-pivot-report .pk-root {
+/* ---- PSU's defaults in both modes, also read by the admin panel next to pivotkit's root ---------- */
+.ud-pivot-report {
     --psu-default-radius: 8px;
     --psu-default-radius-sm: 4px;
     --psu-default-font-size: max(14px, 1em);
+    /* the admin panel's text: PSU's body2 (0.875rem), never below 14 px (pivotkit's smallest) */
+    --psu-default-font-size-small: max(14px, 0.875rem);
+    --psu-default-weight-normal: 400;
+    --psu-default-weight-medium: 500;
+    --psu-default-weight-strong: 600;
+    --psu-default-weight-bold: 700;
+    /* the admin panel's lines and code background: shares of the page's text colour */
+    --psu-default-admin-border: color-mix(in srgb, currentColor 22%, transparent);
+    --psu-default-admin-rule: color-mix(in srgb, currentColor 12%, transparent);
+    --psu-default-admin-code: color-mix(in srgb, currentColor 6%, transparent);
+    --psu-default-admin-note-opacity: 0.75;
+}
+
+/* ---- PSU's defaults, light ------------------------------------------------------------------- */
+.ud-pivot-report .pk-root {
     --psu-default-surface: #ffffff;
     --psu-default-surface-2: #f5f6f8;
     --psu-default-surface-3: #eaecef;
@@ -34,6 +57,8 @@
     --psu-default-border: #e0e0e0;
     --psu-default-border-strong: #c4c4c4;
     --psu-default-drop-border: #8a8a8a;
+    /* the edge of a text field or a select and the rule between a menu's groups: 3:1 on every surface */
+    --psu-default-input-border: #808080;
     --psu-default-grid: #eeeeee;
     --psu-default-accent: #1976d2;
     --psu-default-accent-text: #ffffff;
@@ -44,9 +69,6 @@
     --psu-default-total-strong: #eaecef;
     --psu-default-heat-low: #eaf1fb;
     --psu-default-heat-high: #2a78d6;
-    --psu-default-scale-low: #f8696b;
-    --psu-default-scale-mid: #ffeb84;
-    --psu-default-scale-high: #63be7b;
     --psu-default-chart-1: #2a78d6;
     --psu-default-chart-2: #eb6834;
     --psu-default-chart-3: #1baf7a;
@@ -72,6 +94,7 @@
     --psu-default-border: #2e2e2e;
     --psu-default-border-strong: #474747;
     --psu-default-drop-border: #7a7a7a;
+    --psu-default-input-border: #7a7a7a;
     --psu-default-grid: #232323;
     --psu-default-accent: #90caf9;
     --psu-default-accent-text: #0b1a2a;
@@ -82,9 +105,6 @@
     --psu-default-total-strong: #242424;
     --psu-default-heat-low: #1d2735;
     --psu-default-heat-high: #3987e5;
-    --psu-default-scale-low: #c2413f;
-    --psu-default-scale-mid: #b39a2e;
-    --psu-default-scale-high: #3f9a5c;
     --psu-default-chart-1: #3987e5;
     --psu-default-chart-2: #d95926;
     --psu-default-chart-3: #199e70;
@@ -136,19 +156,27 @@
     --pk-surface-raised: var(--psu-pivot-surface-raised, var(--psu-default-surface-raised));
     --pk-border-strong: var(--psu-pivot-border-strong, var(--psu-default-border-strong));
     --pk-drop-border: var(--psu-pivot-drop-border, var(--psu-default-drop-border));
+    --pk-input-border: var(--psu-pivot-input-border, var(--psu-default-input-border));
+    --pk-rule: var(--psu-pivot-rule, var(--psu-default-input-border));
     --pk-total: var(--psu-pivot-total, var(--psu-default-total));
     --pk-total-strong: var(--psu-pivot-total-strong, var(--psu-default-total-strong));
     --pk-heat-low: var(--psu-pivot-heat-low, var(--psu-default-heat-low));
     --pk-heat-high: var(--psu-pivot-heat-high, var(--psu-default-heat-high));
-    --pk-scale-low: var(--psu-pivot-scale-low, var(--psu-default-scale-low));
-    --pk-scale-mid: var(--psu-pivot-scale-mid, var(--psu-default-scale-mid));
-    --pk-scale-high: var(--psu-pivot-scale-high, var(--psu-default-scale-high));
+    /* the colour scale a view leaves to the theme: the heatmap's colours; a middle colour only when the
+       app sets one (without it the property has no value and the scale has two colours) */
+    --pk-scale-low: var(--psu-pivot-scale-low, var(--pk-heat-low));
+    --pk-scale-mid: var(--psu-pivot-scale-mid);
+    --pk-scale-high: var(--psu-pivot-scale-high, var(--pk-heat-high));
 
     --pk-radius: var(--psu-pivot-radius, var(--psu-default-radius));
     --pk-radius-sm: var(--psu-pivot-radius-sm, var(--psu-default-radius-sm));
     /* without --psu-pivot-font the property has no value and pivotkit inherits the page's font */
     --pk-font: var(--psu-pivot-font);
     --pk-font-size: var(--psu-pivot-font-size, var(--psu-default-font-size));
+    --pk-weight-normal: var(--psu-pivot-weight-normal, var(--psu-default-weight-normal));
+    --pk-weight-medium: var(--psu-pivot-weight-medium, var(--psu-default-weight-medium));
+    --pk-weight-strong: var(--psu-pivot-weight-strong, var(--psu-default-weight-strong));
+    --pk-weight-bold: var(--psu-pivot-weight-bold, var(--psu-default-weight-bold));
 
     /* scroll bars of the table and the field list in the report's colours (inherited) */
     scrollbar-color: var(--pk-border-strong) transparent;
@@ -156,23 +184,25 @@
 
 /*
  * The admin panel under the report (-AdminRole). It sits outside pivotkit's root, so it takes the
- * page's text colour (PSU's light or dark theme) and draws its lines from it.
+ * page's text colour (PSU's light or dark theme) and draws its lines from it; corners, sizes and
+ * weights are the report's (--psu-pivot-* over PSU's defaults).
  */
 .ud-pivot-admin {
     margin-top: 8px;
-    border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
-    border-radius: 6px;
+    border: 1px solid var(--psu-default-admin-border);
+    border-radius: var(--psu-pivot-radius, var(--psu-default-radius));
     padding: 4px 12px;
-    font-size: 0.875rem;
+    font-size: var(--psu-default-font-size-small);
     color: inherit;
 }
 .ud-pivot-admin > summary {
     cursor: pointer;
     padding: 6px 0;
-    font-weight: 600;
+    font-weight: var(--psu-pivot-weight-strong, var(--psu-default-weight-strong));
 }
 .ud-pivot-admin h3 {
-    font-size: 0.875rem;
+    font-size: var(--psu-default-font-size-small);
+    font-weight: var(--psu-pivot-weight-strong, var(--psu-default-weight-strong));
     margin: 12px 0 4px;
 }
 .ud-pivot-admin p {
@@ -180,7 +210,7 @@
     overflow-wrap: anywhere;
 }
 .ud-pivot-admin-note {
-    opacity: 0.75;
+    opacity: var(--psu-default-admin-note-opacity);
 }
 .ud-pivot-admin-scroll {
     max-width: 100%;
@@ -194,15 +224,15 @@
 .ud-pivot-admin td {
     text-align: left;
     padding: 2px 12px 2px 0;
-    border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+    border-bottom: 1px solid var(--psu-default-admin-rule);
 }
 .ud-pivot-admin pre {
     max-height: 320px;
     overflow: auto;
     margin: 0 0 8px;
     padding: 8px;
-    border-radius: 4px;
-    background: color-mix(in srgb, currentColor 6%, transparent);
-    font-size: 0.8125rem;
+    border-radius: var(--psu-pivot-radius-sm, var(--psu-default-radius-sm));
+    background: var(--psu-default-admin-code);
+    font-size: var(--psu-default-font-size-small);
     white-space: pre;
 }
