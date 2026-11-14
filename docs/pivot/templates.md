@@ -160,9 +160,10 @@ New-UDPivotReport -Id 'tickets' -Data $tickets -SchemaUrl 'https://psu.example.c
 views are of version 2, so their files are of format 2. (`ConvertTo-UDPivotViewFile` writes a view of
 version 1 as format 1: give it the address of `view-file-1.json` there.) When a release of this module
 writes a newer format version (its CHANGELOG says so), host that format's schema too and change the
-address. An address that is not https (without spaces, at most 2,000 characters) stops the report
-before it is drawn, with `SchemaUrl "<address>": expected an https address or an empty string.` in
-the page; a PSU that serves only http hosts its copy elsewhere over https, or leaves `-SchemaUrl` out.
+address. An address that is not https (without spaces, at most 2,000 characters) stops the page
+before the report is drawn: it stays empty, and PSU shows the error `SchemaUrl "<address>": expected
+an https address or an empty string.` A PSU that serves only http hosts its copy elsewhere over https,
+or leaves `-SchemaUrl` out.
 
 ## Template stores: `-TemplateStore`
 
