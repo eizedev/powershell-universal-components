@@ -23,6 +23,9 @@
  * <html data-theme> itself (data-pk-theme on its root); the dark defaults below are written for that
  * attribute, never for the page's, so an export from a dark app takes the light colours.
  *
+ * pivotkit's shadows, scrims and its semantic colours (danger, warning, field types, the switch's knob)
+ * stay pivotkit's: at their alpha the light shadows' blue tint does not show next to PSU's greys.
+ *
  * Every visual value is a token (pivotkit's rule): the literals live only in the --psu-default-*
  * blocks; the rules below them use var(). The selectors carry one class more than pivotkit's (zero
  * specificity), so they win in any order.
@@ -57,7 +60,8 @@
     --psu-default-border: #e0e0e0;
     --psu-default-border-strong: #c4c4c4;
     --psu-default-drop-border: #8a8a8a;
-    /* the edge of a text field or a select and the rule between a menu's groups: 3:1 on every surface */
+    /* the edge of a text field or a select and the rule between a menu's groups, one grey for both:
+       3:1 on every surface, the tinted ones (highlight, drop zone, note) too */
     --psu-default-input-border: #808080;
     --psu-default-grid: #eeeeee;
     --psu-default-accent: #1976d2;
@@ -94,7 +98,7 @@
     --psu-default-border: #2e2e2e;
     --psu-default-border-strong: #474747;
     --psu-default-drop-border: #7a7a7a;
-    --psu-default-input-border: #7a7a7a;
+    --psu-default-input-border: #858585;
     --psu-default-grid: #232323;
     --psu-default-accent: #90caf9;
     --psu-default-accent-text: #0b1a2a;

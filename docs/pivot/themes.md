@@ -105,8 +105,8 @@ property used when the first one is not set; without either the default applies.
 | `--psu-pivot-surface-raised` | - | menus, popovers, the drill-down table, chart tooltips | `#ffffff` | `#1f1f1f` |
 | `--psu-pivot-border-strong` | - | hovered buttons and chips, the switch track, the grand-total line, scroll bars | `#c4c4c4` | `#474747` |
 | `--psu-pivot-drop-border` | - | edge of a zone | `#8a8a8a` | `#7a7a7a` |
-| `--psu-pivot-input-border` | - | edge of a text field or a select in a menu | `#808080` | `#7a7a7a` |
-| `--psu-pivot-rule` | - | line between a menu's groups | `#808080` | `#7a7a7a` |
+| `--psu-pivot-input-border` | - | edge of a text field or a select in a menu | `#808080` | `#858585` |
+| `--psu-pivot-rule` | - | line between a menu's groups | `#808080` | `#858585` |
 | `--psu-pivot-total` | - | subtotals | `#f5f6f8` | `#1a1a1a` |
 | `--psu-pivot-total-strong` | - | the grand total | `#eaecef` | `#242424` |
 | `--psu-pivot-heat-low` | - | heatmap chart, lowest value | `#eaf1fb` | `#1d2735` |
@@ -162,6 +162,8 @@ undo and redo start over. The theme the report shows is `data-pk-theme="light"` 
 root; the stylesheet above sets the values on it, so a report pinned with `-Theme Light` or
 `-Theme Dark` takes the values of its own theme, also in an app of the other mode. Properties set only
 on the page root (`:root`, `:root[data-theme="dark"]`) reach the report by inheritance in the page's
-current mode; they are fine for a value that is the same in both modes.
+current mode; they are fine for a value that is the same in both modes. Set corners, font weights and
+the font on `:root`: the admin panel of `-AdminRole` sits next to the report, outside its theme, and
+takes `--psu-pivot-radius`, `--psu-pivot-radius-sm` and `--psu-pivot-weight-strong` from there.
 
 Next: [Views](views.md), [Templates, view files and roles](templates.md), [Events, security and limits](events.md), [Reference](reference.md).

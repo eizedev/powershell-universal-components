@@ -452,7 +452,7 @@ for (const mode of ["light", "dark"]) {
         assert.ok(contrastRatio(parseColor(t["--pk-focus"]), parseColor(t["--pk-surface"])) >= 3, "focus ring");
         assert.ok(contrastRatio(parseColor(t["--pk-drop-border"]), parseColor(t["--pk-surface"])) >= 3, "edge of a zone");
         // pivotkit's rule for these two: 3:1 against every surface a field or a menu sits on
-        for (const surface of ["--pk-surface", "--pk-surface-2", "--pk-surface-3", "--pk-surface-raised"]) {
+        for (const surface of ["--pk-surface", "--pk-surface-2", "--pk-surface-3", "--pk-surface-raised", "--pk-total", "--pk-total-strong", "--pk-accent-soft", "--pk-drop", "--pk-note"]) {
             assert.ok(contrastRatio(parseColor(t["--pk-input-border"]), parseColor(t[surface])) >= 3, `edge of a text field on ${surface}`);
             assert.ok(contrastRatio(parseColor(t["--pk-rule"]), parseColor(t[surface])) >= 3, `rule between a menu's groups on ${surface}`);
         }

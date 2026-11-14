@@ -20,8 +20,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 - pivotkit 0.5.0 ([pivotkit-react release](https://github.com/eizedev/pivotkit/releases/tag/pivotkit-react%400.5.0),
   [upgrading from 0.4](https://pivotkit.eize.dev/getting-started/upgrading/)): pivotkit-core and
   pivotkit-react 0.5.0, pivotkit-xlsx 0.2.0 and pivotkit-report 0.1.0, all pinned and in the one
-  bundle. Export has an HTML report, the chart as SVG and Print or save as PDF; Excel and the HTML
-  report are light also from a dark app. Column subtotals are off unless a view turns them on
+  bundle. Export has an HTML report, the chart as SVG and Print or save as PDF; Excel, the HTML
+  report and print are light also from a dark app. Column subtotals are off unless a view turns them on
   (`totals = @{ colSubtotals = $true }`); views the report saves name all four totals. The chart's
   text is 14 px, the font weights are four (`--psu-pivot-weight-*`). `-Tips` knows the tip
   `colSubtotals`. The filter menus write view version 2 (below).
