@@ -5,15 +5,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
-### Added
-
-- `-ImportLimit`: pivotkit's limits for a file loaded with `-AllowImport` per report, e.g.
-  `@{ fileBytes = 250MB; rows = 2000000 }` (`fileBytes`, `rows`, `columns`, `importCells`,
-  `textLength`, `archiveEntries`, `unpackedBytes`; keys left out keep pivotkit's defaults). They go to
-  pivotkit-react's `importLimits`, so the app's `-Data` keeps pivotkit's own limits. An unknown key or
-  a value that is not a whole number of at least 1 is an error that names it
-  ([#103](https://github.com/eizedev/powershell-universal-components/issues/103),
-  [#106](https://github.com/eizedev/powershell-universal-components/issues/106)).
+## [0.5.0] - 2026-11-15
 
 ### Security
 
@@ -23,6 +15,16 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   pivotkit-xlsx 0.3.0 and earlier, so release 0.4.0 of this module with `-AllowImport`; update from
   0.4.0). Workbooks with namespace-prefixed elements are checked like the others. Also, a workbook's
   different texts and cell formats count against `importCells` while they are unpacked.
+
+### Added
+
+- `-ImportLimit`: pivotkit's limits for a file loaded with `-AllowImport` per report, e.g.
+  `@{ fileBytes = 250MB; rows = 2000000 }` (`fileBytes`, `rows`, `columns`, `importCells`,
+  `textLength`, `archiveEntries`, `unpackedBytes`; keys left out keep pivotkit's defaults). They go to
+  pivotkit-react's `importLimits`, so the app's `-Data` keeps pivotkit's own limits. An unknown key or
+  a value that is not a whole number of at least 1 is an error that names it
+  ([#103](https://github.com/eizedev/powershell-universal-components/issues/103),
+  [#106](https://github.com/eizedev/powershell-universal-components/issues/106)).
 
 ### Changed
 
@@ -244,7 +246,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   them); `examples/templates.ps1`: an app with sign-in, readers' views on the server, publishing for
   two roles and the admin panel.
 
-[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.4.0...HEAD
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.5.0...HEAD
+[0.5.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.4.0...PowerShellUniversal.Component.Pivot-v0.5.0
 [0.4.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.3.0...PowerShellUniversal.Component.Pivot-v0.4.0
 [0.3.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.2.0...PowerShellUniversal.Component.Pivot-v0.3.0
 [0.2.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.1.0...PowerShellUniversal.Component.Pivot-v0.2.0
