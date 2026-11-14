@@ -20,9 +20,9 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 - pivotkit-xlsx 0.3.1: a crafted Excel workbook could pass the size checks before parsing and fill
   the reader's browser memory (denial of service in the reader's own tab;
   [GHSA-c6vh-q36c-92r3](https://github.com/eizedev/pivotkit/security/advisories/GHSA-c6vh-q36c-92r3),
-  pivotkit-xlsx 0.3.0 and earlier, so release 0.4.0 of this module with `-AllowImport`). Workbooks with
-  namespace-prefixed elements are checked like the others, and a workbook's different texts and cell
-  formats count against `importCells` while they are unpacked.
+  pivotkit-xlsx 0.3.0 and earlier, so release 0.4.0 of this module with `-AllowImport`; update from
+  0.4.0). Workbooks with namespace-prefixed elements are checked like the others. Also, a workbook's
+  different texts and cell formats count against `importCells` while they are unpacked.
 
 ### Changed
 

@@ -157,7 +157,8 @@ own 300 rows show:
 whole number of at least 1 (`250MB`, `2GB` and `2e6` are fine); an unknown key or another value is
 an error that names it, when the page is built. A file of more rows than `importCells` allows for its
 columns stops at that limit even below `rows`, so raise both for a larger table; a larger workbook
-usually needs `unpackedBytes` raised too. While a file is shown, its views, results and exports run
+usually needs `unpackedBytes` raised too. A higher `importCells` or `columns` also lets a workbook hold
+more different texts and cell formats. While a file is shown, its views, results and exports run
 with these limits as well; **Back to original data** goes back to the app's. pivotkit's
 [limits](https://pivotkit.eize.dev/concepts/limits/#limits) explains every limit and why the defaults
 are what they are. Higher limits cost the reader's browser memory and time: the measurement above

@@ -307,8 +307,8 @@ function ConvertTo-UDPivotImportLimit {
         Checks -ImportLimit and returns it as the report's import limits: pivotkit's key names, whole numbers.
     .DESCRIPTION
         Used by New-UDPivotReport. The keys are pivotkit-core's limits of a loaded file: fileBytes (bytes
-        of a file), rows, columns, importCells (rows x columns, a workbook's texts and formats), textLength (characters of one value),
-        archiveEntries (parts of a workbook) and unpackedBytes (bytes a workbook unpacks to), matched
+        of a file), rows, columns, importCells (rows x columns, a workbook's texts and formats),
+        textLength (characters of one value), archiveEntries (parts of a workbook) and unpackedBytes (bytes a workbook unpacks to), matched
         without regard to case and
         returned in pivotkit's spelling and order. Each value is a whole number from 1 to 9007199254740991
         (JavaScript's largest exact integer); 250MB and 2GB are fine. An unknown key, a value that is
