@@ -41,6 +41,12 @@ The design's stylesheet comes from eizedev/brand (`docs/assets/site.css`, not co
 there for a local build. A new example goes into `examples.ps1` and is included on the page it belongs
 to; the build fails for an example that no page includes.
 
+For AI tools the site also publishes [llms.txt](https://powershell-universal-components.eize.dev/llms.txt)
+(the pages by section, with links to their Markdown), `llms-full.txt` (all of them in one file) and a
+Markdown file next to each page, written by Zensical's `llmstxt` plugin from the sections of
+`[project.plugins.llmstxt.sections]` in `zensical.toml`. A new page goes into `nav` and into exactly one
+of these sections; `tests/js/llms-sections.test.js` fails otherwise.
+
 | Part of the site | How it is made |
 | --- | --- |
 | An example's text | `Text` in `examples.ps1`; parameters (`-View`), commands (`New-UDDynamic`) and variables (`$EventData`) become code. |
