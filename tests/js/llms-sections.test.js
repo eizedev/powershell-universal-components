@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 const root = new URL("../../", import.meta.url);
 const docs = fileURLToPath(new URL("docs/", root));
 
-/** The patterns of the llmstxt sections, in the order they are written. */
+/** The patterns of the llmstxt sections, in the order they are written; each section is a one-line array. */
 function sectionPatterns() {
     const config = readFileSync(new URL("zensical.toml", root), "utf8");
     const start = config.indexOf("[project.plugins.llmstxt.sections]");
@@ -44,4 +44,6 @@ test("every page of the site is in exactly one llms.txt section", () => {
         const hits = patterns.filter(({ re }) => re.test(page)).map(({ p }) => p);
         assert.equal(hits.length, 1, `${page} matches ${hits.length ? hits.join(", ") : "no section"} in zensical.toml`);
     }
+    // a pattern that matches nothing is a section that silently lost its pages (a typo, a moved folder)
+    for (const { p, re } of patterns) assert.ok(all.some((page) => re.test(page)), `"${p}" in zensical.toml matches no page`);
 });
