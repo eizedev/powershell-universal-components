@@ -28,7 +28,8 @@ hashtable PSU renders; see [README.md](README.md).
   the pivot module's showcase when `PSU_PIVOT_URL` is set, and its template roles against `examples/templates.ps1`
   with two identities when `PSU_PIVOT_AUTH_URL` is set, `psu-pivot-demo.spec.mjs` the Pivot demo module's
   showcase when `PSU_PIVOT_DEMO_URL` is set; `pivot-menus.mjs` drives pivotkit's menus in levels for both
-  pivot specs, `pivot-import.mjs` drops and picks real CSV and Excel files for `-AllowImport`),
+  pivot specs, `pivot-import.mjs` drops and picks real CSV and Excel files for `-AllowImport`, `pivot-colors.mjs` reads
+  the colours of a colour scale on screen and in an exported workbook),
   `tests/powershell/` (Pester).
 
 ## Commands
@@ -69,6 +70,9 @@ rendering.
 - Every package is pinned to an exact version with a lock file; chart libraries have been hijacked on npm
   (`echarts-for-react`, May 2026). Prefer a small own wrapper over a wrapper package.
 - Light and dark mode follow `<html data-theme>`; every visible colour must work on both.
+  The pivot module's `psu.css` writes its dark values for pivotkit's `[data-pk-theme="dark"]`, never for
+  the page's `data-theme` (an export reads the light theme), and every visual value there is a token
+  (literals only in the `--psu-default-*` blocks; `tests/js/pivot.test.js` checks both).
 - PowerShell: approved verbs, advanced functions with comment-based help, ASCII-only `.ps1`/`.psm1`.
 - Behaviour is documented on the site pages in `docs/`; the root README and the module READMEs stay
   short (what it is, install, a quick example, links to the pages).

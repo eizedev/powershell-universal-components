@@ -5,6 +5,8 @@
 import { test, expect } from "@playwright/test";
 import { chipMenu, openSaveAs, openShare, openToolbarMenu, openViews } from "./pivot-menus.mjs";
 import { assetsXlsx, CSV, dropFiles, fieldNames, fileOf, openDataMenu, pickFile, preview, TICKETS_CSV, XLSX } from "./pivot-import.mjs";
+import { colorScaleCells, resolvedColor, workbookScaleColors } from "./pivot-colors.mjs";
+import { writeLinkView } from "../../modules/PowerShellUniversal.Component.Pivot/Components/prepare.js";
 
 const base = (process.env.PSU_PIVOT_URL || "").replace(/\/$/, "");
 // the report itself, never the placeholder the Tickets page shows while its data loads
@@ -650,6 +652,39 @@ test.describe("pivot showcase on PSU", () => {
             await expect.poll(() => token("--pk-chart-1")).toBe(series);
             await expect.poll(() => pixels(series), { timeout: 10000 }).toBeGreaterThan(100);
         }
+    });
+
+    test("a colour scale without colours is blue in PSU's light and dark mode; a dark app exports the light colours of the documented stylesheet", async ({ page }) => {
+        // the start view with a colour scale on the count, as a reader adds it (no colours of its own), as a link
+        const view = { rows: ["Team"], cols: ["Priority"], values: [{ field: "Ticket", agg: "count", conditional: { type: "colorScale" } }] };
+        const errors = await open(page, `tickets${writeLinkView("", "tickets", view)}`);
+        const report = page.locator(REPORT);
+        const table = report.getByRole("region", { name: "Table" });
+        await expect(table).toContainText("5,000");
+        const token = (name) => report.evaluate((e, n) => getComputedStyle(e).getPropertyValue(n).trim(), name);
+        for (const mode of ["light", "dark"]) {
+            await setTheme(page, mode);
+            await expect(report).toHaveAttribute("data-pk-theme", mode);
+            const cells = await colorScaleCells(table);
+            expect(cells.count).toBeGreaterThan(4);
+            expect(cells.painted).toBe(true);
+            expect(await resolvedColor(report, cells.high), `${mode}: the highest count`).toBe(await resolvedColor(report, await token("--pk-heat-high")));
+            expect(await resolvedColor(report, cells.low), `${mode}: the lowest count`).toBe(await resolvedColor(report, await token("--pk-heat-low")));
+        }
+        const exportScale = async () => {
+            await report.locator("[data-testid=export]").click();
+            const [download] = await Promise.all([page.waitForEvent("download"), page.locator("[data-testid=export-xlsx]").click()]);
+            return workbookScaleColors(download);
+        };
+        // dark: the workbook gets the light theme's colours, PSU's heat colours
+        expect(await exportScale()).toEqual(["EAF1FB", "2A78D6"]);
+        // the stylesheet as docs/pivot/themes.md writes it, one stylesheet of the app
+        await page.addStyleTag({
+            content: ':root, .ud-pivot-report [data-pk-theme="light"] { --psu-pivot-heat-low: #e6eef7; --psu-pivot-heat-high: #003b6f; } :root[data-theme="dark"], .ud-pivot-report [data-pk-theme="dark"] { --psu-pivot-heat-low: #1a2533; --psu-pivot-heat-high: #6fa8dc; }'
+        });
+        await expect.poll(async () => resolvedColor(report, (await colorScaleCells(table)).high)).toBe(await resolvedColor(report, "#6fa8dc"));
+        expect(await exportScale()).toEqual(["E6EEF7", "003B6F"]);
+        expect(errors).toEqual([]);
     });
 
     // Inside New-UDDynamic with -LoadingComponent (the Tickets page) PSU keeps the report over the switch
