@@ -209,6 +209,15 @@ Describe 'New-UDPivotFileTemplateStore' {
         ($list | Where-Object Name -EQ 'Old').View.filters[0].type | Should -Be 'include'
     }
 
+    It 'writes the report''s -SchemaUrl into the view files it stores, or no $schema for an empty one' {
+        $v2 = @{ version = 2; rows = @('Team') }
+        & $script:invoke @{ Store = $script:store; Action = 'Publish'; Scope = 'shared'; UserName = 'boss'; Name = 'Hosted'; View = $v2; SchemaUrl = 'https://reports.example.com/pivotkit-schema/view-file-2.json' }
+        $written = Get-ChildItem -LiteralPath (Join-Path $script:folder 'shared') -File | Get-Content -Raw | ConvertFrom-Json
+        $written.'$schema' | Should -Be 'https://reports.example.com/pivotkit-schema/view-file-2.json'
+        & $script:invoke @{ Store = $script:store; Action = 'Save'; Scope = 'user'; UserName = 'alex'; Name = 'Bare'; View = $v2; SchemaUrl = '' }
+        Get-ChildItem -LiteralPath (Join-Path $script:folder 'users') -Recurse -File | Get-Content -Raw | Should -Not -Match '\$schema'
+    }
+
     It 'skips a stored file that was broken by hand' {
         & $script:invoke @{ Store = $script:store; Action = 'Publish'; Scope = 'shared'; UserName = 'boss'; Name = 'Good'; View = $script:view }
         Set-Content -LiteralPath (Join-Path $script:folder 'shared' 'broken.pivotkit.json') -Value '{"format":"pivotkit-view","formatVersion":1,"name":"B","view":{"rows":"Team"}}'

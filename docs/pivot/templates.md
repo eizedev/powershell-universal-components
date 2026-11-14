@@ -137,6 +137,31 @@ Use a name the reader may see (it is in view files and links), never a path on t
 (`view-file-2.json` or `view-file-1.json`), else an https address of your own copy, or `''` to leave it
 out; loading never depends on it.
 
+### Your own copy of the schema
+
+Editors that know JSON Schema (VS Code, for one) fetch the address in `$schema` to check a view file
+and complete its keys. To keep that inside your network, host a copy and name it with `-SchemaUrl`:
+
+1. Take `view-file-2.json`, the schema of the format the report writes, unchanged: from
+   `https://pivotkit.eize.dev/schema/view-file-2.json` or from the npm package pivotkit-core
+   (`schema/view-file-2.json`, the same bytes). It refers to nothing outside itself, so its `$id`
+   (pivotkit's address) can stay: a validator then fetches only your copy.
+2. Serve it over https without a sign-in, for example from a PSU published folder
+   (`New-PSUPublishedFolder`, or Build, Published Folders): an editor fetches it without the reader's
+   PSU session, so a folder with `-Authentication` answers it with 401. PSU serves `.json` files as
+   `application/json`.
+3. Pass the file's address:
+
+```powershell
+New-UDPivotReport -Id 'tickets' -Data $tickets -SchemaUrl 'https://<your PSU server>/pivotkit-schema/view-file-2.json'
+```
+
+`-SchemaUrl` names one file for every view file the report and its template store write. When a
+release of this module writes a newer format version (its CHANGELOG says so), host that format's
+schema too and change the address. An address that is not https stops the report before it is drawn,
+with `SchemaUrl "<address>": expected an https address or an empty string.` in the page; a PSU that
+serves only http hosts its copy elsewhere over https, or leaves `-SchemaUrl` out.
+
 ## Template stores: `-TemplateStore`
 
 ### In the browser: `-TemplateStore Browser`
