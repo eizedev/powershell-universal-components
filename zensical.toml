@@ -75,6 +75,27 @@ nav = [
 [project.plugins.redirects.redirect_maps]
 "pivot/upgrade.md" = "pivot/templates.md"
 
+# llms.txt, llms-full.txt and a Markdown file per page for AI tools, from the pages of these sections
+# (every page in exactly one, tests/js/llms-sections.test.js)
+[project.plugins.llmstxt]
+full_output = "llms-full.txt"
+markdown_description = """
+Custom components for PowerShell Universal (PSU) apps, MIT licensed, each a PowerShell module from the
+PowerShell Gallery: PowerShellUniversal.Component.ECharts (`New-UDEChart`, Apache ECharts charts),
+PowerShellUniversal.Component.Perspective (`New-UDPerspective`, the Perspective datagrid with pivot and
+charts) and PowerShellUniversal.Component.Pivot (`New-UDPivotReport`, a pivot report builder built on
+pivotkit), plus the showcase apps PowerShellUniversal.Component.ECharts.Demo and
+PowerShellUniversal.Component.Pivot.Demo. Data goes in as it comes from SQL (DataTable), REST or
+PowerShell objects. Not affiliated with Devolutions. llms-full.txt holds every page listed here in one file.
+"""
+
+[project.plugins.llmstxt.sections]
+"Start" = ["index.md", "getting-started.md"]
+"ECharts module" = ["echarts/*.md", "demo.md"]
+"Perspective module" = ["perspective/*.md"]
+"Pivot module" = ["pivot/*.md"]
+"Development (build, test, release)" = ["development/*.md"]
+
 [project.theme]
 language = "en"
 logo = "assets/icon.svg"

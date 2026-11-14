@@ -22,7 +22,9 @@ hashtable PSU renders; see [README.md](README.md).
   `examples.ps1` (code and chart from one source, run with the real `New-UDEChart`/`New-UDPerspective`/`New-UDPivotReport`
   by `Build-Site.ps1`, which writes the snippets the pages include with `--8<-- "examples/<id>.md"`),
   `src/charts.jsx` (draws the modules' own components into the pages) and its own `package.json`. A new
-  parameter or chart type gets its description on the matching page and an example there.
+  parameter or chart type gets its description on the matching page and an example there. Zensical's
+  `llmstxt` plugin writes `llms.txt`, `llms-full.txt` and a Markdown file per page from the pages in the
+  sections of `[project.plugins.llmstxt.sections]` (every page in exactly one, `tests/js/llms-sections.test.js`).
 - `tests/js/` (node --test), `tests/browser/` (Playwright: the documentation site in Chromium, Firefox and
   WebKit; `psu.spec.mjs` runs the showcase app on a PSU instance when `PSU_URL` is set, `psu-pivot.spec.mjs`
   the pivot module's showcase when `PSU_PIVOT_URL` is set, and its template roles against `examples/templates.ps1`
