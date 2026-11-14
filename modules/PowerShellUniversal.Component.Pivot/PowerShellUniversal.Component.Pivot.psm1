@@ -307,7 +307,7 @@ function ConvertTo-UDPivotImportLimit {
         Checks -ImportLimit and returns it as the report's import limits: pivotkit's key names, whole numbers.
     .DESCRIPTION
         Used by New-UDPivotReport. The keys are pivotkit-core's limits of a loaded file: fileBytes (bytes
-        of a file), rows, columns, importCells (rows x columns), textLength (characters of one value),
+        of a file), rows, columns, importCells (rows x columns, a workbook's texts and formats), textLength (characters of one value),
         archiveEntries (parts of a workbook) and unpackedBytes (bytes a workbook unpacks to), matched
         without regard to case and
         returned in pivotkit's spelling and order. Each value is a whole number from 1 to 9007199254740991
@@ -1754,7 +1754,8 @@ function New-UDPivotReport {
     .PARAMETER ImportLimit
         Raises or lowers pivotkit's limits for a file loaded with -AllowImport (pivotkit-react's
         importLimits): a hashtable of fileBytes (bytes of a file, default 100 MiB), rows (default
-        1,000,000), columns (default 1,000), importCells (rows x columns, default 10,000,000),
+        1,000,000), columns (default 1,000), importCells (rows x columns, and a workbook's different
+        texts and cell formats; default 10,000,000),
         textLength (characters of one value, longer text is cut; default 32,767), archiveEntries (parts
         of an Excel workbook, default 10,000) and unpackedBytes (bytes a workbook unpacks to, default
         500 MiB), e.g. @{ fileBytes = 250MB; rows = 2000000 }. Needs -AllowImport. Keys left out keep

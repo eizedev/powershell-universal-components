@@ -7,7 +7,7 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ### Changed
 
-- Requires PowerShellUniversal.Component.Pivot 0.5.0 or later (pivotkit 0.5.0): the ticket showcase's
+- Requires PowerShellUniversal.Component.Pivot 0.5.0 or later (pivotkit 0.6.1): the ticket showcase's
   views "Open work per team" and "Lead time per customer" filter in pivotkit's view version 2 (`in`
   with `blanks`), and the documentation pages have the example "Readers' files with smaller limits"
   (`-ImportLimit`).
