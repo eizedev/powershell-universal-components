@@ -5,6 +5,56 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+### Added
+
+- `-ImportLimit`: pivotkit's limits for a file loaded with `-AllowImport` per report, e.g.
+  `@{ fileBytes = 250MB; rows = 2000000 }` (`fileBytes`, `rows`, `columns`, `importCells`,
+  `textLength`, `archiveEntries`, `unpackedBytes`; keys left out keep pivotkit's defaults). They go to
+  pivotkit-react's `importLimits`, so the app's `-Data` keeps pivotkit's own limits. An unknown key or
+  a value that is not a whole number of at least 1 is an error that names it
+  ([#103](https://github.com/eizedev/powershell-universal-components/issues/103),
+  [#106](https://github.com/eizedev/powershell-universal-components/issues/106)).
+
+### Changed
+
+- pivotkit 0.5.0 ([pivotkit-react release](https://github.com/eizedev/pivotkit/releases/tag/pivotkit-react%400.5.0),
+  [upgrading from 0.4](https://pivotkit.eize.dev/getting-started/upgrading/)): pivotkit-core and
+  pivotkit-react 0.5.0, pivotkit-xlsx 0.2.0 and pivotkit-report 0.1.0, all pinned and in the one
+  bundle. Export has an HTML report, the chart as SVG and Print or save as PDF; Excel, the HTML
+  report and print are light also from a dark app. Column subtotals are off unless a view turns them on
+  (`totals = @{ colSubtotals = $true }`); views the report saves name all four totals. The chart's
+  text is 14 px, the font weights are four (`--psu-pivot-weight-*`). `-Tips` knows the tip
+  `colSubtotals`. The filter menus write view version 2 (below).
+- A colour scale without colours of its own runs from light to strong blue, the heatmap's colours,
+  on screen and in the Excel export, not from red over yellow to green: it says "more", not "good" or
+  "bad". `--psu-pivot-scale-low` and `--psu-pivot-scale-high` fall back to `--psu-pivot-heat-low` and
+  `--psu-pivot-heat-high`; `--psu-pivot-scale-mid` adds a middle colour. The Themes page shows how to
+  get red, yellow and green back
+  ([#107](https://github.com/eizedev/powershell-universal-components/issues/107)).
+- Themes: the corporate stylesheet sets each mode for the page and for the theme the report shows
+  (`:root, .ud-pivot-report [data-pk-theme="light"]` and `:root[data-theme="dark"],
+  .ud-pivot-report [data-pk-theme="dark"]`), so the Excel export and the HTML report of a dark app take
+  the light values and a report pinned with `-Theme` takes those of its own theme. A stylesheet with
+  `:root[data-theme="dark"]` alone still themes the screen, but its dark values reach those files.
+- New theme properties: `--psu-pivot-input-border` and `--psu-pivot-rule` (the edge of a text field and
+  the line between a menu's groups, PSU's neutral greys instead of pivotkit's blue-grey) and
+  `--psu-pivot-weight-normal`, `-medium`, `-strong` and `-bold`. The admin panel of `-AdminRole` takes
+  the report's corners, weights and text size (at least 14 px; its code was 13 px).
+- pivotkit's view version 2 ([pivotkit#165](https://github.com/eizedev/pivotkit/issues/165)): every
+  filter is `{ field, type, ..., not, blanks }` with the types `in`, `blank`, `text`, `compare`,
+  `relative`, `top` and `value`. Views of version 1 (`include`, `exclude`, `label`, the operators
+  `!=`, `notBetween`, `notEquals`, `notContains`) in `-View`, `-SavedView`, `-Templates`, view files,
+  template stores and links still load with the same result: the report migrates them. The report
+  writes version 2, so `-OnViewChange`, `Get-UDElement` and saved views carry it.
+- View files: `ConvertFrom-UDPivotViewFile`, `-TemplatePath` and the template stores read format
+  versions 1 and 2 and views of version 1 and 2; a newer one is still refused.
+  `ConvertTo-UDPivotViewFile` and the stores write format version 2 with
+  `https://pivotkit.eize.dev/schema/view-file-2.json` for a view of version 2, and format version 1
+  with `view-file-1.json` for a view of version 1 or without a version, so stored views of version 1
+  stay readable by older releases.
+- The shipped view "Open work per team" and the showcase's "Lead time per customer" are views of
+  version 2. Docs: the Views page has a section on filters (types, `not`, `blanks`, version 1).
+
 ## [0.4.0] - 2026-11-11
 
 ### Added

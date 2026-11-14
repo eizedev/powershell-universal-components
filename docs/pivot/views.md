@@ -24,20 +24,14 @@ The keys of a view:
 
 | Key | What |
 | --- | --- |
+| `version` | The view format's version: `2`. Write it in a view with filters; a view without it is read as version 1 and migrated ([Filters](#filters)). |
 | `rows`, `cols` | Field names, outermost first. |
 | `values` | `@{ field = 'Cost'; agg = 'sum'; format = 'currency:EUR' }`: aggregators `sum`, `count`, `countUnique`, `average`, `median`, `min`, `max`, `stdev`, `var`, `first`, `last`, ...; formats `number`, `number:2`, `integer`, `percent`, `currency:EUR`, `compact`, `bytes`, `duration:h`, `date`, `datetime`, `time`; `showAs = @{ type = 'percentOfGrandTotal' }` and the other "show as" types. |
-| `filters` | `@{ field = 'Status'; type = 'include'; items = @('Open', 'Waiting') }`; also `exclude`, `label` (a rule on the names), `compare` (the item itself compared: `@{ field = 'Created (Year)'; type = 'compare'; op = '>='; value = 2022 }`, a date by its calendar day `'2025-01-01'`, `op` one of `=`, `!=`, `>`, `>=`, `<`, `<=`, `between`, `notBetween` with `value2`), `relative` (the last N years, months or days, today's included: `@{ field = 'Created'; type = 'relative'; unit = 'year'; count = 2 }`; `anchor = 'latest'` counts back from the latest date of the field's data instead of today), `top`, `value` (a rule on the total). |
+| `filters` | `@{ field = 'Status'; type = 'in'; items = @('Open', 'Waiting'); blanks = 'exclude' }`; the types, `not` and `blanks` are under [Filters](#filters). |
 | `derived` | Grouped dates and number ranges: `@{ name = 'Created (Month)'; field = 'Created'; by = 'yearMonth' }` (units `year`, `yearQuarter`, `yearMonth`, `yearWeek`, `day`, `quarter`, `month`, `week`, `weekday`, `hour`); the name then goes into `rows` or `cols`. |
 | `sort` | `@{ field = 'Team'; by = 'value'; order = 'desc' }`. |
-| `totals` | `@{ grandTotalRow = $true; grandTotalColumn = $true; rowSubtotals = $true; colSubtotals = $true }`. |
+| `totals` | `@{ grandTotalRow = $true; grandTotalColumn = $true; rowSubtotals = $true; colSubtotals = $true }`. A key left out keeps the default: both grand totals and the row subtotals on, the column subtotals off; a view with two or more fields in `cols` that should show their subtotals sets `colSubtotals = $true`. The report writes all four into every view it saves or shares. |
 | `display`, `chart` | `'table'` or `'chart'`; `@{ type = 'bar'; stacked = $false; horizontal = $false }`, types `auto` (the default: lines over dates, bars otherwise), `bar`, `line`, `area`, `pie`, `donut`, `heatmap`; the Display settings `valueLabels` (`auto`, `off`, `value`, `percent`, `both`), `legend` (`auto`, `bottom`, `right`, `off`), `title`, `smooth`, `axisLabels` (`auto`, `all`, `nth`), `groupLabels` (`auto`, `on`, `off`) and, for a pie or donut, `labelPosition` (`outside`, `inside`). |
-
-A `relative` filter and the quick choices of the Filter level keep a rule, not dates: "today" is read
-when the report computes, in the browser, from the reader's clock at the wall time of `-TimeZone`
-(pivotkit-core's `now` option; the module passes none, so a view saved today still shows "last 2
-years" next year). A view with a `compare` or `relative` filter loaded by a report on pivotkit 0.2.0
-(this module before 0.3.0) reports that filter as an unused part and leaves it out; views saved by
-earlier versions load unchanged (the view file format stays version 1).
 
 The simplest way to a view is to build it in the report and copy it: **Views, Share, Copy view as JSON** (a
 [view file](templates.md#view-files); `-View` takes its `view`), or `$EventData.json` of `-OnViewChange`.
@@ -75,6 +69,52 @@ the tab keeps `-View`. The view is kept in two places of the tab:
 
 The view in a link is input like any other: the report checks it against the data and drops what does
 not fit, and nothing in it runs as code.
+
+## Filters
+
+Every filter of a view has one shape: `field`, `type`, the keys of its type, and `not` and `blanks`.
+All filters apply together.
+
+```powershell
+New-UDPivotReport -Id 'tickets' -Data $tickets -View @{
+    version = 2
+    rows    = @('Team')
+    values  = @(@{ field = 'Ticket'; agg = 'count' })
+    filters = @(
+        @{ field = 'Status'; type = 'in'; items = @('Closed'); not = $true; blanks = 'include' }
+        @{ field = 'Host'; type = 'text'; op = 'contains'; value = 'test'; not = $true; blanks = 'exclude' }
+        @{ field = 'Created'; type = 'relative'; unit = 'year'; count = 2; blanks = 'exclude' }
+    )
+}
+```
+
+| `type` | What |
+| --- | --- |
+| `in` | Keeps the listed `items`; with `not = $true` drops them. |
+| `blank` | Keeps the blank items; with `not = $true` every other. |
+| `text` | A rule on the names: `op` `equals`, `contains`, `beginsWith`, `endsWith` and `value` the text, case and runs of spaces ignored. `on = 'label'` compares the text the table shows (a number or a date as formatted). |
+| `compare` | The item itself compared with `value`: `op` `=`, `>`, `>=`, `<`, `<=`, `between` (with `value2`); a date by its calendar day `'2025-01-01'`, or by `precision` `year`, `quarter`, `month`, `hour`. |
+| `relative` | Dates of a range that moves with today: `@{ field = 'Created'; type = 'relative'; unit = 'year'; count = 2 }` (the last 2 years, this one included); `direction` `last`, `next`, `this`, `before`, units `hour` to `year`, `anchor = 'latest'` counts from the latest date of the field's data. |
+| `value` | A rule on the total, `op` as `compare`'s, `by` the value: `@{ field = 'Team'; type = 'value'; op = '>'; value = 1000 }`. |
+| `top` | The `count` largest items (`bottom = $true`: the smallest), `ties = 'all'` keeps every item tied at the cut. |
+
+- `not = $true` turns the rule around for the items with a value: "is not", "does not contain" and
+  "is not between" are `equals`, `contains`, `=` and `between` with `not`.
+- `blanks` alone decides the blank items: `'exclude'` (the default) drops them, `'include'` keeps them
+  too, `'only'` keeps only them. Write it on every filter, so the view says what it means.
+
+The whole catalogue with every key: pivotkit's [Filters, top N and sorting](https://pivotkit.eize.dev/concepts/filters/).
+A view of version 1 - without `version`, or one stored by an earlier release - still works: its
+`include`, `exclude` and `label` filters and the operators `!=`, `notBetween`, `notEquals` and
+`notContains` are migrated to version 2 when the report reads them, with the same result
+([pivotkit's table](https://pivotkit.eize.dev/concepts/views/#versions)). The report writes version 2,
+so `-OnViewChange`, `Get-UDElement` and saved views carry it. `ConvertFrom-UDPivotView` passes the
+filters of either version as they are; the report checks them against the data.
+
+A `relative` filter and the quick choices of the Filter level keep a rule, not dates: "today" is read
+when the report computes, in the browser, from the reader's clock at the wall time of `-TimeZone`
+(pivotkit-core's `now` option; the module passes none, so a view saved today still shows "last 2
+years" next year).
 
 ## Several tabs and keeping the reader's view
 

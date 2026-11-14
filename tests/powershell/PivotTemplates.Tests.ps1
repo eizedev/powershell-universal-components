@@ -40,6 +40,42 @@ Describe 'View files' {
         (ConvertTo-UDPivotViewFile -View $script:view -Name 'X' -SchemaUrl '') | Should -Not -Match '\$schema'
     }
 
+    It 'reads format 1 with a view of version 1 and format 2 with a view of version 2, filters as they are' {
+        # version 1's filters (include, label, a negated operator); pivotkit migrates them in the browser
+        $v1 = ConvertFrom-UDPivotViewFile '{"format":"pivotkit-view","formatVersion":1,"name":"Old","view":{"version":1,"rows":["Team"],"filters":[{"field":"Status","type":"include","items":["Open",null]},{"field":"Host","type":"label","op":"notContains","value":"test"}]}}'
+        $v1.View.version | Should -Be 1
+        $v1.View.filters[0].type | Should -Be 'include'
+        $v1.View.filters[0].items | Should -Be @('Open', $null)
+        $v1.View.filters[1].op | Should -Be 'notContains'
+        # a file without formatVersion and a view without version: version 1, as pivotkit reads them
+        (ConvertFrom-UDPivotViewFile '{"format":"pivotkit-view","name":"No version","view":{"filters":[{"field":"Status","type":"exclude","items":["Closed"]}]}}').View.filters[0].type | Should -Be 'exclude'
+        $v2 = ConvertFrom-UDPivotViewFile '{"$schema":"https://pivotkit.eize.dev/schema/view-file-2.json","format":"pivotkit-view","formatVersion":2,"name":"New","source":{"id":"tickets","params":{"year":"2026"}},"view":{"version":2,"rows":["Team"],"filters":[{"field":"Status","type":"in","items":["Closed"],"not":true,"blanks":"include"},{"field":"Host","type":"text","op":"contains","value":"test","not":true,"blanks":"exclude","match":{"case":"insensitive","whitespace":"collapse"}}]}}'
+        $v2.Name | Should -Be 'New'
+        $v2.Source.id | Should -Be 'tickets'
+        $v2.View.version | Should -Be 2
+        $v2.View.filters[0].not | Should -BeTrue
+        $v2.View.filters[0].blanks | Should -Be 'include'
+        $v2.View.filters[1].match.whitespace | Should -Be 'collapse'
+    }
+
+    It 'writes format 2 for a view of version 2 and format 1 for an older one, each with pivotkit''s schema of that format' {
+        $v2 = @{ version = 2; rows = @('Team'); filters = @(@{ field = 'Status'; type = 'in'; items = @('Open'); blanks = 'exclude' }) }
+        $file = ConvertTo-UDPivotViewFile -View $v2 -Name 'New' | ConvertFrom-Json
+        $file.formatVersion | Should -Be 2
+        $file.'$schema' | Should -Be 'https://pivotkit.eize.dev/schema/view-file-2.json'
+        $file.view.filters[0].type | Should -Be 'in'
+        foreach ($old in @(@{ rows = @('Team') }, @{ version = 1; filters = @(@{ field = 'Status'; type = 'include'; items = @('Open') }) })) {
+            $file = ConvertTo-UDPivotViewFile -View $old -Name 'Old' | ConvertFrom-Json
+            $file.formatVersion | Should -Be 1
+            $file.'$schema' | Should -Be 'https://pivotkit.eize.dev/schema/view-file-1.json'
+        }
+        (ConvertTo-UDPivotViewFile -View $v2 -Name 'Own schema' -SchemaUrl 'https://example.org/v.json' | ConvertFrom-Json).'$schema' | Should -Be 'https://example.org/v.json'
+        # what it writes, it reads again
+        (ConvertFrom-UDPivotViewFile (ConvertTo-UDPivotViewFile -View $v2 -Name 'New')).View.filters[0].items | Should -Be @('Open')
+        { ConvertTo-UDPivotViewFile -View @{ version = 3; rows = @('Team') } -Name 'Newer' } | Should -Throw '*view version 3*'
+        { ConvertTo-UDPivotViewFile -View @{ version = 1.5 } -Name 'Odd' } | Should -Throw '*view version 1.5*'
+    }
+
     It 'reads { name, view } and a bare view with -Name' {
         (ConvertFrom-UDPivotViewFile -InputObject '{"name":"Saved","view":{"rows":["Team"]}}').Name | Should -Be 'Saved'
         (ConvertFrom-UDPivotViewFile -InputObject '{"rows":["Team"]}' -Name 'From file').Name | Should -Be 'From file'
@@ -47,9 +83,10 @@ Describe 'View files' {
     }
 
     It 'refuses newer formats and views, wrong format versions, too large and too deep files' {
-        { ConvertFrom-UDPivotViewFile '{"format":"pivotkit-view","formatVersion":2,"name":"N","view":{}}' } | Should -Throw '*newer*'
-        { ConvertFrom-UDPivotViewFile '{"format":"pivotkit-view","formatVersion":"1","name":"N","view":{}}' } | Should -Throw '*formatVersion*'
-        { ConvertFrom-UDPivotViewFile '{"format":"pivotkit-view","formatVersion":1,"name":"N","view":{"version":2}}' } | Should -Throw '*newer*'
+        { ConvertFrom-UDPivotViewFile '{"format":"pivotkit-view","formatVersion":3,"name":"N","view":{}}' } | Should -Throw '*format version 3 is newer than this module reads (2)*'
+        { ConvertFrom-UDPivotViewFile '{"format":"pivotkit-view","formatVersion":"1","name":"N","view":{}}' } | Should -Throw '*formatVersion must be one of 1, 2*'
+        { ConvertFrom-UDPivotViewFile '{"format":"pivotkit-view","formatVersion":1.5,"name":"N","view":{}}' } | Should -Throw '*formatVersion must be one of 1, 2*'
+        { ConvertFrom-UDPivotViewFile '{"format":"pivotkit-view","formatVersion":2,"name":"N","view":{"version":3}}' } | Should -Throw '*view version 3 is newer*'
         { ConvertFrom-UDPivotViewFile '{"format":"pivotkit-view","formatVersion":1,"name":"N"}' } | Should -Throw '*no view*'
         { ConvertFrom-UDPivotViewFile ('{"name":"N","view":{"rows":["' + ('x' * 1000001) + '"]}}') } | Should -Throw '*characters*'
         { ConvertFrom-UDPivotViewFile ('{"name":"N","view":' + ('[' * 20) + (']' * 20) + '}') } | Should -Throw
@@ -157,6 +194,19 @@ Describe 'New-UDPivotFileTemplateStore' {
         { & $script:invoke @{ Store = $script:store; Action = 'Save'; Scope = 'user'; UserName = 'alex'; Name = ''; View = $script:view } } | Should -Throw '*name*'
         { & $script:invoke @{ Store = $script:store; Action = 'Save'; Scope = 'user'; UserName = 'alex'; Name = 'Bad'; View = 'not json' } } | Should -Throw '*JSON*'
         { & $script:invoke @{ Store = $script:store; Action = 'Save'; Scope = 'user'; UserName = ''; Name = 'X'; View = $script:view } } | Should -Throw '*Sign in*'
+    }
+
+    It 'writes a view of version 2 as format 2 and keeps a stored view of version 1 readable' {
+        $v2 = @{ version = 2; rows = @('Team'); filters = @(@{ field = 'Team'; type = 'text'; op = 'beginsWith'; value = 'Op'; blanks = 'exclude' }) }
+        & $script:invoke @{ Store = $script:store; Action = 'Publish'; Scope = 'shared'; UserName = 'boss'; Name = 'New'; View = $v2 }
+        $written = Get-ChildItem -LiteralPath (Join-Path $script:folder 'shared') -File | Get-Content -Raw | ConvertFrom-Json
+        $written.formatVersion | Should -Be 2
+        $written.'$schema' | Should -Be 'https://pivotkit.eize.dev/schema/view-file-2.json'
+        # a view of version 1 an earlier version of the module stored
+        Set-Content -LiteralPath (Join-Path $script:folder 'shared' 'old.pivotkit.json') -Value '{"format":"pivotkit-view","formatVersion":1,"name":"Old","view":{"filters":[{"field":"Team","type":"include","items":["Ops"]}]}}'
+        $list = @(& $script:invoke @{ Store = $script:store; Action = 'List'; Scope = 'shared' })
+        $list.Name | Sort-Object | Should -Be @('New', 'Old')
+        ($list | Where-Object Name -EQ 'Old').View.filters[0].type | Should -Be 'include'
     }
 
     It 'skips a stored file that was broken by hand' {

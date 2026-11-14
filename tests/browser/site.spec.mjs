@@ -5,6 +5,9 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { openSaveAs, openViews } from "./pivot-menus.mjs";
+import { CSV, fileOf, openDataMenu, pickFile } from "./pivot-import.mjs";
+import { colorScaleCells, resolvedColor, workbookScaleColors } from "./pivot-colors.mjs";
+import { writeLinkView } from "../../modules/PowerShellUniversal.Component.Pivot/Components/prepare.js";
 
 // the pages of the built site, as paths ("/echarts/bars/")
 const pages = [...readFileSync(new URL("../../site/sitemap.xml", import.meta.url), "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname);
@@ -174,6 +177,110 @@ test("Pivot: shared views and my views; a reader with -AdminRole publishes and t
     await expect(page.locator(".psu-event")).toContainText("-OnPublishTemplate");
     await expect(page.locator(".psu-event")).toContainText('"name": "My priorities"');
     await expect(report.locator(".pk-toast-dock")).toContainText("published");
+    expect(errors).toEqual([]);
+});
+
+// a CSV of `rows` records under a header, as a reader's export
+const csvOf = (rows) => `Id,Team\n${Array.from({ length: rows }, (_, i) => `${i + 1},Team ${i % 3}`).join("\n")}\n`;
+
+test("Pivot: -ImportLimit refuses a file over its rows or bytes, loads one at the limit, and leaves the app's data alone", async ({ page }) => {
+    const errors = collectErrors(page);
+    await openPage(page, "/pivot/import/");
+    const report = page.locator('[data-example="readers-files-with-smaller-limits"] .pk-root');
+    // the app's 300 rows, more than -ImportLimit rows = 200: the app's data keeps pivotkit's limits
+    await expect(report.getByRole("region", { name: "Table" })).toContainText("300");
+    await expect(report.getByText("300 rows", { exact: true })).toBeVisible();
+    const dialog = page.getByTestId("import-dialog");
+    const alert = report.getByRole("alert");
+
+    // one row over -ImportLimit rows = 200: refused with a message that names the limit, the app's
+    // data stays
+    await pickFile(report, fileOf("over.csv", CSV, csvOf(201)));
+    await expect(alert).toContainText("over.csv could not be loaded");
+    await expect(alert).toContainText("more than 200 rows (limits.rows)");
+    await expect(dialog).toHaveCount(0);
+    await expect(report.getByRole("region", { name: "Table" })).toContainText("300");
+    await alert.getByRole("button", { name: "Close" }).click();
+    await expect(alert).toHaveCount(0);
+
+    // a file over -ImportLimit fileBytes = 1MB (1,048,576 bytes), whatever its rows
+    await pickFile(report, fileOf("large.csv", CSV, `Id,Text\n1,${"x".repeat(1024 * 1024)}\n`));
+    await expect(alert).toContainText("large.csv could not be loaded");
+    await expect(alert).toContainText("more than 1,048,576 bytes (limits.fileBytes)");
+    await expect(dialog).toHaveCount(0);
+    await expect(report.getByRole("region", { name: "Table" })).toContainText("300");
+    await alert.getByRole("button", { name: "Close" }).click();
+
+    // exactly 200 rows load: the limit is the one set, not a lower one
+    await pickFile(report, fileOf("at-limit.csv", CSV, csvOf(200)));
+    await expect(dialog.getByTestId("import-meta")).toContainText("200 rows");
+    await dialog.getByTestId("import-apply").click();
+    await expect(report.getByTestId("source-line")).toContainText("at-limit.csv");
+    // the row count under the result: every row of the file
+    await expect(report.getByText("200 rows", { exact: true })).toBeVisible();
+    // Back to original data: the app's 300 rows again, not capped by the file's limits
+    await openDataMenu(report);
+    await page.getByTestId("back-to-original").click();
+    await expect(report.getByTestId("source-line")).toHaveCount(0);
+    await expect(report.getByText("300 rows", { exact: true })).toBeVisible();
+    expect(errors).toEqual([]);
+});
+
+test("Pivot: a colour scale without colours runs over the heatmap's blues in both themes; a dark page exports the light colours of the documented stylesheet (#107)", async ({ page }) => {
+    const errors = collectErrors(page);
+    // the DataTable example with a colour scale on the count, as a reader adds it (no colours of its own)
+    const view = { rows: ["Team"], cols: ["Priority"], values: [{ field: "Ticket", agg: "count", conditional: { type: "colorScale" } }] };
+    await page.goto(`/pivot/${writeLinkView("", "pivot-datatable", view)}`);
+    const example = page.locator('[data-example="pivot-report-from-a-datatable"]');
+    const report = example.locator(".pk-root");
+    const table = report.getByRole("region", { name: "Table" });
+    await expect(table).toContainText("1,200");
+
+    const scaleCells = () => colorScaleCells(table);
+    for (const mode of ["light", "dark"]) {
+        if ((await page.locator("html").getAttribute("data-theme")) !== mode) {
+            await page.locator("[data-md-component=palette] label:visible").first().click();
+        }
+        await expect(report).toHaveAttribute("data-pk-theme", mode);
+        const tokens = await report.evaluate((root) => Object.fromEntries(["--pk-heat-low", "--pk-heat-high"].map((n) => [n, getComputedStyle(root).getPropertyValue(n).trim()])));
+        const cells = await scaleCells();
+        // 4 teams x 4 priorities
+        expect(cells.count).toBe(16);
+        expect(cells.painted).toBe(true);
+        expect(await resolvedColor(report, cells.high), `${mode}: the highest count in the heatmap's strong blue`).toBe(await resolvedColor(report, tokens["--pk-heat-high"]));
+        expect(await resolvedColor(report, cells.low), `${mode}: the lowest count in the heatmap's light colour`).toBe(await resolvedColor(report, tokens["--pk-heat-low"]));
+    }
+
+    // the dark page exports the light theme's colours: pivotkit's heat colours, not red, not the dark ones
+    const exportScale = async () => {
+        await report.locator("[data-testid=export]").click();
+        const [download] = await Promise.all([page.waitForEvent("download"), page.locator("[data-testid=export-xlsx]").click()]);
+        return workbookScaleColors(download);
+    };
+    expect(await exportScale()).toEqual(["EAF1FB", "2A78D6"]);
+
+    // a corporate stylesheet as docs/pivot/themes.md writes it: the light values reach the workbook
+    // from the dark page; the same values on the page's data-theme alone would put the dark ones there
+    const corporate = (selectors) => `${selectors.light} { --psu-pivot-heat-low: #e6eef7; --psu-pivot-heat-high: #003b6f; } ${selectors.dark} { --psu-pivot-heat-low: #1a2533; --psu-pivot-heat-high: #6fa8dc; }`;
+    const addStyle = (css) => example.evaluate((el, text) => {
+        // the page's root for :root, the example's shadow root for the report's own theme (in PSU one stylesheet does both)
+        for (const host of [document.head, el.shadowRoot]) {
+            const style = document.createElement("style");
+            style.className = "test-corporate";
+            style.textContent = text;
+            host.appendChild(style);
+        }
+    }, css);
+    const removeStyle = () => example.evaluate((el) => [...document.querySelectorAll(".test-corporate"), ...el.shadowRoot.querySelectorAll(".test-corporate")].forEach((s) => s.remove()));
+    const documented = { light: ':root, .ud-pivot-report [data-pk-theme="light"]', dark: ':root[data-theme="dark"], .ud-pivot-report [data-pk-theme="dark"]' };
+    expect(readFileSync(new URL("../../docs/pivot/themes.md", import.meta.url), "utf8")).toContain(':root[data-theme="dark"],\n.ud-pivot-report [data-pk-theme="dark"] {');
+    await addStyle(corporate(documented));
+    // on screen the dark values
+    expect(await resolvedColor(report, (await scaleCells()).high)).toBe(await resolvedColor(report, "#6fa8dc"));
+    expect(await exportScale()).toEqual(["E6EEF7", "003B6F"]);
+    await removeStyle();
+    await addStyle(corporate({ light: ":root", dark: ':root[data-theme="dark"]' }));
+    expect(await exportScale(), "the page's attribute alone: the dark colours land in the file").toEqual(["1A2533", "6FA8DC"]);
     expect(errors).toEqual([]);
 });
 

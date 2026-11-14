@@ -94,6 +94,27 @@ test("sourceOf, schemaUrlOf, fieldListOf: the props of -SourceId, -SourceName, -
     assert.equal(mod.switchOf("Off"), "off");
 });
 
+test("importLimitsOf: -ImportLimit as pivotkit's importLimits, only known keys with whole numbers", () => {
+    // as PSU sends -ImportLimit @{ fileBytes = 250MB; rows = 2000000 }
+    assert.deepEqual(mod.importLimitsOf({ fileBytes: 262144000, rows: 2000000 }), { fileBytes: 262144000, rows: 2000000 });
+    assert.deepEqual(mod.importLimitsOf({ columns: 50, importCells: Number.MAX_SAFE_INTEGER }), { columns: 50, importCells: Number.MAX_SAFE_INTEGER });
+    assert.deepEqual(mod.importLimitsOf({ textLength: 100, archiveEntries: 50, unpackedBytes: 1073741824 }), { textLength: 100, archiveEntries: 50, unpackedBytes: 1073741824 });
+    // pivotkit throws on an unknown limit or a value that is no whole number of at least 1: left out
+    assert.deepEqual(mod.importLimitsOf({ rows: 10, groups: 5, toString: 1, fileBytes: 2.5, columns: 0, importCells: "100" }), { rows: 10 });
+    assert.deepEqual(mod.importLimitsOf({ rows: Number.MAX_SAFE_INTEGER + 1, columns: -1, fileBytes: Infinity, importCells: NaN }), undefined);
+    for (const bad of [undefined, null, "rows", 5, [1, 2], {}]) assert.equal(mod.importLimitsOf(bad), undefined, String(bad));
+    // an inherited key is no limit of the host's
+    assert.equal(mod.importLimitsOf(Object.create({ rows: 5 })), undefined);
+});
+
+test("importLimitsOf: the same keys as -ImportLimit in the module", () => {
+    const psm1 = readFileSync(new URL("../../modules/PowerShellUniversal.Component.Pivot/PowerShellUniversal.Component.Pivot.psm1", import.meta.url), "utf8");
+    const block = psm1.match(/\$Script:ImportLimitDefaults = \[ordered\]@\{([^}]*)\}/);
+    assert.ok(block, "$Script:ImportLimitDefaults in the module");
+    const keys = [...block[1].matchAll(/^\s*(\w+)\s*=/gm)].map((m) => m[1]);
+    assert.deepEqual(keys, [...mod.IMPORT_LIMIT_KEYS]);
+});
+
 test("columnSummary and lastTimings: the admin panel's columns and timings", () => {
     const encoded = {
         columns: [
@@ -332,6 +353,7 @@ test("stored view: blocked, full or broken storage is ignored", () => {
 
 const css = readFileSync(new URL("../../modules/PowerShellUniversal.Component.Pivot/Components/psu.css", import.meta.url), "utf8");
 const themesDoc = readFileSync(new URL("../../docs/pivot/themes.md", import.meta.url), "utf8");
+const WRAPPER = ".ud-pivot-report";
 const LIGHT = ".ud-pivot-report .pk-root";
 const DARK = '.ud-pivot-report .pk-root[data-pk-theme="dark"]';
 
@@ -347,9 +369,11 @@ function declarations(selector) {
     return out;
 }
 
-// the report's declarations in a mode: the dark block adds to the light one, as in the browser
+// the report's declarations in a mode: pivotkit's root inherits the wrapper's (literals only, so
+// inherited and own declarations resolve alike), the dark block adds to the light one, as in the browser
 function element(mode) {
-    return mode === "dark" ? { ...declarations(LIGHT), ...declarations(DARK) } : declarations(LIGHT);
+    const light = { ...declarations(WRAPPER), ...declarations(LIGHT) };
+    return mode === "dark" ? { ...light, ...declarations(DARK) } : light;
 }
 
 // var() substitution as CSS does it: a property without a value takes the fallback, a var() without
@@ -427,12 +451,37 @@ for (const mode of ["light", "dark"]) {
         assert.ok(contrastRatio(parseColor(t["--pk-accent"]), parseColor(t["--pk-surface"])) >= 3, "accent on the surface");
         assert.ok(contrastRatio(parseColor(t["--pk-focus"]), parseColor(t["--pk-surface"])) >= 3, "focus ring");
         assert.ok(contrastRatio(parseColor(t["--pk-drop-border"]), parseColor(t["--pk-surface"])) >= 3, "edge of a zone");
+        // pivotkit's rule for these two: 3:1 against every surface a field or a menu sits on
+        for (const surface of ["--pk-surface", "--pk-surface-2", "--pk-surface-3", "--pk-surface-raised", "--pk-total", "--pk-total-strong", "--pk-accent-soft", "--pk-drop", "--pk-note"]) {
+            assert.ok(contrastRatio(parseColor(t["--pk-input-border"]), parseColor(t[surface])) >= 3, `edge of a text field on ${surface}`);
+            assert.ok(contrastRatio(parseColor(t["--pk-rule"]), parseColor(t[surface])) >= 3, `rule between a menu's groups on ${surface}`);
+        }
+    });
+
+    test(`theme bridge (${mode}): a colour scale without colours runs over the heatmap's blues, a middle colour only from the app`, () => {
+        const t = tokensOf(mode);
+        assert.equal(t["--pk-scale-low"], t["--pk-heat-low"]);
+        assert.equal(t["--pk-scale-high"], t["--pk-heat-high"]);
+        assert.equal(t["--pk-scale-mid"], undefined, "two colours: pivotkit reads no middle colour");
+        // not Excel's red, yellow and green of pivotkit 0.4 (#107)
+        for (const red of ["#f8696b", "#c2413f"]) assert.ok(!Object.values(t).includes(red), red);
+        const own = tokensOf(mode, { "--psu-pivot-heat-high": "#003b6f" });
+        assert.equal(own["--pk-scale-high"], "#003b6f", "a corporate heatmap colour is the scale's too");
+        const three = tokensOf(mode, { "--psu-pivot-scale-low": "#f8696b", "--psu-pivot-scale-mid": "#ffeb84", "--psu-pivot-scale-high": "#63be7b" });
+        assert.deepEqual([three["--pk-scale-low"], three["--pk-scale-mid"], three["--pk-scale-high"]], ["#f8696b", "#ffeb84", "#63be7b"]);
+    });
+
+    test(`theme bridge (${mode}): font weights are pivotkit's four, an app's own win`, () => {
+        const t = tokensOf(mode);
+        assert.deepEqual(["normal", "medium", "strong", "bold"].map((w) => t[`--pk-weight-${w}`]), ["400", "500", "600", "700"]);
+        assert.equal(tokensOf(mode, { "--psu-pivot-weight-strong": "500" })["--pk-weight-strong"], "500");
     });
 
     test(`theme bridge (${mode}): every token has a value without a corporate stylesheet, except the font`, () => {
         const t = tokensOf(mode);
         for (const [name, value] of Object.entries(t)) {
             if (name === "--pk-font") assert.equal(value, undefined, "pivotkit inherits the page's font");
+            else if (name === "--pk-scale-mid") assert.equal(value, undefined, "a two-colour scale");
             else assert.ok(value && !value.includes("var("), `${name}: ${value}`);
         }
     });
@@ -453,6 +502,46 @@ for (const mode of ["light", "dark"]) {
         assert.equal(tokensOf(mode, { "--psu-pivot-font": "Arial" })["--pk-font"], "Arial");
     });
 }
+
+test("theme bridge: every colour, weight, radius and font size is a token; the literals live in the --psu-default-* blocks", () => {
+    const source = css.replace(/\/\*[\s\S]*?\*\//g, "");
+    const literal = /#[0-9a-f]{3,8}\b|\brgba?\(|\bcolor-mix\(|\b\d+(?:\.\d+)?(?:px|r?em)\b|^\s*font-weight:\s*\d|^\s*opacity:\s*[\d.]/im;
+    for (const rule of source.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        for (const line of rule[2].split(";").map((l) => l.trim()).filter(Boolean)) {
+            const [property] = line.split(":");
+            // token blocks: --psu-default-* literals; the bridge maps tokens to tokens
+            if (property.startsWith("--psu-default-") || property.startsWith("--pk-") || property.startsWith("--psu-corporate-")) continue;
+            // layout lengths (margins, paddings, border widths, heights) are not theme values in pivotkit either
+            if (/^(margin|padding)(-[a-z]+)?$|^max-(height|width)$|^border(-bottom)?$/.test(property) && !/#|rgb|color-mix|currentColor/.test(line.replace(/var\([^)]*\)/g, ""))) continue;
+            assert.doesNotMatch(line, literal, `${rule[1].trim()}: ${line}`);
+        }
+    }
+    // the bridge's mixes are tokens built from tokens, never a colour of their own
+    for (const [name, value] of Object.entries(declarations(LIGHT))) {
+        if (name.startsWith("--pk-") || name.startsWith("--psu-corporate-")) assert.doesNotMatch(value, /#[0-9a-f]{3,8}\b|rgba?\(/i, name);
+    }
+});
+
+test("theme bridge: dark values go on pivotkit's data-pk-theme, never on the page's data-theme (an export reads the light theme)", () => {
+    const selectors = [...css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{/g)].map((m) => m[1].trim());
+    assert.ok(selectors.includes(DARK));
+    for (const selector of selectors) assert.doesNotMatch(selector, /data-theme/, selector);
+    // the documented corporate stylesheets write each mode for the page (ECharts) and for the report's theme
+    const docCss = [...themesDoc.matchAll(/```css\n([\s\S]*?)```/g)].map((m) => m[1]).join("\n");
+    const blocks = [...docCss.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{/g)].map((m) => m[1].trim()).filter((sel) => sel.includes(":root"));
+    assert.ok(blocks.length >= 4, "themes.md shows stylesheets per mode");
+    for (const selector of blocks) {
+        const mode = /dark/.test(selector) ? "dark" : "light";
+        assert.ok(selector.includes(`.ud-pivot-report [data-pk-theme="${mode}"]`), selector);
+    }
+    // and so does the one-line example for New-UDHtml
+    for (const style of themesDoc.matchAll(/<style>([^<]*)<\/style>/g)) {
+        for (const m of style[1].matchAll(/([^{}]+)\{/g)) {
+            const sel = m[1].trim();
+            assert.ok(sel.includes(`.ud-pivot-report [data-pk-theme="${/dark/.test(sel) ? "dark" : "light"}"]`), sel);
+        }
+    }
+});
 
 test("theme bridge: docs/pivot/themes.md lists every property the bridge reads, with its fallbacks and defaults", () => {
     const rows = docRows();

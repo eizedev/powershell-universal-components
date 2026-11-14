@@ -67,8 +67,8 @@ templates: [Templates, view files and roles](templates.md).
 - `-Schema` with a URL is fetched by the server (https only, 15 seconds, at most 1 MB), never by the
   browser; pass only addresses you trust, never one a reader typed. `-ChartOptions` is plain JSON:
   pivotkit drops options that are markup or addresses.
-- Exports and copies are made in the browser from what the reader sees; nothing is sent to a server. The CSV
-  export guards against formulas (a value starting with `=`, `+`, `-` or `@` is not run by Excel).
+- Exports and copies are made in the browser from what the reader sees; nothing is sent to a server. Print
+  runs from a frame sandboxed without scripts. The CSV export guards against formulas (a value starting with `=`, `+`, `-` or `@` is not run by Excel).
 - `-AllowImport` reads a reader's file in the browser; no byte of it goes to the server. Only
   `-OnDataLoad` sends something about it: the file's name, size and type, its sheet and column names
   ([Readers' own files](import.md#security)).
@@ -82,7 +82,11 @@ the browser downloads it once and caches it. The pivot runs in the browser: tens
 stay fast (measured by hand on one laptop: about a tenth of a second to read 100,000 rows once, a frame
 or two for a change of the view);
 the limit is what the server sends and the browser holds. A layout with more cells than the table can
-show says so instead of drawing them. ECharts, the menus and the Excel export are set up on first use;
+show says so instead of drawing them. ECharts, the menus, the Excel export and the HTML report are set up on first use;
 they are all in the module's one bundle. The one file next to it is the import worker of
 `-AllowImport` (about 26 KB), which PSU serves like the bundle and the browser loads only when a
 reader's CSV or JSON file is read.
+
+A file a reader loads is bounded by pivotkit's limits (100 MiB, 1,000,000 rows, 1,000 columns,
+10,000,000 cells, 500 MiB unpacked for a workbook), which `-ImportLimit` changes per report for
+loaded files only ([Readers' own files](import.md#limits)).

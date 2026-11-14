@@ -82,24 +82,35 @@ report writes it for Copy view as JSON and Download view, the template stores ke
 
 ```json
 {
-  "$schema": "https://pivotkit.eize.dev/schema/view-file-1.json",
+  "$schema": "https://pivotkit.eize.dev/schema/view-file-2.json",
   "format": "pivotkit-view",
-  "formatVersion": 1,
+  "formatVersion": 2,
   "name": "Open work per team",
   "description": "Tickets not closed yet, per team and priority.",
   "source": { "id": "tickets", "name": "Tickets" },
   "extensions": {},
-  "view": { "rows": ["Team"], "cols": ["Priority"], "values": [{ "field": "Ticket", "agg": "count" }] }
+  "view": {
+    "version": 2,
+    "rows": ["Team"],
+    "cols": ["Priority"],
+    "values": [{ "field": "Ticket", "agg": "count" }],
+    "filters": [{ "field": "Status", "type": "in", "items": ["Open", "Waiting"], "blanks": "exclude" }]
+  }
 }
 ```
+
+Format version 2 carries a view of version 2 ([filters](views.md#filters)), which the report writes.
+Files of format version 1 (views of version 1, as earlier releases wrote them) are read as they are:
+the report migrates their filters to version 2 with the same result, and the module keeps them
+unchanged on the server until they are saved again.
 
 The whole format, its rules and its JSON Schema: [View file format](https://pivotkit.eize.dev/reference/view-file/)
 on pivotkit's site. In PowerShell:
 
 | Command | What |
 | --- | --- |
-| `ConvertFrom-UDPivotViewFile` | Reads a view file (or `{ name, view }`, or a bare view with `-Name`) as untrusted input: `Name`, `Description`, `Source`, `View`. Refuses a newer format or view version, since saving it again would lose what the newer version added. |
-| `ConvertTo-UDPivotViewFile` | Writes one, in pivotkit's key order with a trailing newline; without `-CreatedAt` the same view gives the same bytes, so a file kept in git changes only with the view. |
+| `ConvertFrom-UDPivotViewFile` | Reads a view file of format version 1 or 2 (or `{ name, view }`, or a bare view with `-Name`) as untrusted input: `Name`, `Description`, `Source`, `View`. Refuses a newer format or view version (above 2), since saving it again would lose what the newer version added. |
+| `ConvertTo-UDPivotViewFile` | Writes one, in pivotkit's key order with a trailing newline: format version 2 for a view of version 2, format version 1 for a view of version 1 or without `version`. Without `-CreatedAt` the same view gives the same bytes, so a file kept in git changes only with the view. |
 
 `source` names the data a view was made for: `-SourceId` (default: `-Id`, or the key the module
 derives without one) and `-SourceName` (default: `-Label`) of the report. Loading a view made for
@@ -122,8 +133,9 @@ A file loaded in the browser with `-AllowImport` needs none of this: its views a
 the browser, whatever `-SourceId` and `-TemplateStore` say ([Readers' own files](import.md#views-per-file)).
 
 Use a name the reader may see (it is in view files and links), never a path on the server.
-`-SchemaUrl` sets the file's `$schema`: pivotkit's address by default, an https address of your own
-copy, or `''` to leave it out; loading never depends on it.
+`-SchemaUrl` sets the file's `$schema`: by default pivotkit's address of the format version written
+(`view-file-2.json` or `view-file-1.json`), else an https address of your own copy, or `''` to leave it
+out; loading never depends on it.
 
 ## Template stores: `-TemplateStore`
 
