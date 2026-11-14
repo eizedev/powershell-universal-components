@@ -17,7 +17,7 @@
  * MUI's primary blue #1976d2; dark page black, app bar rgb(31, 31, 31), text white at 85 %, MUI's dark
  * primary #90caf9. pivotkit's own defaults are tinted blue-grey; here the surfaces, borders and rules
  * are PSU's neutral greys and the accent is MUI's primary. Series and heatmap defaults and the font
- * weights are pivotkit's own (pivotkit-react 0.5.0 styles.css), repeated here because a property
+ * weights are pivotkit's own (pivotkit-react 0.6.1 styles.css), repeated here because a property
  * cannot fall back to the value it replaces. The colour scale is the heatmap's (light to strong blue,
  * pivotkit's default): it says "more", not "good" or "bad". The report picks light or dark from
  * <html data-theme> itself (data-pk-theme on its root); the dark defaults below are written for that

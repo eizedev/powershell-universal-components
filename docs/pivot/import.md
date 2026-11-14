@@ -138,7 +138,7 @@ may be lower or higher than what the app's data gets:
 | `fileBytes` | 104,857,600 (100 MiB) | Bytes of a file, before a byte is read. |
 | `rows` | 1,000,000 | Rows of a loaded table, as they are read. |
 | `columns` | 1,000 | Columns of a loaded table. |
-| `importCells` | 10,000,000 | Rows x columns of a loaded table, as the rows are read. |
+| `importCells` | 10,000,000 | Rows x columns of a loaded table, as the rows are read; for a workbook also its different texts and cell formats, as they are unpacked. |
 | `textLength` | 32,767 | Characters of one value (Excel's cell limit); longer text is cut, with a note. |
 | `archiveEntries` | 10,000 | Parts of an Excel workbook (an `.xlsx` is a ZIP), before anything is unpacked. |
 | `unpackedBytes` | 524,288,000 (500 MiB) | Bytes the parts of a workbook unpack to, before anything is unpacked. |
@@ -157,7 +157,8 @@ own 300 rows show:
 whole number of at least 1 (`250MB`, `2GB` and `2e6` are fine); an unknown key or another value is
 an error that names it, when the page is built. A file of more rows than `importCells` allows for its
 columns stops at that limit even below `rows`, so raise both for a larger table; a larger workbook
-usually needs `unpackedBytes` raised too. While a file is shown, its views, results and exports run
+usually needs `unpackedBytes` raised too. A higher `importCells` or `columns` also lets a workbook hold
+more different texts and cell formats. While a file is shown, its views, results and exports run
 with these limits as well; **Back to original data** goes back to the app's. pivotkit's
 [limits](https://pivotkit.eize.dev/concepts/limits/#limits) explains every limit and why the defaults
 are what they are. Higher limits cost the reader's browser memory and time: the measurement above
@@ -169,6 +170,8 @@ grows with the rows and columns.
   Values show as text, never as HTML, and the CSV export guards against formulas.
 - Workbooks are refused before anything is parsed when they hold macros, are encrypted, would unpack
   to more than the limits allow (a ZIP bomb) or declare a document type or entities in their XML.
+  A workbook's different texts and cell formats count against `importCells` while they are unpacked,
+  so a small workbook that names millions of them is refused instead of filling the browser's memory.
 - The Excel reader (pivotkit-xlsx with read-excel-file and fflate) is part of the module's bundle and
   loads only when the first workbook is read. No code is loaded from elsewhere.
 - `-OnDataLoad` sends file and column names (above); every other event keeps to the app's data.

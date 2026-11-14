@@ -15,12 +15,25 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   ([#103](https://github.com/eizedev/powershell-universal-components/issues/103),
   [#106](https://github.com/eizedev/powershell-universal-components/issues/106)).
 
+### Security
+
+- pivotkit-xlsx 0.3.1: a crafted Excel workbook could pass the size checks before parsing and fill
+  the reader's browser memory (denial of service in the reader's own tab;
+  [GHSA-c6vh-q36c-92r3](https://github.com/eizedev/pivotkit/security/advisories/GHSA-c6vh-q36c-92r3),
+  pivotkit-xlsx 0.3.0 and earlier, so release 0.4.0 of this module with `-AllowImport`; update from
+  0.4.0). Workbooks with namespace-prefixed elements are checked like the others. Also, a workbook's
+  different texts and cell formats count against `importCells` while they are unpacked.
+
 ### Changed
 
-- pivotkit 0.5.0 ([pivotkit-react release](https://github.com/eizedev/pivotkit/releases/tag/pivotkit-react%400.5.0),
+- pivotkit 0.6.1 ([pivotkit-react release](https://github.com/eizedev/pivotkit/releases/tag/pivotkit-react%400.6.1),
   [upgrading from 0.4](https://pivotkit.eize.dev/getting-started/upgrading/)): pivotkit-core and
-  pivotkit-react 0.5.0, pivotkit-xlsx 0.2.0 and pivotkit-report 0.1.0, all pinned and in the one
-  bundle. Export has an HTML report, the chart as SVG and Print or save as PDF; Excel, the HTML
+  pivotkit-react 0.6.1, pivotkit-xlsx 0.3.1 and pivotkit-report 0.2.1, all pinned and in the one
+  bundle (1.58 MB, 494 KB gzip). Export's table as CSV is called **Table as CSV (.csv)**; pivotkit's
+  Source data export stays off (`-ExportData` follows,
+  [#113](https://github.com/eizedev/powershell-universal-components/issues/113)). A view saved in the
+  browser for a sheet of a loaded workbook opens on that sheet again. Dates before 1 AD carry their era
+  ("Q1 2 BC"). Export has an HTML report, the chart as SVG and Print or save as PDF; Excel, the HTML
   report and print are light also from a dark app. Column subtotals are off unless a view turns them on
   (`totals = @{ colSubtotals = $true }`); views the report saves name all four totals. The chart's
   text is 14 px, the font weights are four (`--psu-pivot-weight-*`). `-Tips` knows the tip

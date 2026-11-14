@@ -9,10 +9,10 @@
   },
   "dependencies": {
     "echarts": "6.1.0",
-    "pivotkit-core": "0.5.0",
-    "pivotkit-react": "0.5.0",
-    "pivotkit-report": "0.1.0",
-    "pivotkit-xlsx": "0.2.0",
+    "pivotkit-core": "0.6.1",
+    "pivotkit-react": "0.6.1",
+    "pivotkit-report": "0.2.1",
+    "pivotkit-xlsx": "0.3.1",
     "universal-dashboard": "1.1.2"
   },
   "devDependencies": {
