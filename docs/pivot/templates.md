@@ -153,14 +153,16 @@ and complete its keys. To keep that inside your network, host a copy and name it
 3. Pass the file's address:
 
 ```powershell
-New-UDPivotReport -Id 'tickets' -Data $tickets -SchemaUrl 'https://<your PSU server>/pivotkit-schema/view-file-2.json'
+New-UDPivotReport -Id 'tickets' -Data $tickets -SchemaUrl 'https://psu.example.com/pivotkit-schema/view-file-2.json'
 ```
 
-`-SchemaUrl` names one file for every view file the report and its template store write. When a
-release of this module writes a newer format version (its CHANGELOG says so), host that format's
-schema too and change the address. An address that is not https stops the report before it is drawn,
-with `SchemaUrl "<address>": expected an https address or an empty string.` in the page; a PSU that
-serves only http hosts its copy elsewhere over https, or leaves `-SchemaUrl` out.
+`-SchemaUrl` names one file for every view file the report and its template store write; the report's
+views are of version 2, so their files are of format 2. (`ConvertTo-UDPivotViewFile` writes a view of
+version 1 as format 1: give it the address of `view-file-1.json` there.) When a release of this module
+writes a newer format version (its CHANGELOG says so), host that format's schema too and change the
+address. An address that is not https (without spaces, at most 2,000 characters) stops the report
+before it is drawn, with `SchemaUrl "<address>": expected an https address or an empty string.` in
+the page; a PSU that serves only http hosts its copy elsewhere over https, or leaves `-SchemaUrl` out.
 
 ## Template stores: `-TemplateStore`
 
