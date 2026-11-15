@@ -1954,7 +1954,6 @@ function New-UDPivotReport {
         $isAdmin = Test-UDPivotRole -Roles $userRoles -AdminRole $AdminRole
     }
     $templateList = [System.Collections.Generic.List[object]]::new()
-    if ($PSBoundParameters.ContainsKey('Templates')) { foreach ($t in @(ConvertTo-UDPivotTemplate -Template $Templates)) { $templateList.Add($t) } }
     $storeViews = @{ shared = @(); user = @() }
     if ($store) {
         # the store's views: a broken store must not break the page
@@ -1968,16 +1967,24 @@ function New-UDPivotReport {
             catch { Write-Warning ('Pivot template store ({0} views) left out: {1}' -f $scope, $_.Exception.Message) }
         }
     }
-    # a shared view of the store takes the place of the -TemplatePath files of its name: Publish and Save
-    # write a name the files have into the store, and the Views menu must show that change. Names match
-    # as in pivotkit's Views menu and the store's upsert (same characters, same case).
-    $replaced = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    # the views the app ships: -Templates, then the -TemplatePath files made for this report's data or
+    # for no data (as the store and pivotkit's browser store list them, ids compared with case)
+    $shipped = [System.Collections.Generic.List[object]]::new()
+    if ($PSBoundParameters.ContainsKey('Templates')) { foreach ($t in @(ConvertTo-UDPivotTemplate -Template $Templates)) { $shipped.Add($t) } }
     if ($TemplatePath) {
         foreach ($t in @(Get-UDPivotTemplateFile -Path $TemplatePath)) {
-            $fromStore = @($storeViews['shared'] | Where-Object { $_.name -ceq $t.Name })
-            if (-not $fromStore.Count) { $templateList.Add([pscustomobject]@{ name = $t.Name; view = $t.View; scope = 'shared'; deletable = $false }) }
-            elseif ($replaced.Add($t.Name)) { $templateList.AddRange([object[]]$fromStore) }
+            if ($t.SourceId -and $t.SourceId -cne $source.id) { continue }
+            $shipped.Add([pscustomobject]@{ name = $t.Name; view = $t.View; scope = 'shared'; deletable = $false })
         }
+    }
+    # a shared view of the store takes the place of a shipped shared view of its name: Publish and Save
+    # write a name the app ships into the store, and the Views menu must show that change. Names match
+    # as in pivotkit's Views menu and the store's upsert (same characters, same case).
+    $replaced = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($t in $shipped) {
+        $fromStore = if ($t.scope -eq 'shared') { @($storeViews['shared'] | Where-Object { $_.name -ceq $t.name }) } else { @() }
+        if (-not $fromStore.Count) { $templateList.Add($t) }
+        elseif ($replaced.Add($t.name)) { $templateList.AddRange([object[]]$fromStore) }
     }
     foreach ($t in @($storeViews['shared'] | Where-Object { -not $replaced.Contains($_.name) }) + @($storeViews['user'])) { $templateList.Add($t) }
     if ($store) {

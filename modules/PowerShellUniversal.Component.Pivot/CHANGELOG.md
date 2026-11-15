@@ -5,6 +5,15 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+### Fixed
+
+- `-TemplatePath` lists only the view files made for the report's data (`-SourceId`, else `-Id`) and
+  those that name no data, as the template stores do; it listed every file for every report
+  ([#90](https://github.com/eizedev/powershell-universal-components/issues/90)).
+- A shared `-Templates` entry with the name of a store's shared view showed twice in the Views menu;
+  the store's view now takes its place, as for `-TemplatePath` files
+  ([#91](https://github.com/eizedev/powershell-universal-components/issues/91)).
+
 ## [0.5.0] - 2026-11-15
 
 ### Security
