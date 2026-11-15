@@ -5,14 +5,18 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-15
+
 ### Added
 
 - `Invoke-UDPivotReport`: renders a view over rows into an Excel workbook, an HTML report, CSV, JSON
   or SVG without a browser, for endpoints, schedules and jobs. `-Engine Node` runs pivotkit's command
   line on the PSU server (pivotkit-cli 0.2.1 or later; the rows in a temporary folder only this user can
   read, removed afterwards); `-Engine Rest` calls a pivotkit-server's file route with the rows in the
-  request (pivotkit 0.7.0's data in the request, `inline:`), or with `-Source` over a source the
-  operator configured. Input is a view, a view file or a layout (`-Layout @{ rows = 'Team'; values =
+  request (pivotkit's data in the request, source `inline:`), or with `-Source` over a source the
+  operator configured. `-Data`, `-Parameter` and `-DataAsOf` need a pivotkit-server of pivotkit 0.7.0
+  or later (pivotkit-server 0.1.1 answers `-Data` with `INVALID_INPUT (400)`); `-Source` works with
+  pivotkit-server 0.1.1. Input is a view, a view file or a layout (`-Layout @{ rows = 'Team'; values =
   @{ field = 'Hours'; agg = 'sum' } }`); output is a file (`-OutFile`) or its bytes. A view with
   errors throws with pivotkit's findings. Every failure has a fixed error id (`PivotServerUnreachable`,
   `PivotRedirectRefused`, `PivotTokenRefused`, `PivotDataTooLarge`, `PivotViewHasErrors`,
@@ -50,17 +54,11 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   ([#111](https://github.com/eizedev/powershell-universal-components/issues/111),
   [#113](https://github.com/eizedev/powershell-universal-components/issues/113)).
 
-### Changed
-
-- `-TemplatePath` no longer lists view files made for other data (their `source.id` is another
-  `-SourceId`): a folder that held the views of one report under another id shows them only in that
-  report now. Files that name no data are listed as before
-  ([#90](https://github.com/eizedev/powershell-universal-components/issues/90)).
-
 ### Fixed
 
 - `-TemplatePath` lists only the view files made for the report's data (`-SourceId`, else `-Id`) and
-  those that name no data, as the template stores do; it listed every file for every report
+  those that name no data, as the template stores do; it listed every file for every report. A
+  folder that held the views of one report under another id shows them only in that report now
   ([#90](https://github.com/eizedev/powershell-universal-components/issues/90)).
 - A shared `-Templates` entry with the name of a store's shared view showed twice in the Views menu;
   the store's view now takes its place, as for `-TemplatePath` files
@@ -311,7 +309,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   them); `examples/templates.ps1`: an app with sign-in, readers' views on the server, publishing for
   two roles and the admin panel.
 
-[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.5.0...HEAD
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.6.0...HEAD
+[0.6.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.5.0...PowerShellUniversal.Component.Pivot-v0.6.0
 [0.5.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.4.0...PowerShellUniversal.Component.Pivot-v0.5.0
 [0.4.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.3.0...PowerShellUniversal.Component.Pivot-v0.4.0
 [0.3.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.2.0...PowerShellUniversal.Component.Pivot-v0.3.0

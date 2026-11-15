@@ -32,7 +32,7 @@ file's bytes, for an endpoint's answer or a mail attachment.
 | | `-Engine Node` | `-Engine Rest` |
 | --- | --- | --- |
 | Runs | pivotkit's command line on the PSU server | a pivotkit-server somewhere else |
-| Needs | Node 22 or later and `npm install --global pivotkit-cli` (0.2.1 or later) on the PSU server | a pivotkit-server of pivotkit 0.7.0 or later, its address and a token or OAuth client |
+| Needs | Node 22 or later and `npm install --global pivotkit-cli` (0.2.1 or later) on the PSU server | a pivotkit-server, its address and a token or OAuth client; for `-Data` and `-Parameter` one of pivotkit 0.7.0 or later ([which server](#rest-a-pivotkit-server)) |
 | Data | `-Data`, written to a temporary folder of its own (mode 0700 on Linux and macOS; on Windows it inherits the ACL of the user's TEMP folder), removed afterwards | `-Data`, sent in the request; or `-Source`, a source the server's operator configured |
 | Language, time zone | `-Locale`, `-TimeZone` | the server's |
 
@@ -93,6 +93,10 @@ the body (`rest.data.maxBytes`, default 10 MiB); the operator's exposure policy 
 data you send. `-DataName` names the data, `-DataAsOf` says when it is from (sent as the data's
 `asOf`; the server keeps it with the request, while the file's own "Data as of" is when the data
 arrived).
+
+`-Data` (and with it `-DataName` and `-DataAsOf`) and `-Parameter` need a pivotkit-server of pivotkit
+0.7.0 or later. pivotkit-server 0.1.1 renders `-Source` without parameters, and answers `-Data`
+with `INVALID_INPUT (400)`.
 
 With `-Source` instead of `-Data` the report runs over a source the operator configured, with
 `-Parameter` for its parameters; that needs a caller whose policy has `results: true`:

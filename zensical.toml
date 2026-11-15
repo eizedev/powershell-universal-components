@@ -85,7 +85,7 @@ Custom components for PowerShell Universal (PSU) apps, MIT licensed, each a Powe
 PowerShell Gallery: PowerShellUniversal.Component.ECharts (`New-UDEChart`, Apache ECharts charts),
 PowerShellUniversal.Component.Perspective (`New-UDPerspective`, the Perspective datagrid with pivot and
 charts) and PowerShellUniversal.Component.Pivot (`New-UDPivotReport`, a pivot report builder built on
-pivotkit), plus the showcase apps PowerShellUniversal.Component.ECharts.Demo and
+pivotkit, and `Invoke-UDPivotReport`, its views as files without a browser), plus the showcase apps PowerShellUniversal.Component.ECharts.Demo and
 PowerShellUniversal.Component.Pivot.Demo. Data goes in as it comes from SQL (DataTable), REST or
 PowerShell objects. Not affiliated with Devolutions. llms-full.txt holds every page listed here in one file.
 """

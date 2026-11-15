@@ -5,11 +5,16 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-15
+
 ### Added
 
 - The documentation pages have the example "Source data for readers" (`-ExportData` with
-  `-ExportDataColumn`). It needs PowerShellUniversal.Component.Pivot 0.6.0: the release raises
-  `RequiredModules` with it.
+  `-ExportDataColumn`).
+
+### Changed
+
+- Requires PowerShellUniversal.Component.Pivot 0.6.0 or later (the example above uses `-ExportData`).
 
 ## [0.3.0] - 2026-11-15
 
@@ -79,7 +84,8 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 - `Get-UDPivotShowcaseData`: answers the app's public API calls from the snapshots shipped in `Data/`
   (with their sources and licences, `Data/SOURCES.md`), or live.
 
-[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.3.0...HEAD
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.4.0...HEAD
+[0.4.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.3.0...PowerShellUniversal.Component.Pivot.Demo-v0.4.0
 [0.3.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.2.0...PowerShellUniversal.Component.Pivot.Demo-v0.3.0
 [0.2.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.1.1...PowerShellUniversal.Component.Pivot.Demo-v0.2.0
 [0.1.1]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.1.0...PowerShellUniversal.Component.Pivot.Demo-v0.1.1

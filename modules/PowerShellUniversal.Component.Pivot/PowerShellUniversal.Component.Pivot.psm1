@@ -3254,7 +3254,9 @@ function Invoke-UDPivotReport {
         (source "inline:", pivotkit's data in the request): nothing has to be put on the server first.
         The server's operator turns this on per caller (a profile with data: true, or policy.data) and
         caps the body (rest.data.maxBytes, default 10 MiB). With -Source instead of -Data the report
-        runs over a source the operator configured (the caller needs results: true). Sign-in: a static
+        runs over a source the operator configured (the caller needs results: true). -Data and
+        -Parameter need a pivotkit-server of pivotkit 0.7.0 or later; pivotkit-server 0.1.1 renders
+        -Source without parameters. Sign-in: a static
         token (-Token), or OAuth client credentials (-Credential with -TokenUri), the access token kept
         per runspace until shortly before it expires and fetched again once after a 401. Only https, or
         http to this machine; redirects are not followed; neither the token nor the client secret is
