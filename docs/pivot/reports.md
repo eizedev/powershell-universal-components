@@ -33,7 +33,7 @@ file's bytes, for an endpoint's answer or a mail attachment.
 | --- | --- | --- |
 | Runs | pivotkit's command line on the PSU server | a pivotkit-server somewhere else |
 | Needs | Node 22 or later and `npm install --global pivotkit-cli` (0.2.1 or later) on the PSU server | a pivotkit-server of pivotkit 0.7.0 or later, its address and a token or OAuth client |
-| Data | `-Data`, written to a temporary file only this user can read, removed afterwards | `-Data`, sent in the request; or `-Source`, a source the server's operator configured |
+| Data | `-Data`, written to a temporary folder of its own (mode 0700 on Linux and macOS; on Windows it inherits the ACL of the user's TEMP folder), removed afterwards | `-Data`, sent in the request; or `-Source`, a source the server's operator configured |
 | Language, time zone | `-Locale`, `-TimeZone` | the server's |
 
 Both take `-View` (a hashtable, JSON text or a view file) or `-Layout` (the view by field names), and
@@ -66,9 +66,18 @@ Invoke-UDPivotReport -Engine Node -Data $tickets -View $view -OutFile ./tickets.
 The function finds `pivotkit` on the PATH, or takes `-CliPath` (the program, or pivotkit-cli's
 `bin/pivotkit.js`, which it runs with `node`). On Windows npm installs `pivotkit.cmd`; the function
 runs the `bin/pivotkit.js` next to it with `node` instead, so no argument passes through `cmd.exe`.
-Arguments go to the process one by one, never through a shell. The command line reads and writes only
-inside the temporary folder (`--allow-dir`), and warnings such as "the filters keep no row" go to the
-warning stream. `-TimeoutSec` (default 120) stops a run that takes longer.
+Arguments go to the process one by one, never through a shell, each value as `--option=value`, so a
+field name or a title may start with a dash. The command line reads and writes only inside the
+temporary folder (`--allow-dir`), and warnings such as "the filters keep no row" go to the warning
+stream. `-TimeoutSec` (default 120) stops a run that takes longer. A job that is killed before its
+`finally` runs (PSU stopping the job, the server restarting) leaves the folder with the rows behind:
+`pivotkit-<32 hex characters>` in the temporary folder of the account PSU runs as; remove such folders
+now and then.
+
+The columns are those of the first row. Every row's values are read by those names, so rows whose
+properties come in another order (hashtables, objects merged from two sources) stay right; a column a
+row lacks is empty there, and a property the first row does not have is left out, with one warning
+that names it. Give every row the same properties (`Select-Object`) to keep them all.
 
 ### REST: a pivotkit-server
 
@@ -96,12 +105,16 @@ Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Tok
 What the function does on the way:
 
 - Only `https://` addresses, or `http://` to this machine (`localhost`, `127.0.0.1`, `::1`), for the
-  server and the token endpoint.
+  server and the token endpoint. An address with a user name or password in it is refused; messages
+  show an address as scheme, host, port and path only.
 - No redirect is followed: a token goes only to the address you gave.
 - An error says the server's code and detail, the findings of a view with errors (422), the seconds to
   wait from `Retry-After` (429, 503) and the request id the operator finds the log lines by. The
-  exception's `Data` holds `Status`, `Code` and `RetryAfter` for a script that wants to try again.
-- The token and the client secret never appear in an error, the verbose stream or the output.
+  exception's `Data` holds `Status`, `Code` and `RetryAfter` for a script that wants to try again. A
+  413 says the data is too large for the server; a request over 10 MiB (the server's default cap)
+  gets a warning first.
+- The token and the client secret never appear in an error, `$Error`, the verbose or the debug stream
+  or the output, also with `-Verbose` and `-Debug`.
 
 ## Sign-in
 
@@ -128,8 +141,9 @@ What the function does on the way:
     The function asks the token endpoint for an access token (`grant_type=client_credentials`, the
     client id and secret in the body, or as HTTP Basic with `-ClientAuthentication Basic`; `-Scope`,
     `-Audience` and `-Resource` when given) and keeps it in the PowerShell runspace until a minute
-    before it expires, per token endpoint, client id and scopes. A 401 from the server gets one new
-    token and one more try. A token without `expires_in` is not kept.
+    before it expires, per token endpoint, client id, secret (as its SHA-256), scopes and server: a
+    changed secret is checked at the token endpoint, and a token never goes to another server. A 401
+    from the server gets one new token and one more try. A token without `expires_in` is not kept.
 
 ### Authentik
 
@@ -160,7 +174,9 @@ Decode an access token of your own to check its `aud` and `scope`.
 - A view, a layout and `-Title` come from your script. A view a reader saved (`$EventData`, a template
   store) is user input: it goes through the same checks as on a page (`ConvertFrom-UDPivotViewFile`),
   and pivotkit runs nothing from it.
-- `-OutFile` is your path; the function never takes a file name from the server's answer.
+- `-OutFile` is your path; the function never takes a file name from the server's answer. It replaces
+  a file that is there and follows a symbolic link to its target: never build it from a reader's
+  input, a request or `$EventData`.
 - Rows are needed: `-Data` without rows throws, since there is nothing to check a view against. A
   schedule that may find no rows checks first (`if (@($rows).Count) { ... }`).
 - The access token is kept per runspace in memory, as a SecureString; it is gone when the runspace

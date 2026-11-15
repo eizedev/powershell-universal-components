@@ -29,8 +29,9 @@ public class Endpoint {
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
-const at = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : undefined; };
-const record = { args, cwdTmp: path.dirname(at("-o")) };
+// the module passes every value as --option=value
+const at = (flag) => { const a = args.find((x) => x.startsWith(flag + "=")); return a === undefined ? undefined : a.slice(flag.length + 1); };
+const record = { args, cwdTmp: path.dirname(at("--output")), mode: fs.statSync(path.dirname(at("--output"))).mode & 0o777 };
 const dataPath = at("--data") ?? args[1];
 record.data = JSON.parse(fs.readFileSync(dataPath, "utf8"));
 if (at("--data")) record.view = JSON.parse(fs.readFileSync(args[1], "utf8"));
@@ -45,8 +46,8 @@ if (mode === "usage") {
     process.exit(2);
 }
 if (mode === "nojson") { console.error("pivotkit: unknown option --allow-dir"); process.exit(2); }
-fs.writeFileSync(at("-o"), "report:" + at("-f"));
-console.log(JSON.stringify({ ok: true, exitCode: 0, command: "render", findings: [{ severity: "warning", code: "noRowsKept", path: "", message: "the filters keep no row" }, { severity: "info", code: "ENCODING", path: "", message: "read as UTF-8" }], output: { file: at("-o"), format: at("-f") } }));
+fs.writeFileSync(at("--output"), "report:" + at("--format"));
+console.log(JSON.stringify({ ok: true, exitCode: 0, command: "render", findings: [{ severity: "warning", code: "noRowsKept", path: "", message: "the filters keep no row" }, { severity: "info", code: "ENCODING", path: "", message: "read as UTF-8" }], output: { file: at("--output"), format: at("--format") } }));
 '@
     $script:record = Join-Path $TestDrive 'record.json'
     $env:FAKE_PIVOTKIT_RECORD = $script:record
@@ -73,6 +74,8 @@ console.log(JSON.stringify({ ok: true, exitCode: 0, command: "render", findings:
         $Mock = $using:mock
         $http = [System.Net.HttpListener]::new()
         $http.Prefixes.Add($Base + '/')
+        # the same server by another name, for the token cache's per-server test
+        $http.Prefixes.Add($Base.Replace('127.0.0.1', 'localhost') + '/')
         $http.Start()
         # AfterAll stops it through $Mock.Http: GetContext then throws and the loop ends
         $Mock.Http = $http
@@ -171,6 +174,25 @@ Describe 'Invoke-UDPivotReport: the data sent' {
         { & $module { ConvertTo-UDPivotReportTable -Data @() } } | Should -Throw '*no rows*'
     }
 
+    It 'rows are read by column name: another property order, missing properties and hashtables keep their columns' {
+        $mixed = @(
+            [pscustomobject]@{ Team = 'A'; Hours = 1; When = 'x' }
+            [pscustomobject]@{ When = 'y'; Hours = 2; Team = 'B' }
+            [pscustomobject]@{ Hours = 3 }
+            @{ Hours = 4; Team = 'D'; When = 'z' }
+        )
+        $out = & $module { param($d) ConvertTo-UDPivotReportTable -Data $d -WarningAction SilentlyContinue } $mixed
+        $out.columns | Should -Be @('Team', 'Hours', 'When')
+        ConvertTo-Json -InputObject $out.rows -Compress | Should -Be '[["A",1,"x"],["B",2,"y"],[null,3,null],["D",4,"z"]]'
+        # a property the first row does not have is left out, said once in a warning
+        $extra = @([pscustomobject]@{ Team = 'A' }, [pscustomobject]@{ Team = 'B'; Secret = 's' }, [pscustomobject]@{ Team = 'C'; Secret = 't'; Other = 1 })
+        $out = & $module { param($d) ConvertTo-UDPivotReportTable -Data $d -WarningVariable w -WarningAction SilentlyContinue; $script:w = $w } $extra
+        ConvertTo-Json -InputObject $out.rows -Compress | Should -Be '[["A"],["B"],["C"]]'
+        $warned = & $module { $script:w }
+        @($warned).Count | Should -Be 1
+        "$warned" | Should -BeLike '*left out: Secret, Other*'
+    }
+
     It 'a layout as the command line''s flags, one argument per value' {
         $layout = & $module { ConvertTo-UDPivotReportLayout -Layout @{
                 rows = 'Team, East'; cols = @('Prio'); values = @(@{ field = 'Time: start'; agg = 'sum' }, @{ field = 'Id' })
@@ -178,7 +200,9 @@ Describe 'Invoke-UDPivotReport: the data sent' {
                 filters = @([ordered]@{ field = 'Team'; type = 'in'; items = @('A') }); chart = 'Bar'; map = @{ Old = 'New' }
             } }
         $arguments = & $module { param($l) Get-UDPivotLayoutArgument -Layout $l } $layout
-        $arguments | Should -Be @('--rows', 'Team, East', '--cols', 'Prio', '--values', 'sum:Time: start', '--values', 'Id', '--group', 'Created:yearMonth', '--group', 'Hours:bin:2.5', '--filter', '{"field":"Team","type":"in","items":["A"]}', '--chart-type', 'bar', '--map', 'Old=New')
+        $arguments | Should -Be @('--rows=Team, East', '--cols=Prio', '--values=sum:Time: start', '--values=Id', '--group=Created:yearMonth', '--group=Hours:bin:2.5', '--filter={"field":"Team","type":"in","items":["A"]}', '--chart-type=bar', '--map=Old=New')
+        # a field that starts with a dash stays a value
+        & $module { Get-UDPivotLayoutArgument -Layout ([ordered]@{ rows = @('-x'); values = @(@{ field = '-y'; agg = 'sum' }) }) } | Should -Be @('--rows=-x', '--values=sum:-y')
     }
 }
 
@@ -194,10 +218,12 @@ Describe 'Invoke-UDPivotReport -Engine Node (a stand-in command line)' {
         $r.args[1] | Should -Match 'view\.pivotkit\.json$'
         $work = $r.cwdTmp
         $r.args | Should -Contain '--json'
-        ($r.args -join ' ') | Should -Match ([regex]::Escape("--allow-dir $work"))
-        $r.args[($r.args.IndexOf('--title') + 1)] | Should -Be 'Hours per team'
-        $r.args[($r.args.IndexOf('--locale') + 1)] | Should -Be 'de-DE'
-        $r.args[($r.args.IndexOf('--time-zone') + 1)] | Should -Be 'Europe/Berlin'
+        $r.args | Should -Contain "--allow-dir=$work"
+        $r.args | Should -Contain '--title=Hours per team'
+        $r.args | Should -Contain '--locale=de-DE'
+        $r.args | Should -Contain '--time-zone=Europe/Berlin'
+        # the folder with the app's rows: only this user (0700) on Unix
+        if (-not $IsWindows) { $r.mode | Should -Be 448 }
         $r.view.format | Should -Be 'pivotkit-view'
         $r.view.view.rows | Should -Be @('Team')
         $r.data.columns | Should -Be @('Team', 'Hours', 'Created')
@@ -216,8 +242,17 @@ Describe 'Invoke-UDPivotReport -Engine Node (a stand-in command line)' {
         Get-Content -LiteralPath $file -Raw | Should -Be 'report:xlsx'
         $r = Get-Record
         $r.args[1] | Should -Match 'data\.json$'
-        ($r.args -join '|') | Should -Match ([regex]::Escape('--rows|Team|--values|sum:Hours'))
-        $r.args[($r.args.IndexOf('-f') + 1)] | Should -Be 'xlsx'
+        ($r.args -join '|') | Should -Match ([regex]::Escape('--rows=Team|--values=sum:Hours'))
+        $r.args | Should -Contain '--format=xlsx'
+    }
+
+    It 'a title and a field that start with a dash reach the command line as values' {
+        $dashRows = @([pscustomobject]@{ '-x' = 'A'; Hours = 1 })
+        $null = Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $dashRows -Layout @{ rows = '-x'; values = @{ field = 'Hours'; agg = 'sum' } } -Title '-T' -WarningAction SilentlyContinue
+        $r = Get-Record
+        $r.args | Should -Contain '--rows=-x'
+        $r.args | Should -Contain '--title=-T'
+        $r.args | Should -Not -Contain '-x'
     }
 
     It '-WhatIf runs nothing and writes nothing' {
@@ -323,6 +358,63 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
         }
     }
 
+    It 'an address with a user name or password is refused, and messages show no user info' {
+        { Invoke-UDPivotReport -Engine Rest -Uri 'https://user:pa55word@reports.example.com/api/v1' -Token 't' -Data $rows -View $view } | Should -Throw '-Uri: an absolute address without a user name or password in it*'
+        { Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Credential $client -TokenUri 'https://id:pa55word@login.example.com/token' -Data $rows -View $view } | Should -Throw '-TokenUri: an absolute address without a user name or password in it.'
+        foreach ($bad in 'https://user:pa55word@reports.example.com/api/v1', 'https://id:pa55word@login.example.com/token') {
+            $caught = $null
+            try { Invoke-UDPivotReport -Engine Rest -Uri $bad -Token 't' -Data $rows -View $view } catch { $caught = $_ }
+            "$caught" | Should -Not -BeLike '*pa55word*'
+        }
+        & $module { Get-UDPivotSafeAddress -Uri 'https://u:p@host.example:8443/api/v1/x?token=abc' } | Should -Be 'https://host.example:8443/api/v1/x'
+    }
+
+    It 'with -Debug and -Verbose no token, secret or Basic header reaches any stream' {
+        $basic = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("pivot-psu:$clientSecret"))
+        $streams = & {
+            Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view -Debug -Verbose
+            Invoke-UDPivotReport @rest -Credential $client -TokenUri ($base + '/token') -ClientAuthentication Basic -Data $rows -View $view -Debug -Verbose
+            Invoke-UDPivotReport @rest -Credential $client -TokenUri ($base + '/token') -Data $rows -View $view -Debug -Verbose
+        } *>&1 | Out-String -Width 4096
+        foreach ($secret in 'static-token-0123456789', 'oauth-token-', $clientSecret, $basic, [uri]::EscapeDataString($clientSecret)) {
+            $streams | Should -Not -BeLike "*$secret*"
+        }
+    }
+
+    It 'OAuth: the token cache is per client id, secret and server' {
+        $oauth = @{ TokenUri = $base + '/token' }
+        $tokenCalls = { @(Get-Log | Where-Object Path -EQ '/token').Count }
+        $null = Invoke-UDPivotReport @rest @oauth -Credential $client -Data $rows -View $view
+        $null = Invoke-UDPivotReport @rest @oauth -Credential $client -Data $rows -View $view
+        & $tokenCalls | Should -Be 1
+        # another client id
+        $other = [pscredential]::new('pivot-other', $client.Password)
+        $null = Invoke-UDPivotReport @rest @oauth -Credential $other -Data $rows -View $view
+        & $tokenCalls | Should -Be 1
+        # the same client id with another secret: checked at the endpoint, not served from the cache
+        $wrong = [pscredential]::new('pivot-psu', [System.Net.NetworkCredential]::new('', 'another-secret').SecurePassword)
+        $null = Invoke-UDPivotReport @rest @oauth -Credential $wrong -Data $rows -View $view
+        & $tokenCalls | Should -Be 1
+        # another server (localhost instead of 127.0.0.1): a token of its own
+        $null = Invoke-UDPivotReport -Engine Rest -Uri ($base.Replace('127.0.0.1', 'localhost') + '/api/v1') @oauth -Credential $client -Data $rows -View $view
+        & $tokenCalls | Should -Be 1
+        # and the first combination is still cached
+        $null = Invoke-UDPivotReport @rest @oauth -Credential $client -Data $rows -View $view
+        & $tokenCalls | Should -Be 0
+    }
+
+    It 'OAuth Basic: client id and secret are form-encoded before they are joined (RFC 6749 2.3.1)' {
+        $odd = [pscredential]::new('id:with space', [System.Net.NetworkCredential]::new('', 'p@ss w+rd/=:').SecurePassword)
+        $null = Invoke-UDPivotReport @rest -Credential $odd -TokenUri ($base + '/token') -ClientAuthentication Basic -Data $rows -View $view
+        $request = @(Get-Log | Where-Object Path -EQ '/token')[0]
+        $request.Authorization | Should -Be ('Basic ' + [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes('id%3Awith%20space:p%40ss%20w%2Brd%2F%3D%3A')))
+    }
+
+    It 'a 413 without a problem document says the data is too large' {
+        $mock.Render.Enqueue(@{ Status = 413; Body = '' })
+        { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } | Should -Throw '*HTTP 413 (413)*too large for the server*-Source*'
+    }
+
     It 'a refused static token: no second try, and the token is in no message' {
         $caught = $null
         try { Invoke-UDPivotReport @rest -Token 'static-token-WRONG-98765' -Data $rows -View $view } catch { $caught = $_ }
@@ -346,7 +438,10 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
         $form['scope'] | Should -Be 'pivotkit:render pivotkit:data'
         $form['resource'] | Should -Be ($base + '/api/v1')
         $tokenRequest.Authorization | Should -BeNullOrEmpty
-        @($log | Where-Object Path -EQ '/api/v1/views/render/file' | ForEach-Object Authorization) | Should -Be @('Bearer oauth-token-1', 'Bearer oauth-token-1')
+        $used = @($log | Where-Object Path -EQ '/api/v1/views/render/file' | ForEach-Object Authorization)
+        $used.Count | Should -Be 2
+        $used[0] | Should -BeLike 'Bearer oauth-token-*'
+        $used[1] | Should -Be $used[0]
         # the cache key holds no part of the secret
         (& $module { @($Script:TokenCache.Keys) }) -join ' ' | Should -Not -BeLike "*$clientSecret*"
     }
