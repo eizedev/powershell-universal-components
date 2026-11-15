@@ -756,7 +756,14 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
         }
         try {
             $type = & $module { (New-UDPivotHttpHandler).Dispose(); $Script:HttpTransportType -as [type] }
+            # readers of earlier tests may still be ending: start from a count that holds still
             $before = $type::ActiveReaders
+            foreach ($i in 1..50) {
+                Start-Sleep -Milliseconds 200
+                $now = $type::ActiveReaders
+                if ($now -eq $before) { break }
+                $before = $now
+            }
             $socket = [System.Net.Sockets.Socket]::new([System.Net.Sockets.SocketType]::Stream, [System.Net.Sockets.ProtocolType]::Tcp)
             $socket.Connect([System.Net.IPAddress]::Loopback, $busyPort)
             $stream = $type::Open($socket)
@@ -764,6 +771,8 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
             # the reader fills its buffer (256 reads) and waits for room
             Start-Sleep -Milliseconds 1500
             $stream.Dispose()
+            # a stream may be disposed more than once (HttpClient and its connection both do)
+            { $stream.Dispose() } | Should -Not -Throw
             $after = $null
             foreach ($i in 1..30) {
                 $after = $type::ActiveReaders
@@ -791,6 +800,13 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
         "$caught" | Should -Not -BeLike '*static-token*'
         $caught.FullyQualifiedErrorId | Should -Not -Be 'PivotServerUnreachable'
         @(Get-Log).Count | Should -Be 0
+        # a tab is allowed inside a value (RFC 9110 5.5); a header name is shown without line breaks
+        $text = & $module { param($b) try { Invoke-UDPivotHttp -What 'test' -Request @{ Uri = $b + '/api/v1/views/render/file'; Body = 'x'; ContentType = 'text/plain'; Headers = @{ 'X-Note' = "a`tb"; "X-Bad`r`nName" = "a`u{e4}" }; TimeoutSec = 5 } } catch { "$_" } } $base
+        $text | Should -BeLike '*request header X-BadName holds*'
+        $log = @(Get-Log)
+        $log.Count | Should -Be 0
+        $null = & $module { param($b) Invoke-UDPivotHttp -What 'test' -Request @{ Uri = $b + '/api/v1/views/render/file'; Body = 'x'; ContentType = 'text/plain'; Headers = @{ 'X-Note' = "a`tb" }; TimeoutSec = 5 } } $base
+        @(Get-Log).Count | Should -Be 1
     }
 
     It 'names the client in User-Agent' {

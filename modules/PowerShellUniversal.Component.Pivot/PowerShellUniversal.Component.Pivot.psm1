@@ -2519,6 +2519,8 @@ namespace PivotReportHttp
             private volatile bool dropping;
             // ends the background reader's wait for room in the buffer when the stream is disposed
             private readonly CancellationTokenSource closing = new CancellationTokenSource();
+            // 1 once disposed: a stream may be disposed more than once (HttpClient and its connection)
+            private int disposed;
 
             public ReadAheadStream(Socket socket)
             {
@@ -2603,7 +2605,7 @@ namespace PivotReportHttp
 
             protected override void Dispose(bool disposing)
             {
-                if (disposing)
+                if (disposing && Interlocked.Exchange(ref disposed, 1) == 0)
                 {
                     // a reader waiting for room in a full buffer wakes up and ends, so neither the task
                     // nor its buffers outlive the connection
@@ -3195,9 +3197,9 @@ function Invoke-UDPivotHttp {
     [OutputType([pscustomobject])]
     param([Parameter(Mandatory)][hashtable]$Request, [Parameter(Mandatory)][string]$What, [string]$Hint)
     $body = if ($Request['Body'] -is [byte[]]) { $Request['Body'] } else { [System.Text.Encoding]::UTF8.GetBytes([string]$Request['Body']) }
-    # every header as visible ASCII: HttpClient sends other characters as they are (a line break would
-    # start another header) or fails with a message that looks like an unreachable server. The error
-    # names the header, never its value (a token)
+    # every header value as visible ASCII or a tab (RFC 9110 5.5): HttpClient sends other characters as
+    # they are (a line break would start another header) or fails with a message that looks like an
+    # unreachable server. The error names the header (without line breaks), never its value (a token)
     $headers = [ordered]@{
         # a client name, as Invoke-WebRequest sends one: some proxies and firewalls refuse a request without
         'User-Agent' = 'PowerShellUniversal.Component.Pivot/{0} PowerShell/{1}' -f $ExecutionContext.SessionState.Module.Version, $PSVersionTable.PSVersion
@@ -3205,7 +3207,7 @@ function Invoke-UDPivotHttp {
     if ($Request['Headers']) { foreach ($k in $Request['Headers'].Keys) { $headers[$k] = [string]$Request['Headers'][$k] } }
     foreach ($k in @($headers.Keys) + 'Content-Type') {
         $value = if ($k -eq 'Content-Type') { [string]$Request['ContentType'] } else { $headers[$k] }
-        if ($value -cnotmatch '^[\x20-\x7E]*$') { throw ('{0}: the request header {1} holds a character a header cannot carry (outside printable ASCII); nothing was sent.' -f $What, $k) }
+        if ($value -cnotmatch '^[\x20-\x7E\t]*$') { throw ('{0}: the request header {1} holds a character a header cannot carry (a control character other than tab, or one outside ASCII); nothing was sent.' -f $What, ($k -replace '[\r\n]', '')) }
     }
     $client = $null
     $message = $null
@@ -3218,7 +3220,7 @@ function Invoke-UDPivotHttp {
         $message.Content = [System.Net.Http.ByteArrayContent]::new($body)
         if (-not $message.Content.Headers.TryAddWithoutValidation('Content-Type', [string]$Request['ContentType'])) { throw ('{0}: the request header Content-Type could not be set; nothing was sent.' -f $What) }
         foreach ($k in $headers.Keys) {
-            if (-not $message.Headers.TryAddWithoutValidation($k, $headers[$k])) { throw ('{0}: the request header {1} could not be set; nothing was sent.' -f $What, $k) }
+            if (-not $message.Headers.TryAddWithoutValidation($k, $headers[$k])) { throw ('{0}: the request header {1} could not be set; nothing was sent.' -f $What, ($k -replace '[\r\n]', '')) }
         }
         try {
             $response = $client.SendAsync($message).GetAwaiter().GetResult()
