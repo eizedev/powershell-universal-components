@@ -310,6 +310,20 @@ export function importLimitsOf(value) {
     return Object.keys(out).length ? out : undefined;
 }
 
+/*
+ * -ExportData as pivotkit-react's exportData: true, { columns } (the names the server checked against
+ * the data), or false. Keys in any case (PSU camelCases them). A columns entry that is no list of names
+ * becomes an empty list, which pivotkit reads as "nothing": a mistake hands out no column, never all.
+ */
+export function exportDataOf(value) {
+    if (value === true) return true;
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const key = Object.keys(value).find((k) => k.toLowerCase() === "columns");
+    if (key === undefined) return true;
+    const list = typeof value[key] === "string" ? [value[key]] : value[key];
+    return { columns: Array.isArray(list) ? list.filter((c) => typeof c === "string" && c !== "") : [] };
+}
+
 /* "open" or "collapsed" for -FieldList, else undefined. */
 export function fieldListOf(value) {
     const v = String(value ?? "").toLowerCase();

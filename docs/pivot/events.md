@@ -43,7 +43,9 @@ templates: [Templates, view files and roles](templates.md).
 ## Security notes
 
 - All rows go to the browser, and readers can see every column in the field list and the drill-down:
-  select the columns a reader may see first (`Select-Object`, the SQL query).
+  select the columns a reader may see first (`Select-Object`, the SQL query). `-ExportData` makes
+  every row a download (Export, Source data); `-ExportDataColumn` limits it and the drill-down's
+  exports to the columns it names ([Source data](index.md#source-data-exportdata)).
 - `$EventData` comes from the browser: treat it as user input. Check views with
   `ConvertFrom-UDPivotView` before storing them, never build file paths or queries from names or values
   without checking them, and never pass any of it to `Invoke-Expression`.

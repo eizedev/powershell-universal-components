@@ -8,7 +8,7 @@ import "pivotkit-react/styles.css";
 import "./psu.css";
 import { useNarrowWindow } from "./hooks";
 import AdminPanel from "./AdminPanel";
-import { callEndpoint, cellEvent, dataLoadEvent, fieldListOf, heightOf, importLimitsOf, MAX_OPTIONS_LENGTH, MAX_SCHEMA_LENGTH, mergeFieldDefaults, mergeTemplates, parseJsonObject, parseView, readLinkView, readTemplates, restoreRows, schemaUrlOf, sourceOf, startViewOf, switchOf, templateKey, themeOf, tipsOf, VIEW_EVENT_DELAY_MS, viewStoreKey, writeLinkView, writeStoredView } from "./prepare";
+import { callEndpoint, cellEvent, dataLoadEvent, exportDataOf, fieldListOf, heightOf, importLimitsOf, MAX_OPTIONS_LENGTH, MAX_SCHEMA_LENGTH, mergeFieldDefaults, mergeTemplates, parseJsonObject, parseView, readLinkView, readTemplates, restoreRows, schemaUrlOf, sourceOf, startViewOf, switchOf, templateKey, themeOf, tipsOf, VIEW_EVENT_DELAY_MS, viewStoreKey, writeLinkView, writeStoredView } from "./prepare";
 
 /*
  * What -Schema says about the fields (pivotkit-core's fieldDefaultsFromSchema: names, descriptions,
@@ -291,6 +291,8 @@ export default function PsuPivotReport(props) {
     const sourceKey = JSON.stringify(props.source ?? null);
     const source = useMemo(() => sourceOf(JSON.parse(sourceKey)), [sourceKey]);
     const schemaUrl = schemaUrlOf(props.schemaUrl);
+    const exportDataKey = JSON.stringify(props.exportData ?? null);
+    const exportData = useMemo(() => exportDataOf(JSON.parse(exportDataKey)), [exportDataKey]);
 
     // ---- clicks ----------------------------------------------------------------------------------
     const viewRef = useRef(view);
@@ -325,6 +327,8 @@ export default function PsuPivotReport(props) {
                 // a loaded file's limits; the app's -Data keeps pivotkit's own
                 importLimits={props.allowImport === true ? importLimitsOf(props.importLimits) : undefined}
                 drillDown={props.drillDown !== false}
+                // -ExportData: Export, Source data (and with columns, the drill-down's exports keep to them)
+                exportData={exportData}
                 fieldDefaults={fieldDefaults}
                 chartOptions={chartOptions}
                 tips={tips}
