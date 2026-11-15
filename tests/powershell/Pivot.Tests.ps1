@@ -49,7 +49,7 @@ Describe 'New-UDPivotReport' {
         $c.drillDown | Should -BeTrue
         $c.addressBar | Should -BeTrue
         (New-UDPivotReport -Id 'p2' -Data $rows -NoAddressBar).addressBar | Should -BeFalse
-        foreach ($key in 'view', 'savedView', 'templates', 'height', 'labels', 'fieldDefaults', 'onViewChange', 'onCellClick', 'onSaveTemplate', 'onDeleteTemplate', 'allowImport', 'onDataLoad', 'importLimits', 'limits') {
+        foreach ($key in 'view', 'savedView', 'templates', 'height', 'labels', 'fieldDefaults', 'onViewChange', 'onCellClick', 'onSaveTemplate', 'onDeleteTemplate', 'allowImport', 'onDataLoad', 'importLimits', 'limits', 'exportData') {
             $c.ContainsKey($key) | Should -BeFalse -Because "$key was not passed"
         }
     }
@@ -61,6 +61,26 @@ Describe 'New-UDPivotReport' {
         $c.onDataLoad.RegisteredId | Should -Be 'own-onDataLoad'
         (New-UDPivotReport -Id 'own2' -Data $null -AllowImport).allowImport | Should -BeTrue
         { New-UDPivotReport -Id 'own3' -Data @() -OnDataLoad ([Endpoint]::new({ 5 })) } | Should -Throw '*-OnDataLoad needs -AllowImport*'
+    }
+
+    It '-ExportData: Source data off by default, every column with the switch, named columns as the data spells them' {
+        $rows = @([pscustomobject]@{ Id = 1; Team = 'A'; Customer = 'x'; Hours = 2 })
+        (New-UDPivotReport -Id 'e0' -Data $rows).ContainsKey('exportData') | Should -BeFalse
+        (New-UDPivotReport -Id 'e1' -Data $rows -ExportData).exportData | Should -BeTrue
+        $c = New-UDPivotReport -Id 'e2' -Data $rows -ExportData -ExportDataColumn 'hours', 'TEAM', 'Team'
+        # the JSON PSU sends: a list also for one name, each column once, in the order given
+        $c.exportData | ConvertTo-Json -Compress | Should -Be '{"columns":["Hours","Team"]}'
+        (New-UDPivotReport -Id 'e3' -Data $rows -ExportData -ExportDataColumn 'Id').exportData | ConvertTo-Json -Compress | Should -Be '{"columns":["Id"]}'
+    }
+
+    It '-ExportDataColumn: a name that is no column is an error (never every column); needs -ExportData' {
+        $rows = @([pscustomobject]@{ Id = 1; Team = 'A' })
+        { New-UDPivotReport -Id 'e' -Data $rows -ExportData -ExportDataColumn 'Team', 'Taem' } | Should -Throw '*"Taem" is no column of -Data (columns: Id, Team)*'
+        { New-UDPivotReport -Id 'e' -Data $rows -ExportData -ExportDataColumn 'a', 'b' } | Should -Throw '*"a", "b" are no column*'
+        { New-UDPivotReport -Id 'e' -Data $rows -ExportDataColumn 'Team' } | Should -Throw '*-ExportDataColumn needs -ExportData*'
+        # no rows to check against (-AllowImport, a file comes later): the names go as given, pivotkit
+        # offers nothing for a name the file does not have
+        (New-UDPivotReport -Id 'e' -Data @() -AllowImport -ExportData -ExportDataColumn 'Team').exportData | ConvertTo-Json -Compress | Should -Be '{"columns":["Team"]}'
     }
 
     It '-ImportLimit: pivotkit''s key names in any case, whole numbers, sent as importLimits (never limits); only with -AllowImport' {

@@ -60,10 +60,11 @@ if ($component) {
         if (-not $SkipNpmInstall) {
             # no package needs an install script; skipping them keeps a compromised dependency from
             # running code on the build machine (CI installs the same way)
-            if (Test-Path -LiteralPath (Join-Path $source 'package-lock.json')) { npm ci --no-audit --no-fund --ignore-scripts } else { npm install --no-audit --no-fund --ignore-scripts }
+            # npm's and webpack's output go to the host: the pipeline carries only the built folder
+            if (Test-Path -LiteralPath (Join-Path $source 'package-lock.json')) { npm ci --no-audit --no-fund --ignore-scripts | Out-Host } else { npm install --no-audit --no-fund --ignore-scripts | Out-Host }
             if ($LASTEXITCODE -ne 0) { throw ('npm install failed ({0})' -f $LASTEXITCODE) }
         }
-        npm run build --silent
+        npm run build --silent | Out-Host
         if ($LASTEXITCODE -ne 0) { throw ('webpack build failed ({0})' -f $LASTEXITCODE) }
     }
     finally {

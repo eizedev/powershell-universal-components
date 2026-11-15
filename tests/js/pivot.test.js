@@ -107,6 +107,36 @@ test("importLimitsOf: -ImportLimit as pivotkit's importLimits, only known keys w
     assert.equal(mod.importLimitsOf(Object.create({ rows: 5 })), undefined);
 });
 
+test("exportDataOf: -ExportData as pivotkit's exportData; a broken column list hands out nothing", () => {
+    // -ExportData, and -ExportData -ExportDataColumn 'Team', 'Hours' as PSU sends them
+    assert.equal(mod.exportDataOf(true), true);
+    assert.deepEqual(mod.exportDataOf({ columns: ["Team", "Hours"] }), { columns: ["Team", "Hours"] });
+    assert.deepEqual(mod.exportDataOf({ Columns: ["Team"] }), { columns: ["Team"] });
+    // one name that a serializer flattened to a string is still that one column
+    assert.deepEqual(mod.exportDataOf({ columns: "Team" }), { columns: ["Team"] });
+    // no columns key: every column, as pivotkit reads {}
+    assert.equal(mod.exportDataOf({}), true);
+    // a columns value that is no list of names: an empty list (pivotkit: no Source data), never every column
+    for (const bad of [null, 5, { a: 1 }, [1, null, ""]]) assert.deepEqual(mod.exportDataOf({ columns: bad }), { columns: [] }, JSON.stringify(bad));
+    // off
+    for (const off of [undefined, null, false, "true", 1, ["Team"]]) assert.equal(mod.exportDataOf(off), false, JSON.stringify(off));
+});
+
+test("exportDataLabels: the Source data explanation names the columns of -ExportDataColumn; the app's own text wins", () => {
+    const en = mod.exportDataLabels(undefined, { columns: ["Ticket", "Team"] }, "en-US");
+    assert.match(en.settingInfo.exportDataCsv, /with these columns only: Ticket, Team\./);
+    const de = mod.exportDataLabels({ report: "Bericht" }, { columns: ["Ticket"] }, "de-DE");
+    assert.equal(de.report, "Bericht");
+    assert.match(de.settingInfo.exportDataCsv, /nur mit diesen Spalten: Ticket\./);
+    const many = mod.exportDataLabels(undefined, { columns: Array.from({ length: 15 }, (_, i) => `c${i}`) }, "en");
+    assert.match(many.settingInfo.exportDataCsv, /c11, …\./);
+    const own = { settingInfo: { exportDataCsv: "Ours" } };
+    assert.equal(mod.exportDataLabels(own, { columns: ["Ticket"] }, "en"), own);
+    // every column, or no export: pivotkit's own text
+    assert.equal(mod.exportDataLabels(undefined, true, "en"), undefined);
+    assert.equal(mod.exportDataLabels(own, false, "en"), own);
+});
+
 test("importLimitsOf: the same keys as -ImportLimit in the module", () => {
     const psm1 = readFileSync(new URL("../../modules/PowerShellUniversal.Component.Pivot/PowerShellUniversal.Component.Pivot.psm1", import.meta.url), "utf8");
     const block = psm1.match(/\$Script:ImportLimitDefaults = \[ordered\]@\{([^}]*)\}/);
