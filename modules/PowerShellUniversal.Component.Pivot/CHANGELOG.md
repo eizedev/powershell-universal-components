@@ -77,7 +77,11 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   filter). `retryable` of a problem document is `Retryable` in the exception's `Data` and "Trying again
   may work." in the message; `Retry-After` as an HTTP date is shown as a time. Without a problem
   document the request id comes from the `X-Request-Id` header, and the 500 of a crashed handler shows
-  its `error` text.
+  its `error` text. A header value outside printable ASCII (a token with an umlaut) is refused before
+  anything is sent, naming the header, not its value.
+  `-TimeoutSec` limits each REST call as a whole, including sending the body and reading the report
+  in full; Invoke-WebRequest's `-TimeoutSec`, used before, stopped only the wait for the answer's
+  headers (measured on PowerShell 7.6.9), so a slowly streamed report was not limited.
 
 ## [0.5.0] - 2026-11-15
 

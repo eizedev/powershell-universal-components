@@ -2450,7 +2450,9 @@ $Script:TokenCache = @{}
 # The stream below keeps reading the socket in the background and, when a write fails after bytes of an
 # answer arrived, drops the rest of the body, so HttpClient reads that answer. It sits below TLS and
 # a proxy's tunnel, so both work as before. Compiled on first use; where Add-Type fails, the requests go
-# through a plain handler and an early answer is lost as before.
+# through a plain handler and an early answer is lost. Neither is meant for constrained language mode:
+# the module needs full language mode (see the row writer above; it does not load in constrained
+# language mode), and the REST engine builds HttpClient objects either way.
 $Script:HttpTransportSource = @'
 using System;
 using System.IO;
@@ -2464,6 +2466,14 @@ namespace PivotReportHttp
 {
     public static class Transport_SUFFIX
     {
+        private static int activeReaders;
+
+        /// <summary>Background readers still running, for the tests: each ends with its connection.</summary>
+        public static int ActiveReaders => Volatile.Read(ref activeReaders);
+
+        /// <summary>The stream a connection of NewHandler uses, over a connected socket (for the tests).</summary>
+        public static Stream Open(Socket socket) => new ReadAheadStream(socket);
+
         /// <summary>A handler without redirects or cookies whose connections keep an early answer.</summary>
         public static SocketsHttpHandler NewHandler()
         {
@@ -2502,7 +2512,13 @@ namespace PivotReportHttp
             // bytes received and not read yet
             private long unread;
             private volatile bool ended;
+            // set once a write failed after the server had started to answer: the rest of the body is
+            // dropped on purpose, without an error, so the request goes on to read that answer (a 413
+            // for a body over the cap). Any byte received counts as the start of an answer, as the
+            // request is sent without Expect: 100-continue
             private volatile bool dropping;
+            // ends the background reader's wait for room in the buffer when the stream is disposed
+            private readonly CancellationTokenSource closing = new CancellationTokenSource();
 
             public ReadAheadStream(Socket socket)
             {
@@ -2513,6 +2529,7 @@ namespace PivotReportHttp
             private async Task PumpAsync()
             {
                 var buffer = new byte[16384];
+                Interlocked.Increment(ref activeReaders);
                 try
                 {
                     while (true)
@@ -2520,7 +2537,7 @@ namespace PivotReportHttp
                         int n = await inner.ReadAsync(buffer.AsMemory()).ConfigureAwait(false);
                         if (n == 0) break;
                         Interlocked.Add(ref unread, n);
-                        await received.Writer.WriteAsync(buffer.AsSpan(0, n).ToArray()).ConfigureAwait(false);
+                        await received.Writer.WriteAsync(buffer.AsSpan(0, n).ToArray(), closing.Token).ConfigureAwait(false);
                     }
                     received.Writer.TryComplete();
                 }
@@ -2531,6 +2548,7 @@ namespace PivotReportHttp
                 finally
                 {
                     ended = true;
+                    Interlocked.Decrement(ref activeReaders);
                 }
             }
 
@@ -2585,7 +2603,15 @@ namespace PivotReportHttp
 
             protected override void Dispose(bool disposing)
             {
-                if (disposing) inner.Dispose();
+                if (disposing)
+                {
+                    // a reader waiting for room in a full buffer wakes up and ends, so neither the task
+                    // nor its buffers outlive the connection
+                    received.Writer.TryComplete();
+                    closing.Cancel();
+                    inner.Dispose();
+                    closing.Dispose();
+                }
                 base.Dispose(disposing);
             }
         }
@@ -3169,17 +3195,31 @@ function Invoke-UDPivotHttp {
     [OutputType([pscustomobject])]
     param([Parameter(Mandatory)][hashtable]$Request, [Parameter(Mandatory)][string]$What, [string]$Hint)
     $body = if ($Request['Body'] -is [byte[]]) { $Request['Body'] } else { [System.Text.Encoding]::UTF8.GetBytes([string]$Request['Body']) }
-    $client = [System.Net.Http.HttpClient]::new((New-UDPivotHttpHandler), $true)
-    $message = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Post, [uri]$Request['Uri'])
+    # every header as visible ASCII: HttpClient sends other characters as they are (a line break would
+    # start another header) or fails with a message that looks like an unreachable server. The error
+    # names the header, never its value (a token)
+    $headers = [ordered]@{
+        # a client name, as Invoke-WebRequest sends one: some proxies and firewalls refuse a request without
+        'User-Agent' = 'PowerShellUniversal.Component.Pivot/{0} PowerShell/{1}' -f $ExecutionContext.SessionState.Module.Version, $PSVersionTable.PSVersion
+    }
+    if ($Request['Headers']) { foreach ($k in $Request['Headers'].Keys) { $headers[$k] = [string]$Request['Headers'][$k] } }
+    foreach ($k in @($headers.Keys) + 'Content-Type') {
+        $value = if ($k -eq 'Content-Type') { [string]$Request['ContentType'] } else { $headers[$k] }
+        if ($value -cnotmatch '^[\x20-\x7E]*$') { throw ('{0}: the request header {1} holds a character a header cannot carry (outside printable ASCII); nothing was sent.' -f $What, $k) }
+    }
+    $client = $null
+    $message = $null
     $response = $null
     $failure = $null
     try {
+        $client = [System.Net.Http.HttpClient]::new((New-UDPivotHttpHandler), $true)
+        $message = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Post, [uri]$Request['Uri'])
         if ($Request['TimeoutSec']) { $client.Timeout = [timespan]::FromSeconds($Request['TimeoutSec']) }
         $message.Content = [System.Net.Http.ByteArrayContent]::new($body)
-        $null = $message.Content.Headers.TryAddWithoutValidation('Content-Type', [string]$Request['ContentType'])
-        # a client name, as Invoke-WebRequest sends one: some proxies and firewalls refuse a request without
-        $null = $message.Headers.TryAddWithoutValidation('User-Agent', ('PowerShellUniversal.Component.Pivot/{0} PowerShell/{1}' -f $ExecutionContext.SessionState.Module.Version, $PSVersionTable.PSVersion))
-        if ($Request['Headers']) { foreach ($k in $Request['Headers'].Keys) { $null = $message.Headers.TryAddWithoutValidation($k, [string]$Request['Headers'][$k]) } }
+        if (-not $message.Content.Headers.TryAddWithoutValidation('Content-Type', [string]$Request['ContentType'])) { throw ('{0}: the request header Content-Type could not be set; nothing was sent.' -f $What) }
+        foreach ($k in $headers.Keys) {
+            if (-not $message.Headers.TryAddWithoutValidation($k, $headers[$k])) { throw ('{0}: the request header {1} could not be set; nothing was sent.' -f $What, $k) }
+        }
         try {
             $response = $client.SendAsync($message).GetAwaiter().GetResult()
             $headers = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -3202,8 +3242,8 @@ function Invoke-UDPivotHttp {
     }
     finally {
         if ($response) { $response.Dispose() }
-        $message.Dispose()
-        $client.Dispose()
+        if ($message) { $message.Dispose() }
+        if ($client) { $client.Dispose() }
     }
     $text = '{0} did not answer: {1}' -f $What, $(if ($failure) { $failure } else { 'no response' })
     if ($Hint) { $text += [Environment]::NewLine + $Hint }
@@ -3397,7 +3437,7 @@ function Get-UDPivotRetryText {
     <#
     .SYNOPSIS
         "Try again in N seconds." or "Try again after <time>." from a Retry-After header; $null when it
-        is absent or neither form.
+        is absent, neither form, or a date in the past.
     .PARAMETER RetryAfter
         The header's value: seconds, or an HTTP date (RFC 9110 10.2.3).
     .EXAMPLE
@@ -3412,7 +3452,8 @@ function Get-UDPivotRetryText {
     $seconds = 0
     if ([int]::TryParse($RetryAfter.Trim(), [System.Globalization.NumberStyles]::None, [cultureinfo]::InvariantCulture, [ref]$seconds)) { return 'Try again in {0} seconds.' -f $seconds }
     $when = [datetimeoffset]::MinValue
-    if ([datetimeoffset]::TryParse($RetryAfter, [cultureinfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::AssumeUniversal, [ref]$when)) { return 'Try again after {0}.' -f $when.UtcDateTime.ToString('u', [cultureinfo]::InvariantCulture) }
+    # a date in the past (a clock that is off, a cached answer) says nothing about when
+    if ([datetimeoffset]::TryParse($RetryAfter, [cultureinfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::AssumeUniversal, [ref]$when) -and $when -gt [datetimeoffset]::UtcNow) { return 'Try again after {0}.' -f $when.UtcDateTime.ToString('u', [cultureinfo]::InvariantCulture) }
     $null
 }
 
@@ -3612,7 +3653,10 @@ function Invoke-UDPivotReport {
         anything is sent. Rows that are no DataTable and no list of PSCustomObjects (hashtables, a mix)
         are converted in full first.
     .PARAMETER TimeoutSec
-        The longest wait for the command line or the server. Default 120.
+        The longest a run may take, in seconds. Default 120. -Engine Node: the command line's run.
+        -Engine Rest: each call as a whole, from sending the request to the last byte of the answer
+        (the report is read in full before it is returned); the token request with -Credential has
+        its own limit of the same length.
     .PARAMETER WhatIf
         With -OutFile: says which file would be written and runs nothing.
     .PARAMETER Confirm

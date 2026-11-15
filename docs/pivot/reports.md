@@ -109,6 +109,8 @@ What the function does on the way:
   a `-Uri` with a query string or fragment (the routes are appended to its path); messages show an
   address as scheme, host, port and path only.
 - No redirect is followed: a token goes only to the address you gave.
+- `-TimeoutSec` (default 120) limits each call as a whole: sending the request and reading the
+  report in full; the token request has a limit of the same length of its own.
 - An error says the server's code and detail, the findings of a view with errors (422), when to try
   again from `Retry-After` (429, 503) or that trying again may work (`retryable`), and the request id
   the operator finds the log lines by, and has a fixed error id ([Errors](#errors)). A 413 says what to

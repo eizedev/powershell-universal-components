@@ -512,11 +512,18 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
         $caught.Exception.Message | Should -Not -BeLike '*try*again*'
         $caught.Exception.Data['Retryable'] | Should -BeFalse
         $caught.Exception.Data.Contains('Retryable') | Should -BeTrue
-        $mock.Render.Enqueue(@{ Status = 503; Body = '{"type":"x","title":"t","status":503,"code":"NOT_READY","detail":"d"}'; Headers = @{ 'Retry-After' = 'Wed, 21 Oct 2026 07:28:00 GMT' } })
+        $mock.Render.Enqueue(@{ Status = 503; Body = '{"type":"x","title":"t","status":503,"code":"NOT_READY","detail":"d"}'; Headers = @{ 'Retry-After' = 'Wed, 21 Oct 2099 07:28:00 GMT' } })
         $caught = $null
         try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } catch { $caught = $_ }
-        $caught.Exception.Message | Should -BeLike '*Try again after 2026-10-21 07:28:00Z.*'
+        $caught.Exception.Message | Should -BeLike '*Try again after 2099-10-21 07:28:00Z.*'
         $caught.Exception.Data.Contains('Retryable') | Should -BeFalse -Because 'the body did not say'
+        # a date in the past says nothing about when; a retryable answer then only says that it may work
+        $mock.Render.Enqueue(@{ Status = 503; Body = '{"type":"x","title":"t","status":503,"code":"BUSY","detail":"d","retryable":true}'; Headers = @{ 'Retry-After' = 'Wed, 21 Oct 2015 07:28:00 GMT' } })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } catch { $caught = $_ }
+        $caught.Exception.Message | Should -Not -BeLike '*Try again after*'
+        $caught.Exception.Message | Should -BeLike '*Trying again may work.*'
+        $caught.Exception.Data['RetryAfter'] | Should -Be 'Wed, 21 Oct 2015 07:28:00 GMT'
         $mock.Render.Enqueue(@{ Status = 302; Body = ''; Headers = @{ Location = 'https://elsewhere.example/api/v1/views/render/file' } })
         { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } | Should -Throw '*redirect (302)*not followed*'
         @(Get-Log | Where-Object Path -NE '/api/v1/views/render/file').Count | Should -Be 0
@@ -728,6 +735,62 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
         finally { & $module { $Script:HttpTransportCompiled = $null } }
         $caught.FullyQualifiedErrorId | Should -Be 'PivotServerUnreachable'
         $caught.Exception.Message | Should -BeLike '*did not answer*MiB: a server that takes less may close the connection while it is sent*-Source*'
+    }
+
+    It 'a connection closed while its read-ahead buffer is full leaves no background reader behind' {
+        # a server that sends more than the buffer holds, to a reader that reads none of it
+        $busy = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $busy.Start()
+        $busyPort = $busy.LocalEndpoint.Port
+        $job = Start-ThreadJob -ScriptBlock {
+            $Listener = $using:busy
+            try {
+                $client = $Listener.AcceptTcpClient()
+                $stream = $client.GetStream()
+                $chunk = [byte[]]::new(64KB)
+                # until the client closes the connection
+                try { foreach ($i in 1..1024) { $stream.Write($chunk, 0, $chunk.Length) } } catch { $null = $_ }
+                $client.Close()
+            }
+            finally { $Listener.Stop() }
+        }
+        try {
+            $type = & $module { (New-UDPivotHttpHandler).Dispose(); $Script:HttpTransportType -as [type] }
+            $before = $type::ActiveReaders
+            $socket = [System.Net.Sockets.Socket]::new([System.Net.Sockets.SocketType]::Stream, [System.Net.Sockets.ProtocolType]::Tcp)
+            $socket.Connect([System.Net.IPAddress]::Loopback, $busyPort)
+            $stream = $type::Open($socket)
+            $type::ActiveReaders | Should -Be ($before + 1)
+            # the reader fills its buffer (256 reads) and waits for room
+            Start-Sleep -Milliseconds 1500
+            $stream.Dispose()
+            $after = $null
+            foreach ($i in 1..30) {
+                $after = $type::ActiveReaders
+                if ($after -le $before) { break }
+                Start-Sleep -Milliseconds 100
+            }
+            $after | Should -Be $before
+        }
+        finally {
+            $null = Wait-Job $job -Timeout 10
+            Remove-Job $job -Force
+            $busy.Stop()
+        }
+    }
+
+    It 'a header value a header cannot carry is refused before anything is sent, naming the header and not the value' {
+        # control characters and whitespace in a token are refused where the token is read (-Token, the
+        # access token); a character outside ASCII passes that check and is refused before the request
+        foreach ($bad in "static-token-0123456789`r`nX-Injected: 1", "static-token-0123456789`u{7f}") {
+            { Invoke-UDPivotReport @rest -Token $bad -Data $rows -View $view } | Should -Throw '-Token: the token holds whitespace or a control character.'
+        }
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token "static-token-0123456789`u{e4}" -Data $rows -View $view } catch { $caught = $_ }
+        "$caught" | Should -BeLike '*header Authorization*'
+        "$caught" | Should -Not -BeLike '*static-token*'
+        $caught.FullyQualifiedErrorId | Should -Not -Be 'PivotServerUnreachable'
+        @(Get-Log).Count | Should -Be 0
     }
 
     It 'names the client in User-Agent' {
