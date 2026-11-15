@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { openSaveAs, openViews } from "./pivot-menus.mjs";
 import { CSV, fileOf, openDataMenu, pickFile } from "./pivot-import.mjs";
 import { colorScaleCells, resolvedColor, workbookScaleColors } from "./pivot-colors.mjs";
-import { writeLinkView } from "../../modules/PowerShellUniversal.Component.Pivot/Components/prepare.js";
+import { parseView, readLinkView, writeLinkView, writeStoredView } from "../../modules/PowerShellUniversal.Component.Pivot/Components/prepare.js";
 
 // the pages of the built site, as paths ("/echarts/bars/")
 const pages = [...readFileSync(new URL("../../site/sitemap.xml", import.meta.url), "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname);
@@ -599,3 +599,80 @@ test("tooltip after Restore in the toolbox: grouped bars list every series again
     for (const n of a.names) expect(t).toContain(n);
     expect(t).not.toContain("Total");
 });
+
+// links as pivotkit's create_link (MCP, REST /views/link) makes them for a source whose link is this
+// page and whose linkKey is the report's -Id (bare: without linkKey; other: made for the data
+// "costs"); tests/js/pivot-links.test.js checks that create_link still writes exactly these
+const links = JSON.parse(readFileSync(new URL("fixtures/pivot-links.json", import.meta.url), "utf8"));
+const linkPath = (address) => { const url = new URL(address); return url.pathname + url.hash; };
+
+test("Pivot: a create_link link opens its view, the address bar then holds the report's own entry, and a reload keeps it (#116)", async ({ page }) => {
+    const errors = collectErrors(page);
+    expect(links.keyed).toMatch(/#pivot-pivot-datatable=1\./);
+    await page.goto(linkPath(links.keyed));
+    const report = page.locator('[data-example="pivot-report-from-a-datatable"] .pk-root');
+    const table = report.getByRole("region", { name: "Table" });
+    // the link's layout: priorities on the rows, no teams on the columns
+    await expect(table).toContainText("P4");
+    await expect(table).not.toContainText("Service Desk");
+    await expect.poll(() => page.evaluate(() => location.hash)).not.toContain("=1.");
+    expect(await page.evaluate(() => location.hash)).toMatch(/^#pivot-pivot-datatable=[A-Za-z0-9_-]+$/);
+    await page.reload();
+    await expect(table).toContainText("P4");
+    await expect(table).not.toContainText("Service Desk");
+    expect(errors).toEqual([]);
+});
+
+test("Pivot: a link without linkKey opens in the report of its data and leaves the address (#116)", async ({ page }) => {
+    const errors = collectErrors(page);
+    expect(links.bare).toMatch(/#pivot=1\./);
+    await page.goto(linkPath(links.bare));
+    const report = page.locator('[data-example="pivot-report-from-a-datatable"] .pk-root');
+    const table = report.getByRole("region", { name: "Table" });
+    await expect(table).toContainText("P4");
+    await expect(table).not.toContainText("Service Desk");
+    await expect.poll(() => page.evaluate(() => location.hash)).not.toContain("pivot=1.");
+    expect(errors).toEqual([]);
+});
+
+test("Pivot: a create_link link made for other data is not loaded; the report keeps its -View and says why (#116)", async ({ page }) => {
+    const errors = collectErrors(page);
+    const warnings = [];
+    page.on("console", (m) => m.type() === "warning" && warnings.push(m.text()));
+    await page.goto(linkPath(links.other));
+    const table = page.locator('[data-example="pivot-report-from-a-datatable"] .pk-root').getByRole("region", { name: "Table" });
+    await expect(table).toContainText("1,200");
+    // -View: teams on the rows
+    await expect(table).toContainText("Service Desk");
+    await expect.poll(() => warnings.join("\n")).toContain('made for other data ("costs"');
+    expect(errors).toEqual([]);
+});
+
+test("Pivot: the tab's own view with 60 filters stays whole after a reload; only views from a link get the cap of 50 (#105)", async ({ page }) => {
+    const errors = collectErrors(page);
+    // the DataTable example's -View, as the report gets it, and a view of the tab's own with 60 filters
+    const examples = JSON.parse(readFileSync(new URL("../../site/assets/charts/examples.json", import.meta.url), "utf8"));
+    const serverKey = JSON.stringify(parseView(examples["pivot-report-from-a-datatable"].props.view) ?? null);
+    const filters = Array.from({ length: 60 }, (_, i) => ({ field: "Ticket", type: "compare", op: "!=", value: 100000 + i }));
+    const view = { version: 2, rows: ["Team"], values: [{ field: "Ticket", agg: "count" }], filters };
+    // what the tab wrote before: sessionStorage and the address bar, as the report writes them
+    const items = new Map();
+    const storage = { getItem: (k) => (items.has(k) ? items.get(k) : null), setItem: (k, v) => items.set(k, String(v)), removeItem: (k) => items.delete(k) };
+    expect(writeStoredView(storage, "/pivot/#pivot-datatable", serverKey, view)).toBe(true);
+    await page.addInitScript((entries) => { for (const [k, v] of entries) sessionStorage.setItem(k, v); }, [...items]);
+    await page.goto("/pivot/" + writeLinkView("", "pivot-datatable", view));
+    const report = page.locator('[data-example="pivot-report-from-a-datatable"] .pk-root');
+    await expect(report.getByRole("region", { name: "Table" })).toContainText("1,200");
+    const shown = async () => readLinkView(await page.evaluate(() => location.hash), "pivot-datatable")?.filters?.length;
+    await expect.poll(shown).toBe(60);
+
+    // the same address in a new tab (no stored view): a link from outside, 50 filters
+    const other = await page.context().newPage();
+    await other.goto("/pivot/" + writeLinkView("", "pivot-datatable", view));
+    await other.evaluate(() => sessionStorage.clear());
+    await other.reload();
+    await expect(other.locator('[data-example="pivot-report-from-a-datatable"] .pk-root').getByRole("region", { name: "Table" })).toContainText("1,200");
+    await expect.poll(async () => readLinkView(await other.evaluate(() => location.hash), "pivot-datatable")?.filters?.length).toBe(50);
+    expect(errors).toEqual([]);
+});
+

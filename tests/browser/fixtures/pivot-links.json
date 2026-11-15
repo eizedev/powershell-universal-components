@@ -1,0 +1,17 @@
+{
+  "view": {
+    "version": 2,
+    "rows": [
+      "Priority"
+    ],
+    "values": [
+      {
+        "field": "Ticket",
+        "agg": "count"
+      }
+    ]
+  },
+  "keyed": "http://127.0.0.1:8765/pivot/#pivot-pivot-datatable=1.TY7BDoJADER_xcwZLh73Azx7MF4MhxUqaVi2phSIIfvvFqOJ6amdzpvZ8BAdoyHgyYvYwFYvTCuqr3AlnVgywrHCJLO2hLCBu5-h7qL53BOhVMhxdB0nlfEQD4nz4KAPz03LH0plnRBuOCuLsr3Q-F9MM-1XL8WU9ogLtwOZM2Lf-9rKnA2lKeUN",
+  "bare": "http://127.0.0.1:8765/pivot/#pivot=1.TY7BDoJADER_xcwZLh73Azx7MF4MhxUqaVi2phSIIfvvFqOJ6amdzpvZ8BAdoyHgyYvYwFYvTCuqr3AlnVgywrHCJLO2hLCBu5-h7qL53BOhVMhxdB0nlfEQD4nz4KAPz03LH0plnRBuOCuLsr3Q-F9MM-1XL8WU9ogLtwOZM2Lf-9rKnA2lKeUN",
+  "other": "http://127.0.0.1:8765/pivot/#pivot-pivot-datatable=1.TY47DsIwEESvEk0dGkofgJoC0aAUVjDRKrEXrdeOUOS7s4koaOfzZja8WKJXOLypss6kp0phRf8z7kEycYI798hcZAxwG-hphZGzZrQeyUdTcRGOne8WSrPVD4pF6x9AeM1wD1yFWEg_GCznlxJ21a5QWHbwjcY5qDH8NB07JSna0NoX"
+}

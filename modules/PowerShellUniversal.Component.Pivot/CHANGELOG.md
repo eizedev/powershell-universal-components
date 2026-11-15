@@ -7,6 +7,13 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Added
 
+- Links from pivotkit: the report opens a view from pivotkit's share format in the address
+  (`#pivot-<-Id>=1.<view>`, and `#pivot=1.<view>` without a key), which pivotkit's MCP tool
+  `create_link` and REST route `/views/link` make for a source whose `link` is the PSU page and whose
+  `linkKey` is the report's `-Id`. A link made for other data (its source id is not the report's
+  `-SourceId`) is not loaded; the console says why. The report then writes its own entry in place of
+  pivotkit's, so a reload keeps the view. The Views page has the configuration
+  ([#116](https://github.com/eizedev/powershell-universal-components/issues/116)).
 - `-ExportData`: Export, Source data downloads every row of `-Data` as a CSV or JSON file (pivotkit's
   `exportData`, off by default). `-ExportDataColumn` keeps it, and the drill-down's copies and files,
   to the columns it names; a name that is no column of `-Data` is an error, so a typo never widens the
@@ -31,6 +38,10 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 - A shared `-Templates` entry with the name of a store's shared view showed twice in the Views menu;
   the store's view now takes its place, as for `-TemplatePath` files
   ([#91](https://github.com/eizedev/powershell-universal-components/issues/91)).
+- A view from a link in the address bar is held to pivotkit's limits for views from outside (at most
+  50 filters, 1,000,000 characters) instead of the app's own (128 filters); the tab's own view, kept
+  in its sessionStorage, keeps the app's limits after a reload or the light/dark switch
+  ([#105](https://github.com/eizedev/powershell-universal-components/issues/105)).
 
 ## [0.5.0] - 2026-11-15
 
