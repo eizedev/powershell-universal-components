@@ -110,12 +110,74 @@ What the function does on the way:
   address as scheme, host, port and path only.
 - No redirect is followed: a token goes only to the address you gave.
 - An error says the server's code and detail, the findings of a view with errors (422), the seconds to
-  wait from `Retry-After` (429, 503) and the request id the operator finds the log lines by. The
-  exception's `Data` holds `Status`, `Code` and `RetryAfter` for a script that wants to try again. A
-  413 says the data is too large for the server; a request over 10 MiB (the server's default cap)
-  gets a warning first.
+  wait from `Retry-After` (429, 503) and the request id the operator finds the log lines by, and has
+  a fixed error id ([Errors](#errors)). A 413 says the data is too large for the server; data over
+  `-MaxBytes` is refused before it is sent ([Size and memory](#size-and-memory)).
 - The token and the client secret never appear in an error, `$Error`, the verbose or the debug stream
   or the output, also with `-Verbose` and `-Debug`.
+
+## Size and memory
+
+The rows go into the request one by one: a DataTable (or DataView) straight from its rows, a list of
+PSCustomObjects as it is, anything else through the same conversion `New-UDPivotReport` uses. From
+1,000 rows on, a small compiled class writes them (compiled once per process, about 2 seconds; without
+`Add-Type`, in constrained language mode, PowerShell writes them, more slowly). `-MaxBytes` (default
+10 MiB, pivotkit-server's default `rest.data.maxBytes`) is checked first against the number of rows
+times the columns, then while the rows are written: past it the function stops with
+`PivotDataTooLarge` before the rest is converted and before anything is sent. Raise it only to what
+the operator set on the server (at most 64 MiB).
+
+Measured with 100,000 rows of 3 columns (text, number, date; a 4.3 MB request) against a stand-in
+server on the same machine, PowerShell 7.6 on macOS, the compiled class already loaded (approximate:
+your server differs):
+
+| Data | All rows as objects, then one JSON text (earlier builds) | Written row by row |
+| --- | --- | --- |
+| DataTable | 3.2 s, about 800 MB more memory at the peak | 0.1 s, about 30 MB |
+| PSCustomObjects | 5.0 s, about 1.3 GB more | 0.8 s, about 180 MB |
+
+On the PSU test instance (PSU 2026.2.5 in a container), a build before this one took 16.8 seconds and
+about 700 MB more for 100,000 rows of 3 columns in an endpoint, and 260,000 rows ended in an
+OutOfMemoryException in a 2 GiB container, before the server's 413 could answer.
+
+An endpoint or a script in PSU's **Integrated** environment runs inside the PSU server process: the
+memory it takes is the server's, shared with every app and endpoint. Run large reports in a
+PowerShell 7 environment of their own, and keep large data out of PSU altogether: let the
+pivotkit-server operator configure a source for it (a file, a database export, an HTTP source) and
+render with `-Source`. `-Data` is for what a script has at hand, a few megabytes.
+
+## Errors
+
+Every failure of the engines is an ErrorRecord with a fixed error id (`$_.FullyQualifiedErrorId`, or
+`catch` and `Should -Throw -ErrorId` in a test). `$_.Exception.Data` holds what a script may act on:
+`Status` (the HTTP status), `Code` (pivotkit-server's problem code, the OAuth error, the command
+line's error code), `RetryAfter` (seconds, from 429 and 503), `RequestId` (give it to the server's
+operator) and `MaxBytes`.
+
+| Error id | When |
+| --- | --- |
+| `PivotServerUnreachable` | pivotkit-server or the token endpoint did not answer (no connection, a time-out) |
+| `PivotRedirectRefused` | the server or the token endpoint answered with a redirect, which is not followed |
+| `PivotTokenRefused` | the server answered 401, or the token endpoint refused the client credentials or gave no usable token |
+| `PivotDataTooLarge` | `-Data` passed `-MaxBytes`, or the server answered 413 |
+| `PivotViewHasErrors` | the view has errors: the server's 422 or the command line's findings (exit 1) |
+| `PivotServerError` | any other answer of the server that is no report (403, 404, 429, 503 and so on) |
+| `PivotCliNotFound` | `pivotkit` (or `node` for a .js) was not found, or `-CliPath` is no file |
+| `PivotCliFailed` | the command line did not start, took longer than `-TimeoutSec`, gave no `--json` answer or failed otherwise (exit 2) |
+
+Wrong or missing parameters (an engine's parameter given to the other, `-Uri` without https) are
+plain errors before anything runs.
+
+```powershell
+try { Invoke-UDPivotReport -Engine Rest -Uri $uri -Token $Secret:PivotkitToken -Data $rows -View $view -OutFile $file }
+catch {
+    switch ($_.FullyQualifiedErrorId) {
+        'PivotServerError' { if ($_.Exception.Data['RetryAfter']) { <# try again later #> } }
+        'PivotDataTooLarge' { <# fewer rows, or a source on the server #> }
+        default { throw }
+    }
+}
+```
 
 ## Sign-in
 
@@ -165,8 +227,10 @@ Authentik answers the client credentials grant with the provider's client ID and
 service account for it (`ak-<provider>-client_credentials`): bind it, or a group it is in, to the
 application if the application has bindings
 ([Authentik: client credentials](https://docs.goauthentik.io/add-secure-apps/providers/oauth2/client_credentials/)).
-This sequence follows Authentik's documentation; it was not run against an Authentik instance.
-Decode an access token of your own to check its `aud` and `scope`.
+This sequence was run against Authentik 2026.8.5: the client ID and secret as a PSU secret of type
+PSCredential, `-TokenUri` `/application/o/token/` and `-Scope` with the REST scope. Labels and
+defaults can change between Authentik releases; decode an access token of your own to check its
+`aud` and `scope`.
 
 ## Security notes
 

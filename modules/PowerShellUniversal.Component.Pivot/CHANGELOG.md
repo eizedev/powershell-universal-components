@@ -14,7 +14,14 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   request (pivotkit 0.7.0's data in the request, `inline:`), or with `-Source` over a source the
   operator configured. Input is a view, a view file or a layout (`-Layout @{ rows = 'Team'; values =
   @{ field = 'Hours'; agg = 'sum' } }`); output is a file (`-OutFile`) or its bytes. A view with
-  errors throws with pivotkit's findings. Rows are read by column name (the first row's columns), so
+  errors throws with pivotkit's findings. Every failure has a fixed error id (`PivotServerUnreachable`,
+  `PivotRedirectRefused`, `PivotTokenRefused`, `PivotDataTooLarge`, `PivotViewHasErrors`,
+  `PivotServerError`, `PivotCliNotFound`, `PivotCliFailed`) with `Status`, `Code`, `RetryAfter` and
+  `RequestId` in the exception's `Data`. The rows are written into the request or the data file one by
+  one, a DataTable straight from its rows, by a class compiled once per process (100,000 rows x 3
+  columns: 0.1 s and about 30 MB instead of seconds and hundreds of MB); `-MaxBytes` (default 10 MiB,
+  the server's default cap) stops oversized data before the rest is converted and before anything is
+  sent. The Reports page has a section on size and memory. Rows are read by column name (the first row's columns), so
   another property order keeps its columns
   ([#114](https://github.com/eizedev/powershell-universal-components/issues/114),
   [#112](https://github.com/eizedev/powershell-universal-components/issues/112)).

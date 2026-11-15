@@ -2252,10 +2252,154 @@ $Script:LayoutKeys = @('rows', 'cols', 'values', 'groups', 'filters', 'chart', '
 $Script:ReportTimeoutSec = 120
 # a request body above this gets a warning: pivotkit-server's default rest.data.maxBytes
 $Script:ReportDataWarnBytes = 10MB
+# Rows into JSON without a PowerShell statement per cell: in PowerShell 100,000 rows x 3 columns
+# allocated about 2 GB on the way and took the managed heap of the process up by about 750 MB before the
+# garbage collector caught up (measured 2026-11-15, PowerShell 7.6 on macOS; the live test on PSU
+# 2026.2.5 saw about 700 MB). Compiled once per process when a table of at least
+# $Script:ReportWriterMinRows rows arrives, as ConvertTo-PSUComponentData does; without Add-Type
+# (constrained language mode) PowerShell writes the rows.
+$Script:ReportWriterSource = @'
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Data;
+using System.Globalization;
+using System.Management.Automation;
+using System.Text.Json;
+namespace PivotReportTable
+{
+    public static class Writer_SUFFIX
+    {
+        // Each row as a JSON array of its values in the columns' order: a DataRow (or DataRowView) by
+        // position, anything else by property name. Returns the rows written, or -1 as soon as the
+        // writer holds more than maxBytes (0: no cap), checked every 256 rows.
+        public static long WriteRows(Utf8JsonWriter writer, string[] columns, IEnumerable rows, long maxBytes, ICollection<string> dropped)
+        {
+            HashSet<string> known = new HashSet<string>(columns, StringComparer.OrdinalIgnoreCase);
+            long count = 0;
+            foreach (object item in rows)
+            {
+                object row = item is PSObject wrapped ? wrapped.BaseObject : item;
+                if (row is DataRowView view) row = view.Row;
+                writer.WriteStartArray();
+                if (row is DataRow dataRow)
+                {
+                    foreach (object value in dataRow.ItemArray) WriteValue(writer, value);
+                }
+                else
+                {
+                    PSObject properties = PSObject.AsPSObject(item);
+                    foreach (string column in columns)
+                    {
+                        PSPropertyInfo property = properties.Properties[column];
+                        WriteValue(writer, property == null ? null : property.Value);
+                    }
+                    foreach (PSPropertyInfo property in properties.Properties)
+                    {
+                        if (!known.Contains(property.Name)) dropped.Add(property.Name);
+                    }
+                }
+                writer.WriteEndArray();
+                count++;
+                if (maxBytes > 0 && (count & 255) == 0 && writer.BytesCommitted + writer.BytesPending > maxBytes) return -1;
+            }
+            return count;
+        }
+
+        // whether every row is a PSCustomObject (Select-Object, Invoke-RestMethod, Import-Csv): those are
+        // written by property name as they are, without ConvertTo-PSUComponentData's copy of each row
+        public static bool AllCustomObjects(IEnumerable rows)
+        {
+            bool any = false;
+            foreach (object item in rows)
+            {
+                if (!(item is PSObject wrapped) || !(wrapped.BaseObject is PSCustomObject)) return false;
+                any = true;
+            }
+            return any;
+        }
+
+        // text, a finite number, true, false or null; dates as ISO 8601 text, TimeSpans as seconds
+        public static void WriteValue(Utf8JsonWriter writer, object value)
+        {
+            if (value is PSObject wrapped) value = wrapped.BaseObject;
+            switch (value)
+            {
+                case null: writer.WriteNullValue(); break;
+                case DBNull _: writer.WriteNullValue(); break;
+                case string text: writer.WriteStringValue(text); break;
+                case bool flag: writer.WriteBooleanValue(flag); break;
+                case double d: if (double.IsNaN(d) || double.IsInfinity(d)) writer.WriteNullValue(); else writer.WriteNumberValue(d); break;
+                case float f: if (float.IsNaN(f) || float.IsInfinity(f)) writer.WriteNullValue(); else writer.WriteNumberValue((double)f); break;
+                case int i: writer.WriteNumberValue(i); break;
+                case long l: writer.WriteNumberValue(l); break;
+                case short s: writer.WriteNumberValue(s); break;
+                case byte b: writer.WriteNumberValue(b); break;
+                case sbyte sb: writer.WriteNumberValue(sb); break;
+                case ushort us: writer.WriteNumberValue(us); break;
+                case uint ui: writer.WriteNumberValue(ui); break;
+                case ulong ul: writer.WriteNumberValue(ul); break;
+                case decimal m: writer.WriteNumberValue(m); break;
+                case DateTime date: writer.WriteStringValue(date.ToString("o", CultureInfo.InvariantCulture)); break;
+                case DateTimeOffset offset: writer.WriteStringValue(offset.ToString("o", CultureInfo.InvariantCulture)); break;
+                case TimeSpan span: writer.WriteNumberValue(span.TotalSeconds); break;
+                default: writer.WriteStringValue(Convert.ToString(value, CultureInfo.InvariantCulture)); break;
+            }
+        }
+    }
+}
+'@
+$Script:ReportWriterType = & {
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { $hash = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Script:ReportWriterSource)) } finally { $sha.Dispose() }
+    'PivotReportTable.Writer_' + (-join ($hash[0..7] | ForEach-Object { $_.ToString('x2') }))
+}
+$Script:ReportWriterSource = $Script:ReportWriterSource.Replace('Writer_SUFFIX', ($Script:ReportWriterType -split '\.')[-1])
+$Script:ReportWriterMinRows = 1000
+# $true: compiled, $false: not available (or switched off by a test), $null: not tried yet
+$Script:ReportWriterCompiled = $null
 # a token taken from the cache has at least this much time left, so it does not expire on the way
 $Script:TokenSkewSec = 60
 # OAuth access tokens per token endpoint, client and scope, for this runspace: @{ Token; Expires }
 $Script:TokenCache = @{}
+
+function New-UDPivotError {
+    <#
+    .SYNOPSIS
+        An ErrorRecord with a fixed error id, so a script can tell the reasons apart
+        ($_.FullyQualifiedErrorId, Should -Throw -ErrorId).
+    .DESCRIPTION
+        The ids: PivotServerUnreachable, PivotRedirectRefused, PivotTokenRefused, PivotDataTooLarge,
+        PivotViewHasErrors, PivotServerError, PivotCliNotFound, PivotCliFailed. Data holds what the
+        caller may act on: Status, Code, RetryAfter, RequestId (where the server sent them). The record
+        carries no request, so no token or secret.
+    .PARAMETER Id
+        The error id.
+    .PARAMETER Message
+        What happened and what to do.
+    .PARAMETER Category
+        The ErrorCategory.
+    .PARAMETER Data
+        Values for Exception.Data.
+    .EXAMPLE
+        throw (New-UDPivotError -Id PivotCliNotFound -Message 'pivotkit was not found' -Category ObjectNotFound)
+    .OUTPUTS
+        System.Management.Automation.ErrorRecord
+    #>
+    # Builds an errorrecord in memory; changes no state, so no ShouldProcess
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [CmdletBinding()]
+    [OutputType([System.Management.Automation.ErrorRecord])]
+    param(
+        [Parameter(Mandatory)][ValidateSet('PivotServerUnreachable', 'PivotRedirectRefused', 'PivotTokenRefused', 'PivotDataTooLarge', 'PivotViewHasErrors', 'PivotServerError', 'PivotCliNotFound', 'PivotCliFailed')][string]$Id,
+        [Parameter(Mandatory)][string]$Message,
+        [System.Management.Automation.ErrorCategory]$Category = 'InvalidResult',
+        [hashtable]$Data
+    )
+    $exception = [System.InvalidOperationException]::new($Message)
+    if ($Data) { foreach ($k in $Data.Keys) { if ($null -ne $Data[$k]) { $exception.Data[$k] = $Data[$k] } } }
+    [System.Management.Automation.ErrorRecord]::new($exception, $Id, $Category, $null)
+}
 
 function Test-UDPivotLoopbackUri {
     <#
@@ -2323,56 +2467,172 @@ function ConvertTo-UDPivotPlainText {
     $text
 }
 
-function ConvertTo-UDPivotReportTable {
+function Get-UDPivotTableWriter {
     <#
     .SYNOPSIS
-        Rows as pivotkit's table of data sent with a request: { columns, rows, rowCount }.
-    .DESCRIPTION
-        The rows go through ConvertTo-PSUComponentData (DataTable, DBNull, dates as ISO 8601 text,
-        TimeSpans as seconds), then each becomes a list of values in the columns' order: text, a finite
-        number, true, false or null. Anything else becomes its text. The columns are those of the first
-        row; every row's values are read by those names, so rows whose properties come in another order
-        (hashtables, objects from different sources) keep their values in the right column. A column a
-        row lacks is null there; a property the first row does not have is left out, with one warning
-        that names such properties. pivotkit-server reads this as the "inline:" source; pivotkit's
-        command line reads the same JSON as a data file.
-    .PARAMETER Data
-        The rows: a DataTable, DataRows, objects, hashtables or a script block returning them.
+        The compiled row writer of Write-UDPivotReportTable, compiled on first use; $null when Add-Type
+        is not available.
     .EXAMPLE
-        ConvertTo-UDPivotReportTable -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets')
+        $type = Get-UDPivotTableWriter
     .OUTPUTS
-        System.Collections.Specialized.OrderedDictionary
+        System.Type, or $null.
     #>
     [CmdletBinding()]
-    [OutputType([System.Collections.Specialized.OrderedDictionary])]
-    param([Parameter(Mandatory)][AllowNull()][object]$Data)
-    $rows = ConvertTo-PSUComponentData -InputObject $Data
-    $columns = @($rows | Select-Object -First 1 | ForEach-Object { $_.PSObject.Properties.Name })
+    [OutputType([type])]
+    param()
+    if ($false -eq $Script:ReportWriterCompiled) { return $null }
+    $type = $Script:ReportWriterType -as [type]
+    if (-not $type) {
+        try {
+            $references = @('System.Text.Json', 'System.Data.Common', 'System.Collections', 'System.Runtime', 'System.Memory', 'System.ComponentModel.Primitives', 'System.Text.Encodings.Web', ([psobject].Assembly.Location))
+            Add-Type -TypeDefinition $Script:ReportWriterSource -ReferencedAssemblies $references -ErrorAction Stop
+            $type = $Script:ReportWriterType -as [type]
+        }
+        catch {
+            Write-Verbose ('Invoke-UDPivotReport: no compiled row writer ({0}); PowerShell writes the rows.' -f $_.Exception.Message)
+        }
+    }
+    $Script:ReportWriterCompiled = $null -ne $type
+    $type
+}
+
+function Write-UDPivotReportTable {
+    <#
+    .SYNOPSIS
+        Writes rows as pivotkit's table of data (columns, rows, rowCount) into an open JSON object, row by
+        row, and stops as soon as the JSON passes -MaxBytes.
+    .DESCRIPTION
+        A DataTable or DataView is read straight from its rows (no row objects in between), when its
+        columns hold text, numbers, booleans, GUIDs, dates or TimeSpans; any other -Data goes through
+        ConvertTo-PSUComponentData first. Values: text, a finite number, true, false or null; dates as
+        ISO 8601 text, TimeSpans as seconds, DBNull, NaN and infinity as null, anything else its text.
+        The columns are those of the first row; every row is read by those names, so another property
+        order keeps its columns, a missing one is null, and one the first row lacks is left out with one
+        warning. With -MaxBytes the row count times the columns is checked first (each cell takes at
+        least two bytes), then the JSON written so far every 256 rows; past the cap it throws
+        PivotDataTooLarge, before the rest is converted.
+    .PARAMETER Writer
+        The writer, inside an object (WriteStartObject done).
+    .PARAMETER Data
+        The rows: a DataTable, DataView, DataRows, objects, hashtables or a script block returning them.
+    .PARAMETER MaxBytes
+        The most bytes the writer may hold; 0 for no cap.
+    .PARAMETER RowCount
+        Write rowCount after the rows (pivotkit-server's data in the request needs it).
+    .EXAMPLE
+        Write-UDPivotReportTable -Writer $writer -Data $table -MaxBytes 10MB -RowCount
+    .OUTPUTS
+        None.
+    #>
+    [CmdletBinding()]
+    [OutputType([void])]
+    param(
+        [Parameter(Mandatory)][System.Text.Json.Utf8JsonWriter]$Writer,
+        [Parameter(Mandatory)][AllowNull()][AllowEmptyCollection()][object]$Data,
+        [long]$MaxBytes = 0,
+        [switch]$RowCount
+    )
+    $tooLarge = {
+        throw (New-UDPivotError -Id PivotDataTooLarge -Category LimitsExceeded -Data @{ MaxBytes = $MaxBytes } -Message ('-Data is larger than {0:N0} bytes, the most this request may carry (-MaxBytes; pivotkit-server takes 10 MiB from a caller unless its operator raised rest.data.maxBytes): send fewer rows or columns, raise -MaxBytes to what the server takes, or let the operator configure a source for the data and use -Source.' -f $MaxBytes))
+    }
+    # a DataTable or DataView whose column types need no PowerShell rules: its rows as they are
+    # assigned, not taken from an if's output: the pipeline would enumerate the table into its rows
+    $table = $null
+    if ($Data -is [System.Data.DataTable]) { $table = $Data } elseif ($Data -is [System.Data.DataView]) { $table = $Data.Table }
+    $plainTypes = [type[]]@([string], [bool], [char], [byte], [sbyte], [int16], [uint16], [int], [uint32], [long], [uint64], [single], [double], [decimal], [guid], [datetime], [datetimeoffset], [timespan])
+    $direct = $table -and $table.Columns.Count -and @($table.Columns | Where-Object { $_.DataType -notin $plainTypes }).Count -eq 0
+    if ($direct) {
+        $columns = [string[]]@($table.Columns | ForEach-Object ColumnName)
+        $source = $table.Rows
+        if ($Data -is [System.Data.DataView]) { $source = $Data }
+        $count = $source.Count
+    }
+    else {
+        # PSCustomObjects as they are (the compiled writer reads them by name and applies the value rules);
+        # anything else through ConvertTo-PSUComponentData
+        $writerType = if ($Data -is [System.Collections.IList] -and $Data.Count -ge $Script:ReportWriterMinRows) { Get-UDPivotTableWriter }
+        if ($writerType -and $writerType::AllCustomObjects($Data)) { $source = $Data }
+        else { $source = ConvertTo-PSUComponentData -InputObject $Data }
+        $columns = [string[]]@($source | Select-Object -First 1 | ForEach-Object { $_.PSObject.Properties.Name })
+        $count = @($source).Count
+    }
     # an empty result has no columns to check a view against: the caller decides (a schedule skips the run)
     if (-not $columns.Count) { throw '-Data: no rows, so there is no report to render; check for rows before you call (if (@($rows).Count) { ... }).' }
-    $known = [System.Collections.Generic.HashSet[string]]::new([string[]]$columns, [System.StringComparer]::OrdinalIgnoreCase)
+    if ($MaxBytes -gt 0 -and [long]$count * (2 * $columns.Count + 1) -gt $MaxBytes) { & $tooLarge }
+
+    $Writer.WriteStartArray('columns')
+    foreach ($name in $columns) { $Writer.WriteStringValue($name) }
+    $Writer.WriteEndArray()
+    $Writer.WriteStartArray('rows')
+    $known = [System.Collections.Generic.HashSet[string]]::new($columns, [System.StringComparer]::OrdinalIgnoreCase)
     $dropped = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-    $list = [System.Collections.Generic.List[object]]::new()
-    foreach ($row in $rows) {
-        $properties = $row.PSObject.Properties
-        $values = [object[]]::new($columns.Count)
-        for ($i = 0; $i -lt $columns.Count; $i++) {
-            # by name: the rows' properties may come in another order than the first row's
-            $p = $properties[$columns[$i]]
-            $v = if ($p) { $p.Value }
-            $values[$i] = if ($null -eq $v -or $v -is [string] -or $v -is [bool]) { $v }
-            elseif ($v -is [double] -or $v -is [single]) { if ([double]::IsNaN($v) -or [double]::IsInfinity($v)) { $null } else { $v } }
-            elseif ($v -is [int] -or $v -is [long] -or $v -is [decimal] -or $v -is [short] -or $v -is [byte] -or $v -is [uint32] -or $v -is [uint64] -or $v -is [uint16] -or $v -is [sbyte]) { $v }
-            else { [string]$v }
-        }
-        foreach ($name in $properties.Name) { if (-not $known.Contains($name)) { [void]$dropped.Add($name) } }
-        $list.Add($values)
+    $width = $columns.Count
+    $written = 0
+    $compiled = if ($count -ge $Script:ReportWriterMinRows) { Get-UDPivotTableWriter }
+    if ($compiled) {
+        $written = $compiled::WriteRows($Writer, $columns, $source, $MaxBytes, $dropped)
+        if ($written -lt 0) { & $tooLarge }
+        # nothing left for the loop below
+        $source = @()
     }
+    foreach ($item in $source) {
+        if ($direct) {
+            $values = if ($item -is [System.Data.DataRowView]) { $item.Row.ItemArray } else { $item.ItemArray }
+        }
+        else {
+            # by name: the rows' properties may come in another order than the first row's
+            $properties = $item.PSObject.Properties
+            $values = [object[]]::new($width)
+            for ($i = 0; $i -lt $width; $i++) { $p = $properties[$columns[$i]]; if ($p) { $values[$i] = $p.Value } }
+            foreach ($name in $properties.Name) { if (-not $known.Contains($name)) { [void]$dropped.Add($name) } }
+        }
+        $Writer.WriteStartArray()
+        foreach ($v in $values) {
+            if ($null -eq $v -or $v -is [System.DBNull]) { $Writer.WriteNullValue() }
+            elseif ($v -is [string]) { $Writer.WriteStringValue($v) }
+            elseif ($v -is [bool]) { $Writer.WriteBooleanValue($v) }
+            elseif ($v -is [double] -or $v -is [single]) { if ([double]::IsNaN($v) -or [double]::IsInfinity($v)) { $Writer.WriteNullValue() } else { $Writer.WriteNumberValue([double]$v) } }
+            elseif ($v -is [int] -or $v -is [long] -or $v -is [short] -or $v -is [byte] -or $v -is [sbyte] -or $v -is [uint16] -or $v -is [uint32]) { $Writer.WriteNumberValue([long]$v) }
+            elseif ($v -is [decimal] -or $v -is [uint64]) { $Writer.WriteNumberValue([decimal]$v) }
+            elseif ($v -is [datetime] -or $v -is [datetimeoffset]) { $Writer.WriteStringValue($v.ToString('o', [cultureinfo]::InvariantCulture)) }
+            elseif ($v -is [timespan]) { $Writer.WriteNumberValue([double]$v.TotalSeconds) }
+            else { $Writer.WriteStringValue([string]$v) }
+        }
+        $Writer.WriteEndArray()
+        $written++
+        if ($MaxBytes -gt 0 -and ($written % 256) -eq 0 -and $Writer.BytesCommitted + $Writer.BytesPending -gt $MaxBytes) { & $tooLarge }
+    }
+    $Writer.WriteEndArray()
+    if ($MaxBytes -gt 0 -and $Writer.BytesCommitted + $Writer.BytesPending -gt $MaxBytes) { & $tooLarge }
+    if ($RowCount) { $Writer.WriteNumber('rowCount', [long]$written) }
     if ($dropped.Count) {
         $names = @($dropped | Select-Object -First 5) -join ', '
         Write-Warning ('-Data: properties the first row does not have are left out: {0}{1}. Give every row the same properties (Select-Object) to keep them.' -f $names, $(if ($dropped.Count -gt 5) { ', and {0} more' -f ($dropped.Count - 5) }))
     }
-    [ordered]@{ columns = [string[]]$columns; rows = $list.ToArray(); rowCount = $list.Count }
+}
+
+function New-UDPivotJsonWriter {
+    <#
+    .SYNOPSIS
+        A UTF-8 JSON writer on a stream, compact, with non-ASCII text as it is.
+    .DESCRIPTION
+        The relaxed encoder leaves letters with accents as they are instead of \u escapes: the JSON goes to
+        pivotkit (a request body, a data file), never into an HTML page.
+    .PARAMETER Stream
+        The stream to write to.
+    .EXAMPLE
+        $writer = New-UDPivotJsonWriter -Stream $memory
+    .OUTPUTS
+        System.Text.Json.Utf8JsonWriter
+    #>
+    # Creates a writer object in memory; changes no state, so no ShouldProcess
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [CmdletBinding()]
+    [OutputType([System.Text.Json.Utf8JsonWriter])]
+    param([Parameter(Mandatory)][System.IO.Stream]$Stream)
+    $options = [System.Text.Json.JsonWriterOptions]::new()
+    $options.Encoder = [System.Text.Encodings.Web.JavaScriptEncoder]::UnsafeRelaxedJsonEscaping
+    [System.Text.Json.Utf8JsonWriter]::new($Stream, $options)
 }
 
 function ConvertTo-UDPivotReportLayout {
@@ -2483,23 +2743,23 @@ function Get-UDPivotCliCommand {
     [OutputType([pscustomobject])]
     param([AllowEmptyString()][string]$CliPath)
     $path = if ($CliPath) {
-        if (-not (Test-Path -LiteralPath $CliPath -PathType Leaf)) { throw ('-CliPath "{0}": no such file.' -f $CliPath) }
+        if (-not (Test-Path -LiteralPath $CliPath -PathType Leaf)) { throw (New-UDPivotError -Id PivotCliNotFound -Category ObjectNotFound -Message ('-CliPath "{0}": no such file.' -f $CliPath)) }
         (Resolve-Path -LiteralPath $CliPath).ProviderPath
     }
     else {
         $found = Get-Command -Name 'pivotkit' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-        if (-not $found) { throw 'pivotkit''s command line was not found: install it with "npm install --global pivotkit-cli" (Node 22 or later) on the PSU server, or pass -CliPath.' }
+        if (-not $found) { throw (New-UDPivotError -Id PivotCliNotFound -Category ObjectNotFound -Message 'pivotkit''s command line was not found: install it with "npm install --global pivotkit-cli" (Node 22 or later) on the PSU server, or pass -CliPath.') }
         $found.Source
     }
     if ($path -match '\.(cmd|bat|ps1)$') {
         # npm's shims sit next to node_modules/pivotkit-cli
         $js = Join-Path (Split-Path -Parent $path) 'node_modules' 'pivotkit-cli' 'bin' 'pivotkit.js'
-        if (-not (Test-Path -LiteralPath $js -PathType Leaf)) { throw ('"{0}" is a script shim; pass -CliPath with pivotkit-cli''s bin/pivotkit.js.' -f $path) }
+        if (-not (Test-Path -LiteralPath $js -PathType Leaf)) { throw (New-UDPivotError -Id PivotCliNotFound -Category ObjectNotFound -Message ('"{0}" is a script shim; pass -CliPath with pivotkit-cli''s bin/pivotkit.js.' -f $path)) }
         $path = $js
     }
     if ($path -match '\.(js|mjs)$') {
         $node = Get-Command -Name 'node' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-        if (-not $node) { throw 'node was not found: pivotkit''s command line needs Node 22 or later on the PSU server.' }
+        if (-not $node) { throw (New-UDPivotError -Id PivotCliNotFound -Category ObjectNotFound -Message 'node was not found: pivotkit''s command line needs Node 22 or later on the PSU server.') }
         return [pscustomobject]@{ FileName = $node.Source; Arguments = @($path) }
     }
     [pscustomobject]@{ FileName = $path; Arguments = @() }
@@ -2542,13 +2802,13 @@ function Invoke-UDPivotCli {
     $process.StartInfo = $info
     try {
         try { [void]$process.Start() }
-        catch { throw ('pivotkit''s command line did not start ({0}): {1}' -f $Command.FileName, $_.Exception.Message) }
+        catch { throw (New-UDPivotError -Id PivotCliFailed -Category OpenError -Message ('pivotkit''s command line did not start ({0}): {1}' -f $Command.FileName, $_.Exception.Message)) }
         $process.StandardInput.Close()
         $stdout = $process.StandardOutput.ReadToEndAsync()
         $stderr = $process.StandardError.ReadToEndAsync()
         if (-not $process.WaitForExit($TimeoutSec * 1000)) {
             $process.Kill($true)
-            throw ('pivotkit''s command line took longer than {0} seconds and was stopped.' -f $TimeoutSec)
+            throw (New-UDPivotError -Id PivotCliFailed -Category OperationTimeout -Message ('pivotkit''s command line took longer than {0} seconds and was stopped.' -f $TimeoutSec))
         }
         $process.WaitForExit()
         $text = $stdout.GetAwaiter().GetResult()
@@ -2557,7 +2817,7 @@ function Invoke-UDPivotCli {
         catch { $answer = $null }
         if ($null -eq $answer -or $null -eq $answer.PSObject.Properties['ok']) {
             $line = ($errText -split "`n" | Where-Object { $_.Trim() } | Select-Object -First 1)
-            throw ('pivotkit''s command line (exit {0}) gave no --json answer: {1} (pivotkit-cli 0.2.1 or later is needed).' -f $process.ExitCode, $(if ($line) { $line.Trim() } else { 'no output' }))
+            throw (New-UDPivotError -Id PivotCliFailed -Category InvalidResult -Message ('pivotkit''s command line (exit {0}) gave no --json answer: {1} (pivotkit-cli 0.2.1 or later is needed).' -f $process.ExitCode, $(if ($line) { $line.Trim() } else { 'no output' })))
         }
         $answer | Add-Member -NotePropertyName exitCode -NotePropertyValue $process.ExitCode -Force
         $answer
@@ -2627,7 +2887,7 @@ function Invoke-UDPivotHttp {
         # (catch hands over a copy of the record: it is found by its exception)
         if ($global:Error.Count -and [object]::ReferenceEquals($global:Error[0].Exception, $_.Exception)) { $global:Error.RemoveAt(0) }
     }
-    if ($null -eq $response) { throw ('{0} did not answer: {1}' -f $What, $(if ($failure) { $failure } else { 'no response' })) }
+    if ($null -eq $response) { throw (New-UDPivotError -Id PivotServerUnreachable -Category ConnectionError -Message ('{0} did not answer: {1}' -f $What, $(if ($failure) { $failure } else { 'no response' }))) }
     $response
 }
 
@@ -2718,22 +2978,100 @@ function Get-UDPivotAccessToken {
         $form = $null
         $headers = $null
     }
-    if ([int]$response.StatusCode -ge 300 -and [int]$response.StatusCode -lt 400) { throw ('Token endpoint {0} answered with a redirect ({1}); it is not followed, so the client secret stays with this endpoint: use the address it names in -TokenUri.' -f $where, [int]$response.StatusCode) }
+    if ([int]$response.StatusCode -ge 300 -and [int]$response.StatusCode -lt 400) { throw (New-UDPivotError -Id PivotRedirectRefused -Category SecurityError -Data @{ Status = [int]$response.StatusCode } -Message ('Token endpoint {0} answered with a redirect ({1}); it is not followed, so the client secret stays with this endpoint: use the address it names in -TokenUri.' -f $where, [int]$response.StatusCode)) }
     $json = $null
     try { $json = ConvertFrom-Json -InputObject ([System.Text.Encoding]::UTF8.GetString($response.RawContentStream.ToArray())) -Depth 8 } catch { $json = $null }
     if ($response.StatusCode -ne 200) {
         # RFC 6749 5.2: error and error_description; nothing of the request is repeated
         $reason = if ($json -and $json.error) { '{0}{1}' -f $json.error, $(if ($json.error_description) { ': ' + $json.error_description }) } else { 'no OAuth error in the answer' }
-        throw ('Token endpoint {0} refused the client credentials ({1}): {2}' -f $where, [int]$response.StatusCode, $reason)
+        throw (New-UDPivotError -Id PivotTokenRefused -Category AuthenticationError -Data @{ Status = [int]$response.StatusCode; Code = if ($json -and $json.error) { [string]$json.error } } -Message ('Token endpoint {0} refused the client credentials ({1}): {2}' -f $where, [int]$response.StatusCode, $reason))
     }
-    if (-not $json -or -not ($json.access_token -is [string]) -or -not $json.access_token) { throw ('Token endpoint {0} answered without an access_token.' -f $where) }
-    if ($json.token_type -and $json.token_type -ne 'Bearer' -and $json.token_type -ne 'bearer') { throw ('Token endpoint {0} gave a token of type "{1}"; pivotkit-server takes Bearer tokens.' -f $where, $json.token_type) }
+    if (-not $json -or -not ($json.access_token -is [string]) -or -not $json.access_token) { throw (New-UDPivotError -Id PivotTokenRefused -Category AuthenticationError -Message ('Token endpoint {0} answered without an access_token.' -f $where)) }
+    if ($json.token_type -and $json.token_type -ne 'Bearer' -and $json.token_type -ne 'bearer') { throw (New-UDPivotError -Id PivotTokenRefused -Category AuthenticationError -Message ('Token endpoint {0} gave a token of type "{1}"; pivotkit-server takes Bearer tokens.' -f $where, $json.token_type)) }
     $token = [System.Net.NetworkCredential]::new('', [string]$json.access_token).SecurePassword
     $seconds = 0
     if ($null -ne $json.expires_in -and [int]::TryParse([string]$json.expires_in, [ref]$seconds) -and $seconds -gt $Script:TokenSkewSec) {
         $Script:TokenCache[$key] = @{ Token = $token; Expires = [datetime]::UtcNow.AddSeconds($seconds) }
     }
     $token
+}
+
+function New-UDPivotRenderBody {
+    <#
+    .SYNOPSIS
+        The input of pivotkit-server's render_view as UTF-8 JSON, the rows written straight into it.
+    .DESCRIPTION
+        source, then data (columns, rows, rowCount, name, asOf) or params, then view or layout, format and
+        title. The rows go through Write-UDPivotReportTable: no copy of them as objects or as one JSON
+        string, and past -MaxBytes it stops with PivotDataTooLarge before the rest is converted.
+    .PARAMETER Data
+        The rows, or $null with -Source.
+    .PARAMETER Source
+        A source the operator configured, instead of -Data.
+    .PARAMETER Parameter
+        The source's parameters.
+    .PARAMETER View
+        The view (an object), or $null with -Layout.
+    .PARAMETER Layout
+        The layout, or $null with -View.
+    .PARAMETER Format
+        The format.
+    .PARAMETER Title
+        The report's title.
+    .PARAMETER DataName
+        What the data is.
+    .PARAMETER DataAsOf
+        When the data is from.
+    .PARAMETER MaxBytes
+        The most bytes of the body; 0 for no cap.
+    .EXAMPLE
+        New-UDPivotRenderBody -Data $rows -View $view -Format csv -MaxBytes 10MB
+    .OUTPUTS
+        System.Byte[]
+    #>
+    # Builds a request body in memory; changes no state, so no ShouldProcess
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [CmdletBinding()]
+    [OutputType([byte[]])]
+    param(
+        [AllowNull()][object]$Data,
+        [string]$Source,
+        [System.Collections.IDictionary]$Parameter,
+        [AllowNull()][object]$View,
+        [AllowNull()][System.Collections.IDictionary]$Layout,
+        [Parameter(Mandatory)][string]$Format,
+        [string]$Title,
+        [string]$DataName,
+        [Nullable[datetime]]$DataAsOf,
+        [long]$MaxBytes = 0
+    )
+    $memory = [System.IO.MemoryStream]::new()
+    $writer = New-UDPivotJsonWriter -Stream $memory
+    try {
+        $writer.WriteStartObject()
+        if ($Source) { $writer.WriteString('source', $Source) }
+        else {
+            $writer.WriteString('source', 'inline:')
+            $writer.WriteStartObject('data')
+            Write-UDPivotReportTable -Writer $writer -Data $Data -MaxBytes $MaxBytes -RowCount
+            if ($DataName) { $writer.WriteString('name', $DataName) }
+            if ($DataAsOf) { $writer.WriteString('asOf', ([datetime]$DataAsOf).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ', [cultureinfo]::InvariantCulture)) }
+            $writer.WriteEndObject()
+        }
+        if ($Parameter) { $writer.WritePropertyName('params'); $writer.WriteRawValue((ConvertTo-Json -InputObject $Parameter -Depth 4 -Compress)) }
+        # the view and the layout are small and checked already: their JSON goes in as it is
+        if ($null -ne $View) { $writer.WritePropertyName('view'); $writer.WriteRawValue((ConvertTo-Json -InputObject $View -Depth 32 -Compress -WarningAction SilentlyContinue)) }
+        else { $writer.WritePropertyName('layout'); $writer.WriteRawValue((ConvertTo-Json -InputObject $Layout -Depth 32 -Compress -WarningAction SilentlyContinue)) }
+        $writer.WriteString('format', $Format)
+        if ($Title) { $writer.WriteString('title', $Title) }
+        $writer.WriteEndObject()
+        $writer.Flush()
+        , $memory.ToArray()
+    }
+    finally {
+        $writer.Dispose()
+        $memory.Dispose()
+    }
 }
 
 function Invoke-UDPivotRestRender {
@@ -2748,13 +3086,13 @@ function Invoke-UDPivotRestRender {
     .PARAMETER Uri
         The REST service's address, https://host/api/v1.
     .PARAMETER Body
-        The input of render_view.
+        The input of render_view as UTF-8 JSON (New-UDPivotRenderBody).
     .PARAMETER Auth
         @{ Token } or @{ Credential; TokenUri; Scope; Audience; Resource; ClientAuthentication }.
     .PARAMETER TimeoutSec
         The longest wait for the answer.
     .EXAMPLE
-        Invoke-UDPivotRestRender -Uri 'https://reports.example.com/api/v1' -Body $input -Auth @{ Token = $Secret:PivotkitToken }
+        Invoke-UDPivotRestRender -Uri 'https://reports.example.com/api/v1' -Body $json -Auth @{ Token = $Secret:PivotkitToken }
     .OUTPUTS
         System.Byte[]
     #>
@@ -2762,13 +3100,13 @@ function Invoke-UDPivotRestRender {
     [OutputType([byte[]])]
     param(
         [Parameter(Mandatory)][uri]$Uri,
-        [Parameter(Mandatory)][System.Collections.IDictionary]$Body,
+        [Parameter(Mandatory)][byte[]]$Body,
         [Parameter(Mandatory)][hashtable]$Auth,
         [ValidateRange(1, 3600)][int]$TimeoutSec = $Script:ReportTimeoutSec
     )
     $target = [uri]((Get-UDPivotSafeAddress -Uri $Uri).TrimEnd('/') + '/views/render/file')
     $where = Get-UDPivotSafeAddress -Uri $target
-    $bytes = [System.Text.Encoding]::UTF8.GetBytes((ConvertTo-Json -InputObject $Body -Depth 32 -Compress -WarningAction SilentlyContinue))
+    $bytes = $Body
     if ($bytes.Length -gt $Script:ReportDataWarnBytes) { Write-Warning ('The request is {0:N1} MiB; pivotkit-server takes at most 10 MiB unless its operator raised rest.data.maxBytes (up to 64 MiB).' -f ($bytes.Length / 1MB)) }
     $oauth = $Auth.ContainsKey('Credential')
     $tokenArgs = @{}
@@ -2789,7 +3127,7 @@ function Invoke-UDPivotRestRender {
         $status = [int]$response.StatusCode
         if ($status -eq 200) { return , $response.RawContentStream.ToArray() }
         if ($status -eq 401 -and $oauth -and $attempt -eq 1) { continue }
-        if ($status -ge 300 -and $status -lt 400) { throw ('pivotkit-server {0} answered with a redirect ({1}); it is not followed, so the token stays with this server: use the address it names in -Uri.' -f $where, $status) }
+        if ($status -ge 300 -and $status -lt 400) { throw (New-UDPivotError -Id PivotRedirectRefused -Category SecurityError -Data @{ Status = $status } -Message ('pivotkit-server {0} answered with a redirect ({1}); it is not followed, so the token stays with this server: use the address it names in -Uri.' -f $where, $status)) }
         $problem = $null
         try { $problem = ConvertFrom-Json -InputObject ([System.Text.Encoding]::UTF8.GetString($response.RawContentStream.ToArray())) -Depth 16 } catch { $problem = $null }
         $code = if ($problem -and $problem.code) { [string]$problem.code } else { 'HTTP {0}' -f $status }
@@ -2802,11 +3140,11 @@ function Invoke-UDPivotRestRender {
         if ($status -eq 401) { $message += [Environment]::NewLine + 'Check the token: the server did not accept it.' }
         if ($status -eq 413) { $message += [Environment]::NewLine + 'The data is too large for the server: send fewer rows or columns, or let the operator configure a source for it and use -Source.' }
         if ($problem -and $problem.requestId) { $message += [Environment]::NewLine + ('Request id for the operator: {0}' -f $problem.requestId) }
-        $exception = [System.InvalidOperationException]::new($message)
-        $exception.Data['Status'] = $status
-        $exception.Data['Code'] = $code
-        if ($retryAfter) { $exception.Data['RetryAfter'] = [string]$retryAfter }
-        throw $exception
+        $id = switch ($status) { 401 { 'PivotTokenRefused' } 413 { 'PivotDataTooLarge' } 422 { 'PivotViewHasErrors' } default { 'PivotServerError' } }
+        $category = switch ($status) { 401 { 'AuthenticationError' } 403 { 'PermissionDenied' } 413 { 'LimitsExceeded' } 422 { 'InvalidData' } default { 'InvalidResult' } }
+        throw (New-UDPivotError -Id $id -Category $category -Message $message -Data @{
+                Status = $status; Code = $code; RetryAfter = if ($retryAfter) { [string]$retryAfter }; RequestId = if ($problem -and $problem.requestId) { [string]$problem.requestId }
+            })
     }
 }
 
@@ -2896,6 +3234,11 @@ function Invoke-UDPivotReport {
     .PARAMETER DataAsOf
         -Engine Rest with -Data: when the data is from, sent as the data's asOf. The server keeps it with
         the request (its answer's suppliedAsOf); the file's own "Data as of" is when the data arrived.
+    .PARAMETER MaxBytes
+        -Engine Rest with -Data: the most bytes the request may carry, default 10 MiB (pivotkit-server's
+        default rest.data.maxBytes; raise it to what the operator set, at most 64 MiB). The rows are
+        written into the request one by one and the function stops with PivotDataTooLarge as soon as they
+        pass it, before the rest is converted.
     .PARAMETER TimeoutSec
         The longest wait for the command line or the server. Default 120.
     .PARAMETER WhatIf
@@ -2948,6 +3291,7 @@ function Invoke-UDPivotReport {
         [ValidateSet('Post', 'Basic')][string]$ClientAuthentication = 'Post',
         [ValidateLength(1, 200)][string]$DataName,
         [Nullable[datetime]]$DataAsOf,
+        [ValidateRange(1KB, 64MB)][long]$MaxBytes = 10MB,
         [ValidateRange(1, 3600)][int]$TimeoutSec = $Script:ReportTimeoutSec
     )
 
@@ -2957,7 +3301,7 @@ function Invoke-UDPivotReport {
     $given = { param($Names) @($Names | Where-Object { $bound.ContainsKey($_) } | ForEach-Object { "-$_" }) }
     $hasData = $PSBoundParameters.ContainsKey('Data')
     if ($Engine -eq 'Node') {
-        $wrong = & $given 'Source', 'Parameter', 'Uri', 'Token', 'Credential', 'TokenUri', 'Scope', 'Audience', 'Resource', 'ClientAuthentication', 'DataName', 'DataAsOf'
+        $wrong = & $given 'Source', 'Parameter', 'Uri', 'Token', 'Credential', 'TokenUri', 'Scope', 'Audience', 'Resource', 'ClientAuthentication', 'DataName', 'DataAsOf', 'MaxBytes'
         if ($wrong.Count) { throw ('{0}: only with -Engine Rest.' -f ($wrong -join ', ')) }
         if (-not $hasData) { throw '-Engine Node needs -Data: the command line runs over the rows you give.' }
     }
@@ -2971,7 +3315,7 @@ function Invoke-UDPivotReport {
         if (-not (Test-UDPivotLoopbackUri -Uri $Uri)) { throw ('-Uri {0}: an https address (http only for this machine), so the token is never sent in clear text.' -f (Get-UDPivotSafeAddress -Uri $Uri)) }
         if ($hasData -eq [bool]$Source) { throw '-Engine Rest needs either -Data (rows sent with the request) or -Source (a source the operator configured).' }
         if ($Parameter -and -not $Source) { throw '-Parameter goes with -Source.' }
-        if (($DataName -or $DataAsOf) -and -not $hasData) { throw '-DataName and -DataAsOf go with -Data.' }
+        if (($DataName -or $DataAsOf -or $PSBoundParameters.ContainsKey('MaxBytes')) -and -not $hasData) { throw '-DataName, -DataAsOf and -MaxBytes go with -Data.' }
         if ($PSBoundParameters.ContainsKey('Token') -eq [bool]$Credential) { throw '-Engine Rest needs either -Token (a static token) or -Credential with -TokenUri (OAuth client credentials).' }
         if ($Credential -and -not $TokenUri) { throw '-Credential needs -TokenUri, the token endpoint of the OAuth provider.' }
         if ($TokenUri -and (-not $TokenUri.IsAbsoluteUri -or $TokenUri.UserInfo)) { throw '-TokenUri: an absolute address without a user name or password in it.' }
@@ -2995,22 +3339,16 @@ function Invoke-UDPivotReport {
         $layoutIn = ConvertTo-UDPivotReportLayout -Layout $Layout
     }
     $reportTitle = if ($Title) { $Title } elseif ($viewFile -and $viewFile.Name -ne 'Pivot report') { $viewFile.Name }
-    $table = if ($hasData) { ConvertTo-UDPivotReportTable -Data $Data }
     #endregion
 
     if ($target -and -not $PSCmdlet.ShouldProcess($target, ('Write a pivot report ({0})' -f $kind))) { return }
 
     if ($Engine -eq 'Rest') {
-        $body = [ordered]@{ source = if ($table) { 'inline:' } else { $Source } }
-        if ($table) {
-            if ($DataName) { $table['name'] = $DataName }
-            if ($DataAsOf) { $table['asOf'] = ([datetime]$DataAsOf).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ', [cultureinfo]::InvariantCulture) }
-            $body['data'] = $table
-        }
-        if ($Parameter) { $body['params'] = $Parameter }
-        if ($viewFile) { $body['view'] = $viewFile.View } else { $body['layout'] = $layoutIn }
-        $body['format'] = $kind
-        if ($reportTitle) { $body['title'] = $reportTitle }
+        # splatted: a $(...) around -Data would enumerate a DataTable into its rows
+        $bodyArgs = @{ Source = $Source; Parameter = $Parameter; Layout = $layoutIn; Format = $kind; Title = $reportTitle; DataName = $DataName; DataAsOf = $DataAsOf }
+        if ($hasData) { $bodyArgs['Data'] = $Data; $bodyArgs['MaxBytes'] = $MaxBytes }
+        if ($viewFile) { $bodyArgs['View'] = $viewFile.View }
+        $body = New-UDPivotRenderBody @bodyArgs
         $auth = if ($Credential) {
             @{ Credential = $Credential; TokenUri = $TokenUri; Scope = $Scope; Audience = $Audience; Resource = $Resource; ClientAuthentication = $ClientAuthentication; TimeoutSec = $TimeoutSec }
         }
@@ -3026,7 +3364,17 @@ function Invoke-UDPivotReport {
         try {
             $dataPath = Join-Path $work 'data.json'
             $outPath = Join-Path $work ('report.{0}' -f $kind)
-            [System.IO.File]::WriteAllText($dataPath, (ConvertTo-Json -InputObject ([ordered]@{ columns = $table.columns; rows = $table.rows }) -Depth 4 -Compress), [System.Text.UTF8Encoding]::new($false))
+            # the rows straight into the file, { columns, rows }, as pivotkit's JSON reader takes them
+            $file = [System.IO.File]::Create($dataPath)
+            try {
+                $writer = New-UDPivotJsonWriter -Stream $file
+                $writer.WriteStartObject()
+                Write-UDPivotReportTable -Writer $writer -Data $Data
+                $writer.WriteEndObject()
+                $writer.Flush()
+                $writer.Dispose()
+            }
+            finally { $file.Dispose() }
             $arguments = [System.Collections.Generic.List[string]]::new()
             $arguments.Add('render')
             if ($viewFile) {
@@ -3049,10 +3397,11 @@ function Invoke-UDPivotReport {
             if (-not $answer.ok) {
                 $lines = @(Get-UDPivotFindingText -Finding @($findings | Where-Object severity -EQ 'error'))
                 if ($answer.error) { $lines += '{0} {1}: {2}' -f $answer.error.kind, $answer.error.code, $answer.error.message }
-                throw ('pivotkit''s command line wrote no report (exit {0}):{1}{2}' -f $answer.exitCode, [Environment]::NewLine, ($lines -join [Environment]::NewLine))
+                $id = if ($answer.exitCode -eq 1) { 'PivotViewHasErrors' } else { 'PivotCliFailed' }
+                throw (New-UDPivotError -Id $id -Category InvalidData -Data @{ Code = if ($answer.error) { [string]$answer.error.code } } -Message ('pivotkit''s command line wrote no report (exit {0}):{1}{2}' -f $answer.exitCode, [Environment]::NewLine, ($lines -join [Environment]::NewLine)))
             }
             foreach ($line in @(Get-UDPivotFindingText -Finding @($findings | Where-Object severity -EQ 'warning'))) { Write-Warning ('pivotkit: {0}' -f $line) }
-            if (-not (Test-Path -LiteralPath $outPath -PathType Leaf)) { throw 'pivotkit''s command line said it wrote the report, but the file is not there.' }
+            if (-not (Test-Path -LiteralPath $outPath -PathType Leaf)) { throw (New-UDPivotError -Id PivotCliFailed -Message 'pivotkit''s command line said it wrote the report, but the file is not there.') }
             $bytes = [System.IO.File]::ReadAllBytes($outPath)
         }
         finally {

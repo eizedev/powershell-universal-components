@@ -120,6 +120,22 @@ console.log(JSON.stringify({ ok: true, exitCode: 0, command: "render", findings:
     foreach ($i in 1..50) {
         try { $null = Invoke-WebRequest -Uri ($script:base + '/ping') -SkipHttpErrorCheck -TimeoutSec 2; break } catch { Start-Sleep -Milliseconds 100 }
     }
+    # the table as Write-UDPivotReportTable writes it into a request, as JSON text
+    function ConvertTo-TableJson {
+        [CmdletBinding()]
+        param([AllowNull()][AllowEmptyCollection()][object]$Data, [long]$MaxBytes = 0)
+        & $script:module {
+            param($d, $max, $warn)
+            $WarningPreference = $warn
+            $memory = [System.IO.MemoryStream]::new()
+            $writer = New-UDPivotJsonWriter -Stream $memory
+            $writer.WriteStartObject()
+            Write-UDPivotReportTable -Writer $writer -Data $d -MaxBytes $max -RowCount
+            $writer.WriteEndObject()
+            $writer.Flush()
+            [System.Text.Encoding]::UTF8.GetString($memory.ToArray())
+        } $Data $MaxBytes $WarningPreference
+    }
     function Get-Log { $out = @(); $item = $null; while ($script:mock.Log.TryDequeue([ref]$item)) { $out += $item }; $out }
     $script:rest = @{ Engine = 'Rest'; Uri = $script:base + '/api/v1' }
     $script:clientSecret = 'client-secret-that-must-not-leak'
@@ -168,10 +184,16 @@ Describe 'Invoke-UDPivotReport: the data sent' {
         foreach ($c in @(@('Id', [int]), @('When', [datetime]), @('Team', [string]), @('Hours', [double]), @('Done', [bool]))) { [void]$table.Columns.Add($c[0], $c[1]) }
         [void]$table.Rows.Add(1, [datetime]::new(2026, 3, 1, 0, 0, 0, [DateTimeKind]::Utc), 'A', 2.5, $true)
         [void]$table.Rows.Add(2, [DBNull]::Value, [DBNull]::Value, [double]::NaN, $false)
-        $out = & $module { param($t) ConvertTo-UDPivotReportTable -Data $t } $table
-        $json = ConvertTo-Json -InputObject $out -Depth 4 -Compress
-        $json | Should -Be '{"columns":["Id","When","Team","Hours","Done"],"rows":[[1,"2026-03-01T00:00:00.0000000","A",2.5,true],[2,null,null,null,false]],"rowCount":2}'
-        { & $module { ConvertTo-UDPivotReportTable -Data @() } } | Should -Throw '*no rows*'
+        # read straight from the DataTable's rows, and the same through the DataView
+        ConvertTo-TableJson -Data $table | Should -Be '{"columns":["Id","When","Team","Hours","Done"],"rows":[[1,"2026-03-01T00:00:00.0000000","A",2.5,true],[2,null,null,null,false]],"rowCount":2}'
+        ConvertTo-TableJson -Data $table.DefaultView | Should -Be (ConvertTo-TableJson -Data $table)
+        # text as it is (no \u escapes), TimeSpans as seconds
+        $odd = [System.Data.DataTable]::new()
+        [void]$odd.Columns.Add('Name', [string]); [void]$odd.Columns.Add('Took', [timespan])
+        $greeting = 'Gr{0}{1}e' -f [char]0xFC, [char]0xDF
+        [void]$odd.Rows.Add(('{0} "x"' -f $greeting), [timespan]::FromMinutes(1.5))
+        ConvertTo-TableJson -Data $odd | Should -Be ('{"columns":["Name","Took"],"rows":[["' + $greeting + ' \"x\"",90]],"rowCount":1}')
+        { ConvertTo-TableJson -Data @() } | Should -Throw '*no rows*'
     }
 
     It 'rows are read by column name: another property order, missing properties and hashtables keep their columns' {
@@ -181,16 +203,51 @@ Describe 'Invoke-UDPivotReport: the data sent' {
             [pscustomobject]@{ Hours = 3 }
             @{ Hours = 4; Team = 'D'; When = 'z' }
         )
-        $out = & $module { param($d) ConvertTo-UDPivotReportTable -Data $d -WarningAction SilentlyContinue } $mixed
-        $out.columns | Should -Be @('Team', 'Hours', 'When')
-        ConvertTo-Json -InputObject $out.rows -Compress | Should -Be '[["A",1,"x"],["B",2,"y"],[null,3,null],["D",4,"z"]]'
+        ConvertTo-TableJson -Data $mixed | Should -Be '{"columns":["Team","Hours","When"],"rows":[["A",1,"x"],["B",2,"y"],[null,3,null],["D",4,"z"]],"rowCount":4}'
         # a property the first row does not have is left out, said once in a warning
         $extra = @([pscustomobject]@{ Team = 'A' }, [pscustomobject]@{ Team = 'B'; Secret = 's' }, [pscustomobject]@{ Team = 'C'; Secret = 't'; Other = 1 })
-        $out = & $module { param($d) ConvertTo-UDPivotReportTable -Data $d -WarningVariable w -WarningAction SilentlyContinue; $script:w = $w } $extra
-        ConvertTo-Json -InputObject $out.rows -Compress | Should -Be '[["A"],["B"],["C"]]'
-        $warned = & $module { $script:w }
+        $json = ConvertTo-TableJson -Data $extra -WarningVariable warned -WarningAction SilentlyContinue
+        $json | Should -Be '{"columns":["Team"],"rows":[["A"],["B"],["C"]],"rowCount":3}'
         @($warned).Count | Should -Be 1
         "$warned" | Should -BeLike '*left out: Secret, Other*'
+    }
+
+    It 'the compiled row writer and the PowerShell one write the same JSON: a DataTable, PSCustomObjects in any order, and over the cap' {
+        $table = [System.Data.DataTable]::new()
+        foreach ($c in @(@('Id', [int]), @('When', [datetime]), @('Team', [string]), @('Hours', [double]), @('Took', [timespan]), @('Big', [decimal]))) { [void]$table.Columns.Add($c[0], $c[1]) }
+        $objects = [System.Collections.Generic.List[object]]::new()
+        foreach ($i in 1..1200) {
+            [void]$table.Rows.Add($i, [datetime]::new(2026, 1, 1).AddHours($i), $(if ($i % 9) { 'T{0}' -f ($i % 4) } else { [DBNull]::Value }), $(if ($i % 11) { $i / 8 } else { [double]::NaN }), [timespan]::FromSeconds($i), [decimal]$i * 1.25)
+            $objects.Add($(if ($i % 2) { [pscustomobject]@{ Team = 'T{0}' -f ($i % 4); Hours = $i / 8; When = [datetime]::new(2026, 1, 1).AddHours($i) } } else { [pscustomobject]@{ When = [datetime]::new(2026, 1, 1).AddHours($i); Hours = $i / 8; Team = 'T{0}' -f ($i % 4) } }))
+        }
+        $objects = $objects.ToArray()
+        & $module { $Script:ReportWriterCompiled = $null }
+        $compiled = @((ConvertTo-TableJson -Data $table), (ConvertTo-TableJson -Data $objects))
+        & $module { $null -ne (Get-UDPivotTableWriter) } | Should -BeTrue -Because 'the compiled writer must be what the first two used'
+        try {
+            & $module { $Script:ReportWriterCompiled = $false }
+            $plain = @((ConvertTo-TableJson -Data $table), (ConvertTo-TableJson -Data $objects))
+            { ConvertTo-TableJson -Data $table -MaxBytes 60000 } | Should -Throw -ErrorId 'PivotDataTooLarge'
+        }
+        finally { & $module { $Script:ReportWriterCompiled = $null } }
+        $compiled[0] | Should -Be $plain[0]
+        $compiled[1] | Should -Be $plain[1]
+        $compiled[1].StartsWith('{"columns":["Team","Hours","When"],"rows":[["T1",0.125,"2026-01-01T01:00:00.0000000"],["T2",0.25,"2026-01-01T02:00:00.0000000"]', [System.StringComparison]::Ordinal) | Should -BeTrue
+        { ConvertTo-TableJson -Data $table -MaxBytes 60000 } | Should -Throw -ErrorId 'PivotDataTooLarge'
+    }
+
+    It 'past -MaxBytes it stops with PivotDataTooLarge: from rows x columns before anything is written, or while the rows are written' {
+        $big = [System.Data.DataTable]::new()
+        foreach ($c in 'A', 'B', 'C') { [void]$big.Columns.Add($c, [string]) }
+        foreach ($i in 1..2000) { [void]$big.Rows.Add('x', 'y', 'z') }
+        # 2000 rows x 3 columns take at least 14,000 bytes: refused before a row is written
+        { ConvertTo-TableJson -Data $big -MaxBytes 10000 } | Should -Throw -ErrorId 'PivotDataTooLarge'
+        # few rows of long text pass that estimate and are stopped while they are written
+        $long = [System.Data.DataTable]::new()
+        [void]$long.Columns.Add('Text', [string])
+        foreach ($i in 1..600) { [void]$long.Rows.Add('t' * 200) }
+        { ConvertTo-TableJson -Data $long -MaxBytes 50000 } | Should -Throw -ErrorId 'PivotDataTooLarge'
+        (ConvertTo-TableJson -Data $long -MaxBytes 200000).Length | Should -BeGreaterThan 120000
     }
 
     It 'a layout as the command line''s flags, one argument per value' {
@@ -428,6 +485,54 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
             @($quiet).Count | Should -Be 0
         }
         finally { & $module { param($c) $Script:ReportDataWarnBytes = $c } $cap }
+    }
+
+    It '-MaxBytes: data over it is refused before anything is sent; the message points to -Source' {
+        $many = foreach ($i in 1..3000) { [pscustomobject]@{ Team = 'T{0}' -f ($i % 5); Hours = $i } }
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $many -View $view -MaxBytes 20KB } catch { $caught = $_ }
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotDataTooLarge'
+        $caught.Exception.Message | Should -BeLike '*-MaxBytes*-Source*'
+        $caught.Exception.Data['MaxBytes'] | Should -Be 20KB
+        @(Get-Log).Count | Should -Be 0
+        { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Source 'sales' -View $view -MaxBytes 20KB } | Should -Throw '*-MaxBytes go with -Data*'
+        { Invoke-UDPivotReport -Engine Node -Data $rows -View $view -MaxBytes 20KB } | Should -Throw '*-MaxBytes: only with -Engine Rest*'
+    }
+
+    It 'every failure has a fixed error id, with the server''s status, code, Retry-After and request id in Data' {
+        $id = { param([scriptblock]$Call) try { & $Call; $null } catch { $_ } }
+        $mock.Render.Enqueue(@{ Status = 422; Body = '{"type":"x","title":"t","status":422,"code":"VIEW_HAS_ERRORS","detail":"d","requestId":"req-422","findings":[]}' })
+        $e = & $id { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view }
+        $e.FullyQualifiedErrorId | Should -Be 'PivotViewHasErrors'
+        $e.Exception.Data['RequestId'] | Should -Be 'req-422'
+        $e.Exception.Data['Status'] | Should -Be 422
+        $mock.Render.Enqueue(@{ Status = 503; Body = '{"type":"x","title":"t","status":503,"code":"BUSY","detail":"d","requestId":"req-503"}'; Headers = @{ 'Retry-After' = '3' } })
+        $e = & $id { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view }
+        $e.FullyQualifiedErrorId | Should -Be 'PivotServerError'
+        $e.Exception.Data['Code'] | Should -Be 'BUSY'
+        $e.Exception.Data['RetryAfter'] | Should -Be '3'
+        $e.Exception.Data['RequestId'] | Should -Be 'req-503'
+        $mock.Render.Enqueue(@{ Status = 413; Body = '' })
+        (& $id { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view }).FullyQualifiedErrorId | Should -Be 'PivotDataTooLarge'
+        (& $id { Invoke-UDPivotReport @rest -Token 'static-token-WRONG-0000' -Data $rows -View $view }).FullyQualifiedErrorId | Should -Be 'PivotTokenRefused'
+        $mock.Token.Enqueue(@{ Status = 400; Body = '{"error":"invalid_client"}' })
+        $e = & $id { Invoke-UDPivotReport @rest -Credential $client -TokenUri ($base + '/token') -Data $rows -View $view }
+        $e.FullyQualifiedErrorId | Should -Be 'PivotTokenRefused'
+        $e.Exception.Data['Code'] | Should -Be 'invalid_client'
+        $mock.Render.Enqueue(@{ Status = 302; Body = ''; Headers = @{ Location = 'https://elsewhere.example/' } })
+        (& $id { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view }).FullyQualifiedErrorId | Should -Be 'PivotRedirectRefused'
+        $closed = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $closed.Start(); $deadPort = $closed.LocalEndpoint.Port; $closed.Stop()
+        (& $id { Invoke-UDPivotReport -Engine Rest -Uri ('http://127.0.0.1:{0}/api/v1' -f $deadPort) -Token 't' -Data $rows -View $view }).FullyQualifiedErrorId | Should -Be 'PivotServerUnreachable'
+        # the command line
+        (& $id { Invoke-UDPivotReport -Engine Node -CliPath (Join-Path $TestDrive 'none.js') -Data $rows -View $view }).FullyQualifiedErrorId | Should -Be 'PivotCliNotFound'
+        $env:FAKE_PIVOTKIT_MODE = 'errors'
+        (& $id { Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view }).FullyQualifiedErrorId | Should -Be 'PivotViewHasErrors'
+        $env:FAKE_PIVOTKIT_MODE = 'usage'
+        (& $id { Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view }).FullyQualifiedErrorId | Should -Be 'PivotCliFailed'
+        $env:FAKE_PIVOTKIT_MODE = 'nojson'
+        (& $id { Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view }).FullyQualifiedErrorId | Should -Be 'PivotCliFailed'
+        $env:FAKE_PIVOTKIT_MODE = 'ok'
     }
 
     It 'a 413 without a problem document says the data is too large' {
