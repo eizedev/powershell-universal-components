@@ -197,6 +197,27 @@ export function writeLinkView(hash, key, view) {
 }
 
 /*
+ * A view from outside the app - the address bar (a link someone shared), the tab's sessionStorage -
+ * kept to pivotkit's limits for views from outside (pivotkit-core's OUTSIDE_LIMITS, passed in by the
+ * caller, so this file needs no pivotkit): the first `filters` filters, the rest left out as
+ * pivotkit's normalize() leaves them out, and no view at all above `json` characters. pivotkit then
+ * checks what is left against the data like every view. Without this the report would read such a
+ * view with the host's limits (128 filters), since it reaches pivotkit as the host's view prop.
+ */
+export function outsideView(view, limits) {
+    if (!view || typeof view !== "object" || Array.isArray(view)) return undefined;
+    if (JSON.stringify(view).length > limits.json) return undefined;
+    if (Array.isArray(view.filters) && view.filters.length > limits.filters) return { ...view, filters: view.filters.slice(0, limits.filters) };
+    return view;
+}
+
+// the fragment without pivotkit's entry for a report without a key ("#pivot=..."), other parts kept
+export function withoutBareLink(hash) {
+    const parts = String(hash || "").replace(/^#/, "").split("&").filter((p) => p !== "" && !p.startsWith("pivot="));
+    return parts.length ? "#" + parts.join("&") : "";
+}
+
+/*
  * The view a report starts with in this tab, or undefined for -View, in this order: the view in the
  * address bar (from: "link" - this tab's own, or a link someone shared), the tab's sessionStorage
  * (kept under the -View it was mounted with, from: "tab"), the reader's view the server sent as

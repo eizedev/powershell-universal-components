@@ -658,3 +658,19 @@ test("import worker: its address is the bundle's, with the file name replaced an
     assert.equal(w.bundleScriptOf(undefined), null);
     assert.equal(w.importWorkerOf(null), undefined);
 });
+
+test("outsideView: pivotkit's limits for views from outside; withoutBareLink drops #pivot= only (#105, #116)", () => {
+    const limits = { filters: 50, json: 1000000 };
+    const filters = Array.from({ length: 51 }, (_, i) => ({ field: "Team", type: "in", items: [`t${i}`] }));
+    const cut = mod.outsideView({ rows: ["Team"], filters }, limits);
+    assert.equal(cut.filters.length, 50);
+    assert.deepEqual(cut.filters[49], filters[49]);
+    const small = { rows: ["Team"], filters: filters.slice(0, 3) };
+    assert.equal(mod.outsideView(small, limits), small);
+    // larger than json: nothing, never a part of it
+    assert.equal(mod.outsideView({ rows: ["x".repeat(200)] }, { filters: 50, json: 100 }), undefined);
+    for (const bad of [undefined, null, "view", [1]]) assert.equal(mod.outsideView(bad, limits), undefined);
+    assert.equal(mod.withoutBareLink("#pivot=1.abc"), "");
+    assert.equal(mod.withoutBareLink("#/a?x=1&pivot=1.abc&pivot-t=e30"), "#/a?x=1&pivot-t=e30");
+    assert.equal(mod.withoutBareLink("#pivot-t=e30"), "#pivot-t=e30");
+});
