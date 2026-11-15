@@ -22,6 +22,21 @@ async function createLink({ source = "tickets", key = "tickets", view }) {
     return new URL(result.url);
 }
 
+test("the site spec's link fixtures are what create_link writes today", { skip }, async () => {
+    const { readFileSync } = await import("node:fs");
+    const fixtures = JSON.parse(readFileSync(new URL("../browser/fixtures/pivot-links.json", import.meta.url), "utf8"));
+    const { OPERATIONS } = await import(new URL("node_modules/pivotkit-report/src/operations.js", moduleDir));
+    const { encode } = await import(new URL("node_modules/pivotkit-core/src/index.js", moduleDir));
+    const rows = [{ Ticket: 1, Created: "2026-05-01T08:00:00Z", Team: "Network", Priority: "P1", "Lead hours": 3 }];
+    const make = async (source, key) => {
+        const env = { data: async (id) => ({ data: encode(rows), name: id }), link: async () => ({ url: "http://127.0.0.1:8765/pivot/", key }) };
+        return (await OPERATIONS.create_link.run({ source, view: fixtures.view, name: "From a link" }, env)).result.url;
+    };
+    assert.equal(fixtures.keyed, await make("pivot-datatable", "pivot-datatable"));
+    assert.equal(fixtures.bare, await make("pivot-datatable", null));
+    assert.equal(fixtures.other, await make("costs", "pivot-datatable"));
+});
+
 test("readStartLink: a create_link link with linkKey = -Id opens its view; one for other data does not", { skip }, async () => {
     const { readStartLink } = await import(new URL("Components/links.js", moduleDir));
     const view = { version: 2, rows: ["Team"], cols: ["Priority"], values: [{ field: "Hours", agg: "sum" }] };

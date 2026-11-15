@@ -72,11 +72,11 @@ Other apps with a file template store without `-Path` use the same folder; check
 
 ## Open a view from pivotkit
 
-The Weather page's report has the `-Id` `weather`. A pivotkit-server that serves the same weather data
-(`pivotkit example weather` writes it) opens views on that page when its source names the page:
-`"link": "https://<your PSU>/<app base URL>/weather"`, `"linkKey": "weather"`, and the source's id
-`weather` ([Links from pivotkit](views.md#links-from-pivotkit-create_link)). The link `create_link`
-returns then opens the view on the page, over the app's rows.
+Every page of the app opens views from pivotkit links. The Weather page's report has the `-Id`
+`weather`: a pivotkit-server source with the id `weather`, `"link": "https://<your PSU>/<app base
+URL>/weather"` and `"linkKey": "weather"` makes `create_link` return links that open on that page,
+over the app's rows. The view's fields must be columns of those rows
+([Links from pivotkit](views.md#links-from-pivotkit-create_link)).
 
 ## How it is built
 
