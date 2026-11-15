@@ -7,6 +7,33 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Added
 
+- `Invoke-UDPivotReport`: renders a view over rows into an Excel workbook, an HTML report, CSV, JSON
+  or SVG without a browser, for endpoints, schedules and jobs. `-Engine Node` runs pivotkit's command
+  line on the PSU server (pivotkit-cli 0.2.1 or later; the rows in a temporary folder only this user can
+  read, removed afterwards); `-Engine Rest` calls a pivotkit-server's file route with the rows in the
+  request (pivotkit 0.7.0's data in the request, `inline:`), or with `-Source` over a source the
+  operator configured. Input is a view, a view file or a layout (`-Layout @{ rows = 'Team'; values =
+  @{ field = 'Hours'; agg = 'sum' } }`); output is a file (`-OutFile`) or its bytes. A view with
+  errors throws with pivotkit's findings. Every failure has a fixed error id (`PivotServerUnreachable`,
+  `PivotRedirectRefused`, `PivotTokenRefused`, `PivotDataTooLarge`, `PivotViewHasErrors`,
+  `PivotServerError`, `PivotCliNotFound`, `PivotCliFailed`) with `Status`, `Code`, `RetryAfter` and
+  `RequestId` in the exception's `Data`; a 403 `INSUFFICIENT_SCOPE` is `PivotTokenRefused` and says to
+  ask for the REST scope with `-Scope`. The rows are written into the request or the data file one by
+  one, a DataTable straight from its rows, by a class compiled once per process (100,000 rows x 3
+  columns: 0.1 s and about 30 MB instead of seconds and hundreds of MB); `-MaxBytes` (default 10 MiB,
+  the server's default cap) stops oversized data before the rest is converted and before anything is
+  sent. The Reports page has a section on size and memory. Rows are read by column name (the first row's columns), so
+  another property order keeps its columns
+  ([#114](https://github.com/eizedev/powershell-universal-components/issues/114),
+  [#112](https://github.com/eizedev/powershell-universal-components/issues/112)).
+- Sign-in for `-Engine Rest`: a static token (`-Token`, a PSU secret) or OAuth client credentials
+  (`-Credential` with `-TokenUri`, `-Scope`, `-Audience`, `-Resource`), the access token kept per
+  runspace (per client, secret hash, scopes and server) until a minute before it expires and fetched
+  again once after a 401. https only (http to this machine), no user info in an address, and a
+  `-Uri` with a query string or fragment is refused (the routes are appended to its path, so the
+  query would be dropped from the request); no redirects followed; the token and the secret appear in no message, `$Error`, verbose or debug output. The new page "Reports
+  without a browser" has an Authentik example
+  ([#115](https://github.com/eizedev/powershell-universal-components/issues/115)).
 - Links from pivotkit: the report opens a view from pivotkit's share format in the address
   (`#pivot-<-Id>=1.<view>`, and `#pivot=1.<view>` without a key), which pivotkit's MCP tool
   `create_link` and REST route `/views/link` make for a source whose `link` is the PSU page and whose
