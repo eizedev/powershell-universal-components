@@ -90,3 +90,22 @@ test("readStartLink: the report's own entry first; pivotkit's outside limits for
         console.warn = warn;
     }
 });
+
+test("readStartLink: the tab's own entry (the view its sessionStorage keeps) keeps the app's limits after a reload or a remount", { skip }, async () => {
+    const { readStartLink } = await import(new URL("Components/links.js", moduleDir));
+    const { writeLinkView, readStoredView, writeStoredView } = await import(new URL("Components/prepare.js", moduleDir));
+    const filters = Array.from({ length: 60 }, (_, i) => ({ field: "Team", type: "text", op: "contains", value: `t${i}` }));
+    const view = { version: 2, rows: ["Team"], filters };
+    // the tab wrote its view to sessionStorage and the address bar before PSU mounted the report anew
+    const items = new Map();
+    const storage = { getItem: (k) => (items.has(k) ? items.get(k) : null), setItem: (k, v) => items.set(k, String(v)), removeItem: (k) => items.delete(k) };
+    const serverKey = JSON.stringify({ rows: ["Team"] });
+    assert.equal(writeStoredView(storage, "/pivot/#tickets", serverKey, view), true);
+    const hash = writeLinkView("", "tickets", view);
+    const stored = readStoredView(storage, "/pivot/#tickets", serverKey);
+    assert.equal(readStartLink(hash, "tickets", "tickets", stored).view.filters.length, 60);
+    // the same entry in another tab (a copied address, no stored view): outside input, 50 kept
+    assert.equal(readStartLink(hash, "tickets", "tickets", undefined).view.filters.length, 50);
+    // a stored view that is not the one in the address: the address is a shared link
+    assert.equal(readStartLink(hash, "tickets", "tickets", { rows: ["Team"] }).view.filters.length, 50);
+});

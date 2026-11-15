@@ -17,8 +17,9 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Fixed
 
-- A view from the address bar or the tab's sessionStorage is held to pivotkit's limits for views
-  from outside (at most 50 filters, 1,000,000 characters) instead of the app's own (128 filters)
+- A view from a link in the address bar is held to pivotkit's limits for views from outside (at most
+  50 filters, 1,000,000 characters) instead of the app's own (128 filters); the tab's own view, kept
+  in its sessionStorage, keeps the app's limits after a reload or the light/dark switch
   ([#105](https://github.com/eizedev/powershell-universal-components/issues/105)).
 
 ## [0.5.0] - 2026-11-15

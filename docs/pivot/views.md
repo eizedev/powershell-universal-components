@@ -68,9 +68,10 @@ the tab keeps `-View`. The view is kept in two places of the tab:
     link is ignored.
 
 The view in a link is input like any other: the report checks it against the data and drops what does
-not fit, and nothing in it runs as code. A view from the address bar or the tab's sessionStorage is
-held to pivotkit's limits for views from outside: at most 50 filters (the rest are left out) and
-1,000,000 characters.
+not fit, and nothing in it runs as code. A view from a link is held to pivotkit's limits for views
+from outside: at most 50 filters (the rest are left out) and 1,000,000 characters. The tab's own view
+(the one its sessionStorage keeps, also when the same view is in the address bar after a reload or the
+light/dark switch) keeps the app's limits.
 
 ### Links from pivotkit (create_link)
 
@@ -101,6 +102,8 @@ New-UDPivotReport -Id 'tickets' -SourceId 'tickets' -Data $tickets
 - The link names the data it was made for (the source's id). The report opens it only when that is
   its own `-SourceId` (default its `-Id`); a link for other data is left alone, the report starts as
   without it, and the browser console says why. Give the PSU report the source's id as `-SourceId`.
+  A link that names no data (a view file without `source.id`, made by hand) is loaded without that
+  check: the report still checks its fields against the data, as for every view.
 - Once the report shows the link's view, it writes its own entry in place of pivotkit's, so a
   reload, the light/dark switch and a copied address keep the view.
 - The link holds the layout only, never data; the report checks the view against the rows the

@@ -8,8 +8,8 @@ import "pivotkit-react/styles.css";
 import "./psu.css";
 import { useNarrowWindow } from "./hooks";
 import AdminPanel from "./AdminPanel";
-import { callEndpoint, cellEvent, dataLoadEvent, fieldListOf, heightOf, importLimitsOf, MAX_OPTIONS_LENGTH, MAX_SCHEMA_LENGTH, mergeFieldDefaults, mergeTemplates, parseJsonObject, outsideView, parseView, readTemplates, restoreRows, schemaUrlOf, sourceOf, startViewOf, switchOf, templateKey, themeOf, tipsOf, VIEW_EVENT_DELAY_MS, viewStoreKey, withoutBareLink, writeLinkView, writeStoredView } from "./prepare";
-import { OUTSIDE_LIMITS, readStartLink } from "./links";
+import { callEndpoint, cellEvent, dataLoadEvent, fieldListOf, heightOf, importLimitsOf, MAX_OPTIONS_LENGTH, MAX_SCHEMA_LENGTH, mergeFieldDefaults, mergeTemplates, parseJsonObject, parseView, readStoredView, readTemplates, restoreRows, schemaUrlOf, sourceOf, startViewOf, switchOf, templateKey, themeOf, tipsOf, VIEW_EVENT_DELAY_MS, viewStoreKey, withoutBareLink, writeLinkView, writeStoredView } from "./prepare";
+import { readStartLink } from "./links";
 
 /*
  * What -Schema says about the fields (pivotkit-core's fieldDefaultsFromSchema: names, descriptions,
@@ -107,7 +107,7 @@ export default function PsuPivotReport(props) {
         s.key = viewStoreKey(s.path, id);
         // with -NoAddressBar a view in the link is ignored too: the report never reads what it never writes
         // the report's own entry, or a pivotkit link (create_link) for this report's data
-        const link = typeof window !== "undefined" && props.addressBar !== false ? readStartLink(window.location.hash, id, sourceOf(props.source)?.id) : undefined;
+        const link = typeof window !== "undefined" && props.addressBar !== false ? readStartLink(window.location.hash, id, sourceOf(props.source)?.id, readStoredView(s.storage, s.key, s.mountedWith)) : undefined;
         if (link && link.bare) {
             // "#pivot=" names no report: once this report took it, its own entry stands for it
             try {
@@ -116,10 +116,9 @@ export default function PsuPivotReport(props) {
                 // the view still opens; a reload would read the link again
             }
         }
-        let start = startViewOf(s.storage, s.key, s.mountedWith, props.savedView, link && link.view);
-        // a view the tab stored is outside input like a link (#105)
-        if (start && start.from === "tab") start.view = outsideView(start.view, OUTSIDE_LIMITS);
-        if (start && !start.view) start = undefined;
+        // the tab's own view (sessionStorage) keeps the app's limits; only a link gets pivotkit's
+        // limits for views from outside (readStartLink)
+        const start = startViewOf(s.storage, s.key, s.mountedWith, props.savedView, link && link.view);
         if (start && JSON.stringify(start.view) !== serverViewKey) {
             hostView.current = start.view;
             // pivotkit restored a loaded file in its own layout effect, before this one (onDataLoad
