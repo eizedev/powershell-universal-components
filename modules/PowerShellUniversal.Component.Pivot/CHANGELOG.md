@@ -10,7 +10,9 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 - `-ExportData`: Export, Source data downloads every row of `-Data` as a CSV or JSON file (pivotkit's
   `exportData`, off by default). `-ExportDataColumn` keeps it, and the drill-down's copies and files,
   to the columns it names; a name that is no column of `-Data` is an error, so a typo never widens the
-  export. The Pivot page has a table of what the exports, the drill-down and Source data hand out
+  export, and the explanation next to Source data names those columns. It is no access control: the
+  field list, the drill-down panel and `$EventData.rows` still carry every column, so a column readers
+  must not have is removed before `-Data`. The Pivot page has a table of what the exports, the drill-down and Source data hand out
   ([#111](https://github.com/eizedev/powershell-universal-components/issues/111),
   [#113](https://github.com/eizedev/powershell-universal-components/issues/113)).
 

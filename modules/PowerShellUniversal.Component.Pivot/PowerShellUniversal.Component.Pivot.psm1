@@ -1793,9 +1793,12 @@ function New-UDPivotReport {
         every row home, and select the columns first. With -AllowImport a loaded file's rows are exported
         too. https://pivotkit.eize.dev/security/#source-data
     .PARAMETER ExportDataColumn
-        With -ExportData: only these columns, in this order, in Source data and in the drill-down's
-        copies and files. Names are matched without regard to case; a name that is no column of -Data is
-        an error, so a typo never widens the export.
+        With -ExportData: only these columns, in this order, in Source data and in the drill-down panel's
+        copies and files (the panel itself still shows every column). Names are matched without regard to
+        case against the columns of the first row of -Data; a name that is no column is an error, so a
+        typo never widens the export. It is no access control: the field list, the drill-down panel, the
+        exports of the result and $EventData.rows still carry every column. Remove a column readers must
+        not have before -Data (Select-Object -ExcludeProperty, the SQL query).
     .PARAMETER AllowImport
         Readers may load a file of their own into the report: a Data menu in the toolbar, a file dropped
         onto the report, and a preview (first rows, a type per column, a sheet of a workbook) before the

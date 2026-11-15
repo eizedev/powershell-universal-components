@@ -226,33 +226,41 @@ test("Pivot: -ImportLimit refuses a file over its rows or bytes, loads one at th
     expect(errors).toEqual([]);
 });
 
-test("Pivot: -ExportData offers Source data with the columns of -ExportDataColumn only, also in the drill-down's file", async ({ page }) => {
+test("Pivot: -ExportData offers Source data with the columns of -ExportDataColumn only, also in the drill-down's files; the report still shows every column", async ({ page }) => {
     const errors = collectErrors(page);
     await openPage(page, "/pivot/");
     const report = page.locator('[data-example="source-data-for-readers"] .pk-root');
     const table = report.getByRole("region", { name: "Table" });
     await expect(table).toContainText("250");
     const text = async (download) => readFileSync(await download.path(), "utf8").replace(/^\uFEFF/, "");
+    // removed with Select-Object: nowhere; narrowed with -ExportDataColumn: still in the field list
+    await expect(report.locator(".pk-field-list")).toContainText("Lead hours");
+    await expect(report.locator(".pk-field-list")).not.toContainText("Customer");
 
-    // Export, Source data, All rows as CSV: every row, the named columns in their order, no Customer
+    // Export, Source data: every row, the named columns in their order; its explanation names them
     await report.locator("[data-testid=export]").click();
+    await page.locator("[data-testid=setting-info-exportDataCsv]").click();
+    await expect(page.getByText("with these columns only: Ticket, Team.").filter({ visible: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    if (!(await page.locator("[data-testid=export-data-csv]").isVisible())) await report.locator("[data-testid=export]").click();
     const [csv] = await Promise.all([page.waitForEvent("download"), page.locator("[data-testid=export-data-csv]").click()]);
     const lines = (await text(csv)).trim().split(/\r?\n/);
-    expect(lines[0]).toBe("Ticket,Team,Lead hours");
+    expect(lines[0]).toBe("Ticket,Team");
     expect(lines).toHaveLength(251);
     await report.locator("[data-testid=export]").click();
     const [json] = await Promise.all([page.waitForEvent("download"), page.locator("[data-testid=export-data-json]").click()]);
     const rows = JSON.parse(await text(json));
     expect(rows).toHaveLength(250);
-    expect(Object.keys(rows[0])).toEqual(["Ticket", "Team", "Lead hours"]);
+    expect(Object.keys(rows[0])).toEqual(["Ticket", "Team"]);
 
-    // the drill-down behind a team keeps to the same columns
+    // the drill-down panel shows every column; its file keeps to the named ones
     await table.getByRole("cell").filter({ hasText: /^\d+$/ }).first().click();
     const panel = page.locator("[data-testid=drill-panel]");
     await expect(panel).toBeVisible();
+    await expect(panel).toContainText("Lead hours");
     await panel.getByRole("button", { name: "Export" }).click();
     const [drill] = await Promise.all([page.waitForEvent("download"), page.locator("[data-testid=drill-csv]").click()]);
-    expect((await text(drill)).split(/\r?\n/)[0]).toBe("Ticket,Team,Lead hours");
+    expect((await text(drill)).split(/\r?\n/)[0]).toBe("Ticket,Team");
     expect(errors).toEqual([]);
 });
 

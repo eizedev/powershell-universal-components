@@ -93,9 +93,17 @@ New-UDDynamic -Id 'tickets-report' -LoadingComponent {
 ### Source data (-ExportData)
 
 `-ExportData` adds **Source data** to the Export menu: every row of `-Data`, before filters, grouping
-and totals, as a CSV or JSON file. It is off by default. `-ExportDataColumn` keeps the files, and the
-drill-down's copies and files, to the columns it names (matched without regard to case); a name that is
-no column of `-Data` is an error, so a typo never widens the export.
+and totals, as a CSV or JSON file. It is off by default. `-ExportDataColumn` keeps these files, and the
+drill-down panel's copies and files, to the columns it names (matched without regard to case, checked
+against the columns of the first row); a name that is no column of `-Data` is an error, so a typo
+never widens the export. The explanation next to Source data then names those columns.
+
+!!! warning "-ExportDataColumn is no access control"
+    It narrows two kinds of download, nothing else. The field list, the drill-down panel itself, the
+    exports of the result (a reader can place any field) and `$EventData.rows` of `-OnCellClick` still
+    carry every column of `-Data`, and the browser holds them all. To keep a column away from readers,
+    remove it before `-Data`: `$rows | Select-Object -ExcludeProperty Customer`, or leave it out of the
+    SQL query.
 
 --8<-- "examples/source-data-for-readers.md"
 
@@ -104,7 +112,7 @@ What each part hands out:
 | Part | What a reader takes away | Turned off with |
 | --- | --- | --- |
 | Export (Excel, Table as CSV, HTML report, Print, PNG, SVG) | the result shown: groups, totals, the chart | - |
-| Drill-down | up to 1,000 rows behind a clicked value (all rows behind the grand total), every column or those of `-ExportDataColumn` | `-NoDrillDown` |
+| Drill-down | up to 1,000 rows behind a clicked value (all rows behind the grand total); the panel shows every column, its copies and files only those of `-ExportDataColumn` | `-NoDrillDown` |
 | Source data | every row and every column of `-Data` (or those of `-ExportDataColumn`), also the rows the filters leave out | without `-ExportData` (the default) |
 
 All three are rows the browser holds already: its developer tools reach them. Turn Source data on only

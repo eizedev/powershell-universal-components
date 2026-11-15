@@ -324,6 +324,28 @@ export function exportDataOf(value) {
     return { columns: Array.isArray(list) ? list.filter((c) => typeof c === "string" && c !== "") : [] };
 }
 
+/*
+ * pivotkit's explanation of Export, Source data says "with every field". With -ExportDataColumn the
+ * file holds only those columns: the explanation names them instead (English or German, as the report's
+ * labels), unless the app gives its own text in -Labels (settingInfo.exportDataCsv).
+ */
+const SOURCE_DATA_INFO = {
+    en: "All the original rows behind the report, before grouping, filters and totals, with these columns only: {columns}. For your own analysis, or to build this report again elsewhere with its view (Views \u2192 Download view). Excel set to a comma decimal: open it with Data \u2192 From Text/CSV.",
+    de: "Alle urspr\u00fcnglichen Zeilen hinter dem Bericht, vor Gruppierung, Filtern und Summen, nur mit diesen Spalten: {columns}. F\u00fcr eigene Auswertungen oder um den Bericht mit seiner Ansicht (Ansichten \u2192 Ansicht herunterladen) anderswo neu zu erstellen. In Excel mit Dezimalkomma: \u00fcber Daten \u2192 Aus Text/CSV \u00f6ffnen."
+};
+const MAX_INFO_COLUMNS = 12;
+
+export function exportDataLabels(labels, exportData, locale) {
+    const base = labels && typeof labels === "object" && !Array.isArray(labels) ? labels : undefined;
+    const columns = exportData && typeof exportData === "object" && Array.isArray(exportData.columns) ? exportData.columns : undefined;
+    if (!columns || columns.length === 0) return base;
+    const own = base && base.settingInfo && typeof base.settingInfo === "object" ? base.settingInfo : undefined;
+    if (own && Object.hasOwn(own, "exportDataCsv")) return base;
+    const shown = columns.slice(0, MAX_INFO_COLUMNS).join(", ") + (columns.length > MAX_INFO_COLUMNS ? ", \u2026" : "");
+    const text = (/^de(-|$)/i.test(String(locale || "")) ? SOURCE_DATA_INFO.de : SOURCE_DATA_INFO.en).replace("{columns}", shown);
+    return { ...(base || {}), settingInfo: { ...(own || {}), exportDataCsv: text } };
+}
+
 /* "open" or "collapsed" for -FieldList, else undefined. */
 export function fieldListOf(value) {
     const v = String(value ?? "").toLowerCase();

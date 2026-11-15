@@ -8,7 +8,7 @@ import "pivotkit-react/styles.css";
 import "./psu.css";
 import { useNarrowWindow } from "./hooks";
 import AdminPanel from "./AdminPanel";
-import { callEndpoint, cellEvent, dataLoadEvent, exportDataOf, fieldListOf, heightOf, importLimitsOf, MAX_OPTIONS_LENGTH, MAX_SCHEMA_LENGTH, mergeFieldDefaults, mergeTemplates, parseJsonObject, parseView, readLinkView, readTemplates, restoreRows, schemaUrlOf, sourceOf, startViewOf, switchOf, templateKey, themeOf, tipsOf, VIEW_EVENT_DELAY_MS, viewStoreKey, writeLinkView, writeStoredView } from "./prepare";
+import { callEndpoint, cellEvent, dataLoadEvent, exportDataLabels, exportDataOf, fieldListOf, heightOf, importLimitsOf, MAX_OPTIONS_LENGTH, MAX_SCHEMA_LENGTH, mergeFieldDefaults, mergeTemplates, parseJsonObject, parseView, readLinkView, readTemplates, restoreRows, schemaUrlOf, sourceOf, startViewOf, switchOf, templateKey, themeOf, tipsOf, VIEW_EVENT_DELAY_MS, viewStoreKey, writeLinkView, writeStoredView } from "./prepare";
 
 /*
  * What -Schema says about the fields (pivotkit-core's fieldDefaultsFromSchema: names, descriptions,
@@ -293,6 +293,8 @@ export default function PsuPivotReport(props) {
     const schemaUrl = schemaUrlOf(props.schemaUrl);
     const exportDataKey = JSON.stringify(props.exportData ?? null);
     const exportData = useMemo(() => exportDataOf(JSON.parse(exportDataKey)), [exportDataKey]);
+    const labelsKey = JSON.stringify(props.labels ?? null);
+    const labels = useMemo(() => exportDataLabels(JSON.parse(labelsKey) || undefined, exportData, props.locale), [labelsKey, exportData, props.locale]);
 
     // ---- clicks ----------------------------------------------------------------------------------
     const viewRef = useRef(view);
@@ -341,7 +343,7 @@ export default function PsuPivotReport(props) {
                 // component (address bar and sessionStorage), so pivotkit's persistView and shareLink stay off
                 storageKey={props.storageKey || props.id}
                 label={props.label || undefined}
-                labels={props.labels || undefined}
+                labels={labels}
                 locale={props.locale || "en-US"}
                 timeZone={props.timeZone || "UTC"}
                 theme={themeOf(props.theme)}
