@@ -109,10 +109,13 @@ What the function does on the way:
   a `-Uri` with a query string or fragment (the routes are appended to its path); messages show an
   address as scheme, host, port and path only.
 - No redirect is followed: a token goes only to the address you gave.
-- An error says the server's code and detail, the findings of a view with errors (422), the seconds to
-  wait from `Retry-After` (429, 503) and the request id the operator finds the log lines by, and has
-  a fixed error id ([Errors](#errors)). A 413 says the data is too large for the server; data over
-  `-MaxBytes` is refused before it is sent ([Size and memory](#size-and-memory)).
+- An error says the server's code and detail, the findings of a view with errors (422), when to try
+  again from `Retry-After` (429, 503) or that trying again may work (`retryable`), and the request id
+  the operator finds the log lines by, and has a fixed error id ([Errors](#errors)). A 413 says what to
+  do by its code: less data or `-Source` for a request over the server's cap, also when the server
+  answers it while the request is still being sent; a smaller view or a filter for a report over a
+  limit of the server. Data over `-MaxBytes` is refused before it is sent
+  ([Size and memory](#size-and-memory)).
 - The token and the client secret never appear in an error, `$Error`, the verbose or the debug stream
   or the output, also with `-Verbose` and `-Debug`.
 
@@ -158,17 +161,20 @@ render with `-Source`. `-Data` is for what a script has at hand, a few megabytes
 Every failure of the engines is an ErrorRecord with a fixed error id (`$_.FullyQualifiedErrorId`, or
 `catch` and `Should -Throw -ErrorId` in a test). `$_.Exception.Data` holds what a script may act on:
 `Status` (the HTTP status), `Code` (pivotkit-server's problem code, the OAuth error, the command
-line's error code), `RetryAfter` (seconds, from 429 and 503), `RequestId` (give it to the server's
-operator) and `MaxBytes`.
+line's error code), `RetryAfter` (the `Retry-After` header of a 429 or 503: seconds, or an HTTP date),
+`Retryable` (`$true` or `$false` where the server said whether the same request may work when tried
+again, as for a source that is not available right now; the message then says "Trying again may
+work."), `RequestId` (give it to the server's operator; from the answer's body, else its
+`X-Request-Id` header) and `MaxBytes`.
 
 | Error id | When |
 | --- | --- |
 | `PivotServerUnreachable` | pivotkit-server or the token endpoint did not answer (no connection, a time-out) |
 | `PivotRedirectRefused` | the server or the token endpoint answered with a redirect, which is not followed |
 | `PivotTokenRefused` | the server answered 401, or 403 `INSUFFICIENT_SCOPE` (the token lacks the REST scope: ask for it with `-Scope`), or the token endpoint refused the client credentials or gave no usable token |
-| `PivotDataTooLarge` | `-Data` passed `-MaxBytes`, or the server answered 413 |
+| `PivotDataTooLarge` | `-Data` passed `-MaxBytes`, or the server answered 413: `BODY_TOO_LARGE` (the request is over the server's cap: send fewer rows or columns, or use `-Source`) or `LIMIT_EXCEEDED` (the report is over a limit of the server, rows, cells or memory: make the view smaller or filter) |
 | `PivotViewHasErrors` | the view has errors: the server's 422 or the command line's findings (exit 1) |
-| `PivotServerError` | any other answer of the server that is no report (403, 404, 429, 503 and so on) |
+| `PivotServerError` | any other answer of the server that is no report (400, 403, 404, 429, 500, 502, 503 and so on) |
 | `PivotCliNotFound` | `pivotkit` (or `node` for a .js) was not found, or `-CliPath` is no file |
 | `PivotCliFailed` | the command line did not start, took longer than `-TimeoutSec`, gave no `--json` answer or failed otherwise (exit 2) |
 
@@ -179,7 +185,7 @@ plain errors before anything runs.
 try { Invoke-UDPivotReport -Engine Rest -Uri $uri -Token $Secret:PivotkitToken -Data $rows -View $view -OutFile $file }
 catch {
     switch ($_.FullyQualifiedErrorId) {
-        'PivotServerError' { if ($_.Exception.Data['RetryAfter']) { <# try again later #> } }
+        'PivotServerError' { if ($_.Exception.Data['RetryAfter'] -or $_.Exception.Data['Retryable']) { <# try again later #> } }
         'PivotDataTooLarge' { <# fewer rows, or a source on the server #> }
         default { throw }
     }

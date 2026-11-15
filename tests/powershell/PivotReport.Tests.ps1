@@ -461,8 +461,27 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
         $caught = $null
         try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } catch { $caught = $_ }
         $caught.Exception.Message | Should -BeLike '*BUSY (503)*Try again in 7 seconds*'
+        $caught.Exception.Message | Should -Not -BeLike '*Trying again may work*' -Because 'Retry-After says it already'
         $caught.Exception.Data['RetryAfter'] | Should -Be '7'
         $caught.Exception.Data['Status'] | Should -Be 503
+        $caught.Exception.Data['Retryable'] | Should -BeTrue
+        # retryable without Retry-After, and Retry-After as a date
+        $mock.Render.Enqueue(@{ Status = 502; Body = '{"type":"x","title":"t","status":502,"code":"SOURCE_UNAVAILABLE","detail":"the source is not available right now","retryable":true}' })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } catch { $caught = $_ }
+        $caught.Exception.Message | Should -BeLike '*SOURCE_UNAVAILABLE (502)*Trying again may work.*'
+        $caught.Exception.Data['Retryable'] | Should -BeTrue
+        $mock.Render.Enqueue(@{ Status = 502; Body = '{"type":"x","title":"t","status":502,"code":"SOURCE_UNAVAILABLE","detail":"the source is not set up correctly","retryable":false}' })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } catch { $caught = $_ }
+        $caught.Exception.Message | Should -Not -BeLike '*try*again*'
+        $caught.Exception.Data['Retryable'] | Should -BeFalse
+        $caught.Exception.Data.Contains('Retryable') | Should -BeTrue
+        $mock.Render.Enqueue(@{ Status = 503; Body = '{"type":"x","title":"t","status":503,"code":"NOT_READY","detail":"d"}'; Headers = @{ 'Retry-After' = 'Wed, 21 Oct 2026 07:28:00 GMT' } })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } catch { $caught = $_ }
+        $caught.Exception.Message | Should -BeLike '*Try again after 2026-10-21 07:28:00Z.*'
+        $caught.Exception.Data.Contains('Retryable') | Should -BeFalse -Because 'the body did not say'
         $mock.Render.Enqueue(@{ Status = 302; Body = ''; Headers = @{ Location = 'https://elsewhere.example/api/v1/views/render/file' } })
         { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } | Should -Throw '*redirect (302)*not followed*'
         @(Get-Log | Where-Object Path -NE '/api/v1/views/render/file').Count | Should -Be 0
@@ -624,6 +643,83 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
         { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } | Should -Throw '*HTTP 413 (413)*too large for the server*-Source*'
     }
 
+    It 'a 413 picks its hint by code: BODY_TOO_LARGE asks for less data, LIMIT_EXCEEDED for a smaller view' {
+        $mock.Render.Enqueue(@{ Status = 413; Body = '{"type":"x","title":"t","status":413,"code":"BODY_TOO_LARGE","detail":"the body is larger than 10 MiB","requestId":"req-big"}' })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } catch { $caught = $_ }
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotDataTooLarge'
+        $caught.Exception.Message | Should -BeLike '*BODY_TOO_LARGE (413)*send fewer rows or columns*-Source*'
+        $mock.Render.Enqueue(@{ Status = 413; Body = '{"type":"x","title":"t","status":413,"code":"LIMIT_EXCEEDED","detail":"the report is over a limit of the server (limits.maxCells)"}' })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Source 'sales' -View $view } catch { $caught = $_ }
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotDataTooLarge'
+        $caught.Exception.Message | Should -BeLike '*LIMIT_EXCEEDED (413)*make the view smaller or filter*'
+        $caught.Exception.Message | Should -Not -BeLike '*send fewer rows*'
+    }
+
+    It 'without a problem document: the request id from X-Request-Id, the 500 of a crashed handler with its error text' {
+        # a 400 of the listener itself or a proxy: no JSON, the id only in the header
+        $mock.Render.Enqueue(@{ Status = 400; Body = ''; Headers = @{ 'X-Request-Id' = 'hdr-400' } })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } catch { $caught = $_ }
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotServerError'
+        $caught.Exception.Message | Should -BeLike '*HTTP 400 (400)*Request id for the operator: hdr-400*'
+        $caught.Exception.Data['RequestId'] | Should -Be 'hdr-400'
+        # the body's id wins over the header's
+        $mock.Render.Enqueue(@{ Status = 404; Body = '{"type":"x","title":"t","status":404,"code":"NOT_FOUND","detail":"d","requestId":"body-404"}'; Headers = @{ 'X-Request-Id' = 'hdr-404' } })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } catch { $caught = $_ }
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotServerError'
+        $caught.Exception.Data['RequestId'] | Should -Be 'body-404'
+        # pivotkit-server's answer when a handler throws: no code, no detail, the text in "error"
+        $mock.Render.Enqueue(@{ Status = 500; Body = '{"error":"internal error","requestId":"req-500"}'; Headers = @{ 'X-Request-Id' = 'req-500' } })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } catch { $caught = $_ }
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotServerError'
+        $caught.Exception.Message | Should -BeLike '*HTTP 500 (500): internal error*Request id for the operator: req-500*'
+    }
+
+    It 'a 413 the server sends while the body is still coming, then resets the connection: PivotDataTooLarge with the server''s code and request id' {
+        # as pivotkit-server does with a body over its cap: it reads the headers, answers 413 at once
+        # and resets the connection while the client still sends
+        $early = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $early.Start()
+        $earlyPort = $early.LocalEndpoint.Port
+        $job = Start-ThreadJob -ScriptBlock {
+            $Listener = $using:early
+            try {
+                $client = $Listener.AcceptTcpClient()
+                $stream = $client.GetStream()
+                $head = [System.Text.StringBuilder]::new()
+                while (-not $head.ToString().Contains("`r`n`r`n")) { $b = $stream.ReadByte(); if ($b -lt 0) { return }; $null = $head.Append([char]$b) }
+                if ($head.ToString() -match '(?im)^expect:\s*100-continue') { $c = [System.Text.Encoding]::ASCII.GetBytes("HTTP/1.1 100 Continue`r`n`r`n"); $stream.Write($c, 0, $c.Length) }
+                $body = '{"type":"x","title":"Body too large","status":413,"code":"BODY_TOO_LARGE","detail":"the body is larger than 10 MiB, the most this service takes from you","requestId":"req-early"}'
+                $answer = [System.Text.Encoding]::ASCII.GetBytes(("HTTP/1.1 413 Payload Too Large`r`ncontent-type: application/problem+json`r`nx-request-id: req-early`r`ncontent-length: {0}`r`n`r`n{1}" -f $body.Length, $body))
+                $stream.Write($answer, 0, $answer.Length)
+                $stream.Flush()
+                Start-Sleep -Milliseconds 50
+                $client.Client.LingerState = [System.Net.Sockets.LingerOption]::new($true, 0)
+                $client.Close()
+            }
+            finally { $Listener.Stop() }
+        }
+        try {
+            # larger than the loopback buffers, so the client is still sending when the reset comes
+            $big = [byte[]]::new(24MB)
+            $caught = $null
+            try { & $module { param($u, $b) Invoke-UDPivotRestRender -Uri $u -Body $b -Auth @{ Token = 'static-token-0123456789' } -TimeoutSec 30 -WarningAction SilentlyContinue } ('http://127.0.0.1:{0}/api/v1' -f $earlyPort) $big } catch { $caught = $_ }
+            $caught.FullyQualifiedErrorId | Should -Be 'PivotDataTooLarge'
+            $caught.Exception.Message | Should -BeLike '*BODY_TOO_LARGE (413): the body is larger than 10 MiB*Request id for the operator: req-early*'
+            $caught.Exception.Data['Code'] | Should -Be 'BODY_TOO_LARGE'
+            $caught.Exception.Data['RequestId'] | Should -Be 'req-early'
+        }
+        finally {
+            $null = Wait-Job $job -Timeout 10
+            Remove-Job $job -Force
+            $early.Stop()
+        }
+    }
+
     It 'a refused static token: no second try, and the token is in no message' {
         $caught = $null
         try { Invoke-UDPivotReport @rest -Token 'static-token-WRONG-98765' -Data $rows -View $view } catch { $caught = $_ }
@@ -702,5 +798,15 @@ Describe 'Invoke-UDPivotReport against the real pivotkit' {
         $text = [System.Text.Encoding]::UTF8.GetString((Invoke-UDPivotReport -Engine Rest -Uri $env:PIVOTKIT_TEST_URL -Token $env:PIVOTKIT_TEST_TOKEN -Data $rows -View $view -Format csv)).TrimStart([char]0xFEFF)
         ($text -split '\r?\n')[0..3] | Should -Be @('Team,Sum of Hours', 'T0,18', 'T1,13.5', 'Grand Total,31.5')
         { Invoke-UDPivotReport -Engine Rest -Uri $env:PIVOTKIT_TEST_URL -Token $env:PIVOTKIT_TEST_TOKEN -Data $rows -View @{ rows = @('Taem') } } | Should -Throw '*VIEW_HAS_ERRORS (422)*unknown field "Taem"*'
+    }
+
+    It 'a body over the server''s cap is its 413 with code and request id, not a broken connection (PIVOTKIT_TEST_URL, PIVOTKIT_TEST_TOKEN)' -Skip:(-not $env:PIVOTKIT_TEST_URL) {
+        # about 12 MiB of rows: over pivotkit-server's default cap of 10 MiB (rest.data.maxBytes)
+        $many = foreach ($i in 1..150000) { [pscustomobject]@{ Team = 'Team-{0:D6}-{1}' -f $i, ('x' * 60); Hours = $i } }
+        $caught = $null
+        try { Invoke-UDPivotReport -Engine Rest -Uri $env:PIVOTKIT_TEST_URL -Token $env:PIVOTKIT_TEST_TOKEN -Data $many -View $view -Format csv -MaxBytes 64MB -WarningAction SilentlyContinue } catch { $caught = $_ }
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotDataTooLarge'
+        $caught.Exception.Data['Code'] | Should -Be 'BODY_TOO_LARGE'
+        $caught.Exception.Data['RequestId'] | Should -Not -BeNullOrEmpty
     }
 }

@@ -2440,6 +2440,166 @@ $Script:ReportWriterCompiled = $null
 $Script:TokenSkewSec = 60
 # OAuth access tokens per token endpoint, client and scope, for this runspace: @{ Token; Expires }
 $Script:TokenCache = @{}
+# The connection under every request of the REST engine reads the server's answer while the body is
+# still being sent. pivotkit-server answers a body over its cap with 413 at once and resets the
+# connection while the client still sends (measured with pivotkit c390784b on 2026-11-15: the answer
+# after about 600 KB, the reset a few milliseconds later). HttpClient (and Invoke-WebRequest) reads the
+# answer only once the body is sent: on a plain connection the write fails with "Error while copying
+# content to a stream" and the 413 is lost, also with Expect: 100-continue (node:http sends 100 Continue
+# before the answer).
+# The stream below keeps reading the socket in the background and, when a write fails after bytes of an
+# answer arrived, drops the rest of the body, so HttpClient reads that answer. It sits below TLS and
+# a proxy's tunnel, so both work as before. Compiled on first use; where Add-Type fails, the requests go
+# through a plain handler and an early answer is lost as before.
+$Script:HttpTransportSource = @'
+using System;
+using System.IO;
+using System.Net.Http;
+using System.Net.Sockets;
+using System.Threading;
+using System.Threading.Channels;
+using System.Threading.Tasks;
+
+namespace PivotReportHttp
+{
+    public static class Transport_SUFFIX
+    {
+        /// <summary>A handler without redirects or cookies whose connections keep an early answer.</summary>
+        public static SocketsHttpHandler NewHandler()
+        {
+            var handler = new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false,
+                UseCookies = false,
+                AutomaticDecompression = System.Net.DecompressionMethods.All
+            };
+            handler.ConnectCallback = async (context, cancel) =>
+            {
+                var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+                try
+                {
+                    await socket.ConnectAsync(context.DnsEndPoint, cancel).ConfigureAwait(false);
+                    return new ReadAheadStream(socket);
+                }
+                catch
+                {
+                    socket.Dispose();
+                    throw;
+                }
+            };
+            return handler;
+        }
+
+        private sealed class ReadAheadStream : Stream
+        {
+            // how long a failed write waits for the answer that may have caused it
+            private const int AnswerWaitMs = 2000;
+            private readonly NetworkStream inner;
+            // at most 256 reads of 16 KiB ahead of the reader
+            private readonly Channel<byte[]> received = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(256) { SingleReader = true, SingleWriter = true });
+            private byte[] current = Array.Empty<byte>();
+            private int offset;
+            // bytes received and not read yet; -1 once the connection ended
+            private long unread;
+            private volatile bool ended;
+            private volatile bool dropping;
+
+            public ReadAheadStream(Socket socket)
+            {
+                inner = new NetworkStream(socket, ownsSocket: true);
+                _ = PumpAsync();
+            }
+
+            private async Task PumpAsync()
+            {
+                var buffer = new byte[16384];
+                try
+                {
+                    while (true)
+                    {
+                        int n = await inner.ReadAsync(buffer.AsMemory()).ConfigureAwait(false);
+                        if (n == 0) break;
+                        Interlocked.Add(ref unread, n);
+                        await received.Writer.WriteAsync(buffer.AsSpan(0, n).ToArray()).ConfigureAwait(false);
+                    }
+                    received.Writer.TryComplete();
+                }
+                catch (Exception e)
+                {
+                    received.Writer.TryComplete(e is IOException ? e : new IOException(e.Message, e));
+                }
+                finally
+                {
+                    ended = true;
+                }
+            }
+
+            public override async ValueTask<int> ReadAsync(Memory<byte> destination, CancellationToken cancellationToken = default)
+            {
+                while (offset >= current.Length)
+                {
+                    if (!await received.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false)) return 0;
+                    // a zero-byte read only waits until there is something to read
+                    if (destination.Length == 0) return 0;
+                    if (received.Reader.TryRead(out var next)) { current = next; offset = 0; }
+                }
+                int count = Math.Min(destination.Length, current.Length - offset);
+                current.AsMemory(offset, count).CopyTo(destination);
+                offset += count;
+                Interlocked.Add(ref unread, -count);
+                return count;
+            }
+
+            public override async ValueTask WriteAsync(ReadOnlyMemory<byte> source, CancellationToken cancellationToken = default)
+            {
+                if (dropping) return;
+                try
+                {
+                    await inner.WriteAsync(source, cancellationToken).ConfigureAwait(false);
+                }
+                catch (IOException)
+                {
+                    // the server stopped taking the body: when it answered, the answer is what counts
+                    for (int waited = 0; Interlocked.Read(ref unread) == 0 && !ended && waited < AnswerWaitMs; waited += 10)
+                    {
+                        await Task.Delay(10, CancellationToken.None).ConfigureAwait(false);
+                    }
+                    if (Interlocked.Read(ref unread) == 0) throw;
+                    dropping = true;
+                }
+            }
+
+            public override Task<int> ReadAsync(byte[] buffer, int index, int count, CancellationToken cancellationToken) => ReadAsync(buffer.AsMemory(index, count), cancellationToken).AsTask();
+            public override Task WriteAsync(byte[] buffer, int index, int count, CancellationToken cancellationToken) => WriteAsync(buffer.AsMemory(index, count), cancellationToken).AsTask();
+            public override int Read(byte[] buffer, int index, int count) => ReadAsync(buffer.AsMemory(index, count)).AsTask().GetAwaiter().GetResult();
+            public override void Write(byte[] buffer, int index, int count) => WriteAsync(buffer.AsMemory(index, count)).AsTask().GetAwaiter().GetResult();
+            public override void Flush() { if (!dropping) inner.Flush(); }
+            public override Task FlushAsync(CancellationToken cancellationToken) => dropping ? Task.CompletedTask : inner.FlushAsync(cancellationToken);
+            public override bool CanRead => true;
+            public override bool CanWrite => true;
+            public override bool CanSeek => false;
+            public override long Length => throw new NotSupportedException();
+            public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing) inner.Dispose();
+                base.Dispose(disposing);
+            }
+        }
+    }
+}
+'@
+$Script:HttpTransportType = & {
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { $hash = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Script:HttpTransportSource)) } finally { $sha.Dispose() }
+    'PivotReportHttp.Transport_' + (-join ($hash[0..7] | ForEach-Object { $_.ToString('x2') }))
+}
+$Script:HttpTransportSource = $Script:HttpTransportSource.Replace('Transport_SUFFIX', ($Script:HttpTransportType -split '\.')[-1])
+# $true: compiled, $false: not available (or switched off by a test), $null: not tried yet
+$Script:HttpTransportCompiled = $null
 
 function New-UDPivotError {
     <#
@@ -2449,8 +2609,10 @@ function New-UDPivotError {
     .DESCRIPTION
         The ids: PivotServerUnreachable, PivotRedirectRefused, PivotTokenRefused, PivotDataTooLarge,
         PivotViewHasErrors, PivotServerError, PivotCliNotFound, PivotCliFailed. Data holds what the
-        caller may act on: Status, Code, RetryAfter, RequestId (where the server sent them). The record
-        carries no request, so no token or secret.
+        caller may act on, where the server sent it: Status, Code, RetryAfter (the Retry-After header:
+        seconds or an HTTP date), Retryable (bool: whether the same request may work when tried again)
+        and RequestId (from the problem document, else the X-Request-Id header). The record carries no
+        request, so no token or secret.
     .PARAMETER Id
         The error id.
     .PARAMETER Message
@@ -2935,45 +3097,115 @@ function Get-UDPivotFindingText {
     }
 }
 
+function New-UDPivotHttpHandler {
+    <#
+    .SYNOPSIS
+        The HTTP handler of the REST engine: no redirects, no cookies, and connections that keep an answer
+        the server sends while the body is still being sent.
+    .DESCRIPTION
+        Compiles $Script:HttpTransportSource on first use. Where Add-Type is not available, a plain
+        SocketsHttpHandler with the same settings: requests work, but an early answer (pivotkit-server's
+        413 for a body over its cap) is lost and the request fails as unreachable.
+    .EXAMPLE
+        $client = [System.Net.Http.HttpClient]::new((New-UDPivotHttpHandler), $true)
+    .OUTPUTS
+        System.Net.Http.SocketsHttpHandler
+    #>
+    # Builds a handler in memory; changes no state, so no ShouldProcess
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [CmdletBinding()]
+    [OutputType([System.Net.Http.SocketsHttpHandler])]
+    param()
+    $type = $null
+    if ($false -ne $Script:HttpTransportCompiled) {
+        $type = $Script:HttpTransportType -as [type]
+        if (-not $type) {
+            try {
+                $references = @('System.Net.Http', 'System.Net.Sockets', 'System.Net.Primitives', 'System.Threading.Channels', 'System.Runtime', 'System.Memory', 'System.Threading', 'System.Collections.Concurrent')
+                Add-Type -TypeDefinition $Script:HttpTransportSource -ReferencedAssemblies $references -ErrorAction Stop
+                $type = $Script:HttpTransportType -as [type]
+            }
+            catch {
+                # another runspace of the process may have compiled the same type a moment before: use it
+                $type = $Script:HttpTransportType -as [type]
+                if (-not $type) { Write-Verbose ('Invoke-UDPivotReport: no compiled HTTP transport ({0}); an answer the server sends before the body is sent is lost.' -f $_.Exception.Message) }
+            }
+        }
+        $Script:HttpTransportCompiled = $null -ne $type
+    }
+    if ($type) { return $type::NewHandler() }
+    $handler = [System.Net.Http.SocketsHttpHandler]::new()
+    $handler.AllowAutoRedirect = $false
+    $handler.UseCookies = $false
+    $handler.AutomaticDecompression = [System.Net.DecompressionMethods]::All
+    $handler
+}
+
 function Invoke-UDPivotHttp {
     <#
     .SYNOPSIS
         One POST without redirects whose errors carry no request: the answer, or an error with the
         message alone.
     .DESCRIPTION
-        Invoke-WebRequest puts the request (with its Authorization header) into the error records it
-        writes: a terminating one when there is no answer (TargetObject, measured on PowerShell 7.6),
-        and, with -MaximumRedirection 0, a non-terminating one beside a redirect it returns. Those
-        records would keep a token or a client secret in $Error, where Get-Error or a log shows them.
-        This function lets neither through: the redirect's record is ignored (the response says it), and
-        a failed request becomes a new error with the exception's message, its record removed from
-        $Error.
+        Sends with HttpClient over New-UDPivotHttpHandler: a redirect is returned as it is, not followed,
+        and an answer the server sends while the body is still being sent (a 413 for a body over its
+        cap, after which it closes the connection) is returned like any other. A request that gets no
+        answer becomes PivotServerUnreachable with the exception's message alone; the record PowerShell
+        keeps of the failed call is removed from $Error. Nothing is written to the verbose or debug
+        stream, so no token or secret reaches one.
     .PARAMETER Request
-        The parameters of Invoke-WebRequest: Uri, Body, ContentType, Headers, TimeoutSec.
+        Uri, Body (bytes or a string, sent as UTF-8), ContentType, Headers, TimeoutSec.
     .PARAMETER What
         What is called, for the message ("pivotkit-server https://...").
+    .PARAMETER Hint
+        A line added to the message when there is no answer.
     .EXAMPLE
         Invoke-UDPivotHttp -Request @{ Uri = $uri; Body = $bytes; ContentType = 'application/json'; Headers = $headers; TimeoutSec = 30 } -What 'pivotkit-server'
     .OUTPUTS
-        Microsoft.PowerShell.Commands.WebResponseObject
+        PSCustomObject with StatusCode (int), Headers (a case-insensitive hashtable of the answer's
+        headers, the values of a repeated header joined by a comma) and Content (the body's bytes).
     #>
     [CmdletBinding()]
-    [OutputType([Microsoft.PowerShell.Commands.WebResponseObject])]
-    param([Parameter(Mandatory)][hashtable]$Request, [Parameter(Mandatory)][string]$What)
+    [OutputType([pscustomobject])]
+    param([Parameter(Mandatory)][hashtable]$Request, [Parameter(Mandatory)][string]$What, [string]$Hint)
+    $body = if ($Request['Body'] -is [byte[]]) { $Request['Body'] } else { [System.Text.Encoding]::UTF8.GetBytes([string]$Request['Body']) }
+    $client = [System.Net.Http.HttpClient]::new((New-UDPivotHttpHandler), $true)
+    $message = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Post, [uri]$Request['Uri'])
     $response = $null
     $failure = $null
     try {
-        # no verbose or debug stream either: Invoke-WebRequest writes the request's headers and body there
-        $response = Invoke-WebRequest @Request -Method Post -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Ignore -Verbose:$false -Debug:$false
+        if ($Request['TimeoutSec']) { $client.Timeout = [timespan]::FromSeconds($Request['TimeoutSec']) }
+        $message.Content = [System.Net.Http.ByteArrayContent]::new($body)
+        $null = $message.Content.Headers.TryAddWithoutValidation('Content-Type', [string]$Request['ContentType'])
+        if ($Request['Headers']) { foreach ($k in $Request['Headers'].Keys) { $null = $message.Headers.TryAddWithoutValidation($k, [string]$Request['Headers'][$k]) } }
+        try {
+            $response = $client.SendAsync($message).GetAwaiter().GetResult()
+            $headers = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
+            foreach ($pair in @($response.Headers) + @($response.Content.Headers)) { $headers[$pair.Key] = @($pair.Value) -join ', ' }
+            return [pscustomobject]@{
+                StatusCode = [int]$response.StatusCode
+                Headers    = $headers
+                Content    = [byte[]]$response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
+            }
+        }
+        catch {
+            # the innermost exception that says what went wrong (a method call wraps it once)
+            $e = $_.Exception
+            while ($e -is [System.Management.Automation.MethodInvocationException] -and $e.InnerException) { $e = $e.InnerException }
+            $failure = $e.Message
+            if ($e.InnerException -and $e.InnerException.Message -and $e.InnerException.Message -ne $failure) { $failure = '{0} ({1})' -f $failure, $e.InnerException.Message }
+            # keep no record of the call in $Error (catch hands over a copy of the record: it is found by its exception)
+            if ($global:Error.Count -and [object]::ReferenceEquals($global:Error[0].Exception, $_.Exception)) { $global:Error.RemoveAt(0) }
+        }
     }
-    catch {
-        $failure = $_.Exception.Message
-        # the caught record holds the request with its headers: out of $Error with it
-        # (catch hands over a copy of the record: it is found by its exception)
-        if ($global:Error.Count -and [object]::ReferenceEquals($global:Error[0].Exception, $_.Exception)) { $global:Error.RemoveAt(0) }
+    finally {
+        if ($response) { $response.Dispose() }
+        $message.Dispose()
+        $client.Dispose()
     }
-    if ($null -eq $response) { throw (New-UDPivotError -Id PivotServerUnreachable -Category ConnectionError -Message ('{0} did not answer: {1}' -f $What, $(if ($failure) { $failure } else { 'no response' }))) }
-    $response
+    $text = '{0} did not answer: {1}' -f $What, $(if ($failure) { $failure } else { 'no response' })
+    if ($Hint) { $text += [Environment]::NewLine + $Hint }
+    throw (New-UDPivotError -Id PivotServerUnreachable -Category ConnectionError -Message $text)
 }
 
 function Get-UDPivotAccessToken {
@@ -3065,7 +3297,7 @@ function Get-UDPivotAccessToken {
     }
     if ([int]$response.StatusCode -ge 300 -and [int]$response.StatusCode -lt 400) { throw (New-UDPivotError -Id PivotRedirectRefused -Category SecurityError -Data @{ Status = [int]$response.StatusCode } -Message ('Token endpoint {0} answered with a redirect ({1}); it is not followed, so the client secret stays with this endpoint: use the address it names in -TokenUri.' -f $where, [int]$response.StatusCode)) }
     $json = $null
-    try { $json = ConvertFrom-Json -InputObject ([System.Text.Encoding]::UTF8.GetString($response.RawContentStream.ToArray())) -Depth 8 } catch { $json = $null }
+    try { $json = ConvertFrom-Json -InputObject ([System.Text.Encoding]::UTF8.GetString($response.Content)) -Depth 8 } catch { $json = $null }
     if ($response.StatusCode -ne 200) {
         # RFC 6749 5.2: error and error_description; nothing of the request is repeated
         $reason = if ($json -and $json.error) { '{0}{1}' -f $json.error, $(if ($json.error_description) { ': ' + $json.error_description }) } else { 'no OAuth error in the answer' }
@@ -3159,15 +3391,39 @@ function New-UDPivotRenderBody {
     }
 }
 
+function Get-UDPivotRetryText {
+    <#
+    .SYNOPSIS
+        "Try again in N seconds." or "Try again after <time>." from a Retry-After header; $null when it
+        is absent or neither form.
+    .PARAMETER RetryAfter
+        The header's value: seconds, or an HTTP date (RFC 9110 10.2.3).
+    .EXAMPLE
+        Get-UDPivotRetryText -RetryAfter '7'
+    .OUTPUTS
+        System.String
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([AllowNull()][AllowEmptyString()][string]$RetryAfter)
+    if ([string]::IsNullOrWhiteSpace($RetryAfter)) { return $null }
+    $seconds = 0
+    if ([int]::TryParse($RetryAfter.Trim(), [System.Globalization.NumberStyles]::None, [cultureinfo]::InvariantCulture, [ref]$seconds)) { return 'Try again in {0} seconds.' -f $seconds }
+    $when = [datetimeoffset]::MinValue
+    if ([datetimeoffset]::TryParse($RetryAfter, [cultureinfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::AssumeUniversal, [ref]$when)) { return 'Try again after {0}.' -f $when.UtcDateTime.ToString('u', [cultureinfo]::InvariantCulture) }
+    $null
+}
+
 function Invoke-UDPivotRestRender {
     <#
     .SYNOPSIS
         POSTs a render to pivotkit-server's file route and returns the file's bytes.
     .DESCRIPTION
         POST <Uri>/views/render/file with the input as JSON and the bearer token. No redirect is followed
-        (the token would go along). A problem document (RFC 9457) becomes an error with its code, detail,
-        findings (422), Retry-After (429, 503) and request id; with a credential, a 401 gets one new token
-        and one more try.
+        (the token would go along). A problem document (RFC 9457) becomes an error with its code, detail
+        (or the "error" text of a crashed handler's 500), findings (422), Retry-After (429, 503),
+        retryable and request id (from the X-Request-Id header when there is no body); a 413 says what to
+        do by its code. With a credential, a 401 gets one new token and one more try.
     .PARAMETER Uri
         The REST service's address, https://host/api/v1.
     .PARAMETER Body
@@ -3199,38 +3455,54 @@ function Invoke-UDPivotRestRender {
         foreach ($k in 'TokenUri', 'Credential', 'Scope', 'Audience', 'Resource', 'ClientAuthentication', 'TimeoutSec') { if ($null -ne $Auth[$k]) { $tokenArgs[$k] = $Auth[$k] } }
         $tokenArgs['Target'] = $Uri
     }
+    # a server that takes less closes the connection while a large body is sent; where its answer is
+    # lost on the way (no compiled transport), this is the likely reason
+    $unansweredHint = if ($bytes.Length -gt $Script:ReportDataWarnBytes) { 'The request was {0:N1} MiB: a server that takes less may close the connection while it is sent. Send fewer rows or columns, or let the operator configure a source for the data and use -Source.' -f ($bytes.Length / 1MB) }
     for ($attempt = 1; ; $attempt++) {
         $token = if ($oauth) { ConvertTo-UDPivotPlainText -Secret (Get-UDPivotAccessToken @tokenArgs -Renew:($attempt -gt 1)) -Name 'The access token' } else { ConvertTo-UDPivotPlainText -Secret $Auth['Token'] -Name '-Token' }
         try {
-            $response = Invoke-UDPivotHttp -What ('pivotkit-server {0}' -f $where) -Request @{
+            $response = Invoke-UDPivotHttp -What ('pivotkit-server {0}' -f $where) -Hint $unansweredHint -Request @{
                 Uri = $target; Body = $bytes; ContentType = 'application/json; charset=utf-8'; Headers = @{ Authorization = 'Bearer ' + $token; Accept = '*/*' }; TimeoutSec = $TimeoutSec
             }
         }
         finally {
             $token = $null
         }
-        $status = [int]$response.StatusCode
-        if ($status -eq 200) { return , $response.RawContentStream.ToArray() }
+        $status = $response.StatusCode
+        if ($status -eq 200) { return , $response.Content }
         if ($status -eq 401 -and $oauth -and $attempt -eq 1) { continue }
         if ($status -ge 300 -and $status -lt 400) { throw (New-UDPivotError -Id PivotRedirectRefused -Category SecurityError -Data @{ Status = $status } -Message ('pivotkit-server {0} answered with a redirect ({1}); it is not followed, so the token stays with this server: use the address it names in -Uri.' -f $where, $status)) }
         $problem = $null
-        try { $problem = ConvertFrom-Json -InputObject ([System.Text.Encoding]::UTF8.GetString($response.RawContentStream.ToArray())) -Depth 16 } catch { $problem = $null }
+        try { $problem = ConvertFrom-Json -InputObject ([System.Text.Encoding]::UTF8.GetString($response.Content)) -Depth 16 } catch { $problem = $null }
+        # a problem document (RFC 9457) is an object; anything else (an empty body, a proxy's page) has no members to read
+        if ($problem -isnot [System.Management.Automation.PSCustomObject]) { $problem = $null }
         $code = if ($problem -and $problem.code) { [string]$problem.code } else { 'HTTP {0}' -f $status }
+        # detail; the answer of a handler that crashed has only "error" (pivotkit-server's 500)
+        $detail = if ($problem -and $problem.detail) { [string]$problem.detail } elseif ($problem -and $problem.error -is [string] -and $problem.error) { $problem.error }
+        # the body's id, else the header's: the listener's own 400, a proxy's answer
+        $requestId = if ($problem -and $problem.requestId) { [string]$problem.requestId } elseif ($response.Headers['X-Request-Id']) { [string]$response.Headers['X-Request-Id'] }
+        # whether the same request may work later, where the server said so
+        $retryable = if ($problem -and $problem.retryable -is [bool]) { $problem.retryable }
         $message = 'pivotkit-server {0}: {1} ({2})' -f $where, $code, $status
-        if ($problem -and $problem.detail) { $message += ': {0}' -f $problem.detail }
+        if ($detail) { $message += ': {0}' -f $detail }
         $findings = @(Get-UDPivotFindingText -Finding @($problem.findings))
         if ($findings.Count) { $message += [Environment]::NewLine + ($findings -join [Environment]::NewLine) }
-        $retryAfter = @($response.Headers['Retry-After']) | Select-Object -First 1
-        if ($retryAfter) { $message += [Environment]::NewLine + ('Try again in {0} seconds.' -f $retryAfter) }
+        $retryAfter = $response.Headers['Retry-After']
+        $retryText = Get-UDPivotRetryText -RetryAfter $retryAfter
+        if (-not $retryText -and $retryable) { $retryText = 'Trying again may work.' }
+        if ($retryText) { $message += [Environment]::NewLine + $retryText }
         if ($status -eq 401) { $message += [Environment]::NewLine + 'Check the token: the server did not accept it.' }
-        if ($status -eq 413) { $message += [Environment]::NewLine + 'The data is too large for the server: send fewer rows or columns, or let the operator configure a source for it and use -Source.' }
+        if ($status -eq 413) {
+            $message += [Environment]::NewLine + $(if ($code -eq 'LIMIT_EXCEEDED') { 'The report is over a limit of the server (rows, cells or memory): make the view smaller or filter the data.' }
+                else { 'The data is too large for the server: send fewer rows or columns, or let the operator configure a source for it and use -Source.' })
+        }
         $scopeMissing = $status -eq 403 -and $code -eq 'INSUFFICIENT_SCOPE'
         if ($scopeMissing) { $message += [Environment]::NewLine + 'The token lacks a scope the server needs: ask the token endpoint for it with -Scope (the scope the operator set in rest.requiredScopes, for example pivotkit:rest), and make sure the OAuth provider grants it to this client.' }
-        if ($problem -and $problem.requestId) { $message += [Environment]::NewLine + ('Request id for the operator: {0}' -f $problem.requestId) }
+        if ($requestId) { $message += [Environment]::NewLine + ('Request id for the operator: {0}' -f $requestId) }
         $id = if ($scopeMissing) { 'PivotTokenRefused' } else { switch ($status) { 401 { 'PivotTokenRefused' } 413 { 'PivotDataTooLarge' } 422 { 'PivotViewHasErrors' } default { 'PivotServerError' } } }
         $category = switch ($status) { 401 { 'AuthenticationError' } 403 { 'PermissionDenied' } 413 { 'LimitsExceeded' } 422 { 'InvalidData' } default { 'InvalidResult' } }
         throw (New-UDPivotError -Id $id -Category $category -Message $message -Data @{
-                Status = $status; Code = $code; RetryAfter = if ($retryAfter) { [string]$retryAfter }; RequestId = if ($problem -and $problem.requestId) { [string]$problem.requestId }
+                Status = $status; Code = $code; RetryAfter = if ($retryAfter) { [string]$retryAfter }; Retryable = $retryable; RequestId = $requestId
             })
     }
 }
@@ -3262,6 +3534,14 @@ function Invoke-UDPivotReport {
 
         A view with errors writes nothing: the error lists pivotkit's findings (the field it did not
         find, the name it probably meant). Warnings of the command line go to the warning stream.
+
+        Every failure has a fixed error id ($_.FullyQualifiedErrorId): PivotServerUnreachable,
+        PivotRedirectRefused, PivotTokenRefused, PivotDataTooLarge (over -MaxBytes, or the server's 413:
+        BODY_TOO_LARGE for a request over its cap, also when the server answers it while the request is
+        still being sent; LIMIT_EXCEEDED for a report over a limit of the server), PivotViewHasErrors,
+        PivotServerError (any other answer, 400 and 404 included), PivotCliNotFound, PivotCliFailed.
+        $_.Exception.Data holds Status, Code, RetryAfter, Retryable and RequestId where the server sent
+        them; the message says when to try again or that trying again may work.
     .PARAMETER Data
         The rows: a DataTable (Invoke-Sqlcmd), DataRows, objects, hashtables or a script block, as
         New-UDPivotReport takes them. Dates are sent as ISO 8601 text and read as dates; DBNull is empty.
