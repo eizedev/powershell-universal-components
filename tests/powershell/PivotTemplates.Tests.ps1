@@ -613,9 +613,11 @@ Describe 'New-UDPivotReport -TemplateStore and -AdminRole' {
         }
         $before = & $render
         Invoke-UDPivotTemplateRequest -Key (& $script:keyOf $before.onPublishTemplate) -Action Publish -EventData @{ name = 'Team view'; view = $script:view } -UserName 'boss' -Roles 'Admin' | Should -BeNullOrEmpty
+        # a shared view of the store named like the app's own user entry replaces nothing
+        Invoke-UDPivotTemplateRequest -Key (& $script:keyOf $before.onPublishTemplate) -Action Publish -EventData @{ name = 'Mine'; view = $script:view } -UserName 'boss' -Roles 'Admin' | Should -BeNullOrEmpty
         $after = & $render
         # names compare as in pivotkit's Views menu: "team view" is another view; a user entry is not shared
-        $after.templates | ForEach-Object { '{0}|{1}|{2}' -f $_.name, $_.scope, $_.deletable } | Should -Be @('First|shared|False', 'Team view|shared|True', 'team view|shared|False', 'Mine|user|True')
+        $after.templates | ForEach-Object { '{0}|{1}|{2}' -f $_.name, $_.scope, $_.deletable } | Should -Be @('First|shared|False', 'Team view|shared|True', 'team view|shared|False', 'Mine|user|True', 'Mine|shared|True')
         @($after.templates | Where-Object name -CEQ 'Team view')[0].view.values[0].agg | Should -Be 'sum'
     }
 

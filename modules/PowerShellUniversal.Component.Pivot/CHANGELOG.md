@@ -5,6 +5,13 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+### Changed
+
+- `-TemplatePath` no longer lists view files made for other data (their `source.id` is another
+  `-SourceId`): a folder that held the views of one report under another id shows them only in that
+  report now. Files that name no data are listed as before
+  ([#90](https://github.com/eizedev/powershell-universal-components/issues/90)).
+
 ### Fixed
 
 - `-TemplatePath` lists only the view files made for the report's data (`-SourceId`, else `-Id`) and
