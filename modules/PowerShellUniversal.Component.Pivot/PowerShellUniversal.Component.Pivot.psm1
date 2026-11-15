@@ -2328,8 +2328,9 @@ $Script:ReportDataWarnBytes = 10MB
 # allocated about 2 GB on the way and took the managed heap of the process up by about 750 MB before the
 # garbage collector caught up (measured 2026-11-15, PowerShell 7.6 on macOS; the live test on PSU
 # 2026.2.5 saw about 700 MB). Compiled once per process when a table of at least
-# $Script:ReportWriterMinRows rows arrives, as ConvertTo-PSUComponentData does; without Add-Type
-# (constrained language mode) PowerShell writes the rows.
+# $Script:ReportWriterMinRows rows arrives, as ConvertTo-PSUComponentData does; where Add-Type fails,
+# PowerShell writes the rows with the same result. The module needs full language mode (it does not load
+# in constrained language mode, and the JSON writer is a .NET type that mode blocks).
 $Script:ReportWriterSource = @'
 using System;
 using System.Collections;
