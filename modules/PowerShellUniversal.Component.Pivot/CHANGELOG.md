@@ -21,8 +21,9 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 - Sign-in for `-Engine Rest`: a static token (`-Token`, a PSU secret) or OAuth client credentials
   (`-Credential` with `-TokenUri`, `-Scope`, `-Audience`, `-Resource`), the access token kept per
   runspace (per client, secret hash, scopes and server) until a minute before it expires and fetched
-  again once after a 401. https only (http to this machine), no user info in an address, no redirects
-  followed; the token and the secret appear in no message, `$Error`, verbose or debug output. The new page "Reports
+  again once after a 401. https only (http to this machine), no user info in an address, and a
+  `-Uri` with a query string or fragment is refused (the routes are appended to its path, so the
+  query would be dropped from the request); no redirects followed; the token and the secret appear in no message, `$Error`, verbose or debug output. The new page "Reports
   without a browser" has an Authentik example
   ([#115](https://github.com/eizedev/powershell-universal-components/issues/115)).
 

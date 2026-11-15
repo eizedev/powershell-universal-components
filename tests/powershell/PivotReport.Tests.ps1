@@ -410,6 +410,26 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
         $request.Authorization | Should -Be ('Basic ' + [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes('id%3Awith%20space:p%40ss%20w%2Brd%2F%3D%3A')))
     }
 
+    It 'a -Uri with a query string or fragment is refused before anything is sent' {
+        { Invoke-UDPivotReport @rest -Uri ($base + '/api/v1?tenant=a') -Token 'static-token-0123456789' -Data $rows -View $view } | Should -Throw '-Uri: the REST service''s address without a query string or fragment*'
+        { Invoke-UDPivotReport @rest -Uri ($base + '/api/v1#x') -Token 'static-token-0123456789' -Data $rows -View $view } | Should -Throw '-Uri: the REST service''s address without a query string or fragment*'
+        @(Get-Log).Count | Should -Be 0
+    }
+
+    It 'a request body above the server''s default cap gets a warning first' {
+        # the cap lowered for the test: 10 MiB of rows would only make it slow
+        $cap = & $module { $Script:ReportDataWarnBytes }
+        try {
+            & $module { $Script:ReportDataWarnBytes = 200 }
+            $null = Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view -WarningVariable warned -WarningAction SilentlyContinue
+            "$warned" | Should -BeLike '*pivotkit-server takes at most 10 MiB*rest.data.maxBytes*'
+            & $module { $Script:ReportDataWarnBytes = 100MB }
+            $null = Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view -WarningVariable quiet -WarningAction SilentlyContinue
+            @($quiet).Count | Should -Be 0
+        }
+        finally { & $module { param($c) $Script:ReportDataWarnBytes = $c } $cap }
+    }
+
     It 'a 413 without a problem document says the data is too large' {
         $mock.Render.Enqueue(@{ Status = 413; Body = '' })
         { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } | Should -Throw '*HTTP 413 (413)*too large for the server*-Source*'
@@ -483,6 +503,10 @@ Describe 'Invoke-UDPivotReport against the real pivotkit' {
         $text = [System.Text.Encoding]::UTF8.GetString((Invoke-UDPivotReport -Engine Node -Data $rows -View $view -Format csv)).TrimStart([char]0xFEFF)
         ($text -split '\r?\n')[0..3] | Should -Be @('Team,Sum of Hours', 'T0,18', 'T1,13.5', 'Grand Total,31.5')
         { Invoke-UDPivotReport -Engine Node -Data $rows -View @{ rows = @('Taem') } -Format csv } | Should -Throw '*unknown field "Taem"*did you mean Team?*'
+        # a layout with --map=Squad=Team and --filter=<json>: the layout's name read as the data's, the filter applied
+        $layout = @{ rows = 'Squad'; values = @{ field = 'Hours'; agg = 'sum' }; map = @{ Squad = 'Team' }; filters = @([ordered]@{ field = 'Squad'; type = 'in'; items = @('T1') }) }
+        $text = [System.Text.Encoding]::UTF8.GetString((Invoke-UDPivotReport -Engine Node -Data $rows -Layout $layout -Format csv)).TrimStart([char]0xFEFF)
+        ($text -split '\r?\n')[0..2] | Should -Be @('Team,Sum of Hours', 'T1,13.5', 'Grand Total,13.5')
     }
 
     It 'a pivotkit-server renders the rows sent (PIVOTKIT_TEST_URL, PIVOTKIT_TEST_TOKEN)' -Skip:(-not $env:PIVOTKIT_TEST_URL) {

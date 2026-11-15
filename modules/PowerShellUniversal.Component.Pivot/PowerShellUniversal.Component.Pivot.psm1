@@ -2873,7 +2873,7 @@ function Invoke-UDPivotReport {
         -Engine Node: the zone of the data's dates (IANA, default UTC).
     .PARAMETER Uri
         -Engine Rest: the REST service's address, https://reports.example.com/api/v1. An address with a user
-        name or password in it is refused.
+        name or password, a query string (?...) or a fragment (#...) in it is refused.
     .PARAMETER Token
         -Engine Rest: a static token, as a string or SecureString - a PSU secret ($Secret:PivotkitToken).
     .PARAMETER Credential
@@ -2966,6 +2966,8 @@ function Invoke-UDPivotReport {
         if ($wrong.Count) { throw ('{0}: only with -Engine Node (pivotkit-server uses its own).' -f ($wrong -join ', ')) }
         if (-not $Uri) { throw '-Engine Rest needs -Uri, the REST service''s address (https://reports.example.com/api/v1).' }
         if (-not $Uri.IsAbsoluteUri -or $Uri.UserInfo) { throw '-Uri: an absolute address without a user name or password in it (the token goes in its own header).' }
+        # the routes are appended to the path: a query or a fragment would be lost on the way, so it is refused
+        if ($Uri.Query -or $Uri.Fragment) { throw '-Uri: the REST service''s address without a query string or fragment (https://reports.example.com/api/v1).' }
         if (-not (Test-UDPivotLoopbackUri -Uri $Uri)) { throw ('-Uri {0}: an https address (http only for this machine), so the token is never sent in clear text.' -f (Get-UDPivotSafeAddress -Uri $Uri)) }
         if ($hasData -eq [bool]$Source) { throw '-Engine Rest needs either -Data (rows sent with the request) or -Source (a source the operator configured).' }
         if ($Parameter -and -not $Source) { throw '-Parameter goes with -Source.' }

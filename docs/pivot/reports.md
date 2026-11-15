@@ -105,8 +105,9 @@ Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Tok
 What the function does on the way:
 
 - Only `https://` addresses, or `http://` to this machine (`localhost`, `127.0.0.1`, `::1`), for the
-  server and the token endpoint. An address with a user name or password in it is refused; messages
-  show an address as scheme, host, port and path only.
+  server and the token endpoint. An address with a user name or password in it is refused, and so is
+  a `-Uri` with a query string or fragment (the routes are appended to its path); messages show an
+  address as scheme, host, port and path only.
 - No redirect is followed: a token goes only to the address you gave.
 - An error says the server's code and detail, the findings of a view with errors (422), the seconds to
   wait from `Retry-After` (429, 503) and the request id the operator finds the log lines by. The
