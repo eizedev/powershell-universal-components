@@ -10,8 +10,9 @@ BeforeAll {
         Add-Type -TypeDefinition @'
 public class Endpoint {
     public System.Management.Automation.ScriptBlock ScriptBlock;
+    public string RegisteredId;
     public Endpoint(System.Management.Automation.ScriptBlock scriptBlock) { ScriptBlock = scriptBlock; }
-    public void Register(string id, object cmdlet) { }
+    public void Register(string id, object cmdlet) { RegisteredId = id; }
 }
 '@
     }
