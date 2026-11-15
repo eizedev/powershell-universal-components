@@ -5,6 +5,8 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-15
+
 ### Changed
 
 - Requires PowerShellUniversal.Component.Pivot 0.5.0 or later (pivotkit 0.5.0): the ticket showcase's
@@ -71,7 +73,8 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 - `Get-UDPivotShowcaseData`: answers the app's public API calls from the snapshots shipped in `Data/`
   (with their sources and licences, `Data/SOURCES.md`), or live.
 
-[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.2.0...HEAD
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.3.0...HEAD
+[0.3.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.2.0...PowerShellUniversal.Component.Pivot.Demo-v0.3.0
 [0.2.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.1.1...PowerShellUniversal.Component.Pivot.Demo-v0.2.0
 [0.1.1]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.1.0...PowerShellUniversal.Component.Pivot.Demo-v0.1.1
 [0.1.0]: https://github.com/eizedev/powershell-universal-components/releases/tag/PowerShellUniversal.Component.Pivot.Demo-v0.1.0
