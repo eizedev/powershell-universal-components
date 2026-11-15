@@ -68,6 +68,17 @@ The pivot tests (`examples/showcase.ps1` of the pivot module deployed as an app)
 workbook, run `-OnCellClick` and `-OnViewChange` on the server, save, refuse and delete a template of
 the anonymous user, switch PSU's theme and open the report at phone width.
 
+## Report command against the real pivotkit
+
+`tests/powershell/PivotReport.Tests.ps1` runs `Invoke-UDPivotReport` against a stand-in command line
+and a stand-in server in CI. Two opt-in tests run it against the real pivotkit:
+
+```powershell
+$env:PIVOTKIT_TEST_CLI = '1'          # the pivotkit command line on the PATH (npm install --global pivotkit-cli)
+$env:PIVOTKIT_TEST_URL = 'http://127.0.0.1:3333/api/v1'; $env:PIVOTKIT_TEST_TOKEN = '<token>'   # a pivotkit-server whose token may send data (policy.data)
+Invoke-Pester -Path tests/powershell/PivotReport.Tests.ps1
+```
+
 ## Adding a module
 
 Name it `PowerShellUniversal.Component.<Name>`, with `New-UD<Name>` and the type `ud-<name>`; reuse

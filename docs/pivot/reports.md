@@ -32,7 +32,7 @@ file's bytes, for an endpoint's answer or a mail attachment.
 | | `-Engine Node` | `-Engine Rest` |
 | --- | --- | --- |
 | Runs | pivotkit's command line on the PSU server | a pivotkit-server somewhere else |
-| Needs | Node 22 or later and `npm install --global pivotkit-cli` (0.2 or later) on the PSU server | a pivotkit-server of pivotkit 0.7.0 or later, its address and a token or OAuth client |
+| Needs | Node 22 or later and `npm install --global pivotkit-cli` (0.2.1 or later) on the PSU server | a pivotkit-server of pivotkit 0.7.0 or later, its address and a token or OAuth client |
 | Data | `-Data`, written to a temporary file only this user can read, removed afterwards | `-Data`, sent in the request; or `-Source`, a source the server's operator configured |
 | Language, time zone | `-Locale`, `-TimeZone` | the server's |
 
@@ -81,8 +81,9 @@ The rows go in the request as pivotkit's [data in the request](https://pivotkit.
 (source `inline:`): nothing has to be put on the server first, and the server keeps nothing of them.
 The server's operator allows it per caller (a profile with `data: true`, or `policy.data`) and caps
 the body (`rest.data.maxBytes`, default 10 MiB); the operator's exposure policy does not apply to
-data you send. `-DataName` names the data, `-DataAsOf` says when it is from (the HTML report's
-details show it).
+data you send. `-DataName` names the data, `-DataAsOf` says when it is from (sent as the data's
+`asOf`; the server keeps it with the request, while the file's own "Data as of" is when the data
+arrived).
 
 With `-Source` instead of `-Data` the report runs over a source the operator configured, with
 `-Parameter` for its parameters; that needs a caller whose policy has `results: true`:
@@ -160,5 +161,7 @@ Decode an access token of your own to check its `aud` and `scope`.
   store) is user input: it goes through the same checks as on a page (`ConvertFrom-UDPivotViewFile`),
   and pivotkit runs nothing from it.
 - `-OutFile` is your path; the function never takes a file name from the server's answer.
+- Rows are needed: `-Data` without rows throws, since there is nothing to check a view against. A
+  schedule that may find no rows checks first (`if (@($rows).Count) { ... }`).
 - The access token is kept per runspace in memory, as a SecureString; it is gone when the runspace
   ends. A new PSU runspace asks for a new one.

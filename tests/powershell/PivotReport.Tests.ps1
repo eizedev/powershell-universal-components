@@ -299,6 +299,30 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
         @(Get-Log | Where-Object Path -NE '/api/v1/views/render/file').Count | Should -Be 0
     }
 
+    It 'no answer (a closed port) and a redirect: an error that says so, and no token or secret left in $Error' {
+        $closed = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $closed.Start(); $deadPort = $closed.LocalEndpoint.Port; $closed.Stop()
+        $dead = 'http://127.0.0.1:{0}' -f $deadPort
+        $dump = { ($global:Error | ForEach-Object { $_ | Format-List * -Force | Out-String; $_.Exception | Format-List * -Force | Out-String; $_.TargetObject | Format-List * -Force | Out-String; ($_.TargetObject.Headers | Out-String) }) -join [Environment]::NewLine }
+        $global:Error.Clear()
+        $caught = $null
+        try { Invoke-UDPivotReport -Engine Rest -Uri ($dead + '/api/v1') -Token 'static-token-NOT-IN-ERRORS' -Data $rows -View $view } catch { $caught = $_ }
+        $caught.Exception.Message | Should -BeLike '*pivotkit-server*did not answer*'
+        $caught.TargetObject | Should -Not -BeOfType [System.Net.Http.HttpRequestMessage]
+        $caught = $null
+        try { Invoke-UDPivotReport -Engine Rest -Uri ($dead + '/api/v1') -Credential $client -TokenUri ($dead + '/token') -ClientAuthentication Basic -Data $rows -View $view } catch { $caught = $_ }
+        $caught.Exception.Message | Should -BeLike '*Token endpoint*did not answer*'
+        $mock.Render.Enqueue(@{ Status = 307; Body = ''; Headers = @{ Location = 'https://elsewhere.example/' } })
+        { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } | Should -Throw '*redirect (307)*'
+        $mock.Token.Enqueue(@{ Status = 302; Body = ''; Headers = @{ Location = 'https://elsewhere.example/' } })
+        { Invoke-UDPivotReport @rest -Credential $client -TokenUri ($base + '/token') -ClientAuthentication Basic -Data $rows -View $view } | Should -Throw '*Token endpoint*redirect (302)*'
+        $text = & $dump
+        $basic = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("pivot-psu:$clientSecret"))
+        foreach ($secret in 'static-token-NOT-IN-ERRORS', 'static-token-0123456789', $clientSecret, $basic, 'Bearer ') {
+            $text | Should -Not -BeLike "*$secret*" -Because 'a request with its headers must not stay in $Error'
+        }
+    }
+
     It 'a refused static token: no second try, and the token is in no message' {
         $caught = $null
         try { Invoke-UDPivotReport @rest -Token 'static-token-WRONG-98765' -Data $rows -View $view } catch { $caught = $_ }

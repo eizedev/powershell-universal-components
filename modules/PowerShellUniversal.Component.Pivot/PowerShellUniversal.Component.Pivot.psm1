@@ -2325,7 +2325,8 @@ function ConvertTo-UDPivotReportTable {
     param([Parameter(Mandatory)][AllowNull()][object]$Data)
     $rows = ConvertTo-PSUComponentData -InputObject $Data
     $columns = @($rows | Select-Object -First 1 | ForEach-Object { $_.PSObject.Properties.Name })
-    if (-not $columns.Count) { throw '-Data: no rows, so no columns to report on.' }
+    # an empty result has no columns to check a view against: the caller decides (a schedule skips the run)
+    if (-not $columns.Count) { throw '-Data: no rows, so there is no report to render; check for rows before you call (if (@($rows).Count) { ... }).' }
     $list = [System.Collections.Generic.List[object]]::new()
     foreach ($row in $rows) {
         $values = [object[]]::new($columns.Count)
@@ -2527,7 +2528,7 @@ function Invoke-UDPivotCli {
         catch { $answer = $null }
         if ($null -eq $answer -or $null -eq $answer.PSObject.Properties['ok']) {
             $line = ($errText -split "`n" | Where-Object { $_.Trim() } | Select-Object -First 1)
-            throw ('pivotkit''s command line (exit {0}) gave no --json answer: {1} (pivotkit-cli 0.2 or later is needed).' -f $process.ExitCode, $(if ($line) { $line.Trim() } else { 'no output' }))
+            throw ('pivotkit''s command line (exit {0}) gave no --json answer: {1} (pivotkit-cli 0.2.1 or later is needed).' -f $process.ExitCode, $(if ($line) { $line.Trim() } else { 'no output' }))
         }
         $answer | Add-Member -NotePropertyName exitCode -NotePropertyValue $process.ExitCode -Force
         $answer
@@ -2558,6 +2559,46 @@ function Get-UDPivotFindingText {
         if ($f.suggestion) { $text += ' (did you mean {0}?)' -f $f.suggestion }
         $text
     }
+}
+
+function Invoke-UDPivotHttp {
+    <#
+    .SYNOPSIS
+        One POST without redirects whose errors carry no request: the answer, or an error with the
+        message alone.
+    .DESCRIPTION
+        Invoke-WebRequest puts the request (with its Authorization header) into the error records it
+        writes: a terminating one when there is no answer (TargetObject, measured on PowerShell 7.6),
+        and, with -MaximumRedirection 0, a non-terminating one beside a redirect it returns. Those
+        records would keep a token or a client secret in $Error, where Get-Error or a log shows them.
+        This function lets neither through: the redirect's record is ignored (the response says it), and
+        a failed request becomes a new error with the exception's message, its record removed from
+        $Error.
+    .PARAMETER Request
+        The parameters of Invoke-WebRequest: Uri, Body, ContentType, Headers, TimeoutSec.
+    .PARAMETER What
+        What is called, for the message ("pivotkit-server https://...").
+    .EXAMPLE
+        Invoke-UDPivotHttp -Request @{ Uri = $uri; Body = $bytes; ContentType = 'application/json'; Headers = $headers; TimeoutSec = 30 } -What 'pivotkit-server'
+    .OUTPUTS
+        Microsoft.PowerShell.Commands.WebResponseObject
+    #>
+    [CmdletBinding()]
+    [OutputType([Microsoft.PowerShell.Commands.WebResponseObject])]
+    param([Parameter(Mandatory)][hashtable]$Request, [Parameter(Mandatory)][string]$What)
+    $response = $null
+    $failure = $null
+    try {
+        $response = Invoke-WebRequest @Request -Method Post -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Ignore -Verbose:$false
+    }
+    catch {
+        $failure = $_.Exception.Message
+        # the caught record holds the request with its headers: out of $Error with it
+        # (catch hands over a copy of the record: it is found by its exception)
+        if ($global:Error.Count -and [object]::ReferenceEquals($global:Error[0].Exception, $_.Exception)) { $global:Error.RemoveAt(0) }
+    }
+    if ($null -eq $response) { throw ('{0} did not answer: {1}' -f $What, $(if ($failure) { $failure } else { 'no response' })) }
+    $response
 }
 
 function Get-UDPivotAccessToken {
@@ -2629,17 +2670,15 @@ function Get-UDPivotAccessToken {
     $form = ($body.Keys | ForEach-Object { '{0}={1}' -f $_, [uri]::EscapeDataString([string]$body[$_]) }) -join '&'
     $where = $TokenUri.GetLeftPart([System.UriPartial]::Path)
     try {
-        # -MaximumRedirection 0 with -SkipHttpErrorCheck returns a redirect as a response, with a
-        # non-terminating error beside it (measured on PowerShell 7.6): the error is kept for the case
-        # without any response (no connection, a time-out)
-        $response = Invoke-WebRequest -Uri $TokenUri -Method Post -Body $form -ContentType 'application/x-www-form-urlencoded' -Headers $headers `
-            -MaximumRedirection 0 -SkipHttpErrorCheck -TimeoutSec $TimeoutSec -ErrorAction SilentlyContinue -ErrorVariable webError -Verbose:$false
+        $response = Invoke-UDPivotHttp -What ('Token endpoint {0}' -f $where) -Request @{
+            Uri = $TokenUri; Body = $form; ContentType = 'application/x-www-form-urlencoded'; Headers = $headers; TimeoutSec = $TimeoutSec
+        }
     }
     finally {
         $secret = $null
         $form = $null
+        $headers = $null
     }
-    if ($null -eq $response) { throw ('Token endpoint {0} did not answer: {1}' -f $where, (@($webError) | Select-Object -First 1).Exception.Message) }
     if ([int]$response.StatusCode -ge 300 -and [int]$response.StatusCode -lt 400) { throw ('Token endpoint {0} answered with a redirect ({1}); it is not followed, so the client secret stays with this endpoint: use the address it names in -TokenUri.' -f $where, [int]$response.StatusCode) }
     $json = $null
     try { $json = ConvertFrom-Json -InputObject ([System.Text.Encoding]::UTF8.GetString($response.RawContentStream.ToArray())) -Depth 8 } catch { $json = $null }
@@ -2697,16 +2736,13 @@ function Invoke-UDPivotRestRender {
     for ($attempt = 1; ; $attempt++) {
         $token = if ($oauth) { ConvertTo-UDPivotPlainText -Secret (Get-UDPivotAccessToken @tokenArgs -Renew:($attempt -gt 1)) -Name 'The access token' } else { ConvertTo-UDPivotPlainText -Secret $Auth['Token'] -Name '-Token' }
         try {
-            # a redirect comes back as a response with a non-terminating error beside it (see
-            # Get-UDPivotAccessToken); the error counts only when there is no response at all
-            $response = Invoke-WebRequest -Uri $target -Method Post -Body $bytes -ContentType 'application/json; charset=utf-8' `
-                -Headers @{ Authorization = 'Bearer ' + $token; Accept = '*/*' } -MaximumRedirection 0 -SkipHttpErrorCheck -TimeoutSec $TimeoutSec `
-                -ErrorAction SilentlyContinue -ErrorVariable webError -Verbose:$false
+            $response = Invoke-UDPivotHttp -What ('pivotkit-server {0}' -f $where) -Request @{
+                Uri = $target; Body = $bytes; ContentType = 'application/json; charset=utf-8'; Headers = @{ Authorization = 'Bearer ' + $token; Accept = '*/*' }; TimeoutSec = $TimeoutSec
+            }
         }
         finally {
             $token = $null
         }
-        if ($null -eq $response) { throw ('pivotkit-server {0} did not answer: {1}' -f $where, (@($webError) | Select-Object -First 1).Exception.Message) }
         $status = [int]$response.StatusCode
         if ($status -eq 200) { return , $response.RawContentStream.ToArray() }
         if ($status -eq 401 -and $oauth -and $attempt -eq 1) { continue }
@@ -2741,7 +2777,7 @@ function Invoke-UDPivotReport {
         (Views, Download view, or Get-UDElement's .view) runs over the rows and becomes a file.
 
         -Engine Node runs pivotkit's command line on the PSU server (npm install --global pivotkit-cli,
-        Node 22 or later): the rows go into a temporary JSON file in a folder of its own that only this
+        Node 22 or later, pivotkit-cli 0.2.1 or later): the rows go into a temporary JSON file in a folder of its own that only this
         user can read, pivotkit reads and writes only there (--allow-dir), and the folder is removed
         afterwards, also on an error.
 
@@ -2811,7 +2847,8 @@ function Invoke-UDPivotReport {
     .PARAMETER DataName
         -Engine Rest with -Data: what the data is, the report's name when it has no title.
     .PARAMETER DataAsOf
-        -Engine Rest with -Data: when the data is from; the report's details say it ("Data as of").
+        -Engine Rest with -Data: when the data is from, sent as the data's asOf. The server keeps it with
+        the request (its answer's suppliedAsOf); the file's own "Data as of" is when the data arrived.
     .PARAMETER TimeoutSec
         The longest wait for the command line or the server. Default 120.
     .PARAMETER WhatIf
@@ -2828,7 +2865,7 @@ function Invoke-UDPivotReport {
             Import-Module PowerShellUniversal.Component.Pivot
             $bytes = Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Token $Secret:PivotkitToken `
                 -Data (Get-Ticket) -Layout @{ rows = 'Team'; values = @{ field = 'Id'; agg = 'count' } } -Format html
-            New-PSUApiResponse -Body ([System.Text.Encoding]::UTF8.GetString($bytes)) -ContentType 'text/html; charset=utf-8'
+            New-PSUApiResponse -Data $bytes -ContentType 'text/html; charset=utf-8'
         }
     .EXAMPLE
         # OAuth client credentials from Authentik; the token is reused until it expires

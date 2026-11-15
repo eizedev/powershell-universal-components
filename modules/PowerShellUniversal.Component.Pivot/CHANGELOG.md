@@ -9,7 +9,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 - `Invoke-UDPivotReport`: renders a view over rows into an Excel workbook, an HTML report, CSV, JSON
   or SVG without a browser, for endpoints, schedules and jobs. `-Engine Node` runs pivotkit's command
-  line on the PSU server (pivotkit-cli 0.2 or later; the rows in a temporary folder only this user can
+  line on the PSU server (pivotkit-cli 0.2.1 or later; the rows in a temporary folder only this user can
   read, removed afterwards); `-Engine Rest` calls a pivotkit-server's file route with the rows in the
   request (pivotkit 0.7.0's data in the request, `inline:`), or with `-Source` over a source the
   operator configured. Input is a view, a view file or a layout (`-Layout @{ rows = 'Team'; values =
