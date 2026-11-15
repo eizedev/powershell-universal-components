@@ -2353,6 +2353,8 @@ namespace PivotReportTable
             {
                 object row = item is PSObject wrapped ? wrapped.BaseObject : item;
                 if (row is DataRowView view) row = view.Row;
+                // a row deleted but not yet accepted has no values to read (ItemArray throws): left out
+                if (row is DataRow gone && (gone.RowState == DataRowState.Deleted || gone.RowState == DataRowState.Detached)) continue;
                 writer.WriteStartArray();
                 if (row is DataRow dataRow)
                 {
@@ -2391,10 +2393,12 @@ namespace PivotReportTable
             return any;
         }
 
-        // text, a finite number, true, false or null; dates as ISO 8601 text, TimeSpans as seconds
+        // text, a finite number, true, false or null; dates as ISO 8601 text, TimeSpans as seconds;
+        // anything else as PowerShell's [string] makes it (a list joined with spaces, an object as
+        // @{x=1; y=z}), so a report says the same whichever writer wrote its rows
         public static void WriteValue(Utf8JsonWriter writer, object value)
         {
-            if (value is PSObject wrapped) value = wrapped.BaseObject;
+            if (value is PSObject wrapped && !(wrapped.BaseObject is PSCustomObject)) value = wrapped.BaseObject;
             switch (value)
             {
                 case null: writer.WriteNullValue(); break;
@@ -2415,7 +2419,7 @@ namespace PivotReportTable
                 case DateTime date: writer.WriteStringValue(date.ToString("o", CultureInfo.InvariantCulture)); break;
                 case DateTimeOffset offset: writer.WriteStringValue(offset.ToString("o", CultureInfo.InvariantCulture)); break;
                 case TimeSpan span: writer.WriteNumberValue(span.TotalSeconds); break;
-                default: writer.WriteStringValue(Convert.ToString(value, CultureInfo.InvariantCulture)); break;
+                default: writer.WriteStringValue(LanguagePrimitives.ConvertTo<string>(value) ?? string.Empty); break;
             }
         }
     }
@@ -2428,6 +2432,7 @@ $Script:ReportWriterType = & {
 }
 $Script:ReportWriterSource = $Script:ReportWriterSource.Replace('Writer_SUFFIX', ($Script:ReportWriterType -split '\.')[-1])
 $Script:ReportWriterMinRows = 1000
+$Script:LastTableWriter = $null
 # $true: compiled, $false: not available (or switched off by a test), $null: not tried yet
 $Script:ReportWriterCompiled = $null
 # a token taken from the cache has at least this much time left, so it does not expire on the way
@@ -2561,7 +2566,9 @@ function Get-UDPivotTableWriter {
             $type = $Script:ReportWriterType -as [type]
         }
         catch {
-            Write-Verbose ('Invoke-UDPivotReport: no compiled row writer ({0}); PowerShell writes the rows.' -f $_.Exception.Message)
+            # another runspace of the process may have compiled the same type a moment before: use it
+            $type = $Script:ReportWriterType -as [type]
+            if (-not $type) { Write-Verbose ('Invoke-UDPivotReport: no compiled row writer ({0}); PowerShell writes the rows.' -f $_.Exception.Message) }
         }
     }
     $Script:ReportWriterCompiled = $null -ne $type
@@ -2641,6 +2648,8 @@ function Write-UDPivotReportTable {
     $width = $columns.Count
     $written = 0
     $compiled = if ($count -ge $Script:ReportWriterMinRows) { Get-UDPivotTableWriter }
+    # which writer wrote the last table: Compiled or PowerShell (the tests check that the class runs)
+    $Script:LastTableWriter = if ($compiled) { 'Compiled' } else { 'PowerShell' }
     if ($compiled) {
         $written = $compiled::WriteRows($Writer, $columns, $source, $MaxBytes, $dropped)
         if ($written -lt 0) { & $tooLarge }
@@ -2649,7 +2658,10 @@ function Write-UDPivotReportTable {
     }
     foreach ($item in $source) {
         if ($direct) {
-            $values = if ($item -is [System.Data.DataRowView]) { $item.Row.ItemArray } else { $item.ItemArray }
+            $dataRow = if ($item -is [System.Data.DataRowView]) { $item.Row } else { $item }
+            # a row deleted but not yet accepted has no values to read (ItemArray throws): left out
+            if ($dataRow.RowState -in [System.Data.DataRowState]::Deleted, [System.Data.DataRowState]::Detached) { continue }
+            $values = $dataRow.ItemArray
         }
         else {
             # by name: the rows' properties may come in another order than the first row's
@@ -2995,7 +3007,7 @@ function Get-UDPivotAccessToken {
     .PARAMETER Renew
         Ask for a new token even when one is cached.
     .EXAMPLE
-        Get-UDPivotAccessToken -TokenUri 'https://login.example.com/application/o/token/' -Credential $Secret:PivotkitClient -Scope 'pivotkit:render'
+        Get-UDPivotAccessToken -TokenUri 'https://login.example.com/application/o/token/' -Credential $Secret:PivotkitClient -Scope 'pivotkit:rest'
     .OUTPUTS
         System.Security.SecureString
     #>
@@ -3211,8 +3223,10 @@ function Invoke-UDPivotRestRender {
         if ($retryAfter) { $message += [Environment]::NewLine + ('Try again in {0} seconds.' -f $retryAfter) }
         if ($status -eq 401) { $message += [Environment]::NewLine + 'Check the token: the server did not accept it.' }
         if ($status -eq 413) { $message += [Environment]::NewLine + 'The data is too large for the server: send fewer rows or columns, or let the operator configure a source for it and use -Source.' }
+        $scopeMissing = $status -eq 403 -and $code -eq 'INSUFFICIENT_SCOPE'
+        if ($scopeMissing) { $message += [Environment]::NewLine + 'The token lacks a scope the server needs: ask the token endpoint for it with -Scope (the scope the operator set in rest.requiredScopes, for example pivotkit:rest), and make sure the OAuth provider grants it to this client.' }
         if ($problem -and $problem.requestId) { $message += [Environment]::NewLine + ('Request id for the operator: {0}' -f $problem.requestId) }
-        $id = switch ($status) { 401 { 'PivotTokenRefused' } 413 { 'PivotDataTooLarge' } 422 { 'PivotViewHasErrors' } default { 'PivotServerError' } }
+        $id = if ($scopeMissing) { 'PivotTokenRefused' } else { switch ($status) { 401 { 'PivotTokenRefused' } 413 { 'PivotDataTooLarge' } 422 { 'PivotViewHasErrors' } default { 'PivotServerError' } } }
         $category = switch ($status) { 401 { 'AuthenticationError' } 403 { 'PermissionDenied' } 413 { 'LimitsExceeded' } 422 { 'InvalidData' } default { 'InvalidResult' } }
         throw (New-UDPivotError -Id $id -Category $category -Message $message -Data @{
                 Status = $status; Code = $code; RetryAfter = if ($retryAfter) { [string]$retryAfter }; RequestId = if ($problem -and $problem.requestId) { [string]$problem.requestId }
@@ -3292,7 +3306,8 @@ function Invoke-UDPivotReport {
     .PARAMETER TokenUri
         The OAuth provider's token endpoint (Authentik: https://<authentik>/application/o/token/).
     .PARAMETER Scope
-        Scopes to ask the provider for (pivotkit:render, say).
+        Scopes to ask the provider for: the REST scope the operator set (rest.requiredScopes), e.g.
+        pivotkit:rest. Without it the server answers 403 INSUFFICIENT_SCOPE (PivotTokenRefused).
     .PARAMETER Audience
         The audience parameter some providers want for the access token (Auth0).
     .PARAMETER Resource
@@ -3309,8 +3324,10 @@ function Invoke-UDPivotReport {
     .PARAMETER MaxBytes
         -Engine Rest with -Data: the most bytes the request may carry, default 10 MiB (pivotkit-server's
         default rest.data.maxBytes; raise it to what the operator set, at most 64 MiB). The rows are
-        written into the request one by one and the function stops with PivotDataTooLarge as soon as they
-        pass it, before the rest is converted.
+        written into the request one by one and checked every 256 rows: the function stops with
+        PivotDataTooLarge at most 255 rows after they pass it, before the rest is converted and before
+        anything is sent. Rows that are no DataTable and no list of PSCustomObjects (hashtables, a mix)
+        are converted in full first.
     .PARAMETER TimeoutSec
         The longest wait for the command line or the server. Default 120.
     .PARAMETER WhatIf
@@ -3332,7 +3349,7 @@ function Invoke-UDPivotReport {
     .EXAMPLE
         # OAuth client credentials from Authentik; the token is reused until it expires
         Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Credential $Secret:PivotkitClient `
-            -TokenUri 'https://login.example.com/application/o/token/' -Scope 'pivotkit:render' -Source 'sales' -View $view -OutFile ./sales.xlsx
+            -TokenUri 'https://login.example.com/application/o/token/' -Scope 'pivotkit:rest' -Source 'sales' -View $view -OutFile ./sales.xlsx
     .OUTPUTS
         System.IO.FileInfo with -OutFile, else System.Byte[].
     .LINK

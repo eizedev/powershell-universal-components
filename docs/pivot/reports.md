@@ -119,13 +119,20 @@ What the function does on the way:
 ## Size and memory
 
 The rows go into the request one by one: a DataTable (or DataView) straight from its rows, a list of
-PSCustomObjects as it is, anything else through the same conversion `New-UDPivotReport` uses. From
-1,000 rows on, a small compiled class writes them (compiled once per process, about 2 seconds; without
-`Add-Type`, in constrained language mode, PowerShell writes them, more slowly). `-MaxBytes` (default
-10 MiB, pivotkit-server's default `rest.data.maxBytes`) is checked first against the number of rows
-times the columns, then while the rows are written: past it the function stops with
-`PivotDataTooLarge` before the rest is converted and before anything is sent. Raise it only to what
+PSCustomObjects as it is, anything else (hashtables, DataRows, a mix) through the same conversion
+`New-UDPivotReport` uses, which converts all of them before the first check. From 1,000 rows on, a
+small compiled class writes them (compiled once per process, about 2 seconds; where `Add-Type` fails,
+PowerShell writes them, more slowly, with the same result). Rows of a DataTable that are deleted but
+not yet accepted are left out.
+
+`-MaxBytes` (default 10 MiB, pivotkit-server's default `rest.data.maxBytes`) is checked first against
+the number of rows times the columns (each cell takes at least two bytes), then every 256 rows while
+they are written, and once at the end: past it the function stops with `PivotDataTooLarge`, after at
+most 255 more rows were written into the request and before anything is sent. Raise it only to what
 the operator set on the server (at most 64 MiB).
+
+The module needs PowerShell's full language mode: it does not load in constrained language mode
+(checked with PowerShell 7.6), and the JSON writer the engines use is a .NET type that mode blocks.
 
 Measured with 100,000 rows of 3 columns (text, number, date; a 4.3 MB request) against a stand-in
 server on the same machine, PowerShell 7.6 on macOS, the compiled class already loaded (approximate:
@@ -158,7 +165,7 @@ operator) and `MaxBytes`.
 | --- | --- |
 | `PivotServerUnreachable` | pivotkit-server or the token endpoint did not answer (no connection, a time-out) |
 | `PivotRedirectRefused` | the server or the token endpoint answered with a redirect, which is not followed |
-| `PivotTokenRefused` | the server answered 401, or the token endpoint refused the client credentials or gave no usable token |
+| `PivotTokenRefused` | the server answered 401, or 403 `INSUFFICIENT_SCOPE` (the token lacks the REST scope: ask for it with `-Scope`), or the token endpoint refused the client credentials or gave no usable token |
 | `PivotDataTooLarge` | `-Data` passed `-MaxBytes`, or the server answered 413 |
 | `PivotViewHasErrors` | the view has errors: the server's 422 or the command line's findings (exit 1) |
 | `PivotServerError` | any other answer of the server that is no report (403, 404, 429, 503 and so on) |
@@ -198,7 +205,7 @@ catch {
 
     ```powershell
     Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Credential $Secret:PivotkitClient `
-        -TokenUri 'https://auth.example.com/application/o/token/' -Scope 'pivotkit-rest' -Data $rows -View $view
+        -TokenUri 'https://auth.example.com/application/o/token/' -Scope 'pivotkit:rest' -Data $rows -View $view
     ```
 
     The function asks the token endpoint for an access token (`grant_type=client_credentials`, the
@@ -221,7 +228,8 @@ token's `aud`. For this function:
 2. In PSU, create a secret of type PSCredential with the client ID as user name and the client secret
    as password, e.g. `PivotkitClient`.
 3. Call the function with `-TokenUri 'https://<authentik>/application/o/token/'` and `-Scope` with
-   the REST scope's name.
+   the REST scope's name, e.g. `-Scope 'pivotkit:rest'`. Without it Authentik issues a token without
+   that scope, and the server answers 403 `INSUFFICIENT_SCOPE` (`PivotTokenRefused`).
 
 Authentik answers the client credentials grant with the provider's client ID and secret and creates a
 service account for it (`ak-<provider>-client_credentials`): bind it, or a group it is in, to the

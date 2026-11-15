@@ -137,6 +137,21 @@ console.log(JSON.stringify({ ok: true, exitCode: 0, command: "render", findings:
             [System.Text.Encoding]::UTF8.GetString($memory.ToArray())
         } $Data $MaxBytes $WarningPreference
     }
+    # writes -Data into a fresh writer with -MaxBytes; the bytes the writer held when it stopped, the
+    # error id, and which writer wrote (Compiled or PowerShell)
+    function Get-StopPoint {
+        [CmdletBinding()]
+        param([AllowNull()][object]$Data, [long]$MaxBytes)
+        & $script:module {
+            param($d, $max)
+            $memory = [System.IO.MemoryStream]::new()
+            $writer = New-UDPivotJsonWriter -Stream $memory
+            $writer.WriteStartObject()
+            $id = $null
+            try { Write-UDPivotReportTable -Writer $writer -Data $d -MaxBytes $max } catch { $id = $_.FullyQualifiedErrorId }
+            [pscustomobject]@{ Bytes = $writer.BytesCommitted + $writer.BytesPending; Error = $id; Writer = $Script:LastTableWriter }
+        } $Data $MaxBytes
+    }
     function Get-Log { $out = @(); $item = $null; while ($script:mock.Log.TryDequeue([ref]$item)) { $out += $item }; $out }
     $script:rest = @{ Engine = 'Rest'; Uri = $script:base + '/api/v1' }
     $script:clientSecret = 'client-secret-that-must-not-leak'
@@ -219,22 +234,83 @@ Describe 'Invoke-UDPivotReport: the data sent' {
         $objects = [System.Collections.Generic.List[object]]::new()
         foreach ($i in 1..1200) {
             [void]$table.Rows.Add($i, [datetime]::new(2026, 1, 1).AddHours($i), $(if ($i % 9) { 'T{0}' -f ($i % 4) } else { [DBNull]::Value }), $(if ($i % 11) { $i / 8 } else { [double]::NaN }), [timespan]::FromSeconds($i), [decimal]$i * 1.25)
-            $objects.Add($(if ($i % 2) { [pscustomobject]@{ Team = 'T{0}' -f ($i % 4); Hours = $i / 8; When = [datetime]::new(2026, 1, 1).AddHours($i) } } else { [pscustomobject]@{ When = [datetime]::new(2026, 1, 1).AddHours($i); Hours = $i / 8; Team = 'T{0}' -f ($i % 4) } }))
+            $objects.Add($(if ($i % 2) { [pscustomobject]@{ Team = 'T{0}' -f ($i % 4); Hours = $i / 8; When = [datetime]::new(2026, 1, 1).AddHours($i); List = @(1, 'a', $null); Bytes = [byte[]](1, 2, 3); Nested = [pscustomobject]@{ x = 1; y = 'z' } } } else { [pscustomobject]@{ When = [datetime]::new(2026, 1, 1).AddHours($i); Hours = $i / 8; Team = 'T{0}' -f ($i % 4); Nested = [pscustomobject]@{ x = 1; y = 'z' }; List = @(1, 'a', $null); Bytes = [byte[]](1, 2, 3) } }))
         }
         $objects = $objects.ToArray()
         & $module { $Script:ReportWriterCompiled = $null }
-        $compiled = @((ConvertTo-TableJson -Data $table), (ConvertTo-TableJson -Data $objects))
-        & $module { $null -ne (Get-UDPivotTableWriter) } | Should -BeTrue -Because 'the compiled writer must be what the first two used'
+        $compiled = @((ConvertTo-TableJson -Data $table), (& $module { $Script:LastTableWriter }), (ConvertTo-TableJson -Data $objects), (& $module { $Script:LastTableWriter }))
+        $compiled[1] | Should -Be 'Compiled' -Because 'from 1,000 rows the compiled class writes a DataTable'
+        $compiled[3] | Should -Be 'Compiled' -Because 'and a list of PSCustomObjects'
+        $compiled = @($compiled[0], $compiled[2])
         try {
             & $module { $Script:ReportWriterCompiled = $false }
             $plain = @((ConvertTo-TableJson -Data $table), (ConvertTo-TableJson -Data $objects))
+            & $module { $Script:LastTableWriter } | Should -Be 'PowerShell'
             { ConvertTo-TableJson -Data $table -MaxBytes 60000 } | Should -Throw -ErrorId 'PivotDataTooLarge'
         }
         finally { & $module { $Script:ReportWriterCompiled = $null } }
         $compiled[0] | Should -Be $plain[0]
         $compiled[1] | Should -Be $plain[1]
-        $compiled[1].StartsWith('{"columns":["Team","Hours","When"],"rows":[["T1",0.125,"2026-01-01T01:00:00.0000000"],["T2",0.25,"2026-01-01T02:00:00.0000000"]', [System.StringComparison]::Ordinal) | Should -BeTrue
+        # lists, bytes and objects as PowerShell's [string] writes them, whichever writer wrote the rows
+        $compiled[1].StartsWith('{"columns":["Team","Hours","When","List","Bytes","Nested"],"rows":[["T1",0.125,"2026-01-01T01:00:00.0000000","1 a ","1 2 3","@{x=1; y=z}"],["T2",0.25,"2026-01-01T02:00:00.0000000","1 a ","1 2 3","@{x=1; y=z}"]', [System.StringComparison]::Ordinal) | Should -BeTrue
         { ConvertTo-TableJson -Data $table -MaxBytes 60000 } | Should -Throw -ErrorId 'PivotDataTooLarge'
+    }
+
+    It 'the estimate refuses before a row is written; while writing the cap is checked every 256 rows and once at the end, in both writers' {
+        # 2000 rows x 3 columns: at least 14,000 bytes, so 10,000 is refused before even the columns are written
+        $narrow = [System.Data.DataTable]::new()
+        foreach ($c in 'A', 'B', 'C') { [void]$narrow.Columns.Add($c, [string]) }
+        foreach ($i in 1..2000) { [void]$narrow.Rows.Add('x', 'y', 'z') }
+        $stop = Get-StopPoint -Data $narrow -MaxBytes 10000
+        $stop.Error | Should -Be 'PivotDataTooLarge'
+        $stop.Bytes | Should -BeLessThan 10
+        # wide rows (about a kilobyte each), so the stop point shows where the cap was checked
+        $wide = { param($n) $t = [System.Data.DataTable]::new(); [void]$t.Columns.Add('Text', [string]); foreach ($i in 1..$n) { [void]$t.Rows.Add('w' * 1000) }; , $t }
+        $row = (Get-StopPoint -Data (& $wide 2) -MaxBytes 0).Bytes - (Get-StopPoint -Data (& $wide 1) -MaxBytes 0).Bytes
+        $row | Should -BeGreaterThan 1000
+        foreach ($mode in $null, $false) {
+            try {
+                & $module { param($m) $Script:ReportWriterCompiled = $m } $mode
+                # 1100 rows over a cap of 300 rows: the check after row 256 passes, the one after row 512 stops
+                $stop = Get-StopPoint -Data (& $wide 1100) -MaxBytes (300 * $row)
+                $stop.Writer | Should -Be $(if ($null -eq $mode) { 'Compiled' } else { 'PowerShell' })
+                $stop.Error | Should -Be 'PivotDataTooLarge'
+                $stop.Bytes | Should -BeGreaterThan (512 * $row) -Because "$($stop.Writer): stopped after row 512"
+                $stop.Bytes | Should -BeLessThan (513 * $row) -Because "$($stop.Writer): not later than row 512"
+            }
+            finally { & $module { $Script:ReportWriterCompiled = $null } }
+        }
+        # 255 rows over the cap: no check after 256 rows, the one at the end stops it
+        $stop = Get-StopPoint -Data (& $wide 255) -MaxBytes (100 * $row)
+        $stop.Error | Should -Be 'PivotDataTooLarge'
+        $stop.Bytes | Should -BeGreaterThan (255 * $row)
+        # 256 rows: stopped by the check after row 256, before the end of the list is written
+        $stop = Get-StopPoint -Data (& $wide 256) -MaxBytes (100 * $row)
+        $stop.Error | Should -Be 'PivotDataTooLarge'
+        $stop.Bytes | Should -BeGreaterThan (256 * $row)
+    }
+
+    It 'rows deleted but not accepted are left out by both writers (their values cannot be read)' {
+        $table = [System.Data.DataTable]::new()
+        [void]$table.Columns.Add('Id', [int])
+        foreach ($i in 1..1200) { [void]$table.Rows.Add($i) }
+        $table.AcceptChanges()
+        $table.Rows[1].Delete()
+        $table.Rows[5].Delete()
+        $compiled = ConvertTo-TableJson -Data $table
+        & $module { $Script:LastTableWriter } | Should -Be 'Compiled'
+        try {
+            & $module { $Script:ReportWriterCompiled = $false }
+            $plain = ConvertTo-TableJson -Data $table
+        }
+        finally { & $module { $Script:ReportWriterCompiled = $null } }
+        $compiled | Should -Be $plain
+        $compiled.StartsWith('{"columns":["Id"],"rows":[[1],[3],[4],[5],[7],', [System.StringComparison]::Ordinal) | Should -BeTrue
+        $compiled.EndsWith('[1200]],"rowCount":1198}', [System.StringComparison]::Ordinal) | Should -BeTrue
+        # a small table, PowerShell's writer only
+        $small = [System.Data.DataTable]::new(); [void]$small.Columns.Add('Id', [int]); foreach ($i in 1..3) { [void]$small.Rows.Add($i) }
+        $small.AcceptChanges(); $small.Rows[0].Delete()
+        ConvertTo-TableJson -Data $small | Should -Be '{"columns":["Id"],"rows":[[2],[3]],"rowCount":2}'
     }
 
     It 'past -MaxBytes it stops with PivotDataTooLarge: from rows x columns before anything is written, or while the rows are written' {
@@ -515,6 +591,13 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
         $e.Exception.Data['RequestId'] | Should -Be 'req-503'
         $mock.Render.Enqueue(@{ Status = 413; Body = '' })
         (& $id { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view }).FullyQualifiedErrorId | Should -Be 'PivotDataTooLarge'
+        # a token without the REST scope: refused, with what to ask for
+        $mock.Render.Enqueue(@{ Status = 403; Body = '{"type":"x","title":"t","status":403,"code":"INSUFFICIENT_SCOPE","detail":"the token lacks a required scope"}' })
+        $e = & $id { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view }
+        $e.FullyQualifiedErrorId | Should -Be 'PivotTokenRefused'
+        $e.Exception.Message | Should -BeLike '*INSUFFICIENT_SCOPE (403)*-Scope*pivotkit:rest*'
+        $mock.Render.Enqueue(@{ Status = 403; Body = '{"type":"x","title":"t","status":403,"code":"NOT_ALLOWED","detail":"no downloads"}' })
+        (& $id { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view }).FullyQualifiedErrorId | Should -Be 'PivotServerError'
         (& $id { Invoke-UDPivotReport @rest -Token 'static-token-WRONG-0000' -Data $rows -View $view }).FullyQualifiedErrorId | Should -Be 'PivotTokenRefused'
         $mock.Token.Enqueue(@{ Status = 400; Body = '{"error":"invalid_client"}' })
         $e = & $id { Invoke-UDPivotReport @rest -Credential $client -TokenUri ($base + '/token') -Data $rows -View $view }
