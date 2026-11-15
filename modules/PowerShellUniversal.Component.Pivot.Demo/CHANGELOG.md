@@ -5,6 +5,12 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
+### Added
+
+- The documentation pages have the example "Source data for readers" (`-ExportData` with
+  `-ExportDataColumn`). It needs PowerShellUniversal.Component.Pivot 0.6.0: the release raises
+  `RequiredModules` with it.
+
 ## [0.3.0] - 2026-11-15
 
 ### Changed

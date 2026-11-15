@@ -33,6 +33,30 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   query would be dropped from the request); no redirects followed; the token and the secret appear in no message, `$Error`, verbose or debug output. The new page "Reports
   without a browser" has an Authentik example
   ([#115](https://github.com/eizedev/powershell-universal-components/issues/115)).
+- `-ExportData`: Export, Source data downloads every row of `-Data` as a CSV or JSON file (pivotkit's
+  `exportData`, off by default). `-ExportDataColumn` keeps it, and the drill-down's copies and files,
+  to the columns it names; a name that is no column of `-Data` is an error, so a typo never widens the
+  export, and the explanation next to Source data names those columns. It is no access control: the
+  field list, the drill-down panel and `$EventData.rows` still carry every column, so a column readers
+  must not have is removed before `-Data`. The Pivot page has a table of what the exports, the drill-down and Source data hand out
+  ([#111](https://github.com/eizedev/powershell-universal-components/issues/111),
+  [#113](https://github.com/eizedev/powershell-universal-components/issues/113)).
+
+### Changed
+
+- `-TemplatePath` no longer lists view files made for other data (their `source.id` is another
+  `-SourceId`): a folder that held the views of one report under another id shows them only in that
+  report now. Files that name no data are listed as before
+  ([#90](https://github.com/eizedev/powershell-universal-components/issues/90)).
+
+### Fixed
+
+- `-TemplatePath` lists only the view files made for the report's data (`-SourceId`, else `-Id`) and
+  those that name no data, as the template stores do; it listed every file for every report
+  ([#90](https://github.com/eizedev/powershell-universal-components/issues/90)).
+- A shared `-Templates` entry with the name of a store's shared view showed twice in the Views menu;
+  the store's view now takes its place, as for `-TemplatePath` files
+  ([#91](https://github.com/eizedev/powershell-universal-components/issues/91)).
 
 ## [0.5.0] - 2026-11-15
 

@@ -489,6 +489,18 @@ $endoflife = 'Release data by [endoflife.date](https://endoflife.date/), MIT lic
             }
         }
     }
+    @{ Section = 'Pivot'; Title = 'Source data for readers'; Text = 'Export, Source data: every row behind the report as CSV or JSON. Customer is removed with Select-Object, so readers never get it; -ExportDataColumn narrows the files further to Ticket and Team: Lead hours stays in the report, the field list and the drill-down panel, but not in Source data or the drill-down''s copies and files.'; Code = {
+            $rng = [System.Random]::new(23)
+            $tickets = foreach ($i in 1..250) {
+                [pscustomobject]@{ Ticket = $i; Team = ('Service Desk', 'Network', 'Server')[$rng.Next(0, 3)]; Customer = 'Customer {0}' -f [char](65 + $rng.Next(0, 5)); 'Lead hours' = [math]::Round(2 + 30 * $rng.NextDouble(), 1) }
+            }
+            # what readers must not have stays out of -Data: -ExportDataColumn is no access control
+            $rows = $tickets | Select-Object -Property Ticket, Team, 'Lead hours'
+            New-UDPivotReport -Id 'pivot-source-data' -Data $rows -Height 560px -TimeZone UTC -SettingInfo On -ExportData -ExportDataColumn 'Ticket', 'Team' -View @{
+                rows = @('Team'); values = @(@{ field = 'Ticket'; agg = 'count' })
+            }
+        }
+    }
     @{ Section = 'Pivot'; Title = 'Placeholder while the data loads'; Text = 'What New-UDPivotReportPlaceholder shows in New-UDDynamic -LoadingComponent until the report arrives: pivotkit''s own skeleton of the report in its colours, moving unless the reader asked for reduced motion.'; Code = {
             New-UDPivotReportPlaceholder -Height 420px
         }
