@@ -2242,4 +2242,742 @@ function Get-UDPivotSqlColumnDescription {
     }
 }
 
-Export-ModuleMember -Function New-UDPivotReport, New-UDPivotReportPlaceholder, ConvertFrom-UDPivotView, ConvertFrom-UDPivotViewFile, ConvertTo-UDPivotViewFile, New-UDPivotFileTemplateStore, New-UDPivotTemplateStore, Invoke-UDPivotTemplateRequest, Get-UDPivotSqlColumnDescription
+#region Reports without a browser: Invoke-UDPivotReport
+# the formats of pivotkit's render (pivotkit-cli render -f, pivotkit-server render_view format) and the
+# file name extensions that name one (.htm is html, as in the command line)
+$Script:ReportFormats = @('xlsx', 'html', 'csv', 'json', 'svg')
+$Script:ReportExtensions = @{ '.xlsx' = 'xlsx'; '.html' = 'html'; '.htm' = 'html'; '.csv' = 'csv'; '.json' = 'json'; '.svg' = 'svg' }
+# the keys of a layout (pivotkit-core's viewFromLayout input; RenderViewInput.layout of the REST service)
+$Script:LayoutKeys = @('rows', 'cols', 'values', 'groups', 'filters', 'chart', 'map')
+$Script:ReportTimeoutSec = 120
+# a token taken from the cache has at least this much time left, so it does not expire on the way
+$Script:TokenSkewSec = 60
+# OAuth access tokens per token endpoint, client and scope, for this runspace: @{ Token; Expires }
+$Script:TokenCache = @{}
+
+function Test-UDPivotLoopbackUri {
+    <#
+    .SYNOPSIS
+        Whether an address is https, or http on this machine (localhost, 127.0.0.0/8, ::1).
+    .DESCRIPTION
+        A bearer token and a client secret go only over https; plain http only to a server on the same
+        machine (a pivotkit-server next to PSU, a test), as pivotkit's command line allows it.
+    .PARAMETER Uri
+        The address.
+    .EXAMPLE
+        Test-UDPivotLoopbackUri -Uri ([uri]'http://127.0.0.1:3333/api/v1')
+    .OUTPUTS
+        System.Boolean
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param([Parameter(Mandatory)][uri]$Uri)
+    if ($Uri.Scheme -eq 'https') { return $true }
+    if ($Uri.Scheme -ne 'http') { return $false }
+    if ($Uri.IsLoopback) { return $true }
+    $address = $null
+    [System.Net.IPAddress]::TryParse($Uri.DnsSafeHost, [ref]$address) -and [System.Net.IPAddress]::IsLoopback($address)
+}
+
+function ConvertTo-UDPivotPlainText {
+    <#
+    .SYNOPSIS
+        A secret given as a string or a SecureString, as plain text for the one request that needs it.
+    .DESCRIPTION
+        PSU hands a secret variable to a script as its value; a SecureString (Read-Host -AsSecureString,
+        a PSCredential's password) works the same. The text is never written to any stream.
+    .PARAMETER Secret
+        The secret.
+    .PARAMETER Name
+        The parameter it came from, for the error message.
+    .EXAMPLE
+        ConvertTo-UDPivotPlainText -Secret $Secret:PivotkitToken -Name '-Token'
+    .OUTPUTS
+        System.String
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([AllowNull()][object]$Secret, [Parameter(Mandatory)][string]$Name)
+    $text = if ($Secret -is [securestring]) { [System.Net.NetworkCredential]::new('', $Secret).Password } elseif ($Secret -is [string]) { $Secret }
+    if ([string]::IsNullOrEmpty($text)) { throw ('{0}: expected a token as a string or SecureString (a PSU secret).' -f $Name) }
+    if ($text -match '[\s\p{Cc}]') { throw ('{0}: the token holds whitespace or a control character.' -f $Name) }
+    $text
+}
+
+function ConvertTo-UDPivotReportTable {
+    <#
+    .SYNOPSIS
+        Rows as pivotkit's table of data sent with a request: { columns, rows, rowCount }.
+    .DESCRIPTION
+        The rows go through ConvertTo-PSUComponentData (DataTable, DBNull, dates as ISO 8601 text,
+        TimeSpans as seconds), then each becomes a list of values in the columns' order: text, a finite
+        number, true, false or null. Anything else becomes its text. pivotkit-server reads this as the
+        "inline:" source; pivotkit's command line reads the same JSON as a data file.
+    .PARAMETER Data
+        The rows: a DataTable, DataRows, objects, hashtables or a script block returning them.
+    .EXAMPLE
+        ConvertTo-UDPivotReportTable -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets')
+    .OUTPUTS
+        System.Collections.Specialized.OrderedDictionary
+    #>
+    [CmdletBinding()]
+    [OutputType([System.Collections.Specialized.OrderedDictionary])]
+    param([Parameter(Mandatory)][AllowNull()][object]$Data)
+    $rows = ConvertTo-PSUComponentData -InputObject $Data
+    $columns = @($rows | Select-Object -First 1 | ForEach-Object { $_.PSObject.Properties.Name })
+    if (-not $columns.Count) { throw '-Data: no rows, so no columns to report on.' }
+    $list = [System.Collections.Generic.List[object]]::new()
+    foreach ($row in $rows) {
+        $values = [object[]]::new($columns.Count)
+        $i = 0
+        foreach ($p in $row.PSObject.Properties) {
+            if ($i -ge $columns.Count) { break }
+            $v = $p.Value
+            $values[$i] = if ($null -eq $v -or $v -is [string] -or $v -is [bool]) { $v }
+            elseif ($v -is [double] -or $v -is [single]) { if ([double]::IsNaN($v) -or [double]::IsInfinity($v)) { $null } else { $v } }
+            elseif ($v -is [int] -or $v -is [long] -or $v -is [decimal] -or $v -is [short] -or $v -is [byte] -or $v -is [uint32] -or $v -is [uint64] -or $v -is [uint16] -or $v -is [sbyte]) { $v }
+            else { [string]$v }
+            $i++
+        }
+        $list.Add($values)
+    }
+    [ordered]@{ columns = [string[]]$columns; rows = $list.ToArray(); rowCount = $list.Count }
+}
+
+function ConvertTo-UDPivotReportLayout {
+    <#
+    .SYNOPSIS
+        Checks a layout (a view by field names) and returns it as an ordered dictionary of its keys.
+    .DESCRIPTION
+        Keys: rows, cols (field names), values (@{ field; agg }), groups (@{ field; by; size }), filters
+        (as a view writes them), chart (auto, bar, line, area, pie, donut, heatmap) and map (old name =
+        the data's name), as pivotkit's layout flags and the REST service's layout take them. An unknown
+        key is an error that names it.
+    .PARAMETER Layout
+        The layout.
+    .EXAMPLE
+        ConvertTo-UDPivotReportLayout -Layout @{ rows = 'Team'; values = @{ field = 'Hours'; agg = 'sum' } }
+    .OUTPUTS
+        System.Collections.Specialized.OrderedDictionary
+    #>
+    [CmdletBinding()]
+    [OutputType([System.Collections.Specialized.OrderedDictionary])]
+    param([Parameter(Mandatory)][System.Collections.IDictionary]$Layout)
+    $out = [ordered]@{}
+    foreach ($key in $Layout.Keys) {
+        $name = $Script:LayoutKeys | Where-Object { $_ -eq [string]$key } | Select-Object -First 1
+        if (-not $name) { throw ('-Layout: unknown key "{0}"; expected {1}.' -f $key, ($Script:LayoutKeys -join ', ')) }
+        $value = $Layout[$key]
+        $out[$name] = switch ($name) {
+            { $_ -in 'rows', 'cols' } { , [string[]]@($value | ForEach-Object { [string]$_ }) }
+            'chart' {
+                $type = [string]$value
+                if ($type -notin 'auto', 'bar', 'line', 'area', 'pie', 'donut', 'heatmap') { throw ('-Layout: chart "{0}"; expected auto, bar, line, area, pie, donut or heatmap.' -f $type) }
+                $type.ToLowerInvariant()
+            }
+            'map' {
+                if ($value -isnot [System.Collections.IDictionary]) { throw '-Layout: map is a hashtable of a field the layout names and the data''s field: @{ Revenue = ''Turnover'' }.' }
+                $map = [ordered]@{}
+                foreach ($k in $value.Keys) { $map[[string]$k] = [string]$value[$k] }
+                $map
+            }
+            default {
+                $items = @($value | ForEach-Object {
+                        if ($_ -isnot [System.Collections.IDictionary] -and $_ -isnot [System.Management.Automation.PSCustomObject]) { throw ('-Layout: {0} is a list of hashtables.' -f $name) }
+                        $_
+                    })
+                , $items
+            }
+        }
+    }
+    if (-not $out.Count) { throw '-Layout: empty; give rows, cols or values.' }
+    $out
+}
+
+function Get-UDPivotLayoutArgument {
+    <#
+    .SYNOPSIS
+        A layout as the layout flags of pivotkit's command line (--rows, --cols, --values, --group,
+        --filter, --chart-type, --map).
+    .DESCRIPTION
+        Each value is one argument of its own, so a field name may hold commas, spaces and colons.
+    .PARAMETER Layout
+        The layout of ConvertTo-UDPivotReportLayout.
+    .EXAMPLE
+        Get-UDPivotLayoutArgument -Layout ([ordered]@{ rows = @('Team'); values = @(@{ field = 'Hours'; agg = 'sum' }) })
+    .OUTPUTS
+        System.String
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([Parameter(Mandatory)][System.Collections.IDictionary]$Layout)
+    $get = { param($Item, $Key) if ($Item -is [System.Collections.IDictionary]) { $Item[$Key] } else { $Item.$Key } }
+    foreach ($field in @($Layout['rows'])) { if ($field) { '--rows'; $field } }
+    foreach ($field in @($Layout['cols'])) { if ($field) { '--cols'; $field } }
+    foreach ($v in @($Layout['values'])) {
+        if (-not $v) { continue }
+        $field = [string](& $get $v 'field')
+        $agg = [string](& $get $v 'agg')
+        '--values'
+        if ($agg -and $field) { '{0}:{1}' -f $agg, $field } elseif ($field) { $field } else { $agg }
+    }
+    foreach ($g in @($Layout['groups'])) {
+        if (-not $g) { continue }
+        $size = & $get $g 'size'
+        '--group'
+        if ($null -ne $size) { [string]::Format([cultureinfo]::InvariantCulture, '{0}:{1}:{2}', (& $get $g 'field'), (& $get $g 'by'), $size) }
+        else { '{0}:{1}' -f (& $get $g 'field'), (& $get $g 'by') }
+    }
+    foreach ($f in @($Layout['filters'])) { if ($f) { '--filter'; ConvertTo-Json -InputObject $f -Depth 8 -Compress } }
+    if ($Layout['chart']) { '--chart-type'; $Layout['chart'] }
+    if ($Layout['map']) { foreach ($k in $Layout['map'].Keys) { '--map'; '{0}={1}' -f $k, $Layout['map'][$k] } }
+}
+
+function Get-UDPivotCliCommand {
+    <#
+    .SYNOPSIS
+        How to start pivotkit's command line: the program and the arguments before pivotkit's own.
+    .DESCRIPTION
+        -CliPath, else the command pivotkit on the PATH (npm install --global pivotkit-cli). A .js file
+        runs with node. On Windows npm installs pivotkit.cmd, a batch file that would pass every argument
+        through cmd.exe's quoting: the function runs the package's bin/pivotkit.js next to it with node
+        instead.
+    .PARAMETER CliPath
+        The pivotkit program or its bin/pivotkit.js.
+    .EXAMPLE
+        Get-UDPivotCliCommand -CliPath '/usr/local/bin/pivotkit'
+    .OUTPUTS
+        System.Management.Automation.PSCustomObject with FileName and Arguments.
+    #>
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param([AllowEmptyString()][string]$CliPath)
+    $path = if ($CliPath) {
+        if (-not (Test-Path -LiteralPath $CliPath -PathType Leaf)) { throw ('-CliPath "{0}": no such file.' -f $CliPath) }
+        (Resolve-Path -LiteralPath $CliPath).ProviderPath
+    }
+    else {
+        $found = Get-Command -Name 'pivotkit' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $found) { throw 'pivotkit''s command line was not found: install it with "npm install --global pivotkit-cli" (Node 22 or later) on the PSU server, or pass -CliPath.' }
+        $found.Source
+    }
+    if ($path -match '\.(cmd|bat|ps1)$') {
+        # npm's shims sit next to node_modules/pivotkit-cli
+        $js = Join-Path (Split-Path -Parent $path) 'node_modules' 'pivotkit-cli' 'bin' 'pivotkit.js'
+        if (-not (Test-Path -LiteralPath $js -PathType Leaf)) { throw ('"{0}" is a script shim; pass -CliPath with pivotkit-cli''s bin/pivotkit.js.' -f $path) }
+        $path = $js
+    }
+    if ($path -match '\.(js|mjs)$') {
+        $node = Get-Command -Name 'node' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $node) { throw 'node was not found: pivotkit''s command line needs Node 22 or later on the PSU server.' }
+        return [pscustomobject]@{ FileName = $node.Source; Arguments = @($path) }
+    }
+    [pscustomobject]@{ FileName = $path; Arguments = @() }
+}
+
+function Invoke-UDPivotCli {
+    <#
+    .SYNOPSIS
+        Runs pivotkit's command line with an argument list and returns its --json answer.
+    .DESCRIPTION
+        Every argument is passed as one (ProcessStartInfo.ArgumentList, no shell, no quoting). stdout is
+        read as the JSON object of --json; a run longer than -TimeoutSec is stopped.
+    .PARAMETER Command
+        Get-UDPivotCliCommand's result.
+    .PARAMETER Argument
+        pivotkit's arguments.
+    .PARAMETER TimeoutSec
+        The longest run.
+    .EXAMPLE
+        Invoke-UDPivotCli -Command (Get-UDPivotCliCommand) -Argument 'render', 'view.json', '--data', 'data.json', '-o', 'out.xlsx', '--json'
+    .OUTPUTS
+        System.Management.Automation.PSCustomObject (pivotkit's --json object).
+    #>
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)][pscustomobject]$Command,
+        [Parameter(Mandatory)][string[]]$Argument,
+        [ValidateRange(1, 3600)][int]$TimeoutSec = $Script:ReportTimeoutSec
+    )
+    $info = [System.Diagnostics.ProcessStartInfo]::new($Command.FileName)
+    foreach ($a in @($Command.Arguments) + $Argument) { $info.ArgumentList.Add($a) }
+    $info.UseShellExecute = $false
+    $info.RedirectStandardOutput = $true
+    $info.RedirectStandardError = $true
+    $info.RedirectStandardInput = $true
+    $info.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+    $info.StandardErrorEncoding = [System.Text.Encoding]::UTF8
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $info
+    try {
+        try { [void]$process.Start() }
+        catch { throw ('pivotkit''s command line did not start ({0}): {1}' -f $Command.FileName, $_.Exception.Message) }
+        $process.StandardInput.Close()
+        $stdout = $process.StandardOutput.ReadToEndAsync()
+        $stderr = $process.StandardError.ReadToEndAsync()
+        if (-not $process.WaitForExit($TimeoutSec * 1000)) {
+            $process.Kill($true)
+            throw ('pivotkit''s command line took longer than {0} seconds and was stopped.' -f $TimeoutSec)
+        }
+        $process.WaitForExit()
+        $text = $stdout.GetAwaiter().GetResult()
+        $errText = $stderr.GetAwaiter().GetResult()
+        try { $answer = ConvertFrom-Json -InputObject $text -Depth 32 }
+        catch { $answer = $null }
+        if ($null -eq $answer -or $null -eq $answer.PSObject.Properties['ok']) {
+            $line = ($errText -split "`n" | Where-Object { $_.Trim() } | Select-Object -First 1)
+            throw ('pivotkit''s command line (exit {0}) gave no --json answer: {1} (pivotkit-cli 0.2 or later is needed).' -f $process.ExitCode, $(if ($line) { $line.Trim() } else { 'no output' }))
+        }
+        $answer | Add-Member -NotePropertyName exitCode -NotePropertyValue $process.ExitCode -Force
+        $answer
+    }
+    finally {
+        $process.Dispose()
+    }
+}
+
+function Get-UDPivotFindingText {
+    <#
+    .SYNOPSIS
+        pivotkit's findings as lines: "error unknownField at rows[0]: unknown field "Regoin" (did you mean Region?)".
+    .PARAMETER Finding
+        The findings of a --json answer or a problem document.
+    .EXAMPLE
+        Get-UDPivotFindingText -Finding $answer.findings
+    .OUTPUTS
+        System.String
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([AllowNull()][object[]]$Finding)
+    foreach ($f in @($Finding | Where-Object { $_ })) {
+        $text = '{0} {1}' -f $f.severity, $f.code
+        if ($f.path) { $text += ' at {0}' -f $f.path }
+        $text += ': {0}' -f $f.message
+        if ($f.suggestion) { $text += ' (did you mean {0}?)' -f $f.suggestion }
+        $text
+    }
+}
+
+function Get-UDPivotAccessToken {
+    <#
+    .SYNOPSIS
+        An OAuth access token by the client credentials grant, from this runspace's cache while it is
+        valid.
+    .DESCRIPTION
+        POSTs grant_type=client_credentials to the token endpoint with the client id and secret (in the
+        body, or as HTTP Basic with -ClientAuthentication Basic) and the optional scope, audience and
+        resource. The token is kept until a minute before expires_in runs out, per token endpoint,
+        client id, scope, audience and resource (never per secret: the cache key holds no part of it); a
+        token without expires_in is not kept. -Renew drops a cached token first (after a 401). The
+        secret and the token never reach an error message or a stream.
+    .PARAMETER TokenUri
+        The token endpoint (https, http only on this machine).
+    .PARAMETER Credential
+        The client id as the user name, the client secret as the password.
+    .PARAMETER Scope
+        Scopes to ask for.
+    .PARAMETER Audience
+        The audience parameter some providers want (Auth0).
+    .PARAMETER Resource
+        RFC 8707's resource: the REST service's address.
+    .PARAMETER ClientAuthentication
+        Post (client_secret_post, default) or Basic (client_secret_basic).
+    .PARAMETER TimeoutSec
+        The longest wait for the token endpoint.
+    .PARAMETER Renew
+        Ask for a new token even when one is cached.
+    .EXAMPLE
+        Get-UDPivotAccessToken -TokenUri 'https://login.example.com/application/o/token/' -Credential $Secret:PivotkitClient -Scope 'pivotkit:render'
+    .OUTPUTS
+        System.Security.SecureString
+    #>
+    [CmdletBinding()]
+    [OutputType([securestring])]
+    param(
+        [Parameter(Mandatory)][uri]$TokenUri,
+        [Parameter(Mandatory)][pscredential]$Credential,
+        [string[]]$Scope,
+        [string]$Audience,
+        [string]$Resource,
+        [ValidateSet('Post', 'Basic')][string]$ClientAuthentication = 'Post',
+        [ValidateRange(1, 3600)][int]$TimeoutSec = 30,
+        [switch]$Renew
+    )
+    if (-not (Test-UDPivotLoopbackUri -Uri $TokenUri)) { throw ('-TokenUri {0}: https only (http only for this machine), so the client secret is never sent in clear text.' -f $TokenUri.GetLeftPart([System.UriPartial]::Path)) }
+    $key = ($TokenUri.AbsoluteUri, $Credential.UserName, (@($Scope) -join ' '), $Audience, $Resource) -join [char]1
+    $entry = $Script:TokenCache[$key]
+    if ($Renew) { $Script:TokenCache.Remove($key) }
+    elseif ($entry -and $entry.Expires -gt [datetime]::UtcNow.AddSeconds($Script:TokenSkewSec)) { return $entry.Token }
+
+    $body = [ordered]@{ grant_type = 'client_credentials' }
+    $headers = @{ Accept = 'application/json' }
+    $secret = $Credential.GetNetworkCredential().Password
+    if ($ClientAuthentication -eq 'Basic') {
+        # RFC 6749 2.3.1: both form-encoded before they are joined
+        $pair = '{0}:{1}' -f [uri]::EscapeDataString($Credential.UserName), [uri]::EscapeDataString($secret)
+        $headers['Authorization'] = 'Basic ' + [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($pair))
+    }
+    else {
+        $body['client_id'] = $Credential.UserName
+        $body['client_secret'] = $secret
+    }
+    if ($Scope) { $body['scope'] = @($Scope) -join ' ' }
+    if ($Audience) { $body['audience'] = $Audience }
+    if ($Resource) { $body['resource'] = $Resource }
+    $form = ($body.Keys | ForEach-Object { '{0}={1}' -f $_, [uri]::EscapeDataString([string]$body[$_]) }) -join '&'
+    $where = $TokenUri.GetLeftPart([System.UriPartial]::Path)
+    try {
+        # -MaximumRedirection 0 with -SkipHttpErrorCheck returns a redirect as a response, with a
+        # non-terminating error beside it (measured on PowerShell 7.6): the error is kept for the case
+        # without any response (no connection, a time-out)
+        $response = Invoke-WebRequest -Uri $TokenUri -Method Post -Body $form -ContentType 'application/x-www-form-urlencoded' -Headers $headers `
+            -MaximumRedirection 0 -SkipHttpErrorCheck -TimeoutSec $TimeoutSec -ErrorAction SilentlyContinue -ErrorVariable webError -Verbose:$false
+    }
+    finally {
+        $secret = $null
+        $form = $null
+    }
+    if ($null -eq $response) { throw ('Token endpoint {0} did not answer: {1}' -f $where, (@($webError) | Select-Object -First 1).Exception.Message) }
+    if ([int]$response.StatusCode -ge 300 -and [int]$response.StatusCode -lt 400) { throw ('Token endpoint {0} answered with a redirect ({1}); it is not followed, so the client secret stays with this endpoint: use the address it names in -TokenUri.' -f $where, [int]$response.StatusCode) }
+    $json = $null
+    try { $json = ConvertFrom-Json -InputObject ([System.Text.Encoding]::UTF8.GetString($response.RawContentStream.ToArray())) -Depth 8 } catch { $json = $null }
+    if ($response.StatusCode -ne 200) {
+        # RFC 6749 5.2: error and error_description; nothing of the request is repeated
+        $reason = if ($json -and $json.error) { '{0}{1}' -f $json.error, $(if ($json.error_description) { ': ' + $json.error_description }) } else { 'no OAuth error in the answer' }
+        throw ('Token endpoint {0} refused the client credentials ({1}): {2}' -f $where, [int]$response.StatusCode, $reason)
+    }
+    if (-not $json -or -not ($json.access_token -is [string]) -or -not $json.access_token) { throw ('Token endpoint {0} answered without an access_token.' -f $where) }
+    if ($json.token_type -and $json.token_type -ne 'Bearer' -and $json.token_type -ne 'bearer') { throw ('Token endpoint {0} gave a token of type "{1}"; pivotkit-server takes Bearer tokens.' -f $where, $json.token_type) }
+    $token = [System.Net.NetworkCredential]::new('', [string]$json.access_token).SecurePassword
+    $seconds = 0
+    if ($null -ne $json.expires_in -and [int]::TryParse([string]$json.expires_in, [ref]$seconds) -and $seconds -gt $Script:TokenSkewSec) {
+        $Script:TokenCache[$key] = @{ Token = $token; Expires = [datetime]::UtcNow.AddSeconds($seconds) }
+    }
+    $token
+}
+
+function Invoke-UDPivotRestRender {
+    <#
+    .SYNOPSIS
+        POSTs a render to pivotkit-server's file route and returns the file's bytes.
+    .DESCRIPTION
+        POST <Uri>/views/render/file with the input as JSON and the bearer token. No redirect is followed
+        (the token would go along). A problem document (RFC 9457) becomes an error with its code, detail,
+        findings (422), Retry-After (429, 503) and request id; with a credential, a 401 gets one new token
+        and one more try.
+    .PARAMETER Uri
+        The REST service's address, https://host/api/v1.
+    .PARAMETER Body
+        The input of render_view.
+    .PARAMETER Auth
+        @{ Token } or @{ Credential; TokenUri; Scope; Audience; Resource; ClientAuthentication }.
+    .PARAMETER TimeoutSec
+        The longest wait for the answer.
+    .EXAMPLE
+        Invoke-UDPivotRestRender -Uri 'https://reports.example.com/api/v1' -Body $input -Auth @{ Token = $Secret:PivotkitToken }
+    .OUTPUTS
+        System.Byte[]
+    #>
+    [CmdletBinding()]
+    [OutputType([byte[]])]
+    param(
+        [Parameter(Mandatory)][uri]$Uri,
+        [Parameter(Mandatory)][System.Collections.IDictionary]$Body,
+        [Parameter(Mandatory)][hashtable]$Auth,
+        [ValidateRange(1, 3600)][int]$TimeoutSec = $Script:ReportTimeoutSec
+    )
+    $target = [uri]($Uri.AbsoluteUri.TrimEnd('/') + '/views/render/file')
+    $where = $target.GetLeftPart([System.UriPartial]::Path)
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes((ConvertTo-Json -InputObject $Body -Depth 32 -Compress -WarningAction SilentlyContinue))
+    $oauth = $Auth.ContainsKey('Credential')
+    $tokenArgs = @{}
+    if ($oauth) { foreach ($k in 'TokenUri', 'Credential', 'Scope', 'Audience', 'Resource', 'ClientAuthentication', 'TimeoutSec') { if ($null -ne $Auth[$k]) { $tokenArgs[$k] = $Auth[$k] } } }
+    for ($attempt = 1; ; $attempt++) {
+        $token = if ($oauth) { ConvertTo-UDPivotPlainText -Secret (Get-UDPivotAccessToken @tokenArgs -Renew:($attempt -gt 1)) -Name 'The access token' } else { ConvertTo-UDPivotPlainText -Secret $Auth['Token'] -Name '-Token' }
+        try {
+            # a redirect comes back as a response with a non-terminating error beside it (see
+            # Get-UDPivotAccessToken); the error counts only when there is no response at all
+            $response = Invoke-WebRequest -Uri $target -Method Post -Body $bytes -ContentType 'application/json; charset=utf-8' `
+                -Headers @{ Authorization = 'Bearer ' + $token; Accept = '*/*' } -MaximumRedirection 0 -SkipHttpErrorCheck -TimeoutSec $TimeoutSec `
+                -ErrorAction SilentlyContinue -ErrorVariable webError -Verbose:$false
+        }
+        finally {
+            $token = $null
+        }
+        if ($null -eq $response) { throw ('pivotkit-server {0} did not answer: {1}' -f $where, (@($webError) | Select-Object -First 1).Exception.Message) }
+        $status = [int]$response.StatusCode
+        if ($status -eq 200) { return , $response.RawContentStream.ToArray() }
+        if ($status -eq 401 -and $oauth -and $attempt -eq 1) { continue }
+        if ($status -ge 300 -and $status -lt 400) { throw ('pivotkit-server {0} answered with a redirect ({1}); it is not followed, so the token stays with this server: use the address it names in -Uri.' -f $where, $status) }
+        $problem = $null
+        try { $problem = ConvertFrom-Json -InputObject ([System.Text.Encoding]::UTF8.GetString($response.RawContentStream.ToArray())) -Depth 16 } catch { $problem = $null }
+        $code = if ($problem -and $problem.code) { [string]$problem.code } else { 'HTTP {0}' -f $status }
+        $message = 'pivotkit-server {0}: {1} ({2})' -f $where, $code, $status
+        if ($problem -and $problem.detail) { $message += ': {0}' -f $problem.detail }
+        $findings = @(Get-UDPivotFindingText -Finding @($problem.findings))
+        if ($findings.Count) { $message += [Environment]::NewLine + ($findings -join [Environment]::NewLine) }
+        $retryAfter = @($response.Headers['Retry-After']) | Select-Object -First 1
+        if ($retryAfter) { $message += [Environment]::NewLine + ('Try again in {0} seconds.' -f $retryAfter) }
+        if ($status -eq 401) { $message += [Environment]::NewLine + 'Check the token: the server did not accept it.' }
+        if ($problem -and $problem.requestId) { $message += [Environment]::NewLine + ('Request id for the operator: {0}' -f $problem.requestId) }
+        $exception = [System.InvalidOperationException]::new($message)
+        $exception.Data['Status'] = $status
+        $exception.Data['Code'] = $code
+        if ($retryAfter) { $exception.Data['RetryAfter'] = [string]$retryAfter }
+        throw $exception
+    }
+}
+
+function Invoke-UDPivotReport {
+    <#
+    .SYNOPSIS
+        Renders a pivot report without a browser - an Excel workbook, an HTML report, CSV, JSON or the
+        chart as SVG - from data PowerShell already has, with pivotkit's command line (Node) or a
+        pivotkit-server (REST).
+    .DESCRIPTION
+        For endpoints, scheduled scripts and jobs: the same view a reader builds in New-UDPivotReport
+        (Views, Download view, or Get-UDElement's .view) runs over the rows and becomes a file.
+
+        -Engine Node runs pivotkit's command line on the PSU server (npm install --global pivotkit-cli,
+        Node 22 or later): the rows go into a temporary JSON file in a folder of its own that only this
+        user can read, pivotkit reads and writes only there (--allow-dir), and the folder is removed
+        afterwards, also on an error.
+
+        -Engine Rest calls a pivotkit-server (POST /api/v1/views/render/file). The rows go in the request
+        (source "inline:", pivotkit's data in the request): nothing has to be put on the server first.
+        The server's operator turns this on per caller (a profile with data: true, or policy.data) and
+        caps the body (rest.data.maxBytes, default 10 MiB). With -Source instead of -Data the report
+        runs over a source the operator configured (the caller needs results: true). Sign-in: a static
+        token (-Token), or OAuth client credentials (-Credential with -TokenUri), the access token kept
+        per runspace until shortly before it expires and fetched again once after a 401. Only https, or
+        http to this machine; redirects are not followed; neither the token nor the client secret is
+        ever written to an error, a log or the output.
+
+        A view with errors writes nothing: the error lists pivotkit's findings (the field it did not
+        find, the name it probably meant). Warnings of the command line go to the warning stream.
+    .PARAMETER Data
+        The rows: a DataTable (Invoke-Sqlcmd), DataRows, objects, hashtables or a script block, as
+        New-UDPivotReport takes them. Dates are sent as ISO 8601 text and read as dates; DBNull is empty.
+    .PARAMETER Source
+        -Engine Rest: the id of a source the server's operator configured, instead of -Data.
+    .PARAMETER Parameter
+        -Engine Rest with -Source: the values of the source's parameters (@{ customer = 'acme' }).
+    .PARAMETER View
+        The view: a hashtable, JSON text, or a view file (pivotkit's Views, Download view) as JSON text or
+        object. Checked like every view (ConvertFrom-UDPivotViewFile); its name is the default title.
+    .PARAMETER Layout
+        Instead of -View, the view by field names, as pivotkit's layout flags take it:
+        @{ rows = 'Team'; cols = 'Priority'; values = @{ field = 'Hours'; agg = 'sum' };
+        groups = @{ field = 'Created'; by = 'yearMonth' }; filters = @(...); chart = 'bar';
+        map = @{ Revenue = 'Turnover' } }.
+    .PARAMETER Format
+        xlsx (Excel), html (a report to read or print), csv, json or svg (the chart). Default: the
+        extension of -OutFile, else xlsx.
+    .PARAMETER OutFile
+        Write the file here (replaced when it exists) and return it as a FileInfo. Without it the
+        function returns the file's bytes (System.Byte[]), for an endpoint's answer or a mail attachment.
+    .PARAMETER Title
+        The report's title in the workbook and the HTML report (default: the view's name).
+    .PARAMETER Engine
+        Node (pivotkit's command line on this server) or Rest (a pivotkit-server).
+    .PARAMETER CliPath
+        -Engine Node: the pivotkit program, or pivotkit-cli's bin/pivotkit.js. Default: pivotkit on the
+        PATH.
+    .PARAMETER Locale
+        -Engine Node: numbers, dates and the report's words (de-DE writes German ones). Default en-US.
+    .PARAMETER TimeZone
+        -Engine Node: the zone of the data's dates (IANA, default UTC).
+    .PARAMETER Uri
+        -Engine Rest: the REST service's address, https://reports.example.com/api/v1.
+    .PARAMETER Token
+        -Engine Rest: a static token, as a string or SecureString - a PSU secret ($Secret:PivotkitToken).
+    .PARAMETER Credential
+        -Engine Rest: OAuth client credentials, the client id as user name and the client secret as
+        password - a PSU secret of type PSCredential ($Secret:PivotkitClient). Needs -TokenUri.
+    .PARAMETER TokenUri
+        The OAuth provider's token endpoint (Authentik: https://<authentik>/application/o/token/).
+    .PARAMETER Scope
+        Scopes to ask the provider for (pivotkit:render, say).
+    .PARAMETER Audience
+        The audience parameter some providers want for the access token (Auth0).
+    .PARAMETER Resource
+        RFC 8707's resource parameter: the REST service's address, for providers that issue tokens per
+        resource.
+    .PARAMETER ClientAuthentication
+        How the client authenticates at the token endpoint: Post (client_secret_post, the default) or
+        Basic (client_secret_basic).
+    .PARAMETER DataName
+        -Engine Rest with -Data: what the data is, the report's name when it has no title.
+    .PARAMETER DataAsOf
+        -Engine Rest with -Data: when the data is from; the report's details say it ("Data as of").
+    .PARAMETER TimeoutSec
+        The longest wait for the command line or the server. Default 120.
+    .PARAMETER WhatIf
+        With -OutFile: says which file would be written and runs nothing.
+    .PARAMETER Confirm
+        With -OutFile: asks before the file is written.
+    .EXAMPLE
+        # a scheduled script: tickets per team as an Excel workbook, with the view a reader saved
+        $view = Get-Content -LiteralPath (Join-Path $Repository 'views' 'tickets-per-team.pivotkit.json') -Raw
+        Invoke-UDPivotReport -Engine Node -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -View $view -OutFile '/reports/tickets.xlsx'
+    .EXAMPLE
+        # an endpoint that answers with an HTML report, made by a pivotkit-server
+        New-PSUEndpoint -Url '/reports/tickets' -Endpoint {
+            Import-Module PowerShellUniversal.Component.Pivot
+            $bytes = Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Token $Secret:PivotkitToken `
+                -Data (Get-Ticket) -Layout @{ rows = 'Team'; values = @{ field = 'Id'; agg = 'count' } } -Format html
+            New-PSUApiResponse -Body ([System.Text.Encoding]::UTF8.GetString($bytes)) -ContentType 'text/html; charset=utf-8'
+        }
+    .EXAMPLE
+        # OAuth client credentials from Authentik; the token is reused until it expires
+        Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Credential $Secret:PivotkitClient `
+            -TokenUri 'https://login.example.com/application/o/token/' -Scope 'pivotkit:render' -Source 'sales' -View $view -OutFile ./sales.xlsx
+    .OUTPUTS
+        System.IO.FileInfo with -OutFile, else System.Byte[].
+    .LINK
+        https://powershell-universal-components.eize.dev/pivot/reports/
+    #>
+    [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName = 'View')]
+    [OutputType([System.IO.FileInfo], [byte[]])]
+    param(
+        [AllowNull()][object]$Data,
+        [ValidateLength(1, 1024)][ValidatePattern('^(?!file:|inline:)')][string]$Source,
+        [System.Collections.IDictionary]$Parameter,
+        [Parameter(Mandatory, ParameterSetName = 'View')][AllowNull()][object]$View,
+        [Parameter(Mandatory, ParameterSetName = 'Layout')][System.Collections.IDictionary]$Layout,
+        [ValidateSet('xlsx', 'html', 'csv', 'json', 'svg')][string]$Format,
+        [ValidateNotNullOrEmpty()][string]$OutFile,
+        [ValidateLength(1, 200)][string]$Title,
+        [Parameter(Mandatory)][ValidateSet('Node', 'Rest')][string]$Engine,
+        [string]$CliPath,
+        [ValidateScript({ $_ -match $Script:LocalePattern }, ErrorMessage = 'Locale "{0}": expected a language tag such as en-US or de-DE.')][string]$Locale,
+        [ValidatePattern('^(UTC|[A-Za-z_]+(/[A-Za-z0-9_+-]+){1,2})$')][string]$TimeZone,
+        [uri]$Uri,
+        [AllowNull()][object]$Token,
+        [pscredential]$Credential,
+        [uri]$TokenUri,
+        [ValidateNotNullOrEmpty()][string[]]$Scope,
+        [ValidateNotNullOrEmpty()][string]$Audience,
+        [ValidateNotNullOrEmpty()][string]$Resource,
+        [ValidateSet('Post', 'Basic')][string]$ClientAuthentication = 'Post',
+        [ValidateLength(1, 200)][string]$DataName,
+        [Nullable[datetime]]$DataAsOf,
+        [ValidateRange(1, 3600)][int]$TimeoutSec = $Script:ReportTimeoutSec
+    )
+
+    #region What goes with which engine
+    # the parameters given of a list, as "-Name" (the function's own bound parameters, not the script block's)
+    $bound = $PSBoundParameters
+    $given = { param($Names) @($Names | Where-Object { $bound.ContainsKey($_) } | ForEach-Object { "-$_" }) }
+    $hasData = $PSBoundParameters.ContainsKey('Data')
+    if ($Engine -eq 'Node') {
+        $wrong = & $given 'Source', 'Parameter', 'Uri', 'Token', 'Credential', 'TokenUri', 'Scope', 'Audience', 'Resource', 'ClientAuthentication', 'DataName', 'DataAsOf'
+        if ($wrong.Count) { throw ('{0}: only with -Engine Rest.' -f ($wrong -join ', ')) }
+        if (-not $hasData) { throw '-Engine Node needs -Data: the command line runs over the rows you give.' }
+    }
+    else {
+        $wrong = & $given 'CliPath', 'Locale', 'TimeZone'
+        if ($wrong.Count) { throw ('{0}: only with -Engine Node (pivotkit-server uses its own).' -f ($wrong -join ', ')) }
+        if (-not $Uri) { throw '-Engine Rest needs -Uri, the REST service''s address (https://reports.example.com/api/v1).' }
+        if (-not $Uri.IsAbsoluteUri -or -not (Test-UDPivotLoopbackUri -Uri $Uri)) { throw ('-Uri {0}: an https address (http only for this machine), so the token is never sent in clear text.' -f $Uri) }
+        if ($hasData -eq [bool]$Source) { throw '-Engine Rest needs either -Data (rows sent with the request) or -Source (a source the operator configured).' }
+        if ($Parameter -and -not $Source) { throw '-Parameter goes with -Source.' }
+        if (($DataName -or $DataAsOf) -and -not $hasData) { throw '-DataName and -DataAsOf go with -Data.' }
+        if ($PSBoundParameters.ContainsKey('Token') -eq [bool]$Credential) { throw '-Engine Rest needs either -Token (a static token) or -Credential with -TokenUri (OAuth client credentials).' }
+        if ($Credential -and -not $TokenUri) { throw '-Credential needs -TokenUri, the token endpoint of the OAuth provider.' }
+        $oauthOnly = & $given 'TokenUri', 'Scope', 'Audience', 'Resource', 'ClientAuthentication'
+        if (-not $Credential -and $oauthOnly.Count) { throw ('{0}: only with -Credential (OAuth client credentials).' -f ($oauthOnly -join ', ')) }
+    }
+    #endregion
+
+    #region The format, the view and the data
+    $target = if ($OutFile) { $PSCmdlet.GetUnresolvedProviderPathFromPSPath($OutFile) }
+    $named = if ($target) { $Script:ReportExtensions[[System.IO.Path]::GetExtension($target).ToLowerInvariant()] }
+    if ($Format -and $named -and $named -ne $Format) { throw ('-OutFile names a {0} file, -Format {1}: give one or make them agree.' -f $named, $Format) }
+    $kind = if ($Format) { $Format } elseif ($named) { $named } else { 'xlsx' }
+    $viewFile = $null
+    $layoutIn = $null
+    if ($PSCmdlet.ParameterSetName -eq 'View') {
+        try { $viewFile = ConvertFrom-UDPivotViewFile -InputObject $View -Name 'Pivot report' }
+        catch { throw ('-View: {0}' -f $_.Exception.Message) }
+    }
+    else {
+        $layoutIn = ConvertTo-UDPivotReportLayout -Layout $Layout
+    }
+    $reportTitle = if ($Title) { $Title } elseif ($viewFile -and $viewFile.Name -ne 'Pivot report') { $viewFile.Name }
+    $table = if ($hasData) { ConvertTo-UDPivotReportTable -Data $Data }
+    #endregion
+
+    if ($target -and -not $PSCmdlet.ShouldProcess($target, ('Write a pivot report ({0})' -f $kind))) { return }
+
+    if ($Engine -eq 'Rest') {
+        $body = [ordered]@{ source = if ($table) { 'inline:' } else { $Source } }
+        if ($table) {
+            if ($DataName) { $table['name'] = $DataName }
+            if ($DataAsOf) { $table['asOf'] = ([datetime]$DataAsOf).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ', [cultureinfo]::InvariantCulture) }
+            $body['data'] = $table
+        }
+        if ($Parameter) { $body['params'] = $Parameter }
+        if ($viewFile) { $body['view'] = $viewFile.View } else { $body['layout'] = $layoutIn }
+        $body['format'] = $kind
+        if ($reportTitle) { $body['title'] = $reportTitle }
+        $auth = if ($Credential) {
+            @{ Credential = $Credential; TokenUri = $TokenUri; Scope = $Scope; Audience = $Audience; Resource = $Resource; ClientAuthentication = $ClientAuthentication; TimeoutSec = $TimeoutSec }
+        }
+        else { @{ Token = $Token } }
+        $bytes = Invoke-UDPivotRestRender -Uri $Uri -Body $body -Auth $auth -TimeoutSec $TimeoutSec
+    }
+    else {
+        $command = Get-UDPivotCliCommand -CliPath $CliPath
+        # a folder of its own that only this user may read: the rows are the app's data
+        $work = Join-Path ([System.IO.Path]::GetTempPath()) ('pivotkit-' + [guid]::NewGuid().ToString('N'))
+        if ($IsWindows) { [void][System.IO.Directory]::CreateDirectory($work) }
+        else { [void][System.IO.Directory]::CreateDirectory($work, [System.IO.UnixFileMode]'UserRead, UserWrite, UserExecute') }
+        try {
+            $dataPath = Join-Path $work 'data.json'
+            $outPath = Join-Path $work ('report.{0}' -f $kind)
+            [System.IO.File]::WriteAllText($dataPath, (ConvertTo-Json -InputObject ([ordered]@{ columns = $table.columns; rows = $table.rows }) -Depth 4 -Compress), [System.Text.UTF8Encoding]::new($false))
+            $arguments = [System.Collections.Generic.List[string]]::new()
+            $arguments.Add('render')
+            if ($viewFile) {
+                $viewPath = Join-Path $work 'view.pivotkit.json'
+                $viewJson = ConvertTo-UDPivotViewFile -View $viewFile.View -Name $viewFile.Name -SourceId ([string]$viewFile.Source.id)
+                [System.IO.File]::WriteAllText($viewPath, $viewJson, [System.Text.UTF8Encoding]::new($false))
+                $arguments.AddRange([string[]]@($viewPath, '--data', $dataPath))
+            }
+            else {
+                $arguments.Add($dataPath)
+                $arguments.AddRange([string[]]@(Get-UDPivotLayoutArgument -Layout $layoutIn))
+            }
+            $arguments.AddRange([string[]]@('-f', $kind, '-o', $outPath, '--json', '--quiet', '--allow-dir', $work))
+            if ($reportTitle) { $arguments.AddRange([string[]]@('--title', $reportTitle)) }
+            if ($Locale) { $arguments.AddRange([string[]]@('--locale', $Locale)) }
+            if ($TimeZone) { $arguments.AddRange([string[]]@('--time-zone', $TimeZone)) }
+            $answer = Invoke-UDPivotCli -Command $command -Argument $arguments.ToArray() -TimeoutSec $TimeoutSec
+            $findings = @($answer.findings | Where-Object { $_ -and $_.severity -ne 'info' })
+            if (-not $answer.ok) {
+                $lines = @(Get-UDPivotFindingText -Finding @($findings | Where-Object severity -EQ 'error'))
+                if ($answer.error) { $lines += '{0} {1}: {2}' -f $answer.error.kind, $answer.error.code, $answer.error.message }
+                throw ('pivotkit''s command line wrote no report (exit {0}):{1}{2}' -f $answer.exitCode, [Environment]::NewLine, ($lines -join [Environment]::NewLine))
+            }
+            foreach ($line in @(Get-UDPivotFindingText -Finding @($findings | Where-Object severity -EQ 'warning'))) { Write-Warning ('pivotkit: {0}' -f $line) }
+            if (-not (Test-Path -LiteralPath $outPath -PathType Leaf)) { throw 'pivotkit''s command line said it wrote the report, but the file is not there.' }
+            $bytes = [System.IO.File]::ReadAllBytes($outPath)
+        }
+        finally {
+            # a file the command line still holds open (Windows) must not hide the report's own error
+            Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    if ($target) {
+        [System.IO.File]::WriteAllBytes($target, $bytes)
+        return Get-Item -LiteralPath $target
+    }
+    , $bytes
+}
+#endregion
+
+Export-ModuleMember -Function New-UDPivotReport, New-UDPivotReportPlaceholder, ConvertFrom-UDPivotView, ConvertFrom-UDPivotViewFile, ConvertTo-UDPivotViewFile, New-UDPivotFileTemplateStore, New-UDPivotTemplateStore, Invoke-UDPivotTemplateRequest, Get-UDPivotSqlColumnDescription, Invoke-UDPivotReport

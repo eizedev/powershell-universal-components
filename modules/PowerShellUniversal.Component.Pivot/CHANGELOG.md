@@ -5,6 +5,25 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+### Added
+
+- `Invoke-UDPivotReport`: renders a view over rows into an Excel workbook, an HTML report, CSV, JSON
+  or SVG without a browser, for endpoints, schedules and jobs. `-Engine Node` runs pivotkit's command
+  line on the PSU server (pivotkit-cli 0.2 or later; the rows in a temporary folder only this user can
+  read, removed afterwards); `-Engine Rest` calls a pivotkit-server's file route with the rows in the
+  request (pivotkit 0.7.0's data in the request, `inline:`), or with `-Source` over a source the
+  operator configured. Input is a view, a view file or a layout (`-Layout @{ rows = 'Team'; values =
+  @{ field = 'Hours'; agg = 'sum' } }`); output is a file (`-OutFile`) or its bytes. A view with
+  errors throws with pivotkit's findings
+  ([#114](https://github.com/eizedev/powershell-universal-components/issues/114),
+  [#112](https://github.com/eizedev/powershell-universal-components/issues/112)).
+- Sign-in for `-Engine Rest`: a static token (`-Token`, a PSU secret) or OAuth client credentials
+  (`-Credential` with `-TokenUri`, `-Scope`, `-Audience`, `-Resource`), the access token kept per
+  runspace until a minute before it expires and fetched again once after a 401. https only (http to
+  this machine), no redirects followed, the token and the secret in no message. The new page "Reports
+  without a browser" has an Authentik example
+  ([#115](https://github.com/eizedev/powershell-universal-components/issues/115)).
+
 ## [0.5.0] - 2026-11-15
 
 ### Security

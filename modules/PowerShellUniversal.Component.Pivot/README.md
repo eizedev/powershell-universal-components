@@ -6,7 +6,7 @@ totals or a chart. Dates are grouped by month, quarter or year, a click on a val
 rows behind it, readers keep their layouts as views (in the browser, in files or a database of your
 choice; roles decide who publishes shared views), undo every step and export to Excel, CSV, PNG, SVG and an HTML report or print. Fields get display names and descriptions from your script, SQL Server column descriptions or an
 OpenAPI schema. With `-AllowImport` readers pivot a CSV, JSON or Excel file of their own, read in the
-browser and never uploaded. Light and dark theme in PSU's colours, English and German, from a phone to a wide screen.
+browser and never uploaded. `Invoke-UDPivotReport` renders the same views into files from endpoints and schedules, without a browser. Light and dark theme in PSU's colours, English and German, from a phone to a wide screen.
 
 ```powershell
 New-UDPivotReport -Id 'python' -Data (Invoke-RestMethod 'https://endoflife.date/api/python.json')
@@ -47,6 +47,7 @@ is a showcase app in one line (`New-UDPivotShowcase`).
 | `-Templates`, `-TemplatePath`, view files, `-TemplateStore` (browser, files, your own storage), `-AdminRole` and the admin panel | [Templates, view files and roles](https://powershell-universal-components.eize.dev/pivot/templates/) |
 | `-AllowImport`: readers' own CSV, JSON and Excel files, views per file, `-OnDataLoad`, `-ImportLimit` | [Readers' own files](https://powershell-universal-components.eize.dev/pivot/import/) |
 | `-OnViewChange`, `-OnCellClick`, `-OnSaveTemplate`, `-OnDeleteTemplate`, `-OnPublishTemplate`, security | [Events, security and limits](https://powershell-universal-components.eize.dev/pivot/events/) |
+| `Invoke-UDPivotReport`: a view as an Excel workbook, HTML report, CSV, JSON or SVG from endpoints and schedules, with pivotkit's command line or a pivotkit-server (token or OAuth) | [Reports without a browser](https://powershell-universal-components.eize.dev/pivot/reports/) |
 | Parameters | [Reference](https://powershell-universal-components.eize.dev/pivot/reference/) |
 
 ## Security notes

@@ -159,6 +159,13 @@ It wins over the view's chart settings. pivotkit leaves out options that are mar
 | Growing | `-Grow On` lets it grow past the height instead when the table would get too small, and the page scrolls. |
 | Containers | Inside `New-UDTabs`, `New-UDCard`, `New-UDStack` and expansion panels it fits its container and grows when a hidden tab is shown. |
 
+## Reports as files
+
+The views readers build here also run without a browser: `Invoke-UDPivotReport` renders a view over
+rows into an Excel workbook, an HTML report, CSV, JSON or SVG, for an endpoint or a schedule, with
+pivotkit's command line on the PSU server or a pivotkit-server
+([Reports without a browser](reports.md)).
+
 ## Loading and performance
 
 PSU draws a component once its properties have arrived, and the report's properties carry all of its
