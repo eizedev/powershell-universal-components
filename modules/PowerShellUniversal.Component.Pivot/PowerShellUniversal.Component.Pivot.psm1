@@ -344,6 +344,47 @@ function ConvertTo-UDPivotImportLimit {
     [pscustomobject]$ordered
 }
 
+function ConvertTo-UDPivotExportData {
+    <#
+    .SYNOPSIS
+        -ExportData and -ExportDataColumn as pivotkit-react's exportData: $true, or @{ columns } with the
+        names as the data spells them.
+    .DESCRIPTION
+        Every name in -Column must be a column of the data (without regard to case), each once: an
+        unknown name throws and names it, so a typo never turns into an export of every column. Data
+        without rows (-AllowImport with an empty -Data) has no columns to check against; the names go
+        to pivotkit as given, which offers nothing for a name that matches no column.
+    .PARAMETER Column
+        The columns of -ExportDataColumn, or none for every column.
+    .PARAMETER ColumnName
+        The columns of the data.
+    .EXAMPLE
+        ConvertTo-UDPivotExportData -Column 'team', 'Hours' -ColumnName 'Team', 'Hours', 'Customer'
+    .OUTPUTS
+        System.Boolean or System.Collections.Hashtable
+    #>
+    [CmdletBinding()]
+    [OutputType([bool], [hashtable])]
+    param(
+        [AllowNull()][AllowEmptyCollection()][string[]]$Column,
+        [AllowNull()][AllowEmptyCollection()][string[]]$ColumnName
+    )
+    if (-not $Column) { return $true }
+    $known = @($ColumnName | Where-Object { $_ })
+    $picked = [System.Collections.Generic.List[string]]::new()
+    $unknown = [System.Collections.Generic.List[string]]::new()
+    foreach ($name in $Column) {
+        $match = if ($known.Count) { $known | Where-Object { $_ -eq $name } | Select-Object -First 1 } else { $name }
+        if ($null -eq $match) { $unknown.Add($name) }
+        elseif (-not ($picked | Where-Object { $_ -eq $match })) { $picked.Add($match) }
+    }
+    if ($unknown.Count) {
+        throw ('-ExportDataColumn: {0} {1} no column of -Data (columns: {2}).' -f (($unknown | ForEach-Object { '"{0}"' -f $_ }) -join ', '), $(if ($unknown.Count -eq 1) { 'is' } else { 'are' }), ($known -join ', '))
+    }
+    # an array, also for one name: pivotkit turns everything off for columns that are no list
+    @{ columns = [string[]]$picked.ToArray() }
+}
+
 function Test-UDPivotJsonText {
     <#
     .SYNOPSIS
@@ -1741,6 +1782,23 @@ function New-UDPivotReport {
         requests. Use it for reports whose filter values are sensitive.
     .PARAMETER NoDrillDown
         No panel with the source rows when a value is clicked (-OnCellClick still runs).
+    .PARAMETER ExportData
+        Adds Source data to the Export menu: every row of the data, before filters, grouping and totals,
+        as a CSV or JSON file (pivotkit's exportData). Off by default. The report and its drill-down
+        hand out different things: the report's own exports (Excel, Table as CSV, HTML, Print) hold the
+        result the reader sees; the drill-down hands out up to 1,000 rows behind a clicked value, with
+        every column, unless -NoDrillDown; Source data hands out every row and every column of -Data,
+        also the columns no view places and the rows the filters leave out. All of these are rows the
+        browser already holds (its developer tools reach them), so turn it on only where readers may take
+        every row home, and select the columns first. With -AllowImport a loaded file's rows are exported
+        too. https://pivotkit.eize.dev/security/#source-data
+    .PARAMETER ExportDataColumn
+        With -ExportData: only these columns, in this order, in Source data and in the drill-down panel's
+        copies and files (the panel itself still shows every column). Names are matched without regard to
+        case against the columns of the first row of -Data; a name that is no column is an error, so a
+        typo never widens the export. It is no access control: the field list, the drill-down panel, the
+        exports of the result and $EventData.rows still carry every column. Remove a column readers must
+        not have before -Data (Select-Object -ExcludeProperty, the SQL query).
     .PARAMETER AllowImport
         Readers may load a file of their own into the report: a Data menu in the toolbar, a file dropped
         onto the report, and a preview (first rows, a type per column, a sheet of a workbook) before the
@@ -1825,6 +1883,9 @@ function New-UDPivotReport {
         # files of up to 250 MB and 2,000,000 rows; the other limits stay pivotkit's
         New-UDPivotReport -Id 'own-data' -Data @() -AllowImport -ImportLimit @{ fileBytes = 250MB; rows = 2000000 }
     .EXAMPLE
+        # readers may download the rows behind the report, without the customer column
+        New-UDPivotReport -Id 'tickets' -Data $tickets -ExportData -ExportDataColumn 'Id', 'Team', 'Created', 'LeadHours'
+    .EXAMPLE
         # a new tab continues with the reader's last view; open tabs keep their own
         New-UDPivotReport -Id 'tickets' -Data $tickets -View $startView -SavedView $Session:PivotView -OnViewChange {
             Import-Module PowerShellUniversal.Component.Pivot
@@ -1873,6 +1934,8 @@ function New-UDPivotReport {
         [ValidateLength(1, 120)][string]$FileName = 'pivot',
         [switch]$NoAddressBar,
         [switch]$NoDrillDown,
+        [switch]$ExportData,
+        [ValidateNotNullOrEmpty()][string[]]$ExportDataColumn,
         [switch]$AllowImport,
         [System.Collections.IDictionary]$ImportLimit,
         [string]$ClassName,
@@ -1888,6 +1951,7 @@ function New-UDPivotReport {
     if (-not $Script:AssetId) { throw $Script:MissingAssetMessage }
     if ($OnDataLoad -and -not $AllowImport) { throw '-OnDataLoad needs -AllowImport: without it the data shown never changes.' }
     if ($PSBoundParameters.ContainsKey('ImportLimit') -and -not $AllowImport) { throw '-ImportLimit needs -AllowImport: without it no file is loaded.' }
+    if ($ExportDataColumn -and -not $ExportData) { throw '-ExportDataColumn needs -ExportData: naming columns never turns an export on by itself.' }
     $timer = [System.Diagnostics.Stopwatch]::StartNew()
 
     # one array (ConvertTo-PSUComponentData returns it as a single object; @() would nest it)
@@ -1919,6 +1983,7 @@ function New-UDPivotReport {
         drillDown   = -not $NoDrillDown
         addressBar  = -not $NoAddressBar
     }
+    if ($ExportData) { $props['exportData'] = ConvertTo-UDPivotExportData -Column $ExportDataColumn -ColumnName $columnNames }
     if ($AllowImport) { $props['allowImport'] = $true }
     if ($PSBoundParameters.ContainsKey('ImportLimit') -and $null -ne $ImportLimit) {
         $limits = ConvertTo-UDPivotImportLimit -ImportLimit $ImportLimit

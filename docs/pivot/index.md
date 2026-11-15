@@ -84,10 +84,43 @@ New-UDDynamic -Id 'tickets-report' -LoadingComponent {
 | **Table or chart** | Bars, stacked or horizontal bars, lines, area, pie, donut, heatmap, or Automatic (lines over dates, bars otherwise); value labels, legend, title, smooth lines, axis and group labels, and for a pie or donut labels inside or outside, in the chart type's Display settings. |
 | **Enlarge, Full screen** | **Enlarge** lets the table or chart fill the report (the field list and the zones step aside; Escape brings them back), **Full screen** shows the report on the whole screen where the browser allows it. Neither is part of the view. |
 | **Drill-down** | A click on a value or a chart point opens the source rows behind it; the panel has its own Enlarge and an Export menu (Copy for a spreadsheet, Copy as JSON, Download CSV and Excel). |
+| **Source data** | With `-ExportData`: Export, Source data downloads every row behind the report as CSV or JSON, for the reader's own analysis or `pivotkit render` ([below](#source-data-exportdata)). |
 | **Undo, Reset, Views, Export** | **Undo and redo** (Ctrl/Cmd+Z), **Reset** to the start view, **Views** with shared views and the reader's own, Save, Save as and New, empty report ([Templates, view files and roles](templates.md)), and its Share level with "Copy link", "Copy view as JSON", "Download view" (a view file) and "Load view…", and **Export** to Excel (XLSX with number formats and merged headers), the table as CSV, PNG, SVG and an HTML report, Print or save as PDF, or Copy table and Copy data as JSON. Excel, the HTML report and print are light also from a dark app ([Themes](themes.md#one-stylesheet-for-echarts-and-the-pivot-report)). |
 | **Tips** | Above the result, for a layout that could be clearer: one at a time, each dismissible and remembered per report in the browser. `-Tips Off` or a list of tip ids limits them. Options, Help has "Show tips" and "Show explanations" (every "i" next to fields, zones and settings); `-FieldInfo`, `-ZoneInfo` and `-SettingInfo` decide one kind for the reader. |
 | **Own files** | With `-AllowImport`: drop a CSV, TSV, JSON or Excel file onto the report, or pick it under Data, check a preview with a type per column, and pivot it; read in the browser, never uploaded; views kept per file; Back to original data ([Readers' own files](import.md)). |
 | **Field list** | « collapses it to a narrow rail (the reader's choice is remembered); `-FieldList Collapsed` or `Open` starts every reader so. |
+
+### Source data (-ExportData)
+
+`-ExportData` adds **Source data** to the Export menu: every row of `-Data`, before filters, grouping
+and totals, as a CSV or JSON file. It is off by default. `-ExportDataColumn` keeps these files, and the
+drill-down panel's copies and files, to the columns it names (matched without regard to case, checked
+against the columns of the first row); a name that is no column of `-Data` is an error, so a typo
+never widens the export. The explanation next to Source data then names those columns.
+
+!!! warning "-ExportDataColumn is no access control"
+    It narrows two kinds of download, nothing else. The field list, the drill-down panel itself, the
+    exports of the result (a reader can place any field) and `$EventData.rows` of `-OnCellClick` still
+    carry every column of `-Data`, and the browser holds them all. To keep a column away from readers,
+    remove it before `-Data`: `$rows | Select-Object -ExcludeProperty Customer`, or leave it out of the
+    SQL query.
+
+--8<-- "examples/source-data-for-readers.md"
+
+What each part hands out:
+
+| Part | What a reader takes away | Turned off with |
+| --- | --- | --- |
+| Export (Excel, Table as CSV, HTML report, Print, PNG, SVG) | the result shown: groups, totals, the chart | - |
+| Drill-down | up to 1,000 rows behind a clicked value (all rows behind the grand total); the panel shows every column, its copies and files only those of `-ExportDataColumn` | `-NoDrillDown` |
+| Source data | every row and every column of `-Data` (or those of `-ExportDataColumn`), also the rows the filters leave out | without `-ExportData` (the default) |
+
+All three are rows the browser holds already: its developer tools reach them. Turn Source data on only
+where readers may take every row home, and leave columns readers must not have out of `-Data`
+([security notes](events.md#security-notes), pivotkit's
+[Source data](https://pivotkit.eize.dev/security/#source-data)). A CSV file and the report's view
+file (Views, Download view) make the report again with pivotkit's command line:
+`pivotkit render <view>.pivotkit.json --data <data>.csv -o report.html`.
 
 The report adapts to its own width:
 
