@@ -86,7 +86,7 @@ console.log(JSON.stringify({ ok: true, exitCode: 0, command: "render", findings:
             $reader = [System.IO.StreamReader]::new($request.InputStream, [System.Text.Encoding]::UTF8)
             $body = $reader.ReadToEnd()
             $auth = $request.Headers['Authorization']
-            $Mock.Log.Enqueue([pscustomobject]@{ Path = $request.Url.AbsolutePath; Authorization = $auth; Body = $body; ContentType = $request.ContentType })
+            $Mock.Log.Enqueue([pscustomobject]@{ Path = $request.Url.AbsolutePath; Authorization = $auth; Body = $body; ContentType = $request.ContentType; UserAgent = $request.UserAgent })
             $answer = $null
             if ($request.Url.AbsolutePath -eq '/token') {
                 if (-not $Mock.Token.TryDequeue([ref]$answer)) {
@@ -153,6 +153,41 @@ console.log(JSON.stringify({ ok: true, exitCode: 0, command: "render", findings:
         } $Data $MaxBytes
     }
     function Get-Log { $out = @(); $item = $null; while ($script:mock.Log.TryDequeue([ref]$item)) { $out += $item }; $out }
+    # a stand-in for pivotkit-server with a body over its cap: it reads the headers, answers 413 at once
+    # and resets the connection while the client still sends; the error Invoke-UDPivotRestRender throws
+    function Invoke-EarlyAnswer {
+        $early = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $early.Start()
+        $earlyPort = $early.LocalEndpoint.Port
+        $job = Start-ThreadJob -ScriptBlock {
+            $Listener = $using:early
+            try {
+                $client = $Listener.AcceptTcpClient()
+                $stream = $client.GetStream()
+                $head = [System.Text.StringBuilder]::new()
+                while (-not $head.ToString().Contains("`r`n`r`n")) { $b = $stream.ReadByte(); if ($b -lt 0) { return }; $null = $head.Append([char]$b) }
+                if ($head.ToString() -match '(?im)^expect:\s*100-continue') { $c = [System.Text.Encoding]::ASCII.GetBytes("HTTP/1.1 100 Continue`r`n`r`n"); $stream.Write($c, 0, $c.Length) }
+                $body = '{"type":"x","title":"Body too large","status":413,"code":"BODY_TOO_LARGE","detail":"the body is larger than 10 MiB, the most this service takes from you","requestId":"req-early"}'
+                $answer = [System.Text.Encoding]::ASCII.GetBytes(("HTTP/1.1 413 Payload Too Large`r`ncontent-type: application/problem+json`r`nx-request-id: req-early`r`ncontent-length: {0}`r`n`r`n{1}" -f $body.Length, $body))
+                $stream.Write($answer, 0, $answer.Length)
+                $stream.Flush()
+                Start-Sleep -Milliseconds 50
+                $client.Client.LingerState = [System.Net.Sockets.LingerOption]::new($true, 0)
+                $client.Close()
+            }
+            finally { $Listener.Stop() }
+        }
+        try {
+            # larger than the loopback buffers, so the client is still sending when the reset comes
+            $big = [byte[]]::new(24MB)
+            try { $null = & $script:module { param($u, $b) Invoke-UDPivotRestRender -Uri $u -Body $b -Auth @{ Token = 'static-token-0123456789' } -TimeoutSec 30 -WarningAction SilentlyContinue } ('http://127.0.0.1:{0}/api/v1' -f $earlyPort) $big; $null } catch { $_ }
+        }
+        finally {
+            $null = Wait-Job $job -Timeout 10
+            Remove-Job $job -Force
+            $early.Stop()
+        }
+    }
     $script:rest = @{ Engine = 'Rest'; Uri = $script:base + '/api/v1' }
     $script:clientSecret = 'client-secret-that-must-not-leak'
     $script:client = [pscredential]::new('pivot-psu', [System.Net.NetworkCredential]::new('', $script:clientSecret).SecurePassword)
@@ -680,44 +715,24 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
     }
 
     It 'a 413 the server sends while the body is still coming, then resets the connection: PivotDataTooLarge with the server''s code and request id' {
-        # as pivotkit-server does with a body over its cap: it reads the headers, answers 413 at once
-        # and resets the connection while the client still sends
-        $early = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
-        $early.Start()
-        $earlyPort = $early.LocalEndpoint.Port
-        $job = Start-ThreadJob -ScriptBlock {
-            $Listener = $using:early
-            try {
-                $client = $Listener.AcceptTcpClient()
-                $stream = $client.GetStream()
-                $head = [System.Text.StringBuilder]::new()
-                while (-not $head.ToString().Contains("`r`n`r`n")) { $b = $stream.ReadByte(); if ($b -lt 0) { return }; $null = $head.Append([char]$b) }
-                if ($head.ToString() -match '(?im)^expect:\s*100-continue') { $c = [System.Text.Encoding]::ASCII.GetBytes("HTTP/1.1 100 Continue`r`n`r`n"); $stream.Write($c, 0, $c.Length) }
-                $body = '{"type":"x","title":"Body too large","status":413,"code":"BODY_TOO_LARGE","detail":"the body is larger than 10 MiB, the most this service takes from you","requestId":"req-early"}'
-                $answer = [System.Text.Encoding]::ASCII.GetBytes(("HTTP/1.1 413 Payload Too Large`r`ncontent-type: application/problem+json`r`nx-request-id: req-early`r`ncontent-length: {0}`r`n`r`n{1}" -f $body.Length, $body))
-                $stream.Write($answer, 0, $answer.Length)
-                $stream.Flush()
-                Start-Sleep -Milliseconds 50
-                $client.Client.LingerState = [System.Net.Sockets.LingerOption]::new($true, 0)
-                $client.Close()
-            }
-            finally { $Listener.Stop() }
-        }
-        try {
-            # larger than the loopback buffers, so the client is still sending when the reset comes
-            $big = [byte[]]::new(24MB)
-            $caught = $null
-            try { & $module { param($u, $b) Invoke-UDPivotRestRender -Uri $u -Body $b -Auth @{ Token = 'static-token-0123456789' } -TimeoutSec 30 -WarningAction SilentlyContinue } ('http://127.0.0.1:{0}/api/v1' -f $earlyPort) $big } catch { $caught = $_ }
-            $caught.FullyQualifiedErrorId | Should -Be 'PivotDataTooLarge'
-            $caught.Exception.Message | Should -BeLike '*BODY_TOO_LARGE (413): the body is larger than 10 MiB*Request id for the operator: req-early*'
-            $caught.Exception.Data['Code'] | Should -Be 'BODY_TOO_LARGE'
-            $caught.Exception.Data['RequestId'] | Should -Be 'req-early'
-        }
-        finally {
-            $null = Wait-Job $job -Timeout 10
-            Remove-Job $job -Force
-            $early.Stop()
-        }
+        $caught = Invoke-EarlyAnswer
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotDataTooLarge'
+        $caught.Exception.Message | Should -BeLike '*BODY_TOO_LARGE (413): the body is larger than 10 MiB*Request id for the operator: req-early*'
+        $caught.Exception.Data['Code'] | Should -Be 'BODY_TOO_LARGE'
+        $caught.Exception.Data['RequestId'] | Should -Be 'req-early'
+    }
+
+    It 'without the compiled transport the early 413 is lost: unreachable, with the size as the likely reason' {
+        & $module { $Script:HttpTransportCompiled = $false }
+        try { $caught = Invoke-EarlyAnswer }
+        finally { & $module { $Script:HttpTransportCompiled = $null } }
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotServerUnreachable'
+        $caught.Exception.Message | Should -BeLike '*did not answer*MiB: a server that takes less may close the connection while it is sent*-Source*'
+    }
+
+    It 'names the client in User-Agent' {
+        $null = Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view
+        (@(Get-Log)[0]).UserAgent | Should -BeLike 'PowerShellUniversal.Component.Pivot/* PowerShell/*'
     }
 
     It 'a refused static token: no second try, and the token is in no message' {

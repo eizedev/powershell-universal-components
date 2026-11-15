@@ -2499,7 +2499,7 @@ namespace PivotReportHttp
             private readonly Channel<byte[]> received = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(256) { SingleReader = true, SingleWriter = true });
             private byte[] current = Array.Empty<byte>();
             private int offset;
-            // bytes received and not read yet; -1 once the connection ended
+            // bytes received and not read yet
             private long unread;
             private volatile bool ended;
             private volatile bool dropping;
@@ -3177,6 +3177,8 @@ function Invoke-UDPivotHttp {
         if ($Request['TimeoutSec']) { $client.Timeout = [timespan]::FromSeconds($Request['TimeoutSec']) }
         $message.Content = [System.Net.Http.ByteArrayContent]::new($body)
         $null = $message.Content.Headers.TryAddWithoutValidation('Content-Type', [string]$Request['ContentType'])
+        # a client name, as Invoke-WebRequest sends one: some proxies and firewalls refuse a request without
+        $null = $message.Headers.TryAddWithoutValidation('User-Agent', ('PowerShellUniversal.Component.Pivot/{0} PowerShell/{1}' -f $ExecutionContext.SessionState.Module.Version, $PSVersionTable.PSVersion))
         if ($Request['Headers']) { foreach ($k in $Request['Headers'].Keys) { $null = $message.Headers.TryAddWithoutValidation($k, [string]$Request['Headers'][$k]) } }
         try {
             $response = $client.SendAsync($message).GetAwaiter().GetResult()
