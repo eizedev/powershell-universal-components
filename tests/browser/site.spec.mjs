@@ -226,6 +226,64 @@ test("Pivot: -ImportLimit refuses a file over its rows or bytes, loads one at th
     expect(errors).toEqual([]);
 });
 
+// a link as pivotkit's create_link (MCP, REST /views/link) makes it for a source whose link is the
+// page and whose linkKey is the report's -Id (null: no linkKey), over rows with the example's columns
+async function createLink(view, { source = "pivot-datatable", key = "pivot-datatable" } = {}) {
+    const moduleDir = new URL("../../modules/PowerShellUniversal.Component.Pivot/node_modules/", import.meta.url);
+    const { OPERATIONS } = await import(new URL("pivotkit-report/src/operations.js", moduleDir));
+    const { encode } = await import(new URL("pivotkit-core/src/index.js", moduleDir));
+    const rows = [{ Ticket: 1, Created: "2026-05-01T08:00:00Z", Team: "Network", Priority: "P1", "Lead hours": 3 }];
+    const env = { data: async (id) => ({ data: encode(rows), name: id }), link: async () => ({ url: "http://127.0.0.1:8765/pivot/", key }) };
+    const { result } = await OPERATIONS.create_link.run({ source, view, name: "From a link" }, env);
+    expect(result.ok, JSON.stringify(result.findings)).toBe(true);
+    return new URL(result.url);
+}
+
+test("Pivot: a create_link link opens its view, the address bar then holds the report's own entry, and a reload keeps it (#116)", async ({ page }) => {
+    const errors = collectErrors(page);
+    const url = await createLink({ version: 2, rows: ["Priority"], values: [{ field: "Ticket", agg: "count" }] });
+    expect(url.hash).toMatch(/^#pivot-pivot-datatable=1\./);
+    await page.goto(url.pathname + url.hash);
+    const report = page.locator('[data-example="pivot-report-from-a-datatable"] .pk-root');
+    const table = report.getByRole("region", { name: "Table" });
+    // the link's layout: priorities on the rows, no teams on the columns
+    await expect(table).toContainText("P4");
+    await expect(table).not.toContainText("Service Desk");
+    await expect.poll(() => page.evaluate(() => location.hash)).not.toContain("=1.");
+    expect(await page.evaluate(() => location.hash)).toMatch(/^#pivot-pivot-datatable=[A-Za-z0-9_-]+$/);
+    await page.reload();
+    await expect(table).toContainText("P4");
+    await expect(table).not.toContainText("Service Desk");
+    expect(errors).toEqual([]);
+});
+
+test("Pivot: a link without linkKey opens in the report of its data and leaves the address (#116)", async ({ page }) => {
+    const errors = collectErrors(page);
+    const bare = await createLink({ version: 2, rows: ["Priority"], values: [{ field: "Ticket", agg: "count" }] }, { key: null });
+    expect(bare.hash).toMatch(/^#pivot=1\./);
+    await page.goto(bare.pathname + bare.hash);
+    const report = page.locator('[data-example="pivot-report-from-a-datatable"] .pk-root');
+    const table = report.getByRole("region", { name: "Table" });
+    await expect(table).toContainText("P4");
+    await expect(table).not.toContainText("Service Desk");
+    await expect.poll(() => page.evaluate(() => location.hash)).not.toContain("pivot=1.");
+    expect(errors).toEqual([]);
+});
+
+test("Pivot: a create_link link made for other data is not loaded; the report keeps its -View and says why (#116)", async ({ page }) => {
+    const errors = collectErrors(page);
+    const warnings = [];
+    page.on("console", (m) => m.type() === "warning" && warnings.push(m.text()));
+    const other = await createLink({ version: 2, rows: ["Priority"], values: [{ field: "Ticket", agg: "count" }] }, { source: "costs" });
+    await page.goto(other.pathname + other.hash);
+    const table = page.locator('[data-example="pivot-report-from-a-datatable"] .pk-root').getByRole("region", { name: "Table" });
+    await expect(table).toContainText("1,200");
+    // -View: teams on the rows
+    await expect(table).toContainText("Service Desk");
+    await expect.poll(() => warnings.join("\n")).toContain('made for other data ("costs"');
+    expect(errors).toEqual([]);
+});
+
 test("Pivot: a colour scale without colours runs over the heatmap's blues in both themes; a dark page exports the light colours of the documented stylesheet (#107)", async ({ page }) => {
     const errors = collectErrors(page);
     // the DataTable example with a colour scale on the count, as a reader adds it (no colours of its own)

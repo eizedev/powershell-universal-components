@@ -70,6 +70,14 @@ Remove-Item -Recurse -Force (Join-Path (Split-Path -Parent $Repository) 'pivot-v
 
 Other apps with a file template store without `-Path` use the same folder; check before deleting it.
 
+## Open a view from pivotkit
+
+The Weather page's report has the `-Id` `weather`. A pivotkit-server that serves the same weather data
+(`pivotkit example weather` writes it) opens views on that page when its source names the page:
+`"link": "https://<your PSU>/<app base URL>/weather"`, `"linkKey": "weather"`, and the source's id
+`weather` ([Links from pivotkit](views.md#links-from-pivotkit-create_link)). The link `create_link`
+returns then opens the view on the page, over the app's rows.
+
 ## How it is built
 
 The source of the app is

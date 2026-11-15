@@ -1,0 +1,77 @@
+// Links into a pivot report: pivotkit's own share format, as create_link writes it, and the outside
+// limits (#105, #116). These tests use the pivot module's packages (pivotkit-core, pivotkit-report):
+// they run after `npm ci` in modules/PowerShellUniversal.Component.Pivot and are skipped without it
+// (CI's unit-test job installs the root only; the browser job's site spec covers the built bundle).
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
+
+const moduleDir = new URL("../../modules/PowerShellUniversal.Component.Pivot/", import.meta.url);
+const installed = existsSync(new URL("node_modules/pivotkit-report/package.json", moduleDir));
+const skip = installed ? false : "the pivot module's packages are not installed (npm ci in its folder)";
+
+// a link as pivotkit's create_link makes it for a source whose link is the PSU page and whose
+// linkKey is the report's -Id
+async function createLink({ source = "tickets", key = "tickets", view }) {
+    const { OPERATIONS } = await import(new URL("node_modules/pivotkit-report/src/operations.js", moduleDir));
+    const { encode } = await import(new URL("node_modules/pivotkit-core/src/index.js", moduleDir));
+    const rows = [{ Team: "A", Priority: "P1", Hours: 2 }, { Team: "B", Priority: "P2", Hours: 3 }];
+    const env = { data: async (id) => ({ data: encode(rows), name: id }), link: async () => ({ url: "https://psu.example.com/pivot/tickets", key }) };
+    const { result } = await OPERATIONS.create_link.run({ source, view, name: "Per team" }, env);
+    assert.equal(result.ok, true, JSON.stringify(result.findings));
+    return new URL(result.url);
+}
+
+test("readStartLink: a create_link link with linkKey = -Id opens its view; one for other data does not", { skip }, async () => {
+    const { readStartLink } = await import(new URL("Components/links.js", moduleDir));
+    const view = { version: 2, rows: ["Team"], cols: ["Priority"], values: [{ field: "Hours", agg: "sum" }] };
+    const url = await createLink({ view });
+    assert.match(url.hash, /^#pivot-tickets=1\./);
+    const read = readStartLink(url.hash, "tickets", "tickets");
+    assert.deepEqual(read.view.rows, ["Team"]);
+    assert.deepEqual(read.view.cols, ["Priority"]);
+    assert.equal(read.bare, false);
+    // the report of other data on the same page leaves it alone (and says so in the console)
+    const warn = console.warn;
+    const said = [];
+    console.warn = (...a) => said.push(a.join(" "));
+    try {
+        assert.equal(readStartLink(url.hash, "tickets", "costs"), undefined);
+    } finally {
+        console.warn = warn;
+    }
+    assert.match(said.join("\n"), /made for other data \("tickets", this report shows "costs"\)/);
+    // another report's key: not this report's link
+    assert.equal(readStartLink(url.hash, "other", "tickets"), undefined);
+});
+
+test("readStartLink: a link without linkKey (#pivot=) is taken by the report of its data, marked bare", { skip }, async () => {
+    const { readStartLink } = await import(new URL("Components/links.js", moduleDir));
+    const url = await createLink({ key: null, view: { rows: ["Priority"] } });
+    assert.match(url.hash, /^#pivot=1\./);
+    const read = readStartLink(url.hash, "tickets", "tickets");
+    assert.equal(read.bare, true);
+    assert.deepEqual(read.view.rows, ["Priority"]);
+});
+
+test("readStartLink: the report's own entry first; pivotkit's outside limits for both forms (#105)", { skip }, async () => {
+    const { readStartLink } = await import(new URL("Components/links.js", moduleDir));
+    const { writeLinkView } = await import(new URL("Components/prepare.js", moduleDir));
+    const { encodeViewLink, toViewFile } = await import(new URL("node_modules/pivotkit-core/src/link.js", moduleDir)).then(async (link) => ({ ...link, ...(await import(new URL("node_modules/pivotkit-core/src/index.js", moduleDir))) }));
+    const filters = Array.from({ length: 60 }, (_, i) => ({ field: "Team", type: "text", op: "contains", value: `t${i}` }));
+    // the module's own form, 60 filters: 50 kept
+    const own = readStartLink(writeLinkView("", "tickets", { version: 2, rows: ["Team"], filters }), "tickets", "tickets");
+    assert.equal(own.view.filters.length, 50);
+    // pivotkit's form, 60 filters: 50 kept
+    const text = encodeViewLink(toViewFile({ version: 2, rows: ["Team"], filters }, { source: { id: "tickets" } }, { link: true }));
+    const shared = readStartLink(`#pivot-tickets=${text}`, "tickets", "tickets");
+    assert.equal(shared.view.filters.length, 50);
+    // a damaged pivotkit link opens nothing
+    const warn = console.warn;
+    console.warn = () => {};
+    try {
+        assert.equal(readStartLink("#pivot-tickets=1.AAAA", "tickets", "tickets"), undefined);
+    } finally {
+        console.warn = warn;
+    }
+});
