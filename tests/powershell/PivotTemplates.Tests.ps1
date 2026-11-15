@@ -585,6 +585,42 @@ Describe 'New-UDPivotReport -TemplateStore and -AdminRole' {
         finally { Remove-Item -LiteralPath $files -Recurse -Force }
     }
 
+    It '-TemplatePath lists the files made for the report''s data and those that name no data (#90)' {
+        $files = & $script:newFolder
+        New-Item -ItemType Directory -Path $files | Out-Null
+        try {
+            Set-Content -LiteralPath (Join-Path $files 'a.pivotkit.json') -Value (ConvertTo-UDPivotViewFile -View $script:view -Name 'For tickets' -SourceId 'tickets')
+            Set-Content -LiteralPath (Join-Path $files 'b.pivotkit.json') -Value (ConvertTo-UDPivotViewFile -View $script:view -Name 'For sales' -SourceId 'sales')
+            Set-Content -LiteralPath (Join-Path $files 'c.pivotkit.json') -Value (ConvertTo-UDPivotViewFile -View $script:view -Name 'For any data')
+            Set-Content -LiteralPath (Join-Path $files 'd.pivotkit.json') -Value (ConvertTo-UDPivotViewFile -View $script:view -Name 'For Tickets' -SourceId 'Tickets')
+            $names = { param($c) @($c.templates | ForEach-Object name) }
+            # -SourceId, else the -Id, is the report's data; ids compare as the store compares them (case)
+            & $names (New-UDPivotReport -Id 'r' -SourceId 'tickets' -Data $script:rows -TemplatePath $files) | Should -Be @('For tickets', 'For any data')
+            & $names (New-UDPivotReport -Id 'sales' -Data $script:rows -TemplatePath $files) | Should -Be @('For sales', 'For any data')
+        }
+        finally { Remove-Item -LiteralPath $files -Recurse -Force }
+    }
+
+    It 'a shared -Templates entry with the name of a store shared view shows once, the store''s in its place (#91)' {
+        $shipped = @{ rows = @('Team'); values = @(@{ field = 'Hours'; agg = 'count' }) }
+        $render = {
+            New-UDPivotReport -Id 'tpl91' -Data $script:rows -TemplateStore $script:store -AdminRole 'Admin' -UserName 'boss' -Roles 'Admin' -Templates @(
+                @{ Name = 'First'; View = $shipped }
+                @{ Name = 'Team view'; View = $shipped }
+                @{ Name = 'team view'; View = $shipped }
+                @{ Name = 'Mine'; View = $shipped; Scope = 'user'; Deletable = $true }
+            )
+        }
+        $before = & $render
+        Invoke-UDPivotTemplateRequest -Key (& $script:keyOf $before.onPublishTemplate) -Action Publish -EventData @{ name = 'Team view'; view = $script:view } -UserName 'boss' -Roles 'Admin' | Should -BeNullOrEmpty
+        # a shared view of the store named like the app's own user entry replaces nothing
+        Invoke-UDPivotTemplateRequest -Key (& $script:keyOf $before.onPublishTemplate) -Action Publish -EventData @{ name = 'Mine'; view = $script:view } -UserName 'boss' -Roles 'Admin' | Should -BeNullOrEmpty
+        $after = & $render
+        # names compare as in pivotkit's Views menu: "team view" is another view; a user entry is not shared
+        $after.templates | ForEach-Object { '{0}|{1}|{2}' -f $_.name, $_.scope, $_.deletable } | Should -Be @('First|shared|False', 'Team view|shared|True', 'team view|shared|False', 'Mine|user|True', 'Mine|shared|True')
+        @($after.templates | Where-Object name -CEQ 'Team view')[0].view.values[0].agg | Should -Be 'sum'
+    }
+
     It '-TemplateStore Browser, and the combinations it refuses' {
         (New-UDPivotReport -Data $script:rows -TemplateStore Browser).templateStore | Should -Be 'browser'
         { New-UDPivotReport -Data $script:rows -TemplateStore 'Disk' } | Should -Throw '*TemplateStore*'
