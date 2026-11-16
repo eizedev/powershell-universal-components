@@ -489,6 +489,30 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
         $sent.format | Should -Be 'xlsx'
     }
 
+    It 'a server that does not know -Data or -Parameter: the error names the server version they need (#129)' {
+        # the answers of pivotkit-server 0.1.1 to data in the request and to params; 0.2.0 answers
+        # params the same way for a source that declares no parameters
+        $mock.Render.Enqueue(@{ Status = 400; Body = '{"type":"https://pivotkit.eize.dev/reference/rest/#error-invalid-input","title":"Invalid input","status":400,"code":"INVALID_INPUT","detail":"input has no key \"data\""}' })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } catch { $caught = $_ }
+        $caught.FullyQualifiedErrorId | Should -BeLike 'PivotServerError*'
+        $caught.Exception.Message | Should -BeLike '*INVALID_INPUT (400): input has no key "data"*-Data needs pivotkit-server 0.2.0 or later*-Source*'
+        $mock.Render.Enqueue(@{ Status = 400; Body = '{"type":"https://pivotkit.eize.dev/reference/rest/#error-invalid-input","title":"Invalid input","status":400,"code":"INVALID_INPUT","detail":"input has no key \"params\""}' })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Source 'vms' -Parameter @{ customer = 'acme' } -View $view } catch { $caught = $_ }
+        $caught.Exception.Message | Should -BeLike '*INVALID_INPUT (400): input has no key "params"*-Parameter needs a source with parameters on pivotkit-server 0.2.0 or later*'
+        # another invalid input, and data refused by the server's policy, get no version hint
+        $mock.Render.Enqueue(@{ Status = 400; Body = '{"type":"x","title":"Invalid input","status":400,"code":"INVALID_INPUT","detail":"view.rows[0] must be a string"}' })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } catch { $caught = $_ }
+        $caught.Exception.Message | Should -Not -BeLike '*pivotkit-server 0.2.0*'
+        $mock.Render.Enqueue(@{ Status = 403; Body = '{"type":"x","title":"Not allowed","status":403,"code":"NOT_ALLOWED","detail":"this server takes no data sent in the request (the operator allows it per profile: data: true); use a source from GET /sources"}' })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } catch { $caught = $_ }
+        $caught.Exception.Message | Should -BeLike '*NOT_ALLOWED (403)*data: true*'
+        $caught.Exception.Message | Should -Not -BeLike '*pivotkit-server 0.2.0*'
+    }
+
     It 'a 422 lists the findings and the request id; a 503 says when to try again; a redirect is not followed' {
         $mock.Render.Enqueue(@{ Status = 422; Body = '{"type":"x","title":"View has errors","status":422,"code":"VIEW_HAS_ERRORS","detail":"the view has errors","requestId":"abc123","findings":[{"severity":"error","code":"unknownField","path":"rows[0]","message":"unknown field \"Taem\"","suggestion":"Team"}]}' })
         { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } | Should -Throw '*VIEW_HAS_ERRORS (422): the view has errors*unknown field "Taem" (did you mean Team?)*Request id for the operator: abc123*'

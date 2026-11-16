@@ -3541,6 +3541,12 @@ function Invoke-UDPivotRestRender {
             $message += [Environment]::NewLine + $(if ($code -eq 'LIMIT_EXCEEDED') { 'The report is over a limit of the server (rows, cells or memory): make the view smaller or filter the data.' }
                 else { 'The data is too large for the server: send fewer rows or columns, or let the operator configure a source for it and use -Source.' })
         }
+        # pivotkit-server 0.1.1 knows neither data in the request nor params; its answer reads like a
+        # fault in the request (#129). 0.2.0 answers params the same way for a source without parameters.
+        if ($status -eq 400 -and $code -eq 'INVALID_INPUT' -and $detail -match 'no key "(data|params)"') {
+            $message += [Environment]::NewLine + $(if ($Matches[1] -eq 'data') { '-Data needs pivotkit-server 0.2.0 or later; an older server renders only -Source.' }
+                else { '-Parameter needs a source with parameters on pivotkit-server 0.2.0 or later.' })
+        }
         $scopeMissing = $status -eq 403 -and $code -eq 'INSUFFICIENT_SCOPE'
         if ($scopeMissing) { $message += [Environment]::NewLine + 'The token lacks a scope the server needs: ask the token endpoint for it with -Scope (the scope the operator set in rest.requiredScopes, for example pivotkit:rest), and make sure the OAuth provider grants it to this client.' }
         if ($requestId) { $message += [Environment]::NewLine + ('Request id for the operator: {0}' -f $requestId) }
@@ -3572,8 +3578,8 @@ function Invoke-UDPivotReport {
         The server's operator turns this on per caller (a profile with data: true, or policy.data) and
         caps the body (rest.data.maxBytes, default 10 MiB). With -Source instead of -Data the report
         runs over a source the operator configured (the caller needs results: true). -Data and
-        -Parameter need a pivotkit-server of pivotkit 0.7.0 or later; pivotkit-server 0.1.1 renders
-        -Source without parameters. Sign-in: a static
+        -Parameter need pivotkit-server 0.2.0 or later; pivotkit-server 0.1.1 renders -Source without
+        parameters, and the error of its answer to -Data or -Parameter says so. Sign-in: a static
         token (-Token), or OAuth client credentials (-Credential with -TokenUri), the access token kept
         per runspace until shortly before it expires and fetched again once after a 401. Only https, or
         http to this machine; redirects are not followed; neither the token nor the client secret is
