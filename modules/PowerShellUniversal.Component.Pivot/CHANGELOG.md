@@ -18,16 +18,25 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   (pivotkit-server 0.1.1 answers `-Data` with `INVALID_INPUT (400)`, and the error then says which
   version `-Data` needs); `-Source` works with pivotkit-server 0.1.1. Input is a view, a view file
   or a layout (`-Layout @{ rows = 'Team'; values = @{ field = 'Hours'; agg = 'sum' } }`); output is a
-  file (`-OutFile`) or its bytes. A view with errors throws with pivotkit's findings. Every failure has a fixed error id (`PivotServerUnreachable`,
-  `PivotRedirectRefused`, `PivotTokenRefused`, `PivotDataTooLarge`, `PivotViewHasErrors`,
-  `PivotServerError`, `PivotCliNotFound`, `PivotCliFailed`) with `Status`, `Code`, `RetryAfter` and
-  `RequestId` in the exception's `Data`; a 403 `INSUFFICIENT_SCOPE` is `PivotTokenRefused` and says to
-  ask for the REST scope with `-Scope`. The rows are written into the request or the data file one by
-  one, a DataTable straight from its rows, by a class compiled once per process (100,000 rows x 3
-  columns: 0.1 s and about 30 MB instead of seconds and hundreds of MB); `-MaxBytes` (default 10 MiB,
-  the server's default cap) stops oversized data before the rest is converted and before anything is
-  sent. The Reports page has a section on size and memory. Rows are read by column name (the first row's columns), so
-  another property order keeps its columns
+  file (`-OutFile`) or its bytes. A view with errors throws with pivotkit's findings. Every failure
+  has a fixed error id (`PivotServerUnreachable`, `PivotRedirectRefused`, `PivotTokenRefused`,
+  `PivotDataTooLarge`, `PivotViewHasErrors`, `PivotServerError`, `PivotCliNotFound`,
+  `PivotCliFailed`) with `Status`, `Code`, `RetryAfter`, `Retryable`, `RequestId` and `MaxBytes` in
+  the exception's `Data`; a 403 `INSUFFICIENT_SCOPE` is `PivotTokenRefused` and says to ask for the
+  REST scope with `-Scope`. An error from the server names its code, detail, findings and request id
+  (from the problem document, else the `X-Request-Id` header; a crashed handler's 500 shows its
+  `error` text), says when to try again (`Retry-After` in seconds or as a time) or that trying again
+  may work (`retryable`), and for a 413 what to do by its code (`BODY_TOO_LARGE`: send less or use
+  `-Source`; `LIMIT_EXCEEDED`: make the view smaller or filter). A body over the server's cap ends in
+  its 413, also when the server answers while the body is still being sent. A header value outside
+  printable ASCII (a token with an umlaut) is refused before anything is sent, naming the header,
+  not its value. `-TimeoutSec` limits each REST call as a whole, including sending the body and
+  reading the report in full. The rows are written into the request or the data file one by one, a
+  DataTable straight from its rows, by a class compiled once per process (100,000 rows x 3 columns:
+  0.1 s and about 30 MB instead of seconds and hundreds of MB); `-MaxBytes` (default 10 MiB, the
+  server's default cap) stops oversized data before the rest is converted and before anything is
+  sent. The Reports page has a section on size and memory. Rows are read by column name (the first
+  row's columns), so another property order keeps its columns
   ([#114](https://github.com/eizedev/powershell-universal-components/issues/114),
   [#112](https://github.com/eizedev/powershell-universal-components/issues/112),
   [#129](https://github.com/eizedev/powershell-universal-components/issues/129)).
@@ -58,15 +67,16 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 ### Changed
 
 - pivotkit 0.7.0 ([pivotkit-react release](https://github.com/eizedev/pivotkit/releases/tag/pivotkit-react%400.7.0),
-  [upgrading from 0.6](https://pivotkit.eize.dev/getting-started/upgrading/#from-0-6-1)): pivotkit-core
-  and pivotkit-react 0.7.0, pivotkit-report 0.3.0 and pivotkit-xlsx 0.4.0, all pinned and in the one
-  bundle (1.60 MB, 497 KB gzip). Export, HTML report carries the dark colours of the report's theme
-  too: a reader on a dark screen sees the app's dark values (the `--psu-pivot-*` of
-  `.ud-pivot-report [data-pk-theme="dark"]`, PSU's dark greys without them), and paper stays light. A
-  colour scale's middle colour on a dark screen is the dark theme's `--psu-pivot-scale-mid`; without one
-  the cells run between the dark low and high colours. Print or save as PDF opens the print dialog in
-  the click itself, a second click on a menu's button closes it in Safari, and a field's filter rules
-  show in one column as wide as the menu.
+  [upgrading from 0.6](https://pivotkit.eize.dev/getting-started/upgrading/#from-0-6-1)):
+  pivotkit-core and pivotkit-react 0.7.0, pivotkit-report 0.3.0 and pivotkit-xlsx 0.4.0, all pinned.
+- Export, HTML report carries the dark colours of the report's theme too. A reader on a dark screen
+  sees the app's dark values (the `--psu-pivot-*` of `.ud-pivot-report [data-pk-theme="dark"]`), or
+  PSU's dark greys without them. Paper stays light.
+- A colour scale's middle colour on a dark screen is the dark theme's `--psu-pivot-scale-mid`.
+  Without one, the cells run between the dark low and high colours.
+- Print or save as PDF opens the print dialog in the click itself.
+- A second click on a menu's button closes the menu in Safari.
+- A field's filter rules show in one column as wide as the menu.
 
 ### Fixed
 
@@ -81,19 +91,6 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   50 filters, 1,000,000 characters) instead of the app's own (128 filters); the tab's own view, kept
   in its sessionStorage, keeps the app's limits after a reload or the light/dark switch
   ([#105](https://github.com/eizedev/powershell-universal-components/issues/105)).
-- `Invoke-UDPivotReport -Engine Rest`: a body over pivotkit-server's cap ends in the server's 413
-  (`PivotDataTooLarge` with `BODY_TOO_LARGE` and the request id) instead of `PivotServerUnreachable`
-  ("Error while copying content to a stream"): the server answers such a body at once and closes the
-  connection, and the request reads that answer while it still sends. A 413 says what to do by its
-  code (`BODY_TOO_LARGE`: send less or use `-Source`; `LIMIT_EXCEEDED`: make the view smaller or
-  filter). `retryable` of a problem document is `Retryable` in the exception's `Data` and "Trying again
-  may work." in the message; `Retry-After` as an HTTP date is shown as a time. Without a problem
-  document the request id comes from the `X-Request-Id` header, and the 500 of a crashed handler shows
-  its `error` text. A header value outside printable ASCII (a token with an umlaut) is refused before
-  anything is sent, naming the header, not its value.
-  `-TimeoutSec` limits each REST call as a whole, including sending the body and reading the report
-  in full; Invoke-WebRequest's `-TimeoutSec`, used before, stopped only the wait for the answer's
-  headers (measured on PowerShell 7.6.9), so a slowly streamed report was not limited.
 
 ## [0.5.0] - 2026-11-15
 

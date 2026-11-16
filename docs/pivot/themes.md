@@ -148,6 +148,8 @@ Excel's red, yellow and green, set the three scale properties per mode:
 }
 ```
 
+Set `--psu-pivot-scale-mid` in the dark block too: without it, the HTML report on a dark screen runs the scale between low and high.
+
 A view whose colour scale has colours of its own keeps them.
 
 Without a corporate accent the highlight, drop zone and note colours keep PSU's values; with one
