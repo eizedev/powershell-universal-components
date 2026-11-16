@@ -69,6 +69,19 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   50 filters, 1,000,000 characters) instead of the app's own (128 filters); the tab's own view, kept
   in its sessionStorage, keeps the app's limits after a reload or the light/dark switch
   ([#105](https://github.com/eizedev/powershell-universal-components/issues/105)).
+- `Invoke-UDPivotReport -Engine Rest`: a body over pivotkit-server's cap ends in the server's 413
+  (`PivotDataTooLarge` with `BODY_TOO_LARGE` and the request id) instead of `PivotServerUnreachable`
+  ("Error while copying content to a stream"): the server answers such a body at once and closes the
+  connection, and the request reads that answer while it still sends. A 413 says what to do by its
+  code (`BODY_TOO_LARGE`: send less or use `-Source`; `LIMIT_EXCEEDED`: make the view smaller or
+  filter). `retryable` of a problem document is `Retryable` in the exception's `Data` and "Trying again
+  may work." in the message; `Retry-After` as an HTTP date is shown as a time. Without a problem
+  document the request id comes from the `X-Request-Id` header, and the 500 of a crashed handler shows
+  its `error` text. A header value outside printable ASCII (a token with an umlaut) is refused before
+  anything is sent, naming the header, not its value.
+  `-TimeoutSec` limits each REST call as a whole, including sending the body and reading the report
+  in full; Invoke-WebRequest's `-TimeoutSec`, used before, stopped only the wait for the answer's
+  headers (measured on PowerShell 7.6.9), so a slowly streamed report was not limited.
 
 ## [0.5.0] - 2026-11-15
 
