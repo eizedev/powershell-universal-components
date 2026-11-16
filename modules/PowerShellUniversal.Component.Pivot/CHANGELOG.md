@@ -5,7 +5,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
-## [0.6.0] - 2026-11-15
+## [0.6.0] - 2026-11-16
 
 ### Added
 
@@ -14,11 +14,11 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   line on the PSU server (pivotkit-cli 0.2.1 or later; the rows in a temporary folder only this user can
   read, removed afterwards); `-Engine Rest` calls a pivotkit-server's file route with the rows in the
   request (pivotkit's data in the request, source `inline:`), or with `-Source` over a source the
-  operator configured. `-Data`, `-Parameter` and `-DataAsOf` need a pivotkit-server of pivotkit 0.7.0
-  or later (pivotkit-server 0.1.1 answers `-Data` with `INVALID_INPUT (400)`); `-Source` works with
-  pivotkit-server 0.1.1. Input is a view, a view file or a layout (`-Layout @{ rows = 'Team'; values =
-  @{ field = 'Hours'; agg = 'sum' } }`); output is a file (`-OutFile`) or its bytes. A view with
-  errors throws with pivotkit's findings. Every failure has a fixed error id (`PivotServerUnreachable`,
+  operator configured. `-Data`, `-Parameter` and `-DataAsOf` need pivotkit-server 0.2.0 or later
+  (pivotkit-server 0.1.1 answers `-Data` with `INVALID_INPUT (400)`, and the error then says which
+  version `-Data` needs); `-Source` works with pivotkit-server 0.1.1. Input is a view, a view file
+  or a layout (`-Layout @{ rows = 'Team'; values = @{ field = 'Hours'; agg = 'sum' } }`); output is a
+  file (`-OutFile`) or its bytes. A view with errors throws with pivotkit's findings. Every failure has a fixed error id (`PivotServerUnreachable`,
   `PivotRedirectRefused`, `PivotTokenRefused`, `PivotDataTooLarge`, `PivotViewHasErrors`,
   `PivotServerError`, `PivotCliNotFound`, `PivotCliFailed`) with `Status`, `Code`, `RetryAfter` and
   `RequestId` in the exception's `Data`; a 403 `INSUFFICIENT_SCOPE` is `PivotTokenRefused` and says to
@@ -29,7 +29,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   sent. The Reports page has a section on size and memory. Rows are read by column name (the first row's columns), so
   another property order keeps its columns
   ([#114](https://github.com/eizedev/powershell-universal-components/issues/114),
-  [#112](https://github.com/eizedev/powershell-universal-components/issues/112)).
+  [#112](https://github.com/eizedev/powershell-universal-components/issues/112),
+  [#129](https://github.com/eizedev/powershell-universal-components/issues/129)).
 - Sign-in for `-Engine Rest`: a static token (`-Token`, a PSU secret) or OAuth client credentials
   (`-Credential` with `-TokenUri`, `-Scope`, `-Audience`, `-Resource`), the access token kept per
   runspace (per client, secret hash, scopes and server) until a minute before it expires and fetched
@@ -53,6 +54,19 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   must not have is removed before `-Data`. The Pivot page has a table of what the exports, the drill-down and Source data hand out
   ([#111](https://github.com/eizedev/powershell-universal-components/issues/111),
   [#113](https://github.com/eizedev/powershell-universal-components/issues/113)).
+
+### Changed
+
+- pivotkit 0.7.0 ([pivotkit-react release](https://github.com/eizedev/pivotkit/releases/tag/pivotkit-react%400.7.0),
+  [upgrading from 0.6](https://pivotkit.eize.dev/getting-started/upgrading/#from-0-6-1)): pivotkit-core
+  and pivotkit-react 0.7.0, pivotkit-report 0.3.0 and pivotkit-xlsx 0.4.0, all pinned and in the one
+  bundle (1.60 MB, 497 KB gzip). Export, HTML report carries the dark colours of the report's theme
+  too: a reader on a dark screen sees the app's dark values (the `--psu-pivot-*` of
+  `.ud-pivot-report [data-pk-theme="dark"]`, PSU's dark greys without them), and paper stays light. A
+  colour scale's middle colour on a dark screen is the dark theme's `--psu-pivot-scale-mid`; without one
+  the cells run between the dark low and high colours. Print or save as PDF opens the print dialog in
+  the click itself, a second click on a menu's button closes it in Safari, and a field's filter rules
+  show in one column as wide as the menu.
 
 ### Fixed
 

@@ -18,7 +18,7 @@ Invoke-UDPivotReport -Engine Node -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tic
 | Output | `-Format` | What it is |
 | --- | --- | --- |
 | Excel workbook | `xlsx` (default) | The table with number formats and merged headers |
-| HTML report | `html` | The chart above the table, light, for reading and printing |
+| HTML report | `html` | The chart above the table, for reading and printing: light on paper, dark on a dark screen |
 | CSV | `csv` | The table's layout, UTF-8 with a byte order mark |
 | JSON | `json` | The result for a program |
 | SVG | `svg` | The chart as an image |
@@ -32,7 +32,7 @@ file's bytes, for an endpoint's answer or a mail attachment.
 | | `-Engine Node` | `-Engine Rest` |
 | --- | --- | --- |
 | Runs | pivotkit's command line on the PSU server | a pivotkit-server somewhere else |
-| Needs | Node 22 or later and `npm install --global pivotkit-cli` (0.2.1 or later) on the PSU server | a pivotkit-server, its address and a token or OAuth client; for `-Data` and `-Parameter` one of pivotkit 0.7.0 or later ([which server](#rest-a-pivotkit-server)) |
+| Needs | Node 22 or later and `npm install --global pivotkit-cli` (0.2.1 or later) on the PSU server | a pivotkit-server, its address and a token or OAuth client; for `-Data` and `-Parameter` pivotkit-server 0.2.0 or later ([which server](#rest-a-pivotkit-server)) |
 | Data | `-Data`, written to a temporary folder of its own (mode 0700 on Linux and macOS; on Windows it inherits the ACL of the user's TEMP folder), removed afterwards | `-Data`, sent in the request; or `-Source`, a source the server's operator configured |
 | Language, time zone | `-Locale`, `-TimeZone` | the server's |
 
@@ -94,9 +94,13 @@ data you send. `-DataName` names the data, `-DataAsOf` says when it is from (sen
 `asOf`; the server keeps it with the request, while the file's own "Data as of" is when the data
 arrived).
 
-`-Data` (and with it `-DataName` and `-DataAsOf`) and `-Parameter` need a pivotkit-server of pivotkit
-0.7.0 or later. pivotkit-server 0.1.1 renders `-Source` without parameters, and answers `-Data`
-with `INVALID_INPUT (400)`.
+`-Data` (and with it `-DataName` and `-DataAsOf`) and `-Parameter` need pivotkit-server 0.2.0 or
+later. pivotkit-server 0.1.1 renders `-Source` without parameters. It answers `-Data` and `-Parameter`
+with `INVALID_INPUT (400)`, and the error then names the version they need.
+
+The token comes from the server's operator, who makes it with `pivotkit-server token new`; keep it in
+a PSU secret. pivotkit-server 0.2.0 does not start with a static token that is easy to guess
+([pivotkit's rule](https://pivotkit.eize.dev/getting-started/upgrading/#weak-tokens)).
 
 With `-Source` instead of `-Data` the report runs over a source the operator configured, with
 `-Parameter` for its parameters; that needs a caller whose policy has `results: true`:

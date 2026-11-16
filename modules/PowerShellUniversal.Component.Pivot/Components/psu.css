@@ -8,16 +8,16 @@
  *   3. --psu-default-* below: PSU's own look, per mode.
  * Corporate values are set per mode for the page and for the theme the report shows:
  * `:root, .ud-pivot-report [data-pk-theme="light"]` and `:root[data-theme="dark"], .ud-pivot-report
- * [data-pk-theme="dark"]`. The Excel export and the HTML report read the light theme by showing it on
- * the report for a moment (data-pk-theme="light"), so the report's own rule must win over the dark
- * values it inherits from the page. The list of properties is documented in docs/pivot/themes.md (a
+ * [data-pk-theme="dark"]`. The Excel export and the HTML report read the light theme, and the HTML
+ * report also the dark one, by showing that theme on the report for a moment (data-pk-theme), so the
+ * report's own rule must win over the values it inherits from the page. The list of properties is documented in docs/pivot/themes.md (a
  * test keeps both in step).
  *
  * PSU's look, measured on PSU 2026.3.4: light page rgb(240, 242, 245) with white cards and app bar,
  * MUI's primary blue #1976d2; dark page black, app bar rgb(31, 31, 31), text white at 85 %, MUI's dark
  * primary #90caf9. pivotkit's own defaults are tinted blue-grey; here the surfaces, borders and rules
  * are PSU's neutral greys and the accent is MUI's primary. Series and heatmap defaults and the font
- * weights are pivotkit's own (pivotkit-react 0.6.1 styles.css), repeated here because a property
+ * weights are pivotkit's own (pivotkit-react 0.7.0 styles.css), repeated here because a property
  * cannot fall back to the value it replaces. The colour scale is the heatmap's (light to strong blue,
  * pivotkit's default): it says "more", not "good" or "bad". The report picks light or dark from
  * <html data-theme> itself (data-pk-theme on its root); the dark defaults below are written for that

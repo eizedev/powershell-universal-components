@@ -5,7 +5,7 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-11-15
+## [0.4.0] - 2026-11-16
 
 ### Added
 
