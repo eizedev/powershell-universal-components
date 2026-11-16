@@ -491,7 +491,7 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
 
     It 'a server that does not know -Data or -Parameter: the error names the server version they need (#129)' {
         # the answers of pivotkit-server 0.1.1 to data in the request and to params; 0.2.0 answers
-        # params the same way for a source that declares no parameters
+        # params the same way when none of its sources declares parameters
         $mock.Render.Enqueue(@{ Status = 400; Body = '{"type":"https://pivotkit.eize.dev/reference/rest/#error-invalid-input","title":"Invalid input","status":400,"code":"INVALID_INPUT","detail":"input has no key \"data\""}' })
         $caught = $null
         try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } catch { $caught = $_ }
