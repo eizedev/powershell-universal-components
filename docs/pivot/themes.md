@@ -54,10 +54,11 @@ The first block is the light mode, the second the dark one. Each mode needs its 
 property set only in `:root` applies to both modes, and a dark text colour from the light block would
 be unreadable on the dark report. Each block names two selectors: `:root` and `:root[data-theme="dark"]`
 for the ECharts charts, which follow the page, and `.ud-pivot-report [data-pk-theme="light"]` and
-`[data-pk-theme="dark"]` for the theme the report shows. The second pair matters for a dark app: the
-Excel export and the HTML report are light (black text in Excel, paper), and the report reads their
-colours by showing its light theme for a moment. With the page's selectors alone, the report would
-then still inherit the dark values and write them into the file. Colours are hex or `rgb()`/`rgba()`: the report's chart hands the
+`[data-pk-theme="dark"]` for the theme the report shows. The second pair matters for the exports.
+The Excel export is light (black text in Excel). The HTML report carries both modes: light for paper
+and a light screen, dark for a reader whose screen is dark. The report reads each mode's colours by
+showing that theme for a moment. With the page's selectors alone, it would inherit the page's current
+mode both times and write that mode's values into the file. Colours are hex or `rgb()`/`rgba()`: the report's chart hands the
 series colours to ECharts, which does not read every CSS colour syntax.
 
 ## Adding the stylesheet to an app
@@ -146,6 +147,8 @@ Excel's red, yellow and green, set the three scale properties per mode:
     --psu-pivot-scale-high: #3f9a5c;
 }
 ```
+
+Set `--psu-pivot-scale-mid` in the dark block too: without it, the HTML report on a dark screen runs the scale between low and high.
 
 A view whose colour scale has colours of its own keeps them.
 

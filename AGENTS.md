@@ -73,7 +73,7 @@ rendering.
   (`echarts-for-react`, May 2026). Prefer a small own wrapper over a wrapper package.
 - Light and dark mode follow `<html data-theme>`; every visible colour must work on both.
   The pivot module's `psu.css` writes its dark values for pivotkit's `[data-pk-theme="dark"]`, never for
-  the page's `data-theme` (an export reads the light theme), and every visual value there is a token
+  the page's `data-theme` (an export reads each theme from the report itself), and every visual value there is a token
   (literals only in the `--psu-default-*` blocks; `tests/js/pivot.test.js` checks both).
 - PowerShell: approved verbs, advanced functions with comment-based help, ASCII-only `.ps1`/`.psm1`.
 - Behaviour is documented on the site pages in `docs/`; the root README and the module READMEs stay

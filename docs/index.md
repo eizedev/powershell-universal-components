@@ -66,7 +66,8 @@ readers drag fields into rows, columns, values and filters and get a table or a 
 grouping, drill-down to the source rows, shared views and views readers keep (roles decide who
 publishes), undo, Excel, CSV, PNG, SVG and HTML export and print, and readers' own CSV, JSON and Excel files read in the
 browser ([`-AllowImport`](pivot/import.md)); English and German; themed from the same stylesheet as
-the charts.
+the charts. `Invoke-UDPivotReport` renders the same views into Excel, HTML, CSV, JSON or SVG files
+from endpoints and schedules, without a browser ([Reports without a browser](pivot/reports.md)).
 
 ```powershell
 Install-PSResource -Name PowerShellUniversal.Component.Pivot
