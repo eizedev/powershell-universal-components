@@ -123,7 +123,7 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
             # replaces what another tab shows (as -View would)
             New-UDPivotReport -Id 'tickets' -Data $tickets -View $startView -SavedView $Session:PivotView -FieldDefaults $fieldDefaults `
                 -Templates $builtInTemplates -TemplatePath $viewFolder -TemplateStore $templateStore -AdminRole 'Administrator' -SourceName 'Tickets' `
-                -Locale $locale -FileName 'tickets' -OnViewChange {
+                -Locale $locale -FileName 'tickets' -DrillDownExport -OnViewChange {
                 Import-Module PowerShellUniversal.Component.Pivot
                 $Session:PivotView = ConvertFrom-UDPivotView -InputObject $EventData.json
             } -OnCellClick {

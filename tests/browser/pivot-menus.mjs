@@ -14,6 +14,17 @@ export async function openToolbarMenu(report, id) {
     }
 }
 
+// the chart type shown, from Chart settings next to the Chart tab (pivotkit 0.8: no chart type button in
+// the toolbar); the menu closes again
+export async function expectChartType(report, type) {
+    const page = report.page();
+    await expect(report.locator("[data-testid=show-chart]")).toHaveAttribute("aria-selected", "true");
+    await report.locator("[data-testid=view-settings]").click();
+    await expect(page.locator(`[data-testid=chart-${type}]`)).toHaveClass(/pk-checked/);
+    await page.keyboard.press("Escape");
+    await expect(page.locator(`[data-testid=chart-${type}]`)).toBeHidden();
+}
+
 // the Views menu: a flat first level (This view, Shared views, My views, Share this view); Save as,
 // Share and the questions before a delete or a publish open levels of their own. Returns the menu.
 export async function openViews(report) {

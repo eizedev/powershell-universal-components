@@ -659,6 +659,20 @@ Describe 'New-UDPivotReport: source, view files and switches' {
         foreach ($key in 'settingInfo', 'fieldList', 'grow', 'templateStore', 'canPublish', 'admin') { $plain.ContainsKey($key) | Should -BeFalse -Because $key }
         { New-UDPivotReport -Data $script:rows -FieldList Hidden } | Should -Throw
     }
+
+    It '-Zones: pivotkit''s zones as open or folded; without it the report''s height decides' {
+        (New-UDPivotReport -Data $script:rows -Zones Folded).zones | Should -BeExactly 'folded'
+        (New-UDPivotReport -Data $script:rows -Zones open).zones | Should -BeExactly 'open'
+        (New-UDPivotReport -Data $script:rows).ContainsKey('zones') | Should -BeFalse
+        { New-UDPivotReport -Data $script:rows -Zones Collapsed } | Should -Throw
+    }
+
+    It '-DrillDownExport: the drill-down''s copy and download without -ExportData, off by default' {
+        (New-UDPivotReport -Data $script:rows -DrillDownExport).drillDownExport | Should -BeTrue
+        (New-UDPivotReport -Data $script:rows).ContainsKey('drillDownExport') | Should -BeFalse
+        # -ExportData keeps the drill-down's exports by itself, -NoDrillDown has no panel to export from
+        { New-UDPivotReport -Data $script:rows -DrillDownExport -NoDrillDown } | Should -Throw '*-DrillDownExport*-NoDrillDown*'
+    }
 }
 
 Describe 'How ids and names are built (docs/pivot/templates.md#ids)' {

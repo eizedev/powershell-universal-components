@@ -3,7 +3,7 @@
 // playwright test psu-pivot); skipped in CI. The app is modules/PowerShellUniversal.Component.Pivot/
 // examples/showcase.ps1. The template test saves and deletes a template of the anonymous user.
 import { test, expect } from "@playwright/test";
-import { chipMenu, openSaveAs, openShare, openToolbarMenu, openViews } from "./pivot-menus.mjs";
+import { chipMenu, expectChartType, openSaveAs, openShare, openToolbarMenu, openViews } from "./pivot-menus.mjs";
 import { assetsXlsx, CSV, dropFiles, fieldNames, fileOf, openDataMenu, pickFile, preview, TICKETS_CSV, XLSX } from "./pivot-import.mjs";
 import { colorScaleCells, resolvedColor, workbookScaleColors } from "./pivot-colors.mjs";
 import { writeLinkView } from "../../modules/PowerShellUniversal.Component.Pivot/Components/prepare.js";
@@ -86,7 +86,7 @@ test.describe("pivot showcase on PSU", () => {
         // dates of the DataTable are dates, DBNull leaves the column typed
         await expect(report.getByRole("button", { name: /^Drag Created$/ })).toBeVisible();
         await expect(report.getByRole("button", { name: "Drag Closed" }).locator("xpath=..")).toContainText("Date");
-        await expect(report.getByRole("region", { name: "Table" })).toContainText("5,000");
+        await expect(report.getByRole("tabpanel", { name: "Table" })).toContainText("5,000");
         await expect(page.locator(".pk-issues")).toHaveCount(0);
         expect(errors).toEqual([]);
     });
@@ -107,7 +107,7 @@ test.describe("pivot showcase on PSU", () => {
         await expect(placeholder.locator(".pk-skel-zone")).toHaveCount(4);
         const before = await placeholder.boundingBox();
         const report = page.locator(REPORT);
-        await expect(report.getByRole("region", { name: "Table" })).toContainText("5,000", { timeout: 30000 });
+        await expect(report.getByRole("tabpanel", { name: "Table" })).toContainText("5,000", { timeout: 30000 });
         await expect(placeholder).toHaveCount(0);
         // the report takes the placeholder's place and size: nothing on the page moves
         const after = await report.boundingBox();
@@ -143,7 +143,7 @@ test.describe("pivot showcase on PSU", () => {
         await about("Customer", "The customer who reported the ticket.");
         await about("Priority", "P1 is the most urgent.");
         // the schema's enum orders Status on Columns: Open, Waiting, Closed (not A to Z)
-        const head = await report.getByRole("region", { name: "Table" }).locator("thead").innerText();
+        const head = await report.getByRole("tabpanel", { name: "Table" }).locator("thead").innerText();
         expect(head.indexOf("Open")).toBeLessThan(head.indexOf("Waiting"));
         expect(head.indexOf("Waiting")).toBeLessThan(head.indexOf("Closed"));
         expect(warnings).toEqual([]);
@@ -182,7 +182,7 @@ test.describe("pivot showcase on PSU", () => {
 
     test("a click on a value runs -OnCellClick on the server with its fields", async ({ page }) => {
         await open(page, "events");
-        await page.locator(REPORT).getByRole("region", { name: "Table" }).getByRole("cell", { name: /^\d[\d,]*$/ }).first().click();
+        await page.locator(REPORT).getByRole("tabpanel", { name: "Table" }).getByRole("cell", { name: /^\d[\d,]*$/ }).first().click();
         const log = page.locator("#event-log");
         await expect(log).toContainText("OnCellClick", { timeout: 15000 });
         await expect(log).toContainText('"field":"Team"');
@@ -269,7 +269,7 @@ test.describe("pivot showcase on PSU", () => {
         }).toPass({ timeout: 10000 });
         // a click on a value of the file: its rows never go to the server (-OnCellClick); the
         // drill-down in the browser still opens
-        await report.getByRole("region", { name: "Table" }).getByRole("cell", { name: "8.25" }).first().click();
+        await report.getByRole("tabpanel", { name: "Table" }).getByRole("cell", { name: "8.25" }).first().click();
         const drill = page.getByRole("dialog").filter({ has: page.getByRole("heading", { name: "Rows behind this value" }) });
         await expect(drill).toContainText("4 rows");
         await drill.getByRole("button", { name: "Close" }).click();
@@ -294,7 +294,7 @@ test.describe("pivot showcase on PSU", () => {
         await expect.poll(() => fieldNames(report)).toContain("Lead hours");
         await expect(report.getByTestId("source-line")).toHaveCount(0);
         await expect(page.locator("#import-log")).toHaveText("OnDataLoad: original, the app's data, 5000 rows, 12 columns", { timeout: 15000 });
-        await expect(report.getByRole("region", { name: "Table" })).toContainText("5,000");
+        await expect(report.getByRole("tabpanel", { name: "Table" })).toContainText("5,000");
         let views = await openViews(report);
         await expect(views.locator(`[data-testid='saved-view-${name}']`)).toHaveCount(0);
         await expect(views.locator("[data-testid='saved-view-Tickets per team and priority']")).toBeVisible();
@@ -499,7 +499,7 @@ test.describe("pivot showcase on PSU", () => {
         await expect(page.locator(REPORT)).toBeVisible({ timeout: 30000 });
         let again = await openViews(page.locator(REPORT));
         await again.locator("[data-testid='saved-view-Cost per category (donut)']").click();
-        await expect(page.locator(`${REPORT} [data-testid=chart-type]`)).toContainText("Donut");
+        await expectChartType(page.locator(REPORT), "donut");
         // after the reload the saved view is still there, and it can be deleted
         again = await openViews(page.locator(REPORT));
         await again.locator(`[data-testid='delete-view-${name}']`).click();
@@ -515,10 +515,13 @@ test.describe("pivot showcase on PSU", () => {
         });
         const errors = await open(page, "tickets");
         const report = page.locator(REPORT);
-        for (const id of ["options", "export", "chart-type"]) {
-            // Export stays in the toolbar; Options and the chart type move under "More" first
+        for (const id of ["export", "table-settings", "chart-settings"]) {
+            // Export stays in the toolbar; Table settings and Chart settings sit next to the tabs
             if (id === "export") await report.locator("[data-testid=export]").click();
-            else await openToolbarMenu(report, id);
+            else {
+                await report.locator(`[data-testid=show-${id === "table-settings" ? "table" : "chart"}]`).click();
+                await report.locator("[data-testid=view-settings]").click();
+            }
             const panel = page.locator(".pk-popover").last();
             await expect(panel).toBeVisible();
             await expect(panel).not.toContainText("could not be loaded");
@@ -566,6 +569,18 @@ test.describe("pivot showcase on PSU", () => {
         expect(errors).toEqual([]);
     });
 
+    test("without -ExportData and -DrillDownExport the drill-down shows the rows but has no Export menu", async ({ page }) => {
+        const errors = await open(page, "events");
+        const report = page.locator(REPORT);
+        await report.getByRole("tabpanel", { name: "Table" }).locator("td").filter({ hasText: /^\d/ }).first().click();
+        const drill = page.locator("[data-testid=drill-panel]");
+        await expect(drill.locator("[data-testid=drill-count]")).toContainText(/\d/);
+        await expect(drill.locator("[data-testid=drill-enlarge]")).toBeVisible();
+        await expect(drill.getByRole("button", { name: "Export" })).toHaveCount(0);
+        expect(errors).toEqual([]);
+    });
+
+    // the Tickets page's report has -DrillDownExport: the drill-down's Export menu without Source data
     test("Copy table and the drill-down's Copy work over the instance's address", async ({ page }) => {
         const errors = await open(page, "tickets");
         const report = page.locator(REPORT);
@@ -574,7 +589,7 @@ test.describe("pivot showcase on PSU", () => {
         // without a secure context (plain http) the Clipboard API is missing; pivotkit's fallback copies
         await expect(report.locator(".pk-toast-dock")).toContainText("Table copied");
         await page.keyboard.press("Escape");
-        await report.getByRole("region", { name: "Table" }).locator("td").filter({ hasText: /^\d/ }).first().click();
+        await report.getByRole("tabpanel", { name: "Table" }).locator("td").filter({ hasText: /^\d/ }).first().click();
         const drill = report.locator("[data-testid=drill-enlarge]").locator("xpath=ancestor::*[contains(@class,'pk-drill')][1]");
         await expect(report.locator("[data-testid=drill-enlarge]")).toBeVisible();
         await drill.getByRole("button", { name: "Export" }).click();
@@ -592,8 +607,8 @@ test.describe("pivot showcase on PSU", () => {
         await report.locator("[data-testid=enlarge]").click();
         await expect(fields).toBeHidden();
         await expect(report.getByRole("region", { name: "Rows" })).toBeHidden();
-        await expect(report.getByRole("region", { name: "Table" })).toContainText("5,000");
-        await report.getByRole("region", { name: "Table" }).click({ position: { x: 5, y: 5 } });
+        await expect(report.getByRole("tabpanel", { name: "Table" })).toContainText("5,000");
+        await report.getByRole("tabpanel", { name: "Table" }).click({ position: { x: 5, y: 5 } });
         await page.keyboard.press("Escape");
         await expect(fields).toBeVisible();
         expect(errors).toEqual([]);
@@ -609,7 +624,7 @@ test.describe("pivot showcase on PSU", () => {
         const inner = await report.boundingBox();
         expect(inner.y + inner.height).toBeLessThanOrEqual(box.y + box.height + 1);
         // the table scrolls inside the report instead of growing it
-        await expect(report.getByRole("region", { name: "Table" })).toBeVisible();
+        await expect(report.getByRole("tabpanel", { name: "Table" })).toBeVisible();
         expect(Math.round(inner.height)).toBe(440);
         expect(errors).toEqual([]);
     });
@@ -659,7 +674,7 @@ test.describe("pivot showcase on PSU", () => {
         const view = { rows: ["Team"], cols: ["Priority"], values: [{ field: "Ticket", agg: "count", conditional: { type: "colorScale" } }] };
         const errors = await open(page, `tickets${writeLinkView("", "tickets", view)}`);
         const report = page.locator(REPORT);
-        const table = report.getByRole("region", { name: "Table" });
+        const table = report.getByRole("tabpanel", { name: "Table" });
         await expect(table).toContainText("5,000");
         const token = (name) => report.evaluate((e, n) => getComputedStyle(e).getPropertyValue(n).trim(), name);
         for (const mode of ["light", "dark"]) {
@@ -694,17 +709,16 @@ test.describe("pivot showcase on PSU", () => {
         await open(page, "tickets");
         const report = page.locator(REPORT);
         await report.locator("[data-testid=show-chart]").click();
-        await report.locator("[data-testid=chart-type]").click();
+        await report.locator("[data-testid=view-settings]").click();
         await page.locator("[data-testid=chart-line]").click();
-        await expect(report.locator("[data-testid=chart-type]")).toContainText("Lines");
+        await expectChartType(report, "line");
         const stored = () => page.evaluate(() => JSON.parse(sessionStorage.getItem("psu-pivot-views") || "{}")[`${location.pathname}#tickets`]?.v);
         await expect.poll(stored).toMatchObject({ display: "chart", chart: { type: "line" } });
         const before = await stored();
         for (const mode of ["dark", "light"]) {
             await setTheme(page, mode);
             await expect(report).toHaveAttribute("data-pk-theme", mode);
-            await expect(report.locator("[data-testid=show-chart]")).toHaveAttribute("aria-pressed", "true");
-            await expect(report.locator("[data-testid=chart-type]")).toContainText("Lines");
+            await expectChartType(report, "line");
             await expect(report.locator("[data-testid=pivot-chart] canvas")).toBeVisible({ timeout: 15000 });
         }
         expect(await stored()).toEqual(before);
@@ -714,7 +728,7 @@ test.describe("pivot showcase on PSU", () => {
         await open(page, "without-id");
         const first = page.locator(REPORT).nth(0);
         const second = page.locator(REPORT).nth(1);
-        const pressed = (report, id) => expect(report.locator(`[data-testid=${id}]`)).toHaveAttribute("aria-pressed", "true");
+        const pressed = (report, id) => expect(report.locator(`[data-testid=${id}]`)).toHaveAttribute("aria-selected", "true");
         const entries = () => page.evaluate(() => JSON.parse(sessionStorage.getItem("psu-pivot-views") || "{}"));
         // the first one shows a chart, the second one swaps rows and columns and stays a table
         await first.locator("[data-testid=show-chart]").click();
@@ -755,7 +769,7 @@ test.describe("pivot showcase on PSU", () => {
         const viewSaved = (p) => p.waitForResponse((r) => /tickets-onViewChange/.test(r.url()) && r.request().method() === "POST", { timeout: 15000 });
         const shows = async (p, { chart, columns }) => {
             const report = p.locator(REPORT);
-            await expect(report.locator(`[data-testid=${chart ? "show-chart" : "show-table"}]`)).toHaveAttribute("aria-pressed", "true");
+            await expect(report.locator(`[data-testid=${chart ? "show-chart" : "show-table"}]`)).toHaveAttribute("aria-selected", "true");
             await expect(report.getByRole("region", { name: /^(Columns|Spalten)$/ })).toContainText(columns);
         };
         const reload = async (p) => {
@@ -832,7 +846,7 @@ test.describe("pivot showcase on PSU", () => {
         try {
             const p = await other.newPage();
             await p.goto(link);
-            await expect(p.locator(REPORT).nth(0).locator("[data-testid=show-chart]")).toHaveAttribute("aria-pressed", "true", { timeout: 30000 });
+            await expect(p.locator(REPORT).nth(0).locator("[data-testid=show-chart]")).toHaveAttribute("aria-selected", "true", { timeout: 30000 });
             await expect(p.locator(REPORT).nth(1).getByRole("region", { name: "Columns" })).toContainText("Category");
             expect(p.url()).toBe(link);
         } finally {
@@ -845,10 +859,10 @@ test.describe("pivot showcase on PSU", () => {
         await setTheme(page, "light");
         // Reset: -View, also in the address bar, at once (a reload right after it keeps -View)
         await reset(first);
-        await expect(first.locator("[data-testid=show-table]")).toHaveAttribute("aria-pressed", "true");
+        await expect(first.locator("[data-testid=show-table]")).toHaveAttribute("aria-selected", "true");
         await page.reload();
         await expect(first).toBeVisible({ timeout: 30000 });
-        await expect(first.locator("[data-testid=show-table]")).toHaveAttribute("aria-pressed", "true");
+        await expect(first.locator("[data-testid=show-table]")).toHaveAttribute("aria-selected", "true");
         await expectAtStart(first);
         await expect(second.getByRole("region", { name: "Columns" })).toContainText("Category");
         // one step back leaves the page: the changes made no history entries
@@ -1092,7 +1106,7 @@ test.describe("pivot templates with sign-in on PSU", () => {
             await expect(entries(menu, name)).toHaveCount(1);
             await reader.page.keyboard.press("Escape");
             await load(reader, name);
-            await expect(reader.report.locator("[data-testid=show-chart]")).toHaveAttribute("aria-pressed", "true");
+            await expect(reader.report.locator("[data-testid=show-chart]")).toHaveAttribute("aria-selected", "true");
 
             // Save as with the same name asks first; Replace keeps one entry, with the new view
             await reader.report.locator("[data-testid=show-table]").click();
@@ -1102,7 +1116,7 @@ test.describe("pivot templates with sign-in on PSU", () => {
             await expect(entries(menu, name)).toHaveCount(1);
             await reader.page.keyboard.press("Escape");
             await load(reader, name);
-            await expect(reader.report.locator("[data-testid=show-table]")).toHaveAttribute("aria-pressed", "true");
+            await expect(reader.report.locator("[data-testid=show-table]")).toHaveAttribute("aria-selected", "true");
             expect(reader.errors).toEqual([]);
         } finally {
             await removeViews(reader, [name]);
@@ -1138,7 +1152,7 @@ test.describe("pivot templates with sign-in on PSU", () => {
                 await expect(entries(menu, name)).toHaveCount(1);
                 await reader.page.keyboard.press("Escape");
                 await load(reader, name);
-                await expect(reader.report.locator("[data-testid=show-chart]")).toHaveAttribute("aria-pressed", "true");
+                await expect(reader.report.locator("[data-testid=show-chart]")).toHaveAttribute("aria-selected", "true");
                 expect(reader.errors).toEqual([]);
             } finally {
                 await reader.context.close();

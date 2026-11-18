@@ -373,6 +373,12 @@ export function fieldListOf(value) {
     return v === "open" || v === "collapsed" ? v : undefined;
 }
 
+/* "open" or "folded" for -Zones, else undefined (pivotkit decides by the report's height). */
+export function zonesOf(value) {
+    const v = String(value ?? "").toLowerCase();
+    return v === "open" || v === "folded" ? v : undefined;
+}
+
 /*
  * The admin panel's table of the columns: name, type, distinct values and blanks, from pivotkit-core's
  * encoded data (encode()).

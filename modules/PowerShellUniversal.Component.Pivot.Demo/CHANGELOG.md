@@ -5,6 +5,20 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-18
+
+### Added
+
+- The documentation pages have the example "Chart settings in a view" (a start view with stacked
+  bars, a fixed series colour, the average as a reference line and shares in the tooltip, and
+  `-Zones Folded`).
+
+### Changed
+
+- Requires PowerShellUniversal.Component.Pivot 0.7.0 or later (pivotkit 0.8.0): the example above
+  uses `-Zones`, and the ticket showcase's Tickets page keeps the drill-down's Export menu with
+  `-DrillDownExport`.
+
 ## [0.4.0] - 2026-11-16
 
 ### Added
@@ -84,7 +98,8 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 - `Get-UDPivotShowcaseData`: answers the app's public API calls from the snapshots shipped in `Data/`
   (with their sources and licences, `Data/SOURCES.md`), or live.
 
-[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.4.0...HEAD
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.5.0...HEAD
+[0.5.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.4.0...PowerShellUniversal.Component.Pivot.Demo-v0.5.0
 [0.4.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.3.0...PowerShellUniversal.Component.Pivot.Demo-v0.4.0
 [0.3.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.2.0...PowerShellUniversal.Component.Pivot.Demo-v0.3.0
 [0.2.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.1.1...PowerShellUniversal.Component.Pivot.Demo-v0.2.0

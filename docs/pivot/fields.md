@@ -47,7 +47,7 @@ Anything else throws an error that names the field and the key: an unknown key, 
 belongs, an `http://` or `javascript:` link. Two fields with the same label are told apart by their
 names in parentheses. The report shows descriptions as text, never as HTML.
 
-Readers can switch the "i" off in **Options**, **Help** ("Show field descriptions"); `-FieldInfo Off`
+Readers can switch the "i" off in **More**, **Help** ("Show explanations"); `-FieldInfo Off`
 or `-FieldInfo On` decides it for them, and `-ZoneInfo` does the same for the "i" next to the zone
 titles that explains Rows, Columns, Values and Filters.
 

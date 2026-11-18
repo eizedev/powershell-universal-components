@@ -94,6 +94,13 @@ test("sourceOf, schemaUrlOf, fieldListOf: the props of -SourceId, -SourceName, -
     assert.equal(mod.switchOf("Off"), "off");
 });
 
+test("zonesOf: the prop of -Zones, open or folded, else undefined (the report's height decides)", () => {
+    assert.equal(mod.zonesOf("Folded"), "folded");
+    assert.equal(mod.zonesOf("open"), "open");
+    assert.equal(mod.zonesOf("collapsed"), undefined);
+    assert.equal(mod.zonesOf(undefined), undefined);
+});
+
 test("importLimitsOf: -ImportLimit as pivotkit's importLimits, only known keys with whole numbers", () => {
     // as PSU sends -ImportLimit @{ fileBytes = 250MB; rows = 2000000 }
     assert.deepEqual(mod.importLimitsOf({ fileBytes: 262144000, rows: 2000000 }), { fileBytes: 262144000, rows: 2000000 });
