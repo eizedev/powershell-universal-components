@@ -115,6 +115,21 @@ property used when the first one is not set; without either the default applies.
 | `--psu-pivot-scale-low` | `--psu-pivot-heat-low` | colour scale of a value without colours of its own, lowest | `#eaf1fb` | `#1d2735` |
 | `--psu-pivot-scale-mid` | - | colour scale of a value, middle: set, the scale has three colours | none | none |
 | `--psu-pivot-scale-high` | `--psu-pivot-heat-high` | colour scale of a value without colours of its own, highest | `#2a78d6` | `#3987e5` |
+| `--psu-pivot-type-string` | - | the icon of a text field and its pill in the empty report | `#6250d6` | `#a99dff` |
+| `--psu-pivot-type-number` | - | the icon of a number field and its pill | `#1a7f5a` | `#5fd3a3` |
+| `--psu-pivot-type-date` | - | the icon of a date field and its pill | `#b5560b` | `#f2a65a` |
+| `--psu-pivot-type-boolean` | - | the icon of a yes/no field and its pill | `#a3367a` | `#f08cc6` |
+| `--psu-pivot-tab-bg` | - | a tab not shown (Table, Chart): its background | `transparent` | `transparent` |
+| `--psu-pivot-tab-text` | `--psu-pivot-muted`, `--psu-chart-muted` | a tab not shown: its text | `rgba(0, 0, 0, 0.62)` | `rgba(255, 255, 255, 0.64)` |
+| `--psu-pivot-tab-selected-bg` | `--psu-pivot-surface` | the tab shown: its background | `#ffffff` | `#121212` |
+| `--psu-pivot-tab-selected-text` | `--psu-pivot-accent`, `--psu-chart-accent` | the tab shown: its text | `#1976d2` | `#90caf9` |
+| `--psu-pivot-icon-button-text` | `--psu-pivot-muted`, `--psu-chart-muted` | a button with only an icon (a field's menu, Close, folding the field list): the icon | `rgba(0, 0, 0, 0.62)` | `rgba(255, 255, 255, 0.64)` |
+| `--psu-pivot-icon-button-hover-bg` | `--psu-pivot-surface-3` | such a button on hover and while its menu is open | `#eaecef` | `#262626` |
+| `--psu-pivot-button-border` | `--psu-pivot-border`, `--psu-chart-axis` | the frame of a button (the toolbar's, Table settings, Enlarge, Full screen) | `#e0e0e0` | `#2e2e2e` |
+| `--psu-pivot-button-border-hover` | `--psu-pivot-border-strong` | the frame of a button on hover | `#c4c4c4` | `#474747` |
+| `--psu-pivot-primary-bg` | `--psu-pivot-accent`, `--psu-chart-accent` | the main action of a dialog (Apply, Save, Load): its fill and frame | `#1976d2` | `#90caf9` |
+| `--psu-pivot-primary-text` | `--psu-pivot-accent-text` | the main action's text | `#ffffff` | `#0b1a2a` |
+| `--psu-pivot-primary-hover-bg` | - | the main action's fill on hover | 88 % of its fill, mixed with the text colour | 88 % of its fill, mixed with the text colour |
 | `--psu-pivot-radius` | - | corner radius of the report, panels, zones and popovers | `8px` | `8px` |
 | `--psu-pivot-radius-sm` | - | corner radius of buttons, fields and notes | `4px` | `4px` |
 | `--psu-pivot-font` | - | font family | the page's font | the page's font |
@@ -127,6 +142,11 @@ property used when the first one is not set; without either the default applies.
 The report's chart has eight series colours: `--psu-chart-9` ... `--psu-chart-12` colour only ECharts
 charts. `--psu-chart-tooltip`, `--psu-chart-tooltip-border` and `--psu-chart-font-size` are ECharts
 only as well; the report's tooltips use `--psu-pivot-surface-raised`.
+
+The field type colours are pivotkit's own: a corporate palette sets them per mode, so each stays
+readable on its mode's surface. The tab and button properties fall back to the general ones, so a
+corporate accent already reaches the shown tab and the main action of a dialog. Set them only where a
+part needs a colour of its own.
 
 A colour scale a reader adds without picking colours runs from light to strong blue, the heatmap's
 colours: it says "more", not "good" or "bad", and the Excel export writes the same colours. For

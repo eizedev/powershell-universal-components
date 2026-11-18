@@ -1,7 +1,7 @@
 // Tests for the pivot module's pure helpers and its PSU theme bridge. Run: node --test "tests/js/*.test.js"
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { contrastRatio, parseColor } from "../../shared/js/contrast.js";
 
 const mod = await import("../../modules/PowerShellUniversal.Component.Pivot/Components/prepare.js");
@@ -554,6 +554,68 @@ for (const mode of ["light", "dark"]) {
         assert.equal(pivot["--pk-accent"], "#003b6f");
         assert.equal(pivot["--pk-accent-soft"], "#eeeeee");
         assert.equal(tokensOf(mode, { "--psu-pivot-font": "Arial" })["--pk-font"], "Arial");
+    });
+}
+
+// pivotkit-react 0.8.1's own values (styles.css) for the tokens the bridge maps without changing
+// them: the field types per mode, the tabs and buttons as pivotkit derives them. Where the module's
+// packages are installed, the test reads them from the installed styles.css instead, so a new
+// pivotkit version that changes one fails here.
+const PK_ROOT = {
+    "--pk-tab-bg": "transparent",
+    "--pk-tab-text": "var(--pk-muted)",
+    "--pk-tab-selected-bg": "var(--pk-surface)",
+    "--pk-tab-selected-text": "var(--pk-accent)",
+    "--pk-icon-button-text": "var(--pk-muted)",
+    "--pk-icon-button-hover-bg": "var(--pk-surface-3)",
+    "--pk-button-border": "var(--pk-border)",
+    "--pk-button-border-hover": "var(--pk-border-strong)",
+    "--pk-primary-bg": "var(--pk-accent)",
+    "--pk-primary-text": "var(--pk-accent-text)",
+    "--pk-primary-hover-bg": "color-mix(in srgb, var(--pk-accent) 88%, var(--pk-text))",
+};
+const PK_TYPES = [
+    { "--pk-type-string": "#6250d6", "--pk-type-number": "#1a7f5a", "--pk-type-date": "#b5560b", "--pk-type-boolean": "#a3367a" },
+    { "--pk-type-string": "#a99dff", "--pk-type-number": "#5fd3a3", "--pk-type-date": "#f2a65a", "--pk-type-boolean": "#f08cc6" },
+];
+const pkStylesUrl = new URL("../../modules/PowerShellUniversal.Component.Pivot/node_modules/pivotkit-react/dist/styles.css", import.meta.url);
+function pkDeclarations(index) {
+    if (!existsSync(pkStylesUrl)) return { ...(index ? {} : PK_ROOT), ...PK_TYPES[index] };
+    // the first block that sets --pk-type-string is the light root, the second the dark one
+    const blocks = [...readFileSync(pkStylesUrl, "utf8").matchAll(/\{([^{}]*--pk-type-string[^{}]*)\}/g)].map((m) => m[1]);
+    return Object.fromEntries([...blocks[index].matchAll(/(--pk-[a-z0-9-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
+}
+const PART_TOKENS = ["tab-bg", "tab-text", "tab-selected-bg", "tab-selected-text", "icon-button-text", "icon-button-hover-bg", "button-border", "button-border-hover", "primary-bg", "primary-text", "primary-hover-bg"];
+
+for (const [mode, index] of [["light", 0], ["dark", 1]]) {
+    test(`theme bridge (${mode}): the field type colours are pivotkit's without an app's value, --psu-pivot-type-* sets them (#137)`, () => {
+        const t = tokensOf(mode);
+        const pk = pkDeclarations(index);
+        for (const type of ["string", "number", "date", "boolean"]) {
+            assert.ok(pk[`--pk-type-${type}`], `pivotkit sets --pk-type-${type} in ${mode}`);
+            assert.equal(t[`--pk-type-${type}`], pk[`--pk-type-${type}`], `--pk-type-${type} stays pivotkit's`);
+            assert.equal(tokensOf(mode, { [`--psu-pivot-type-${type}`]: "#003b6f" })[`--pk-type-${type}`], "#003b6f");
+        }
+    });
+
+    test(`theme bridge (${mode}): tabs and buttons follow the bridge as pivotkit derives them, --psu-pivot-* sets each (#137)`, () => {
+        const t = tokensOf(mode);
+        const pkRoot = { ...pkDeclarations(0), ...(index ? pkDeclarations(1) : {}) };
+        // pivotkit's derivation, resolved over the bridge's general tokens
+        const general = Object.fromEntries(Object.entries(t).filter(([n]) => !PART_TOKENS.some((p) => n === `--pk-${p}`)));
+        for (const part of PART_TOKENS) {
+            const name = `--pk-${part}`;
+            assert.ok(pkRoot[name], `pivotkit-react has ${name}`);
+            const expected = substitute(pkRoot[name], {}, general, new Set());
+            assert.equal(t[name], expected, `${name} as pivotkit derives it`);
+            assert.equal(tokensOf(mode, { [`--psu-pivot-${part}`]: "#123456" })[name], "#123456", `--psu-pivot-${part}`);
+        }
+        // a corporate accent reaches the selected tab and the primary button through the bridge
+        const corporate = tokensOf(mode, { "--psu-pivot-accent": "#003b6f" });
+        assert.equal(corporate["--pk-tab-selected-text"], "#003b6f");
+        assert.equal(corporate["--pk-primary-bg"], "#003b6f");
+        // a primary button of its own: its hover follows it, not the accent
+        assert.match(tokensOf(mode, { "--psu-pivot-primary-bg": "#005500" })["--pk-primary-hover-bg"], /^color-mix\(in srgb, #005500 /);
     });
 }
 

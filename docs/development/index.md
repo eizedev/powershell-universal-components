@@ -56,6 +56,7 @@ of these sections; `tests/js/llms-sections.test.js` fails otherwise.
 | What PSU provides | Stubs in `Build-Site.ps1`: the `[Endpoint]` type, `New-UDDynamic` (draws its `-Content`), a signed-in reader with the role `Administrator` (`$User`, `$Roles`) and `$Repository`. |
 | The pivot report on a page | Drawn into a shadow root of its placeholder, with the module's stylesheets inside it, so the page's typography stays outside. |
 | The pivot screenshots of the start page | `node docs/site/screenshots.mjs <site url>` on the built and served site, light and dark, into `docs/assets/`. |
+| The Pivot showcase screenshots (`pivot-showcase-*`) | `PSU_PIVOT_DEMO_URL=<app url> node docs/site/screenshots.mjs` against `New-UDPivotShowcase` on a PSU instance, light and dark, into `docs/assets/`. |
 
 ## Browser tests on PSU
 
@@ -70,12 +71,13 @@ the anonymous user, switch PSU's theme and open the report at phone width.
 
 ## Report command against the real pivotkit
 
-`tests/powershell/PivotReport.Tests.ps1` runs `Invoke-UDPivotReport` against a stand-in command line
-and a stand-in server in CI. Two opt-in tests run it against the real pivotkit:
+`tests/powershell/PivotReport.Tests.ps1` runs `Invoke-UDPivotReport` and `Get-UDPivotSource` against
+a stand-in command line and a stand-in server in CI. Opt-in tests run them against the real pivotkit:
 
 ```powershell
 $env:PIVOTKIT_TEST_CLI = '1'          # the pivotkit command line on the PATH (npm install --global pivotkit-cli)
 $env:PIVOTKIT_TEST_URL = 'http://127.0.0.1:3333/api/v1'; $env:PIVOTKIT_TEST_TOKEN = '<token>'   # a pivotkit-server whose token may send data (policy.data)
+$env:PIVOTKIT_TEST_LINK_SOURCE = 'sales'; $env:PIVOTKIT_TEST_LINK_ROWS = 'Region'   # -AsLink: an open source of that server (output.dir set) and a field of it
 Invoke-Pester -Path tests/powershell/PivotReport.Tests.ps1
 ```
 

@@ -36,6 +36,12 @@ const record = { args, cwdTmp: path.dirname(at("--output")), mode: fs.statSync(p
 const dataPath = at("--data") ?? args[1];
 record.data = JSON.parse(fs.readFileSync(dataPath, "utf8"));
 if (at("--data")) record.view = JSON.parse(fs.readFileSync(args[1], "utf8"));
+// as the real one: a template is read only inside --allow-dir
+if (at("--template") !== undefined) {
+    const template = path.resolve(at("--template"));
+    record.templateInside = template.startsWith(path.resolve(at("--allow-dir")) + path.sep);
+    record.template = fs.readFileSync(template, "utf8");
+}
 fs.writeFileSync(process.env.FAKE_PIVOTKIT_RECORD, JSON.stringify(record));
 const mode = process.env.FAKE_PIVOTKIT_MODE || "ok";
 if (mode === "errors") {
@@ -64,6 +70,8 @@ console.log(JSON.stringify({ ok: true, exitCode: 0, command: "render", findings:
     $script:mock = [hashtable]::Synchronized(@{
             Render = [System.Collections.Concurrent.ConcurrentQueue[hashtable]]::new()
             Token  = [System.Collections.Concurrent.ConcurrentQueue[hashtable]]::new()
+            Link   = [System.Collections.Concurrent.ConcurrentQueue[hashtable]]::new()
+            Sources = [System.Collections.Concurrent.ConcurrentQueue[hashtable]]::new()
             Log    = [System.Collections.Concurrent.ConcurrentQueue[pscustomobject]]::new()
             Issued = 0
             Valid  = [System.Collections.Concurrent.ConcurrentDictionary[string, bool]]::new()
@@ -86,8 +94,10 @@ console.log(JSON.stringify({ ok: true, exitCode: 0, command: "render", findings:
             $reader = [System.IO.StreamReader]::new($request.InputStream, [System.Text.Encoding]::UTF8)
             $body = $reader.ReadToEnd()
             $auth = $request.Headers['Authorization']
-            $Mock.Log.Enqueue([pscustomobject]@{ Path = $request.Url.AbsolutePath; Authorization = $auth; Body = $body; ContentType = $request.ContentType; UserAgent = $request.UserAgent })
+            $Mock.Log.Enqueue([pscustomobject]@{ Path = $request.Url.AbsolutePath; Method = $request.HttpMethod; Authorization = $auth; Body = $body; ContentType = $request.ContentType; UserAgent = $request.UserAgent })
             $answer = $null
+            $signedIn = $auth -and $auth.StartsWith('Bearer ') -and $Mock.Valid.ContainsKey($auth.Substring(7))
+            $refused = @{ Status = 401; Body = '{"type":"https://pivotkit.eize.dev/reference/rest/#error-invalid-token","title":"Invalid token","status":401,"code":"INVALID_TOKEN","detail":"unknown token; check the token the operator gave you","requestId":"r401"}' }
             if ($request.Url.AbsolutePath -eq '/token') {
                 if (-not $Mock.Token.TryDequeue([ref]$answer)) {
                     $Mock.Issued++
@@ -101,6 +111,18 @@ console.log(JSON.stringify({ ok: true, exitCode: 0, command: "render", findings:
                     $ok = $auth -and $auth.StartsWith('Bearer ') -and $Mock.Valid.ContainsKey($auth.Substring(7))
                     $answer = if ($ok) { @{ Status = 200; Body = 'Team,Sum of Hours'; Headers = @{ 'Content-Type' = 'text/csv;charset=utf-8' } } }
                     else { @{ Status = 401; Body = '{"type":"x","title":"Unauthorized","status":401,"code":"INVALID_TOKEN","detail":"unknown token","requestId":"r1"}' } }
+                }
+            }
+            elseif ($request.Url.AbsolutePath -eq '/api/v1/sources' -and $request.HttpMethod -eq 'GET') {
+                # pivotkit-server 0.3.1's answer for a caller that may send data (measured)
+                if (-not $Mock.Sources.TryDequeue([ref]$answer)) {
+                    $answer = if ($signedIn) { @{ Status = 200; Body = '{"sources":[{"id":"sales","title":"Sales","kind":"source","link":false,"schedulable":true},{"id":"vms","title":"VMs","description":"Virtual machines per customer","kind":"source","link":true,"schedulable":false,"params":[{"name":"customer","type":"string","required":true,"example":"acme"}]}],"data":{"maxBytes":10485760},"requestId":"src-1"}' } } else { $refused }
+                }
+            }
+            elseif ($request.Url.AbsolutePath -eq '/api/v1/views/render') {
+                # pivotkit-server 0.3.1's answer over an open source (measured; the link shortened)
+                if (-not $Mock.Link.TryDequeue([ref]$answer)) {
+                    $answer = if ($signedIn) { @{ Status = 200; Body = '{"ok":true,"findings":[],"uses":["Team","Hours"],"format":"csv","mediaType":"text/csv;charset=utf-8","dataAsOf":"2026-11-18T14:39:40Z","summary":{"rows":4,"columns":2,"sourceRows":6,"keptRows":6,"truncated":false},"output":{"name":"cv6UutLFU_zXdUu46714Vw-hours.pivotkit-out.csv","mediaType":"text/csv;charset=utf-8","filename":"hours.csv","url":"https://reports.example.com/downloads/eyJ2IjoxLC.Qn2CY86st","expiresAt":"2026-11-18T15:40:02Z","bound":"none","note":"Open the link in your browser; it works for 60 minutes.","format":"csv"},"message":"The report is saved as \"hours.csv\". Open the link in your browser; it works for 60 minutes.","requestId":"link-1"}' } } else { $refused }
                 }
             }
             else { $answer = @{ Status = 404; Body = '' } }
@@ -452,6 +474,41 @@ Describe 'Invoke-UDPivotReport -Engine Node (a stand-in command line)' {
             { Invoke-UDPivotReport -Engine Node -Data $rows -View $view } | Should -Throw '*npm install --global pivotkit-cli*'
         }
         finally { $env:PATH = $path }
+    }
+}
+
+Describe 'Invoke-UDPivotReport -Template (a stand-in command line)' {
+    BeforeEach {
+        $env:FAKE_PIVOTKIT_MODE = 'ok'
+        $script:template = Join-Path $TestDrive 'corporate.template.html'
+        Set-Content -LiteralPath $script:template -Encoding utf8NoBOM -Value '<!doctype html><html lang="{{lang}}"><head><title>{{title}}</title>{{style}}</head><body class="acme">{{table}}</body></html>'
+    }
+
+    It 'an HTML report takes the template: a copy inside the folder the command line may read, passed as --template' {
+        $bytes = Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -Format html -Template $template -WarningAction SilentlyContinue
+        [System.Text.Encoding]::UTF8.GetString($bytes) | Should -Be 'report:html'
+        $r = Get-Record
+        $arg = @($r.args | Where-Object { $_ -like '--template=*' })
+        $arg.Count | Should -Be 1
+        $r.templateInside | Should -BeTrue -Because 'pivotkit reads only inside --allow-dir'
+        $r.template.TrimEnd() | Should -Be (Get-Content -LiteralPath $template -Raw).TrimEnd()
+        Test-Path -LiteralPath $r.cwdTmp | Should -BeFalse -Because 'the copy goes with the folder'
+    }
+
+    It 'the format may come from -OutFile: report.html with -Template' {
+        $file = Join-Path $TestDrive 'report.html'
+        $null = Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -OutFile $file -Template $template -WarningAction SilentlyContinue
+        (Get-Record).args | Should -Contain '--format=html'
+        (Get-Record).template | Should -BeLike '*class="acme"*'
+    }
+
+    It 'refuses -Template for another format, for -Engine Rest and for a file that is not there, before anything runs' {
+        Remove-Item -LiteralPath $script:record -ErrorAction SilentlyContinue
+        { Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -Format csv -Template $template } | Should -Throw '*-Template goes with -Format html*csv*'
+        { Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -Template $template } | Should -Throw '*-Template goes with -Format html*xlsx*'
+        { Invoke-UDPivotReport -Engine Rest -Uri 'https://x.example/api/v1' -Token 't' -Data $rows -View $view -Format html -Template $template } | Should -Throw '*-Template: only with -Engine Node*the server''s source decides*'
+        { Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -Format html -Template (Join-Path $TestDrive 'none.html') } | Should -Throw '*-Template*no such file*'
+        Test-Path -LiteralPath $script:record | Should -BeFalse -Because 'nothing ran'
     }
 }
 
@@ -901,6 +958,251 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
     }
 }
 
+Describe 'Get-UDPivotSource (a stand-in pivotkit-server)' {
+    BeforeEach { $null = Get-Log; & $module { $Script:TokenCache.Clear() } }
+
+    It 'lists the sources the caller may use as objects, with GET /sources and the token' {
+        $sources = @(Get-UDPivotSource -Uri ($base + '/api/v1') -Token 'static-token-0123456789')
+        $sources.Count | Should -Be 2
+        $sources[0].PSObject.TypeNames[0] | Should -Be 'PivotSource'
+        $sources[0].Id | Should -Be 'sales'
+        $sources[0].Title | Should -Be 'Sales'
+        $sources[0].Kind | Should -Be 'source'
+        $sources[0].Link | Should -BeFalse
+        $sources[0].Schedulable | Should -BeTrue
+        @($sources[0].Parameters).Count | Should -Be 0
+        $sources[1].Description | Should -Be 'Virtual machines per customer'
+        $sources[1].Parameters[0].name | Should -Be 'customer'
+        $sources[1].Parameters[0].required | Should -BeTrue
+        # what the caller may send with -Data: the same on every source of the answer
+        $sources.DataMaxBytes | Should -Be @(10485760, 10485760)
+        $sources[0].RequestId | Should -Be 'src-1'
+        $log = @(Get-Log)
+        $log.Count | Should -Be 1
+        $log[0].Method | Should -Be 'GET'
+        $log[0].Path | Should -Be '/api/v1/sources'
+        $log[0].Authorization | Should -Be 'Bearer static-token-0123456789'
+        $log[0].Body | Should -BeNullOrEmpty
+    }
+
+    It 'a caller that may not send data gets no DataMaxBytes; an empty list says why on the warning stream' {
+        $mock.Sources.Enqueue(@{ Status = 200; Body = '{"sources":[{"id":"sales","title":"Sales","kind":"source","link":false,"schedulable":true}],"requestId":"src-2"}' })
+        (Get-UDPivotSource -Uri ($base + '/api/v1') -Token 'static-token-0123456789').DataMaxBytes | Should -BeNullOrEmpty
+        $mock.Sources.Enqueue(@{ Status = 200; Body = '{"sources":[],"hint":"your sign-in lacks the scopes of the sources there are (sales: pivotkit:sales)","requestId":"src-3"}' })
+        $none = @(Get-UDPivotSource -Uri ($base + '/api/v1') -Token 'static-token-0123456789' -WarningVariable warned -WarningAction SilentlyContinue)
+        $none.Count | Should -Be 0
+        "$warned" | Should -BeLike '*lacks the scopes*sales: pivotkit:sales*'
+    }
+
+    It 'signs in as Invoke-UDPivotReport does: OAuth client credentials, the same checks' {
+        $sources = @(Get-UDPivotSource -Uri ($base + '/api/v1') -Credential $client -TokenUri ($base + '/token') -Scope 'pivotkit:rest')
+        $sources.Count | Should -Be 2
+        $log = @(Get-Log)
+        $log[0].Path | Should -Be '/token'
+        $log[0].Body | Should -BeLike '*scope=pivotkit%3Arest*'
+        $log[1].Authorization | Should -BeLike 'Bearer oauth-token-*'
+        { Get-UDPivotSource -Uri 'http://reports.example.com/api/v1' -Token 't' } | Should -Throw '*an https address*'
+        { Get-UDPivotSource -Uri 'https://x.example/api/v1' } | Should -Throw '*either -Token*or -Credential*'
+        { Get-UDPivotSource -Uri 'https://x.example/api/v1' -Token 't' -Scope 'a' } | Should -Throw '*-Scope: only with -Credential*'
+        { Get-UDPivotSource -Uri 'https://x.example/api/v1?x=1' -Token 't' } | Should -Throw '*without a query string*'
+        { Get-UDPivotSource -Token 't' } | Should -Throw '*-Uri*'
+    }
+
+    It 'a redirect of GET /sources is not followed, so the token stays with this server' {
+        $mock.Sources.Enqueue(@{ Status = 302; Body = ''; Headers = @{ Location = 'https://elsewhere.example/' } })
+        $caught = $null
+        try { Get-UDPivotSource -Uri ($base + '/api/v1') -Token 'static-token-0123456789' } catch { $caught = $_ }
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotRedirectRefused'
+        @(Get-Log).Count | Should -Be 1
+    }
+
+    It 'neither the token nor the client secret is in the error''s TargetObject or Exception.Data' {
+        $caught = $null
+        try { Get-UDPivotSource -Uri ($base + '/api/v1') -Token 'static-token-WRONG-0000' } catch { $caught = $_ }
+        $mock.Token.Enqueue(@{ Status = 200; Body = (@{ access_token = 'token-not-accepted-0000'; token_type = 'Bearer'; expires_in = 3600 } | ConvertTo-Json) })
+        $mock.Token.Enqueue(@{ Status = 200; Body = (@{ access_token = 'token-not-accepted-1111'; token_type = 'Bearer'; expires_in = 3600 } | ConvertTo-Json) })
+        $oauthCaught = $null
+        try { Invoke-UDPivotReport @rest -Credential $client -TokenUri ($base + '/token') -Source 'sales' -View $view -AsLink } catch { $oauthCaught = $_ }
+        $oauthCaught.FullyQualifiedErrorId | Should -Be 'PivotTokenRefused'
+        foreach ($e in $caught, $oauthCaught) {
+            $text = ($e.TargetObject | ConvertTo-Json -Depth 8) + ($e.Exception.Data | ConvertTo-Json -Depth 8) + $e.Exception.Message
+            foreach ($secret in 'static-token-WRONG-0000', 'token-not-accepted', $clientSecret) { $text | Should -Not -BeLike "*$secret*" }
+        }
+    }
+
+    It 'a refused token is PivotTokenRefused with the server''s problem as the error''s TargetObject' {
+        $caught = $null
+        try { Get-UDPivotSource -Uri ($base + '/api/v1') -Token 'static-token-WRONG-0000' } catch { $caught = $_ }
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotTokenRefused'
+        $caught.TargetObject.PSObject.TypeNames[0] | Should -Be 'PivotServerProblem'
+        $caught.TargetObject.Status | Should -Be 401
+        $caught.TargetObject.Code | Should -Be 'INVALID_TOKEN'
+        $caught.TargetObject.Title | Should -Be 'Invalid token'
+        $caught.TargetObject.Detail | Should -Be 'unknown token; check the token the operator gave you'
+        $caught.TargetObject.RequestId | Should -Be 'r401'
+        $caught.Exception.Message | Should -Not -BeLike '*WRONG*'
+    }
+}
+
+Describe 'Invoke-UDPivotReport -AsLink (a stand-in pivotkit-server)' {
+    BeforeEach { $null = Get-Log; & $module { $Script:TokenCache.Clear() } }
+
+    It 'POSTs to /views/render with save: true and returns the link, its expiry, the rows and the request id' {
+        $link = Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view -Format csv -Title 'Hours' -AsLink
+        $link.PSObject.TypeNames[0] | Should -Be 'PivotReportLink'
+        $link.Url | Should -Be 'https://reports.example.com/downloads/eyJ2IjoxLC.Qn2CY86st'
+        $link.ExpiresAt | Should -BeOfType [datetimeoffset]
+        $link.ExpiresAt | Should -Be ([datetimeoffset]::new(2026, 11, 18, 15, 40, 2, [timespan]::Zero))
+        $link.Rows | Should -Be 4
+        $link.RequestId | Should -Be 'link-1'
+        $link.Format | Should -Be 'csv'
+        $link.FileName | Should -Be 'hours.csv'
+        $link.Bound | Should -Be 'none'
+        $log = @(Get-Log)
+        $log.Count | Should -Be 1
+        $log[0].Method | Should -Be 'POST'
+        $log[0].Path | Should -Be '/api/v1/views/render'
+        $sent = $log[0].Body | ConvertFrom-Json -Depth 16
+        $sent.save | Should -BeTrue
+        $sent.source | Should -Be 'inline:'
+        $sent.format | Should -Be 'csv'
+        $sent.title | Should -Be 'Hours'
+        $sent.data.rowCount | Should -Be 6
+    }
+
+    It 'over a configured source with parameters; the file route never gets save' {
+        $null = Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Source 'vms' -Parameter @{ customer = 'acme' } -Layout @{ rows = 'Team' } -AsLink
+        $sent = (@(Get-Log)[0]).Body | ConvertFrom-Json -Depth 16
+        $sent.source | Should -Be 'vms'
+        $sent.params.customer | Should -Be 'acme'
+        $sent.save | Should -BeTrue
+        $null = Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Source 'sales' -View $view -Format csv
+        $log = @(Get-Log)
+        $log[0].Path | Should -Be '/api/v1/views/render/file'
+        ($log[0].Body | ConvertFrom-Json).PSObject.Properties.Name | Should -Not -Contain 'save'
+    }
+
+    It 'a report the server saved without a link: PivotNoLink that says so plainly, with the server''s note and request id' {
+        # pivotkit-server 0.3.1 over a closed source or data sent with the request, without a bound link (measured)
+        $mock.Link.Enqueue(@{ Status = 200; Body = '{"ok":true,"findings":[],"uses":["Team","Hours"],"format":"csv","mediaType":"text/csv;charset=utf-8","dataAsOf":"2026-11-18T14:40:02Z","summary":{"rows":2,"columns":2,"sourceRows":6,"keptRows":6,"truncated":false},"output":{"name":"data-sent-with-the-request.pivotkit-out.csv","mediaType":"text/csv;charset=utf-8","filename":"data-sent-with-the-request.csv","note":"The report is saved on the server; ask the operator how to open it.","format":"csv"},"message":"The report is saved on the server; ask the operator how to open it.","requestId":"glBdwpVsBBg"}' })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view -Format csv -AsLink } catch { $caught = $_ }
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotNoLink'
+        $caught.CategoryInfo.Category | Should -Be 'NotEnabled'
+        $caught.Exception.Message | Should -BeLike '*gave no download link*saved on the server*ask the operator how to open it*'
+        $caught.Exception.Data['RequestId'] | Should -Be 'glBdwpVsBBg'
+        $caught.TargetObject.Status | Should -Be 200
+        $caught.TargetObject.Detail | Should -BeLike '*saved on the server*'
+    }
+
+    It 'a server without an output directory (409 NO_OUTPUT): PivotNoLink, with the server''s detail' {
+        $mock.Link.Enqueue(@{ Status = 409; Body = '{"type":"https://pivotkit.eize.dev/reference/rest/#error-no-output","title":"No output","status":409,"code":"NO_OUTPUT","detail":"this server has no output directory, so a csv file cannot be saved (the operator sets output.dir); POST /views/render/file returns the file where your profile allows","requestId":"c553694BKPA"}' })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Source 'sales' -View $view -Format csv -AsLink } catch { $caught = $_ }
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotNoLink'
+        $caught.Exception.Message | Should -BeLike '*no download links*NO_OUTPUT (409)*output directory*without -AsLink*'
+        $caught.TargetObject.Code | Should -Be 'NO_OUTPUT'
+        $caught.TargetObject.RequestId | Should -Be 'c553694BKPA'
+    }
+
+    It 'a view with errors (200 with ok: false): PivotViewHasErrors with the findings' {
+        $mock.Link.Enqueue(@{ Status = 200; Body = '{"ok":false,"findings":[{"severity":"error","code":"unknownField","path":"rows[0]","message":"unknown field \"Taem\"","suggestion":"Team","field":"Taem"}],"uses":[],"format":"csv","summary":null,"output":null,"message":"No report was made: the view has errors. Fix them (see findings) and render again.","requestId":"O7eB2sGV8Hw"}' })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view -AsLink } catch { $caught = $_ }
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotViewHasErrors'
+        $caught.Exception.Message | Should -BeLike '*unknown field "Taem" (did you mean Team?)*Request id for the operator: O7eB2sGV8Hw*'
+        $caught.TargetObject.Findings[0].code | Should -Be 'unknownField'
+    }
+
+    It 'a link of the operator''s own store without an expiry: ExpiresAt and Bound empty, the link returned' {
+        $mock.Link.Enqueue(@{ Status = 200; Body = '{"ok":true,"findings":[],"format":"xlsx","summary":{"rows":3,"columns":2},"output":{"name":"sales.pivotkit-out.xlsx","filename":"sales.xlsx","url":"https://files.example.com/reports/7f3a.xlsx","format":"xlsx"},"message":"The report is saved as \"sales.xlsx\".","requestId":"store-1"}' })
+        $link = Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Source 'sales' -View $view -AsLink
+        $link.Url | Should -Be 'https://files.example.com/reports/7f3a.xlsx'
+        $link.ExpiresAt | Should -BeNullOrEmpty
+        $link.Bound | Should -BeNullOrEmpty
+        $link.Rows | Should -Be 3
+    }
+
+    It 'a link that is no http or https address is not returned' {
+        foreach ($bad in 'javascript:alert(1)', '/downloads/relative', 'file:///etc/passwd') {
+            $mock.Link.Enqueue(@{ Status = 200; Body = ('{{"ok":true,"findings":[],"format":"csv","output":{{"url":"{0}","format":"csv"}},"requestId":"bad-1"}}' -f $bad) })
+            $caught = $null
+            try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Source 'sales' -View $view -AsLink } catch { $caught = $_ }
+            $caught.FullyQualifiedErrorId | Should -Be 'PivotServerError' -Because $bad
+            $caught.Exception.Message | Should -Not -BeLike "*$bad*"
+        }
+    }
+
+    It 'a view with errors without findings still says why' {
+        $mock.Link.Enqueue(@{ Status = 200; Body = '{"ok":false,"findings":[],"format":"csv","output":null,"message":"No report was made: the view has errors.","requestId":"nf-1"}' })
+        { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Source 'sales' -View $view -AsLink } | Should -Throw '*no report was made:*No report was made: the view has errors.*nf-1*'
+    }
+
+    It 'refuses -AsLink with -OutFile and with -Engine Node' {
+        { Invoke-UDPivotReport @rest -Token 't' -Data $rows -View $view -AsLink -OutFile (Join-Path $TestDrive 'x.csv') } | Should -Throw '*-AsLink*-OutFile*'
+        { Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -AsLink } | Should -Throw '*-AsLink: only with -Engine Rest*'
+    }
+}
+
+Describe 'Errors of pivotkit-server as a record a page can read' {
+    It 'every answer of the server that is an error carries the problem document in TargetObject, the same on every route' {
+        $mock.Render.Enqueue(@{ Status = 503; Body = '{"type":"https://pivotkit.eize.dev/reference/rest/#error-busy","title":"Busy","status":503,"code":"BUSY","detail":"another large body is being read","retryable":true,"requestId":"req-503"}'; Headers = @{ 'Retry-After' = '7' } })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } catch { $caught = $_ }
+        $p = $caught.TargetObject
+        $p.PSObject.TypeNames[0] | Should -Be 'PivotServerProblem'
+        $p.Status | Should -Be 503
+        $p.Code | Should -Be 'BUSY'
+        $p.Title | Should -Be 'Busy'
+        $p.Detail | Should -Be 'another large body is being read'
+        $p.RequestId | Should -Be 'req-503'
+        $p.Retryable | Should -BeTrue
+        $p.RetryAfter | Should -Be '7'
+        $p.Type | Should -Be 'https://pivotkit.eize.dev/reference/rest/#error-busy'
+        # Exception.Data keeps its keys, with the title and the detail added
+        $caught.Exception.Data['Code'] | Should -Be 'BUSY'
+        $caught.Exception.Data['Title'] | Should -Be 'Busy'
+        $caught.Exception.Data['Detail'] | Should -Be 'another large body is being read'
+        # an answer without a problem document: the status, the header's id, nothing made up
+        $mock.Render.Enqueue(@{ Status = 502; Body = '<html>bad gateway</html>'; Headers = @{ 'X-Request-Id' = 'hdr-502' } })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } catch { $caught = $_ }
+        $caught.TargetObject.Status | Should -Be 502
+        $caught.TargetObject.Code | Should -BeNullOrEmpty
+        $caught.TargetObject.Title | Should -BeNullOrEmpty
+        $caught.TargetObject.RequestId | Should -Be 'hdr-502'
+        # errors that are no answer of the server carry no problem
+        $closed = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $closed.Start(); $deadPort = $closed.LocalEndpoint.Port; $closed.Stop()
+        $caught = $null
+        try { Get-UDPivotSource -Uri ('http://127.0.0.1:{0}/api/v1' -f $deadPort) -Token 't' } catch { $caught = $_ }
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotServerUnreachable'
+        $caught.TargetObject | Should -BeNullOrEmpty
+    }
+
+    It 'the documented page snippet tells the reader why, from the problem''s code' {
+        # docs/pivot/reports.md, "Errors": the same code a page runs
+        $why = {
+            param([scriptblock]$Call)
+            try { & $Call }
+            catch {
+                $problem = $_.TargetObject
+                switch ([string]$problem.Code) {
+                    'INVALID_TOKEN' { 'The report service did not accept the sign-in.' }
+                    'INSUFFICIENT_SCOPE' { 'The sign-in lacks the scope for reports.' }
+                    'NOT_ALLOWED' { 'Your role may not use this report.' }
+                    default { 'The report failed. Request id: {0}' -f $problem.RequestId }
+                }
+            }
+        }
+        & $why { Get-UDPivotSource -Uri ($base + '/api/v1') -Token 'static-token-WRONG-0000' } | Should -Be 'The report service did not accept the sign-in.'
+        $mock.Render.Enqueue(@{ Status = 403; Body = '{"type":"x","title":"Not allowed","status":403,"code":"NOT_ALLOWED","detail":"no downloads","requestId":"r403"}' })
+        & $why { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } | Should -Be 'Your role may not use this report.'
+        $mock.Render.Enqueue(@{ Status = 500; Body = '{"error":"internal error","requestId":"req-500"}' })
+        & $why { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } | Should -Be 'The report failed. Request id: req-500'
+    }
+}
+
 Describe 'Invoke-UDPivotReport against the real pivotkit' {
     It 'the installed command line renders a CSV (PIVOTKIT_TEST_CLI=1)' -Skip:($env:PIVOTKIT_TEST_CLI -ne '1') {
         $text = [System.Text.Encoding]::UTF8.GetString((Invoke-UDPivotReport -Engine Node -Data $rows -View $view -Format csv)).TrimStart([char]0xFEFF)
@@ -916,6 +1218,38 @@ Describe 'Invoke-UDPivotReport against the real pivotkit' {
         $text = [System.Text.Encoding]::UTF8.GetString((Invoke-UDPivotReport -Engine Rest -Uri $env:PIVOTKIT_TEST_URL -Token $env:PIVOTKIT_TEST_TOKEN -Data $rows -View $view -Format csv)).TrimStart([char]0xFEFF)
         ($text -split '\r?\n')[0..3] | Should -Be @('Team,Sum of Hours', 'T0,18', 'T1,13.5', 'Grand Total,31.5')
         { Invoke-UDPivotReport -Engine Rest -Uri $env:PIVOTKIT_TEST_URL -Token $env:PIVOTKIT_TEST_TOKEN -Data $rows -View @{ rows = @('Taem') } } | Should -Throw '*VIEW_HAS_ERRORS (422)*unknown field "Taem"*'
+    }
+
+    It 'lists the server''s sources; a wrong token is INVALID_TOKEN in the error''s TargetObject (PIVOTKIT_TEST_URL, PIVOTKIT_TEST_TOKEN)' -Skip:(-not $env:PIVOTKIT_TEST_URL) {
+        $sources = @(Get-UDPivotSource -Uri $env:PIVOTKIT_TEST_URL -Token $env:PIVOTKIT_TEST_TOKEN)
+        $sources.Count | Should -BeGreaterThan 0
+        $sources[0].Id | Should -Not -BeNullOrEmpty
+        $sources[0].RequestId | Should -Not -BeNullOrEmpty
+        $caught = $null
+        try { Get-UDPivotSource -Uri $env:PIVOTKIT_TEST_URL -Token 'not-a-token-of-this-server-0000' } catch { $caught = $_ }
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotTokenRefused'
+        $caught.TargetObject.Code | Should -Be 'INVALID_TOKEN'
+        $caught.TargetObject.Status | Should -Be 401
+        $caught.TargetObject.RequestId | Should -Not -BeNullOrEmpty
+    }
+
+    It 'a report as a link over an open source; data sent with the request gets none (PIVOTKIT_TEST_URL, PIVOTKIT_TEST_TOKEN, PIVOTKIT_TEST_LINK_SOURCE)' -Skip:(-not $env:PIVOTKIT_TEST_LINK_SOURCE) {
+        $link = Invoke-UDPivotReport -Engine Rest -Uri $env:PIVOTKIT_TEST_URL -Token $env:PIVOTKIT_TEST_TOKEN -Source $env:PIVOTKIT_TEST_LINK_SOURCE -Layout @{ rows = $env:PIVOTKIT_TEST_LINK_ROWS } -Format csv -AsLink
+        $link.Url | Should -Match '/downloads/'
+        $link.ExpiresAt | Should -BeGreaterThan ([datetimeoffset]::UtcNow)
+        $link.RequestId | Should -Not -BeNullOrEmpty
+        (Invoke-WebRequest -Uri $link.Url -SkipHttpErrorCheck).StatusCode | Should -Be 200
+        $caught = $null
+        try { Invoke-UDPivotReport -Engine Rest -Uri $env:PIVOTKIT_TEST_URL -Token $env:PIVOTKIT_TEST_TOKEN -Data $rows -View $view -Format csv -AsLink } catch { $caught = $_ }
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotNoLink'
+    }
+
+    It 'the installed command line takes a print template for an HTML report (PIVOTKIT_TEST_CLI=1)' -Skip:($env:PIVOTKIT_TEST_CLI -ne '1') {
+        $template = Join-Path $TestDrive 'mark.template.html'
+        Set-Content -LiteralPath $template -Encoding utf8NoBOM -Value '<!doctype html><html lang="{{lang}}" dir="{{dir}}"><head><meta charset="utf-8"><title>{{title}}</title>{{style}}</head><body><p class="from-my-template">{{summary}}</p>{{chart}}{{table}}</body></html>'
+        $html = [System.Text.Encoding]::UTF8.GetString((Invoke-UDPivotReport -Engine Node -Data $rows -View $view -Format html -Template $template))
+        $html | Should -BeLike '*class="from-my-template"*'
+        $html | Should -BeLike '*Grand Total*'
     }
 
     It 'a body over the server''s cap is its 413 with code and request id, not a broken connection (PIVOTKIT_TEST_URL, PIVOTKIT_TEST_TOKEN)' -Skip:(-not $env:PIVOTKIT_TEST_URL) {
