@@ -179,11 +179,11 @@ New-UDLink -Text "Sales report$until" -Url $link.Url
 | `Message` | The server's sentence for the person who asked |
 
 The server decides which report gets a link ([download links](https://pivotkit.eize.dev/reference/delivery/)).
-Where the operator turned on download links, a report over an open source always gets one. A report over a closed source, or over data sent with
-`-Data`, gets one only where the operator binds links to a sign-in or to one download. A server
-without an output directory saves no report at all. In each of these cases the function stops with
-`PivotNoLink`, and the message says so in plain words, with the server's own reason. `-AsLink` does
-not go with `-OutFile`.
+A report over an open source gets one where the operator turned on download links and the server can
+sign them. A report over a closed source, or over data sent with `-Data`, gets one only where the
+operator binds links to a sign-in or to one download. A server without an output directory saves no
+report at all. In each of these cases the function stops with `PivotNoLink`, and the message says so
+in plain words, with the server's own reason. `-AsLink` does not go with `-OutFile`.
 
 The link, `FileName` and `Message` are the server's text. The function returns only an `http` or
 `https` link. Show the other two as text, never as markup.

@@ -111,10 +111,11 @@ async function demoShots(browser) {
             await page.mouse.move(0, 0);
             await expect(report.locator(".pk-toast")).toHaveCount(0, { timeout: 30000 });
             await page.waitForTimeout(800);
-            // down to the line under the table ("only in this browser"), which sits below the window's edge
-            const line = await report.getByTestId("source-line").boundingBox();
-            const height = Math.ceil(line.y + line.height + 16);
-            await page.screenshot({ path: `${out}pivot-showcase-upload-${mode}.png`, animations: "disabled", fullPage: true, clip: { x: 0, y: 0, width: 1280, height } });
+            // the line under the table ("only in this browser") sits just below the window's edge, as the
+            // report fills the window: scrolled into view, PSU's app bar stays on top
+            await report.getByTestId("source-line").scrollIntoViewIfNeeded();
+            await page.waitForTimeout(300);
+            await page.screenshot({ path: `${out}pivot-showcase-upload-${mode}.png`, animations: "disabled" });
             console.log(`pivot-showcase-upload-${mode}.png`);
         }
     } finally {

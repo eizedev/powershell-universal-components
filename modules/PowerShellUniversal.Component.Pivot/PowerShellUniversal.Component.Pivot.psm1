@@ -3905,7 +3905,7 @@ function Get-UDPivotReportLink {
     # the link goes onto pages and into mails: an absolute http or https address, nothing else
     $url = $null
     if (-not [uri]::TryCreate($output.url, [UriKind]::Absolute, [ref]$url) -or $url.Scheme -notin 'https', 'http') {
-        throw (New-UDPivotError -Id PivotServerError -TargetObject $p -Data $data -Message ('pivotkit-server {0} answered with a download link that is no http or https address; it is not returned.{1}' -f $where, $idText))
+        throw (New-UDPivotError -Id PivotServerError -TargetObject $p -Data $data -Message ('pivotkit-server {0} answered with a download link that is no http or https address (scheme "{1}"); it is not returned.{2}' -f $where, $(if ($url) { $url.Scheme } else { 'none' }), $idText))
     }
     foreach ($finding in @($p.Findings | Where-Object { $_.severity -eq 'warning' })) { Write-Warning ('pivotkit: {0}' -f (Get-UDPivotFindingText -Finding @($finding))) }
     # ConvertFrom-Json reads an ISO 8601 text as a DateTime already; anything else is parsed as UTC
