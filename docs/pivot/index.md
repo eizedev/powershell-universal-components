@@ -98,10 +98,13 @@ New-UDDynamic -Id 'tickets-report' -LoadingComponent {
 
 `-ExportData` adds **Source data** to the Export menu: every row of `-Data`, before filters, grouping
 and totals, as a CSV or JSON file. It is off by default. It also gives the drill-down panel its Export
-menu; `-DrillDownExport` gives the panel that menu alone, with every column, and Source data stays off. `-ExportDataColumn` keeps these files, and the
-drill-down panel's copies and files, to the columns it names (matched without regard to case, checked
-against the columns of the first row); a name that is no column of `-Data` is an error, so a typo
-never widens the export. The explanation next to Source data then names those columns.
+menu. `-ExportDataColumn` keeps these files, and the drill-down panel's copies and files, to the
+columns it names (matched without regard to case, checked against the columns of the first row); a
+name that is no column of `-Data` is an error, so a typo never widens the export. The explanation next
+to Source data then names those columns.
+
+`-DrillDownExport` gives the drill-down panel its Export menu alone, with every column. Source data
+stays off.
 
 !!! warning "-ExportDataColumn is no access control"
     It narrows two kinds of download, nothing else. The field list, the drill-down panel itself, the

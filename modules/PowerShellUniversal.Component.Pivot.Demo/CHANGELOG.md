@@ -98,7 +98,8 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 - `Get-UDPivotShowcaseData`: answers the app's public API calls from the snapshots shipped in `Data/`
   (with their sources and licences, `Data/SOURCES.md`), or live.
 
-[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.4.0...HEAD
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.5.0...HEAD
+[0.5.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.4.0...PowerShellUniversal.Component.Pivot.Demo-v0.5.0
 [0.4.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.3.0...PowerShellUniversal.Component.Pivot.Demo-v0.4.0
 [0.3.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.2.0...PowerShellUniversal.Component.Pivot.Demo-v0.3.0
 [0.2.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.1.1...PowerShellUniversal.Component.Pivot.Demo-v0.2.0

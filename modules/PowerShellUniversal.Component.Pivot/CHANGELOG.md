@@ -380,7 +380,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   them); `examples/templates.ps1`: an app with sign-in, readers' views on the server, publishing for
   two roles and the admin panel.
 
-[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.6.0...HEAD
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.7.0...HEAD
+[0.7.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.6.0...PowerShellUniversal.Component.Pivot-v0.7.0
 [0.6.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.5.0...PowerShellUniversal.Component.Pivot-v0.6.0
 [0.5.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.4.0...PowerShellUniversal.Component.Pivot-v0.5.0
 [0.4.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.3.0...PowerShellUniversal.Component.Pivot-v0.4.0
