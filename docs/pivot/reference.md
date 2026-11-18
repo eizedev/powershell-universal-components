@@ -34,6 +34,10 @@ From the comment-based help of the module (`Get-Help New-UDPivotReport -Full` sh
 
 --8<-- "reference/Invoke-UDPivotReport.md"
 
+## Get-UDPivotSource
+
+--8<-- "reference/Get-UDPivotSource.md"
+
 ## Invoke-UDPivotTemplateRequest
 
 --8<-- "reference/Invoke-UDPivotTemplateRequest.md"

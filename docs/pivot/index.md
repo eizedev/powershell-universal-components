@@ -205,7 +205,8 @@ It wins over the view's chart settings. pivotkit leaves out options that are mar
 
 The views readers build here also run without a browser: `Invoke-UDPivotReport` renders a view over
 rows into an Excel workbook, an HTML report, CSV, JSON or SVG, for an endpoint or a schedule, with
-pivotkit's command line on the PSU server or a pivotkit-server
+pivotkit's command line on the PSU server or a pivotkit-server. From a pivotkit-server it also returns
+a link that expires instead of the file, and `Get-UDPivotSource` lists the server's sources
 ([Reports without a browser](reports.md)).
 
 ## Loading and performance

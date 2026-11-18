@@ -70,12 +70,13 @@ the anonymous user, switch PSU's theme and open the report at phone width.
 
 ## Report command against the real pivotkit
 
-`tests/powershell/PivotReport.Tests.ps1` runs `Invoke-UDPivotReport` against a stand-in command line
-and a stand-in server in CI. Two opt-in tests run it against the real pivotkit:
+`tests/powershell/PivotReport.Tests.ps1` runs `Invoke-UDPivotReport` and `Get-UDPivotSource` against
+a stand-in command line and a stand-in server in CI. Opt-in tests run them against the real pivotkit:
 
 ```powershell
 $env:PIVOTKIT_TEST_CLI = '1'          # the pivotkit command line on the PATH (npm install --global pivotkit-cli)
 $env:PIVOTKIT_TEST_URL = 'http://127.0.0.1:3333/api/v1'; $env:PIVOTKIT_TEST_TOKEN = '<token>'   # a pivotkit-server whose token may send data (policy.data)
+$env:PIVOTKIT_TEST_LINK_SOURCE = 'sales'; $env:PIVOTKIT_TEST_LINK_ROWS = 'Region'   # -AsLink: an open source of that server (output.dir set) and a field of it
 Invoke-Pester -Path tests/powershell/PivotReport.Tests.ps1
 ```
 

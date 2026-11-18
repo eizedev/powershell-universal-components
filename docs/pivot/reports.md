@@ -1,6 +1,6 @@
 ---
 title: Reports without a browser
-description: "Invoke-UDPivotReport - render a pivot view into an Excel workbook, an HTML report, CSV, JSON or SVG from an endpoint or a schedule, with pivotkit's command line or a pivotkit-server, signed in with a token or OAuth client credentials."
+description: "Invoke-UDPivotReport - render a pivot view into an Excel workbook, an HTML report, CSV, JSON or SVG from an endpoint or a schedule, with pivotkit's command line or a pivotkit-server, signed in with a token or OAuth client credentials; Get-UDPivotSource lists the server's sources, -AsLink returns a link that expires."
 ---
 
 # Reports without a browser
@@ -35,6 +35,8 @@ file's bytes, for an endpoint's answer or a mail attachment.
 | Needs | Node 22 or later and `npm install --global pivotkit-cli` (0.2.1 or later; tested with 0.4.0) on the PSU server | a pivotkit-server, its address and a token or OAuth client; for `-Data` and `-Parameter` pivotkit-server 0.2.0 or later ([which server](#rest-a-pivotkit-server)) |
 | Data | `-Data`, written to a temporary folder of its own (mode 0700 on Linux and macOS; on Windows it inherits the ACL of the user's TEMP folder), removed afterwards | `-Data`, sent in the request; or `-Source`, a source the server's operator configured |
 | Language, time zone | `-Locale`, `-TimeZone` | the server's |
+| HTML print template | `-Template` | the server's source decides |
+| Result | the file | the file, or a link that expires (`-AsLink`) |
 
 Both take `-View` (a hashtable, JSON text or a view file) or `-Layout` (the view by field names), and
 both check the view against the data first: a view with errors writes nothing, and the error lists
@@ -74,6 +76,20 @@ stream. `-TimeoutSec` (default 120) stops a run that takes longer. A job that is
 `pivotkit-<32 hex characters>` in the temporary folder of the account PSU runs as; remove such folders
 now and then.
 
+An HTML report takes a print template of your own with `-Template`, for your company's look and
+metadata. It goes with `-Format html` only (or an `-OutFile` that ends in `.html`):
+
+```powershell
+Invoke-UDPivotReport -Engine Node -Data $tickets -View $view -Format html `
+    -Template (Join-Path $Repository 'templates' 'corporate.template.html') -OutFile '/reports/tickets.html'
+```
+
+The function copies the template into the run's temporary folder and passes it as `--template`, since
+the command line reads only there. pivotkit's [print template](https://pivotkit.eize.dev/reference/print-template/)
+page lists the placeholders. `pivotkit example templates` writes two templates to start from. pivotkit
+trusts a template like code: use a file of your own, never one a reader sent. With `-Engine Rest` the
+server's source decides the template, so `-Template` is refused there.
+
 The columns are those of the first row. Every row's values are read by those names, so rows whose
 properties come in another order (hashtables, objects merged from two sources) stay right; a column a
 row lacks is empty there, and a property the first row does not have is left out, with one warning
@@ -109,6 +125,63 @@ With `-Source` instead of `-Data` the report runs over a source the operator con
 Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Token $Secret:PivotkitToken `
     -Source 'vms' -Parameter @{ customer = 'acme' } -View $view -OutFile ./vms.xlsx
 ```
+
+### Which sources the server has
+
+`Get-UDPivotSource` lists the sources the signed-in caller may use (`GET /sources`). It takes the same
+sign-in parameters as `Invoke-UDPivotReport -Engine Rest`: `-Uri`, and `-Token` or `-Credential` with
+`-TokenUri`, `-Scope`, `-Audience`, `-Resource` and `-ClientAuthentication`.
+
+```powershell
+$sources = Get-UDPivotSource -Uri 'https://reports.example.com/api/v1' -Token $Secret:PivotkitToken
+New-UDSelect -Id 'source' -Option { foreach ($s in $sources) { New-UDSelectOption -Name $s.Title -Value $s.Id } }
+```
+
+Each source is an object with these properties:
+
+| Property | What it is |
+| --- | --- |
+| `Id` | The source's id, for `-Source` |
+| `Title`, `Description` | The source's name and description |
+| `Kind` | `source`, or `file` for a file the server reads |
+| `Link` | Whether pivotkit's links (`create_link`) work for it |
+| `Schedulable` | Whether the server drafts schedules for it |
+| `Parameters` | The values the source takes, as the server describes them (`name`, `type`, `required`, `description`, `example`) |
+| `DataMaxBytes` | The largest request this caller may send with `-Data`; empty when it may send none. The same on every source |
+| `RequestId` | The id of the answer, for the operator |
+
+pivotkit-server 0.3.1 lists no row count and no data date per source. When the server lists no
+source, the function returns nothing and writes the server's reason to the warning stream: the
+sign-in lacks the sources' scopes.
+
+### A report as a link
+
+With `-AsLink` the server keeps the report and the function returns a link to it that expires
+(`POST /views/render` with `save: true`). A page or a mail then hands out the link instead of the file:
+
+```powershell
+$link = Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Token $Secret:PivotkitToken `
+    -Source 'sales' -View $view -AsLink
+New-UDLink -Text ('Sales report, until {0:t}' -f $link.ExpiresAt.ToLocalTime()) -Url $link.Url
+```
+
+| Property | What it is |
+| --- | --- |
+| `Url` | The download link |
+| `ExpiresAt` | When the link stops working, a `DateTimeOffset` in UTC |
+| `Rows` | The rows of the report's table, without the header; empty where the server withholds it |
+| `RequestId` | The id of the answer, for the operator |
+| `Format` | xlsx, html, csv, json or svg |
+| `FileName` | The file's name for the person who opens it |
+| `Bound` | `none` (anyone with the link), `once` (one download) or `signIn` (only the person who asked) |
+| `DataAsOf`, `Message` | When the data is from; the server's sentence for the person |
+
+The server decides which report gets a link ([download links](https://pivotkit.eize.dev/reference/delivery/)).
+A report over an open source always gets one. A report over a closed source, or over data sent with
+`-Data`, gets one only where the operator binds links to a sign-in or to one download. A server
+without an output directory saves no report at all. In each of these cases the function stops with
+`PivotNoLink`, and the message says so in plain words, with the server's own reason. `-AsLink` does
+not go with `-OutFile`.
 
 What the function does on the way:
 
@@ -168,10 +241,42 @@ render with `-Source`. `-Data` is for what a script has at hand, a few megabytes
 
 ## Errors
 
-Every failure of the engines is an ErrorRecord with a fixed error id (`$_.FullyQualifiedErrorId`, or
-`catch` and `Should -Throw -ErrorId` in a test). `$_.Exception.Data` holds what a script may act on:
+Every failure of `Invoke-UDPivotReport` and `Get-UDPivotSource` is an ErrorRecord with a fixed error
+id (`$_.FullyQualifiedErrorId`, or `catch` and `Should -Throw -ErrorId` in a test).
+
+For an answer of pivotkit-server, `$_.TargetObject` is the server's
+[problem document](https://pivotkit.eize.dev/reference/rest/) as a `PivotServerProblem`. It has these
+properties:
+
+- `Status`: the HTTP status.
+- `Code`: the server's stable code, such as `INVALID_TOKEN`, `INSUFFICIENT_SCOPE`, `NOT_ALLOWED` or
+  `SOURCE_NOT_FOUND`.
+- `Title`, `Detail`: the problem's title, and what went wrong and what to do.
+- `RequestId`: the id the operator finds the log lines by.
+- `Retryable`, `RetryAfter`: whether trying again may work, and when.
+- `Type`, `Findings`: the address that names the code, and the findings of a view with errors.
+
+A field the answer lacks is empty. An error that is no answer of the server (no connection, a missing
+command line) has no `TargetObject`. A page uses the code to tell the reader why a report failed:
+
+```powershell
+try { $link = Invoke-UDPivotReport -Engine Rest -Uri $uri -Token $Secret:PivotkitToken -Source 'sales' -View $view -AsLink }
+catch {
+    $problem = $_.TargetObject
+    # [string]: a switch over $null runs no branch, not even default
+    $why = switch ([string]$problem.Code) {
+        'INVALID_TOKEN' { 'The report service did not accept the sign-in.' }
+        'INSUFFICIENT_SCOPE' { 'The sign-in lacks the scope for reports.' }
+        'NOT_ALLOWED' { 'Your role may not use this report.' }
+        default { 'The report failed. Request id: {0}' -f $problem.RequestId }
+    }
+    Show-UDToast -Message $why
+}
+```
+
+`$_.Exception.Data` holds the same for a script:
 `Status` (the HTTP status), `Code` (pivotkit-server's problem code, the OAuth error, the command
-line's error code), `RetryAfter` (the `Retry-After` header of a 429 or 503: seconds, or an HTTP date),
+line's error code), `Title` and `Detail` (the problem's), `RetryAfter` (the `Retry-After` header of a 429 or 503: seconds, or an HTTP date),
 `Retryable` (`$true` or `$false` where the server said whether the same request may work when tried
 again, as for a source that is not available right now; the message then says "Trying again may
 work."), `RequestId` (give it to the server's operator; from the answer's body, else its
@@ -183,7 +288,8 @@ work."), `RequestId` (give it to the server's operator; from the answer's body, 
 | `PivotRedirectRefused` | the server or the token endpoint answered with a redirect, which is not followed |
 | `PivotTokenRefused` | the server answered 401, or 403 `INSUFFICIENT_SCOPE` (the token lacks the REST scope: ask for it with `-Scope`), or the token endpoint refused the client credentials or gave no usable token |
 | `PivotDataTooLarge` | `-Data` passed `-MaxBytes`, or the server answered 413: `BODY_TOO_LARGE` (the request is over the server's cap: send fewer rows or columns, or use `-Source`) or `LIMIT_EXCEEDED` (the report is over a limit of the server, rows, cells or memory: make the view smaller or filter) |
-| `PivotViewHasErrors` | the view has errors: the server's 422 or the command line's findings (exit 1) |
+| `PivotViewHasErrors` | the view has errors: the server's 422 (with `-AsLink` its 200 with `ok: false`) or the command line's findings (exit 1) |
+| `PivotNoLink` | `-AsLink`: the server saved the report without a download link, or it has no output directory (409 `NO_OUTPUT`) |
 | `PivotServerError` | any other answer of the server that is no report (400, 403, 404, 429, 500, 502, 503 and so on) |
 | `PivotCliNotFound` | `pivotkit` (or `node` for a .js) was not found, or `-CliPath` is no file |
 | `PivotCliFailed` | the command line did not start, took longer than `-TimeoutSec`, gave no `--json` answer or failed otherwise (exit 2) |

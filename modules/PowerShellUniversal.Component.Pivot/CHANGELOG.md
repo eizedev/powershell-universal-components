@@ -5,6 +5,47 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-18
+
+### Added
+
+- `Get-UDPivotSource` lists the sources of a pivotkit-server that the caller may use (`GET /sources`),
+  with the same sign-in parameters as `Invoke-UDPivotReport -Engine Rest`
+  ([#141](https://github.com/eizedev/powershell-universal-components/issues/141)).
+    - Each source has its id, title, description, kind, parameters and whether links and schedules
+      work for it.
+    - `DataMaxBytes` says how large a request with `-Data` the caller may send.
+    - An empty list writes the server's reason to the warning stream.
+- `Invoke-UDPivotReport -AsLink` returns a link to the report that expires, instead of the file
+  ([#141](https://github.com/eizedev/powershell-universal-components/issues/141)).
+    - The server keeps the report (`POST /views/render` with `save: true`).
+    - The result has `Url`, `ExpiresAt`, `Rows`, `RequestId`, `Format`, `FileName`, `Bound`,
+      `DataAsOf` and `Message`.
+    - Where the server gives no link, the new error id `PivotNoLink` says so plainly, with the
+      server's reason.
+- The errors of pivotkit-server carry its answer as a record: `$_.TargetObject` is a
+  `PivotServerProblem` with `Status`, `Code`, `Title`, `Detail`, `RequestId`, `Retryable`,
+  `RetryAfter`, `Type` and `Findings`. A page can tell the reader why a call failed by its code
+  ([#141](https://github.com/eizedev/powershell-universal-components/issues/141)).
+- `$_.Exception.Data` holds `Title` and `Detail` too. Its other keys and the error ids stay.
+- `Invoke-UDPivotReport -Template` gives an HTML report of the command line a print template of your
+  own. It goes with `-Format html` and `-Engine Node`; with `-Engine Rest` the server's source decides
+  the template, so it is refused there
+  ([#140](https://github.com/eizedev/powershell-universal-components/issues/140)).
+- Theme properties for the field type colours: `--psu-pivot-type-string`, `--psu-pivot-type-number`,
+  `--psu-pivot-type-date` and `--psu-pivot-type-boolean`. Without them the colours stay pivotkit's
+  ([#137](https://github.com/eizedev/powershell-universal-components/issues/137)).
+- Theme properties for the tabs and buttons of pivotkit-react 0.8.1: `--psu-pivot-tab-*`,
+  `--psu-pivot-icon-button-*`, `--psu-pivot-button-border*` and `--psu-pivot-primary-*`. Without them
+  the parts follow the report's colours as before. A primary button's hover follows its own fill
+  ([#137](https://github.com/eizedev/powershell-universal-components/issues/137)).
+
+### Changed
+
+- The docs give both zone heights: about 130 pixels in the 2×2 grid, about 300 pixels in one column.
+  The showcase screenshots show pivotkit 0.8's toolbar and zones
+  ([#143](https://github.com/eizedev/powershell-universal-components/issues/143)).
+
 ## [0.7.2] - 2026-11-18
 
 ### Changed
@@ -427,7 +468,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   them); `examples/templates.ps1`: an app with sign-in, readers' views on the server, publishing for
   two roles and the admin panel.
 
-[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.7.2...HEAD
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.8.0...HEAD
+[0.8.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.7.2...PowerShellUniversal.Component.Pivot-v0.8.0
 [0.7.2]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.7.1...PowerShellUniversal.Component.Pivot-v0.7.2
 [0.7.1]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.7.0...PowerShellUniversal.Component.Pivot-v0.7.1
 [0.7.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.6.0...PowerShellUniversal.Component.Pivot-v0.7.0

@@ -23,11 +23,13 @@
  * <html data-theme> itself (data-pk-theme on its root); the dark defaults below are written for that
  * attribute, never for the page's, so an export from a dark app takes the light colours.
  *
- * pivotkit's tokens for single parts (zone frames, tabs, buttons, primary buttons; pivotkit-react
- * 0.8.1) default to the general tokens mapped below, so they follow PSU without a mapping of their own.
+ * The tabs and buttons (pivotkit-react 0.8.1) take --psu-pivot-tab-*, --psu-pivot-icon-button-*,
+ * --psu-pivot-button-* and --psu-pivot-primary-*; without them they derive from the general tokens as
+ * pivotkit does, so they follow PSU. The zone frames follow --pk-border-strong. The field type colours
+ * take --psu-pivot-type-*; without them they keep pivotkit's own values, repeated below per mode.
  *
- * pivotkit's shadows, scrims and its semantic colours (danger, warning, field types, the switch's knob)
- * stay pivotkit's: at their alpha the light shadows' blue tint does not show next to PSU's greys.
+ * pivotkit's shadows, scrims and its other semantic colours (danger, warning, the switch's knob) stay
+ * pivotkit's: at their alpha the light shadows' blue tint does not show next to PSU's greys.
  *
  * Every visual value is a token (pivotkit's rule): the literals live only in the --psu-default-*
  * blocks; the rules below them use var(). The selectors carry one class more than pivotkit's (zero
@@ -50,6 +52,10 @@
     --psu-default-admin-rule: color-mix(in srgb, currentColor 12%, transparent);
     --psu-default-admin-code: color-mix(in srgb, currentColor 6%, transparent);
     --psu-default-admin-note-opacity: 0.75;
+    /* a tab not shown has no fill of its own (pivotkit's) */
+    --psu-default-tab-bg: transparent;
+    /* how much of the primary button's fill stays on hover, mixed with the text colour (pivotkit's) */
+    --psu-default-mix-primary-hover: 88%;
 }
 
 /* ---- PSU's defaults, light ------------------------------------------------------------------- */
@@ -88,6 +94,11 @@
     --psu-default-mix-soft: 12%;
     --psu-default-mix-drop: 18%;
     --psu-default-mix-note: 7%;
+    /* the field types' colours: pivotkit's (pivotkit-react 0.8.1 styles.css) */
+    --psu-default-type-string: #6250d6;
+    --psu-default-type-number: #1a7f5a;
+    --psu-default-type-date: #b5560b;
+    --psu-default-type-boolean: #a3367a;
 }
 
 /* ---- PSU's defaults, dark -------------------------------------------------------------------- */
@@ -123,6 +134,10 @@
     --psu-default-mix-soft: 18%;
     --psu-default-mix-drop: 32%;
     --psu-default-mix-note: 10%;
+    --psu-default-type-string: #a99dff;
+    --psu-default-type-number: #5fd3a3;
+    --psu-default-type-date: #f2a65a;
+    --psu-default-type-boolean: #f08cc6;
 }
 
 /* ---- the bridge, one declaration per token for both modes ------------------------------------ */
@@ -184,6 +199,26 @@
     --pk-weight-medium: var(--psu-pivot-weight-medium, var(--psu-default-weight-medium));
     --pk-weight-strong: var(--psu-pivot-weight-strong, var(--psu-default-weight-strong));
     --pk-weight-bold: var(--psu-pivot-weight-bold, var(--psu-default-weight-bold));
+
+    /* the field type icons and the empty state's pills */
+    --pk-type-string: var(--psu-pivot-type-string, var(--psu-default-type-string));
+    --pk-type-number: var(--psu-pivot-type-number, var(--psu-default-type-number));
+    --pk-type-date: var(--psu-pivot-type-date, var(--psu-default-type-date));
+    --pk-type-boolean: var(--psu-pivot-type-boolean, var(--psu-default-type-boolean));
+
+    /* the tabs (Table, Chart) and the buttons; without a value of the app, derived as pivotkit does */
+    --pk-tab-bg: var(--psu-pivot-tab-bg, var(--psu-default-tab-bg));
+    --pk-tab-text: var(--psu-pivot-tab-text, var(--pk-muted));
+    --pk-tab-selected-bg: var(--psu-pivot-tab-selected-bg, var(--pk-surface));
+    --pk-tab-selected-text: var(--psu-pivot-tab-selected-text, var(--pk-accent));
+    --pk-icon-button-text: var(--psu-pivot-icon-button-text, var(--pk-muted));
+    --pk-icon-button-hover-bg: var(--psu-pivot-icon-button-hover-bg, var(--pk-surface-3));
+    --pk-button-border: var(--psu-pivot-button-border, var(--pk-border));
+    --pk-button-border-hover: var(--psu-pivot-button-border-hover, var(--pk-border-strong));
+    --pk-primary-bg: var(--psu-pivot-primary-bg, var(--pk-accent));
+    --pk-primary-text: var(--psu-pivot-primary-text, var(--pk-accent-text));
+    /* the hover of a primary button of the app's own follows that button, not the accent */
+    --pk-primary-hover-bg: var(--psu-pivot-primary-hover-bg, color-mix(in srgb, var(--pk-primary-bg) var(--psu-default-mix-primary-hover), var(--pk-text)));
 
     /* scroll bars of the table and the field list in the report's colours (inherited) */
     scrollbar-color: var(--pk-border-strong) transparent;
