@@ -5,6 +5,52 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-18
+
+### Added
+
+- `-Zones Open` or `-Zones Folded`: how the zones start under "Fields in the report" (pivotkit's
+  `zones`). Without it the report's height decides, as before: below 600 pixels (820 in the narrow
+  layout) they start folded. Readers still fold and open them
+  ([#133](https://github.com/eizedev/powershell-universal-components/issues/133)).
+- `-DrillDownExport`: the drill-down panel's Export menu (copy, Copy as JSON, CSV and Excel of the
+  rows behind a value, every column) without `-ExportData` (pivotkit's `drillDownExport`). Not with
+  `-NoDrillDown`.
+- The Views page lists the chart settings a view can hold since pivotkit 0.8.0 (`tooltip`, `zoom`,
+  `stackPercent`, `hidden`, `referenceLines`, `colors`, `tooltipShare`), with an example.
+  `ConvertFrom-UDPivotView`, the view files and the template stores keep them as they are.
+
+### Changed
+
+- pivotkit 0.8.0 ([pivotkit-react release](https://github.com/eizedev/pivotkit/releases/tag/pivotkit-react%400.8.0),
+  [upgrading from 0.7](https://pivotkit.eize.dev/getting-started/upgrading/#from-0-7)):
+  pivotkit-core and pivotkit-react 0.8.0, pivotkit-report 0.4.0 and pivotkit-xlsx 0.5.0, all pinned.
+  What readers see:
+    - Table and Chart are tabs on top of the result, with "Table settings" or "Chart settings"
+      beside them. The chart type button, Options and Layout left the toolbar. More is always at
+      the toolbar's end, with Help first; "Show tips" and "Show explanations" are there.
+    - The zones sit under the heading "Fields in the report", which folds them. Each zone is a
+      shelf with "+ Add", which places a field without dragging.
+    - Charts: a zoom slider for a long axis, a click on the legend hides a series, stacks to
+      100 %, reference lines (average, trend, a target), a colour per series, each value's share
+      in the tooltip, and Export, Copy chart image.
+    - The footer names the data's date range, and a grouping such as "Month of year" says which
+      years it combines.
+    - The row count says "2,190 of 4,386 rows" when a filter leaves rows out.
+- Behaviour change: without `-ExportData` the drill-down panel has no Export menu any more. Readers
+  still see the rows behind a value and can select and copy their text. `-DrillDownExport` brings the
+  menu back without Source data; `-ExportData` brings it with Source data.
+- `-Labels`: pivotkit 0.8.0 no longer shows the keys `layout`, `showLayout`, `options` and
+  `chartDisplay`, and says once in the browser's console which key holds that text now. Use
+  `zonesTitle`, `tableSettings` and `chartSettings`. An app that sets `rowsCount` sets `rowsFiltered`
+  too ([upgrading](https://pivotkit.eize.dev/getting-started/upgrading/#view-tabs-0-8)).
+- The help of `-Tips`, `-FieldInfo`, `-ZoneInfo` and `-SettingInfo` and the Pivot pages name More,
+  Help instead of Options, and the zones' heading instead of the Layout button.
+- `Invoke-UDPivotReport` is tested with pivotkit-cli 0.4.0 and pivotkit-server 0.3.0. The file route
+  it calls keeps every digit of csv and json, so 0.3.0's rounded inline numbers do not reach it. The
+  Reports page says that `-Token` also sends a short-lived token another system signed
+  (pivotkit-server's `auth.externalIssuers`).
+
 ## [0.6.0] - 2026-11-16
 
 ### Added

@@ -5,6 +5,20 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-18
+
+### Added
+
+- The documentation pages have the example "Chart settings in a view" (a start view with stacked
+  bars, a fixed series colour, the average as a reference line and shares in the tooltip, and
+  `-Zones Open`).
+
+### Changed
+
+- Requires PowerShellUniversal.Component.Pivot 0.7.0 or later (pivotkit 0.8.0): the example above
+  uses `-Zones`, and the ticket showcase's Tickets page keeps the drill-down's Export menu with
+  `-DrillDownExport`.
+
 ## [0.4.0] - 2026-11-16
 
 ### Added
