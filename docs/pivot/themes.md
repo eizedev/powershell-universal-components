@@ -104,8 +104,8 @@ property used when the first one is not set; without either the default applies.
 | `--psu-pivot-surface-2` | - | zones, table headers, the field list's panel | `#f5f6f8` | `#1a1a1a` |
 | `--psu-pivot-surface-3` | - | hovered controls, the Table/Chart switch | `#eaecef` | `#262626` |
 | `--psu-pivot-surface-raised` | - | menus, popovers, the drill-down table, chart tooltips | `#ffffff` | `#1f1f1f` |
-| `--psu-pivot-border-strong` | - | hovered buttons and chips, the switch track, the grand-total line, scroll bars | `#c4c4c4` | `#474747` |
-| `--psu-pivot-drop-border` | - | edge of a zone | `#8a8a8a` | `#7a7a7a` |
+| `--psu-pivot-border-strong` | - | frame of a zone, hovered buttons and chips, the switch track, the grand-total line, scroll bars | `#c4c4c4` | `#474747` |
+| `--psu-pivot-drop-border` | - | edge of a zone while a field is dragged | `#8a8a8a` | `#7a7a7a` |
 | `--psu-pivot-input-border` | - | edge of a text field or a select in a menu | `#808080` | `#858585` |
 | `--psu-pivot-rule` | - | line between a menu's groups | `#808080` | `#858585` |
 | `--psu-pivot-total` | - | subtotals | `#f5f6f8` | `#1a1a1a` |
