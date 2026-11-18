@@ -14,7 +14,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   ([#138](https://github.com/eizedev/powershell-universal-components/issues/138)).
     - The browser writes the path with the page's origin.
     - The template stores and `ConvertTo-UDPivotViewFile` take the origin of an https default.
-    - Without one, they take the origin of the request (`Origin`, the page address, `Referer`).
+    - Without one, they take the origin of the request (`Origin`, the page address, `Referer`). A
+      template store uses the request of the save.
     - Without either, they stop with an error.
 - A module-wide default for `-SchemaUrl`: the environment variable `PSU_COMPONENT_PIVOT_SCHEMA_URL`
   of the PSU process. An explicit `-SchemaUrl` still wins, `''` included.
@@ -31,8 +32,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   in all of them ([#110](https://github.com/eizedev/powershell-universal-components/issues/110)).
 - An address of your own names the schema of the current format (view file format 2). A file of
   format 1 keeps pivotkit's `view-file-1.json` address, so it never names the schema of another
-  format. An address of your own for format 1 is no longer possible
-  ([#110](https://github.com/eizedev/powershell-universal-components/issues/110)).
+  format ([#110](https://github.com/eizedev/powershell-universal-components/issues/110)).
+- An address of your own for a file of format 1 is no longer possible.
 
 ## [0.7.0] - 2026-11-18
 

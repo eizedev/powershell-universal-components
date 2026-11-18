@@ -152,6 +152,7 @@ copy and name it with `-SchemaUrl`.
 - A path on the PSU server, such as `/assets/pivot/schema/view-file-2.json`. This is one value for
   every instance, including a local one on `http://localhost:5000`.
 - An https address of your copy, such as `https://psu.example.com/assets/pivot/schema/view-file-2.json`.
+  The scheme may be in any case.
 - `''` to leave `$schema` out.
 
 Every command checks the value the same way: no spaces, at most 2,000 characters, no user name or
@@ -162,13 +163,14 @@ In `New-UDPivotReport` the page then stays empty, and PSU shows that error.
 A path becomes an address when a view file is written:
 
 - In the browser (Download view, Copy view as JSON), the report puts the page's origin in front. The
-  file names the address the reader used. A page without a usable origin writes pivotkit's address.
+  file names the address the reader used. The browser ignores the module-wide default. A page
+  without a usable origin writes pivotkit's address.
 - On the server (the template stores, `ConvertTo-UDPivotViewFile`), the module takes the origin of
   the [module-wide default](#one-default-for-every-report-psu_component_pivot_schema_url) when that is
   an https address.
 - Otherwise the server takes the origin from the request. It reads the headers the browser sent:
   `Origin`, else the page address, else `Referer`. PSU passes them to pages, event handlers and API
-  endpoints.
+  endpoints. A template store uses the request of the save, which carries `Origin`.
 - Without either, for example in a scheduled job, the command stops with an error.
 
 The request must carry the address your users see. Behind a reverse proxy that rewrites these
@@ -183,7 +185,8 @@ New-UDPivotReport -Id 'tickets' -Data $tickets -SchemaUrl '/assets/pivot/schema/
 
 A platform sets the address once, as the environment variable `PSU_COMPONENT_PIVOT_SCHEMA_URL` of the
 PSU process. It takes the same values as `-SchemaUrl`. Every command without `-SchemaUrl` uses it. An
-explicit `-SchemaUrl` always wins, `''` included.
+explicit `-SchemaUrl` always wins, `''` included. As an https address, its origin also completes
+every path on the server.
 
 - Set it where PSU starts: the service's environment, or the container's environment.
 - Every process PSU starts inherits it: pages, event handlers and jobs.

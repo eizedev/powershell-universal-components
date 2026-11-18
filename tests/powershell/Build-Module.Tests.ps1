@@ -1,7 +1,8 @@
 #Requires -Version 7.4
 # Pester tests for build/Build-Module.ps1 with a component module (a JavaScript bundle). They need the
 # module's packages (npm ci in its folder) and run webpack, so they are skipped where those are not
-# installed (CI's PowerShell job; its build job builds every module).
+# installed (CI's PowerShell job; its build job builds every module). The pivot module's build job runs
+# the Describe "Build-Module.ps1 with the pivot module" (ci.yml selects it by that name).
 
 BeforeDiscovery {
     $script:component = 'PowerShellUniversal.Component.Perspective'

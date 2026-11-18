@@ -42,7 +42,8 @@ jobs:
       - name: Build module
         shell: pwsh
         run: ./build/Build-Module.ps1 -Module '${{ matrix.module }}'
-      # needs the module's packages, which only this job installs (tests/powershell/Build-Module.Tests.ps1)
+      # needs the module's packages, which only this job installs; selects the Describe "Build-Module.ps1
+      # with the pivot module" of tests/powershell/Build-Module.Tests.ps1 by name
       - name: Pivot ships pivotkit-core's schema files of the bundle's version
         if: matrix.module == 'PowerShellUniversal.Component.Pivot'
         shell: pwsh

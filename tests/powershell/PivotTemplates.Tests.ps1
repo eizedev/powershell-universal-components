@@ -807,20 +807,37 @@ Describe '-SchemaUrl: one check, a path on the instance, the module-wide default
         }
     }
 
-    It 'the template store writes the path with the page''s origin, resolved when the report is drawn' {
+    It 'the template store writes a path with the origin of the event''s request, else of an https default' {
         $folder = & $script:newFolder
         try {
             $store = New-UDPivotFileTemplateStore -Path $folder
-            Set-Variable -Name Headers -Value (& $script:headersOf @{ windowLocation = 'https://psu.example.com/app/Home'; Host = 'internal:5000' })
             $c = New-UDPivotReport -Id 'r' -Data $script:rows -TemplateStore $store -AdminRole 'Admin' -UserName 'boss' -Roles 'Admin' -SchemaUrl $script:path
             $c.schemaUrl | Should -BeExactly $script:path
-            # the event handler runs in a runspace of its own: no page headers there
+            $key = & $script:keyOf $c.onPublishTemplate
+            $read = { Get-ChildItem -LiteralPath (Join-Path $folder 'shared') -File | Get-Content -Raw | ConvertFrom-Json }
+            # the handler runs with the headers of the event (PSU sends Origin with it)
+            Set-Variable -Name Headers -Value (& $script:headersOf @{ Origin = 'https://psu.example.com'; Host = 'internal:5000' })
+            Invoke-UDPivotTemplateRequest -Key $key -Action Publish -EventData @{ name = 'Hosted'; view = $script:v2 } -UserName 'boss' -Roles 'Admin' | Should -BeNullOrEmpty
+            (& $read).'$schema' | Should -BeExactly "https://psu.example.com$($script:path)"
+            # an https default wins over the request: the address the platform names
+            [Environment]::SetEnvironmentVariable($script:defaultName, 'https://reports.example.com/assets/pivot/schema/view-file-2.json')
+            Invoke-UDPivotTemplateRequest -Key $key -Action Publish -EventData @{ name = 'Hosted'; view = $script:v2 } -UserName 'boss' -Roles 'Admin' | Should -BeNullOrEmpty
+            (& $read).'$schema' | Should -BeExactly "https://reports.example.com$($script:path)"
+            # neither: the reader sees why nothing was saved
+            [Environment]::SetEnvironmentVariable($script:defaultName, $null)
             Remove-Variable -Name Headers
-            Invoke-UDPivotTemplateRequest -Key (& $script:keyOf $c.onPublishTemplate) -Action Publish -EventData @{ name = 'Hosted'; view = $script:v2 } -UserName 'boss' -Roles 'Admin' | Should -BeNullOrEmpty
-            $written = Get-ChildItem -LiteralPath (Join-Path $folder 'shared') -File | Get-Content -Raw | ConvertFrom-Json
-            $written.'$schema' | Should -BeExactly "https://psu.example.com$($script:path)"
+            (Invoke-UDPivotTemplateRequest -Key $key -Action Publish -EventData @{ name = 'Hosted'; view = $script:v2 } -UserName 'boss' -Roles 'Admin').error | Should -BeLike '*SchemaUrl*'
         }
         finally { Remove-Item -LiteralPath $folder -Recurse -Force -ErrorAction Ignore }
+    }
+
+    It 'the store''s key does not depend on the request: two renders from two addresses share one entry' {
+        $store = New-UDPivotFileTemplateStore -Path (& $script:newFolder)
+        Set-Variable -Name Headers -Value (& $script:headersOf @{ windowLocation = 'https://a.example.com/app' })
+        $first = New-UDPivotReport -Id 'r' -Data $script:rows -TemplateStore $store -AdminRole 'Admin' -UserName 'boss' -Roles 'Admin' -SchemaUrl $script:path
+        Set-Variable -Name Headers -Value (& $script:headersOf @{ windowLocation = 'https://b.example.com/app' })
+        $second = New-UDPivotReport -Id 'r' -Data $script:rows -TemplateStore $store -AdminRole 'Admin' -UserName 'boss' -Roles 'Admin' -SchemaUrl $script:path
+        (& $script:keyOf $second.onPublishTemplate) | Should -Be (& $script:keyOf $first.onPublishTemplate)
     }
 
     It 'a custom address names the current format only: a file of format 1 keeps pivotkit''s view-file-1 address (#110)' {
