@@ -3868,7 +3868,7 @@ function Get-UDPivotReportLink {
         System.Management.Automation.PSCustomObject (PivotReportLink).
     #>
     [CmdletBinding()]
-    [OutputType([pscustomobject])]
+    [OutputType('PivotReportLink')]
     param(
         [Parameter(Mandatory)][uri]$Uri,
         [Parameter(Mandatory)][byte[]]$Body,
@@ -3877,11 +3877,12 @@ function Get-UDPivotReportLink {
     )
     $where = Get-UDPivotSafeAddress -Uri ([uri]((Get-UDPivotSafeAddress -Uri $Uri).TrimEnd('/') + '/views/render'))
     $noLink = 'Ask the operator to turn on download links (output.dir, and output.downloads for the server''s own links), or call without -AsLink for the file itself.'
+    $idTextOf = { param($Id) if ($Id) { [Environment]::NewLine + ('Request id for the operator: {0}' -f $Id) } }
     try { $response = Invoke-UDPivotRestCall -Uri $Uri -Route '/views/render' -Body $Body -Auth $Auth -TimeoutSec $TimeoutSec }
     catch {
         $p = $_.TargetObject
         if ($p -and $p.Code -eq 'NO_OUTPUT') {
-            throw (New-UDPivotError -Id PivotNoLink -Category NotEnabled -TargetObject $p -Data @{ Status = $p.Status; Code = $p.Code; Title = $p.Title; Detail = $p.Detail; RequestId = $p.RequestId } -Message ('pivotkit-server {0} saves no reports, so it gives no download links: {1} ({2}): {3}{4}{5}{4}Request id for the operator: {6}' -f $where, $p.Code, $p.Status, $p.Detail, [Environment]::NewLine, $noLink, $p.RequestId))
+            throw (New-UDPivotError -Id PivotNoLink -Category NotEnabled -TargetObject $p -Data @{ Status = $p.Status; Code = $p.Code; Title = $p.Title; Detail = $p.Detail; RequestId = $p.RequestId } -Message ('pivotkit-server {0} saves no reports, so it gives no download links: {1} ({2}): {3}{4}{5}{6}' -f $where, $p.Code, $p.Status, $p.Detail, [Environment]::NewLine, $noLink, (& $idTextOf $p.RequestId)))
         }
         throw
     }
@@ -3889,15 +3890,22 @@ function Get-UDPivotReportLink {
     catch { throw (New-UDPivotError -Id PivotServerError -Data @{ Status = $response.StatusCode } -Message ('pivotkit-server {0} answered {1} without JSON.' -f $where, $response.StatusCode)) }
     $p = ConvertTo-UDPivotServerProblem -Response $response -Answer $answer
     $data = @{ Status = $p.Status; Detail = $p.Detail; RequestId = $p.RequestId }
-    $idText = if ($p.RequestId) { [Environment]::NewLine + ('Request id for the operator: {0}' -f $p.RequestId) }
+    $idText = & $idTextOf $p.RequestId
     if ($answer.ok -ne $true) {
         $lines = @(Get-UDPivotFindingText -Finding @($p.Findings | Where-Object { $_.severity -eq 'error' }))
+        # an answer without findings of its own still says what happened
+        if (-not $lines.Count) { $lines = @($(if ($p.Detail) { $p.Detail } else { 'no reason given' })) }
         throw (New-UDPivotError -Id PivotViewHasErrors -Category InvalidData -TargetObject $p -Data $data -Message ('pivotkit-server {0}: the view has errors, no report was made:{1}{2}{3}' -f $where, [Environment]::NewLine, ($lines -join [Environment]::NewLine), $idText))
     }
     $output = $answer.output
     if (-not $output -or -not ($output.url -is [string]) -or -not $output.url) {
         $said = if ($p.Detail) { $p.Detail } else { 'no reason given' }
         throw (New-UDPivotError -Id PivotNoLink -Category NotEnabled -TargetObject $p -Data $data -Message ('pivotkit-server {0} gave no download link for this report. The server said: {1}{2}{3}{4}' -f $where, $said, [Environment]::NewLine, ('A report over a source the operator keeps closed, or over data sent with -Data, gets a link only where the operator binds links to a sign-in or to one download. ' + $noLink), $idText))
+    }
+    # the link goes onto pages and into mails: an absolute http or https address, nothing else
+    $url = $null
+    if (-not [uri]::TryCreate($output.url, [UriKind]::Absolute, [ref]$url) -or $url.Scheme -notin 'https', 'http') {
+        throw (New-UDPivotError -Id PivotServerError -TargetObject $p -Data $data -Message ('pivotkit-server {0} answered with a download link that is no http or https address; it is not returned.{1}' -f $where, $idText))
     }
     foreach ($finding in @($p.Findings | Where-Object { $_.severity -eq 'warning' })) { Write-Warning ('pivotkit: {0}' -f (Get-UDPivotFindingText -Finding @($finding))) }
     # ConvertFrom-Json reads an ISO 8601 text as a DateTime already; anything else is parsed as UTC
@@ -4078,12 +4086,13 @@ function Invoke-UDPivotReport {
         are converted in full first.
     .PARAMETER Template
         -Engine Node with -Format html: a print template for the HTML report (pivotkit's
-        {{placeholders}}, at most 1 MB). The function copies it into the run's own folder and passes it
+        {{placeholders}}, at most 262,144 characters). The function copies it into the run's own folder and passes it
         as --template. pivotkit trusts a template like code: give a file of your own, never one from a
         reader. With -Engine Rest the server's source decides the template, so it is refused there.
     .PARAMETER AsLink
         -Engine Rest: the server saves the report and the function returns its download link instead of
-        the file (POST /views/render with save: true): a PivotReportLink with Url, ExpiresAt (UTC), Rows
+        the file (POST /views/render with save: true): a PivotReportLink with Url, ExpiresAt (UTC; empty
+        where the server names no expiry, as for some links of an operator's own store), Rows
         (the rows of the report's table, without the header; empty where the server withholds it),
         RequestId, Format, FileName, Bound (none, once or signIn), DataAsOf and Message. Where the
         server gives no link, PivotNoLink says why. Not with -OutFile.
@@ -4293,7 +4302,8 @@ function Get-UDPivotSource {
         a log or the output.
 
         Returns one PivotSource per source: Id (for Invoke-UDPivotReport -Source), Title, Description,
-        Kind (source or file), Link (whether pivotkit's create_link works for it), Schedulable,
+        Kind (source or file), Link (whether pivotkit's share links of views work for it; not the
+        download link of Invoke-UDPivotReport -AsLink), Schedulable,
         Parameters (the values the source takes, as the server describes them: name, type, required,
         description, example, enum and the like), DataMaxBytes (the largest request with -Data this
         caller may send; empty when the caller may not send data; the same on every source) and
@@ -4339,7 +4349,7 @@ function Get-UDPivotSource {
         https://powershell-universal-components.eize.dev/pivot/reports/
     #>
     [CmdletBinding()]
-    [OutputType([pscustomobject])]
+    [OutputType('PivotSource')]
     param(
         [uri]$Uri,
         [AllowNull()][object]$Token,

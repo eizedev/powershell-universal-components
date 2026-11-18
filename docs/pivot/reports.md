@@ -144,7 +144,7 @@ Each source is an object with these properties:
 | `Id` | The source's id, for `-Source` |
 | `Title`, `Description` | The source's name and description |
 | `Kind` | `source`, or `file` for a file the server reads |
-| `Link` | Whether pivotkit's links (`create_link`) work for it |
+| `Link` | Whether pivotkit's share links of views work for it. This is not the download link of `-AsLink` |
 | `Schedulable` | Whether the server drafts schedules for it |
 | `Parameters` | The values the source takes, as the server describes them (`name`, `type`, `required`, `description`, `example`) |
 | `DataMaxBytes` | The largest request this caller may send with `-Data`. Empty when it may send none. The same on every source |
@@ -162,27 +162,31 @@ With `-AsLink` the server keeps the report and the function returns a link to it
 ```powershell
 $link = Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Token $Secret:PivotkitToken `
     -Source 'sales' -View $view -AsLink
-New-UDLink -Text ('Sales report, until {0:t}' -f $link.ExpiresAt.ToLocalTime()) -Url $link.Url
+$until = if ($link.ExpiresAt) { ', until {0:t}' -f $link.ExpiresAt.ToLocalTime() }
+New-UDLink -Text "Sales report$until" -Url $link.Url
 ```
 
 | Property | What it is |
 | --- | --- |
 | `Url` | The download link |
-| `ExpiresAt` | When the link stops working, a `DateTimeOffset` in UTC |
+| `ExpiresAt` | When the link stops working, a `DateTimeOffset` in UTC. Empty where the server names no expiry, as for some links of an operator's own store |
 | `Rows` | The rows of the report's table, without the header. Empty where the server withholds it |
 | `RequestId` | The id of the answer, for the operator |
 | `Format` | xlsx, html, csv, json or svg |
 | `FileName` | The file's name for the person who opens it |
-| `Bound` | `none` (anyone with the link), `once` (one download) or `signIn` (only the person who asked) |
+| `Bound` | `none` (anyone with the link), `once` (one download) or `signIn` (only the person who asked). Empty for a link of an operator's own store |
 | `DataAsOf` | When the data is from |
 | `Message` | The server's sentence for the person who asked |
 
 The server decides which report gets a link ([download links](https://pivotkit.eize.dev/reference/delivery/)).
-A report over an open source always gets one. A report over a closed source, or over data sent with
+Where the operator turned on download links, a report over an open source always gets one. A report over a closed source, or over data sent with
 `-Data`, gets one only where the operator binds links to a sign-in or to one download. A server
 without an output directory saves no report at all. In each of these cases the function stops with
 `PivotNoLink`, and the message says so in plain words, with the server's own reason. `-AsLink` does
 not go with `-OutFile`.
+
+The link, `FileName` and `Message` are the server's text. The function returns only an `http` or
+`https` link. Show the other two as text, never as markup.
 
 What the function does on the way:
 
@@ -193,13 +197,14 @@ What the function does on the way:
 - No redirect is followed: a token goes only to the address you gave.
 - `-TimeoutSec` (default 120) limits each call as a whole: sending the request and reading the
   report in full; the token request has a limit of the same length of its own.
-- An error says the server's code and detail, the findings of a view with errors (422), when to try
-  again from `Retry-After` (429, 503) or that trying again may work (`retryable`), and the request id
-  the operator finds the log lines by, and has a fixed error id ([Errors](#errors)). A 413 says what to
-  do by its code: less data or `-Source` for a request over the server's cap, also when the server
-  answers it while the request is still being sent; a smaller view or a filter for a report over a
-  limit of the server. Data over `-MaxBytes` is refused before it is sent
-  ([Size and memory](#size-and-memory)).
+- An error has a fixed error id ([Errors](#errors)). Its message says:
+    - the server's code and detail, and the findings of a view with errors (422);
+    - when to try again (`Retry-After` of a 429 or 503), or that trying again may work (`retryable`);
+    - the request id the operator finds the log lines by.
+- A 413 says what to do by its code. For a request over the server's cap, send less data or use
+  `-Source`. This holds also when the server answers while the request is still being sent. For a
+  report over a limit of the server, make the view smaller or filter it.
+- Data over `-MaxBytes` is refused before it is sent ([Size and memory](#size-and-memory)).
 - The token and the client secret never appear in an error, `$Error`, the verbose or the debug stream
   or the output, also with `-Verbose` and `-Debug`.
 
@@ -275,13 +280,18 @@ catch {
 }
 ```
 
-`$_.Exception.Data` holds the same for a script:
-`Status` (the HTTP status), `Code` (pivotkit-server's problem code, the OAuth error, the command
-line's error code), `Title` and `Detail` (the problem's), `RetryAfter` (the `Retry-After` header of a 429 or 503: seconds, or an HTTP date),
-`Retryable` (`$true` or `$false` where the server said whether the same request may work when tried
-again, as for a source that is not available right now; the message then says "Trying again may
-work."), `RequestId` (give it to the server's operator; from the answer's body, else its
-`X-Request-Id` header) and `MaxBytes`.
+`$_.Exception.Data` holds the same for a script, where the answer had it:
+
+- `Status`: the HTTP status.
+- `Code`: pivotkit-server's problem code, the OAuth error or the command line's error code.
+- `Title`, `Detail`: the problem's title and detail.
+- `RetryAfter`: the `Retry-After` header of a 429 or 503, in seconds or as an HTTP date.
+- `Retryable`: `$true` or `$false` where the server said whether the same request may work when
+  tried again, as for a source that is not available right now. The message then says "Trying again
+  may work."
+- `RequestId`: give it to the server's operator. It comes from the answer's body, else from its
+  `X-Request-Id` header.
+- `MaxBytes`: the cap `-Data` went over.
 
 | Error id | When |
 | --- | --- |

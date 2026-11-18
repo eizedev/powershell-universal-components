@@ -80,7 +80,7 @@ async function setTheme(page, mode) {
 }
 
 async function demoShots(browser) {
-    // the size of the app window the docs show, as the earlier shots
+    // the size of the app window the docs show; the report fills its height
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
     try {
         for (const mode of ["light", "dark"]) {
@@ -111,7 +111,10 @@ async function demoShots(browser) {
             await page.mouse.move(0, 0);
             await expect(report.locator(".pk-toast")).toHaveCount(0, { timeout: 30000 });
             await page.waitForTimeout(800);
-            await page.screenshot({ path: `${out}pivot-showcase-upload-${mode}.png`, animations: "disabled" });
+            // down to the line under the table ("only in this browser"), which sits below the window's edge
+            const line = await report.getByTestId("source-line").boundingBox();
+            const height = Math.ceil(line.y + line.height + 16);
+            await page.screenshot({ path: `${out}pivot-showcase-upload-${mode}.png`, animations: "disabled", fullPage: true, clip: { x: 0, y: 0, width: 1280, height } });
             console.log(`pivot-showcase-upload-${mode}.png`);
         }
     } finally {

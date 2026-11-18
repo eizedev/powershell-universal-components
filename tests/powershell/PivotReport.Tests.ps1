@@ -1008,6 +1008,28 @@ Describe 'Get-UDPivotSource (a stand-in pivotkit-server)' {
         { Get-UDPivotSource -Token 't' } | Should -Throw '*-Uri*'
     }
 
+    It 'a redirect of GET /sources is not followed, so the token stays with this server' {
+        $mock.Sources.Enqueue(@{ Status = 302; Body = ''; Headers = @{ Location = 'https://elsewhere.example/' } })
+        $caught = $null
+        try { Get-UDPivotSource -Uri ($base + '/api/v1') -Token 'static-token-0123456789' } catch { $caught = $_ }
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotRedirectRefused'
+        @(Get-Log).Count | Should -Be 1
+    }
+
+    It 'neither the token nor the client secret is in the error''s TargetObject or Exception.Data' {
+        $caught = $null
+        try { Get-UDPivotSource -Uri ($base + '/api/v1') -Token 'static-token-WRONG-0000' } catch { $caught = $_ }
+        $mock.Token.Enqueue(@{ Status = 200; Body = (@{ access_token = 'token-not-accepted-0000'; token_type = 'Bearer'; expires_in = 3600 } | ConvertTo-Json) })
+        $mock.Token.Enqueue(@{ Status = 200; Body = (@{ access_token = 'token-not-accepted-1111'; token_type = 'Bearer'; expires_in = 3600 } | ConvertTo-Json) })
+        $oauthCaught = $null
+        try { Invoke-UDPivotReport @rest -Credential $client -TokenUri ($base + '/token') -Source 'sales' -View $view -AsLink } catch { $oauthCaught = $_ }
+        $oauthCaught.FullyQualifiedErrorId | Should -Be 'PivotTokenRefused'
+        foreach ($e in $caught, $oauthCaught) {
+            $text = ($e.TargetObject | ConvertTo-Json -Depth 8) + ($e.Exception.Data | ConvertTo-Json -Depth 8) + $e.Exception.Message
+            foreach ($secret in 'static-token-WRONG-0000', 'token-not-accepted', $clientSecret) { $text | Should -Not -BeLike "*$secret*" }
+        }
+    }
+
     It 'a refused token is PivotTokenRefused with the server''s problem as the error''s TargetObject' {
         $caught = $null
         try { Get-UDPivotSource -Uri ($base + '/api/v1') -Token 'static-token-WRONG-0000' } catch { $caught = $_ }
@@ -1090,6 +1112,30 @@ Describe 'Invoke-UDPivotReport -AsLink (a stand-in pivotkit-server)' {
         $caught.FullyQualifiedErrorId | Should -Be 'PivotViewHasErrors'
         $caught.Exception.Message | Should -BeLike '*unknown field "Taem" (did you mean Team?)*Request id for the operator: O7eB2sGV8Hw*'
         $caught.TargetObject.Findings[0].code | Should -Be 'unknownField'
+    }
+
+    It 'a link of the operator''s own store without an expiry: ExpiresAt and Bound empty, the link returned' {
+        $mock.Link.Enqueue(@{ Status = 200; Body = '{"ok":true,"findings":[],"format":"xlsx","summary":{"rows":3,"columns":2},"output":{"name":"sales.pivotkit-out.xlsx","filename":"sales.xlsx","url":"https://files.example.com/reports/7f3a.xlsx","format":"xlsx"},"message":"The report is saved as \"sales.xlsx\".","requestId":"store-1"}' })
+        $link = Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Source 'sales' -View $view -AsLink
+        $link.Url | Should -Be 'https://files.example.com/reports/7f3a.xlsx'
+        $link.ExpiresAt | Should -BeNullOrEmpty
+        $link.Bound | Should -BeNullOrEmpty
+        $link.Rows | Should -Be 3
+    }
+
+    It 'a link that is no http or https address is not returned' {
+        foreach ($bad in 'javascript:alert(1)', '/downloads/relative', 'file:///etc/passwd') {
+            $mock.Link.Enqueue(@{ Status = 200; Body = ('{{"ok":true,"findings":[],"format":"csv","output":{{"url":"{0}","format":"csv"}},"requestId":"bad-1"}}' -f $bad) })
+            $caught = $null
+            try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Source 'sales' -View $view -AsLink } catch { $caught = $_ }
+            $caught.FullyQualifiedErrorId | Should -Be 'PivotServerError' -Because $bad
+            $caught.Exception.Message | Should -Not -BeLike "*$bad*"
+        }
+    }
+
+    It 'a view with errors without findings still says why' {
+        $mock.Link.Enqueue(@{ Status = 200; Body = '{"ok":false,"findings":[],"format":"csv","output":null,"message":"No report was made: the view has errors.","requestId":"nf-1"}' })
+        { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Source 'sales' -View $view -AsLink } | Should -Throw '*no report was made:*No report was made: the view has errors.*nf-1*'
     }
 
     It 'refuses -AsLink with -OutFile and with -Engine Node' {
