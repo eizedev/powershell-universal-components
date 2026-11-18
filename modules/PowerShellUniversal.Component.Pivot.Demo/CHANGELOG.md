@@ -11,7 +11,7 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 - The documentation pages have the example "Chart settings in a view" (a start view with stacked
   bars, a fixed series colour, the average as a reference line and shares in the tooltip, and
-  `-Zones Open`).
+  `-Zones Folded`).
 
 ### Changed
 

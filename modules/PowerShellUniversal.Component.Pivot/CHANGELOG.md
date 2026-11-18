@@ -17,7 +17,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   rows behind a value, every column) without `-ExportData` (pivotkit's `drillDownExport`). Not with
   `-NoDrillDown`.
 - The Views page lists the chart settings a view can hold since pivotkit 0.8.0 (`tooltip`, `zoom`,
-  `stackPercent`, `hidden`, `referenceLines`, `colors`, `tooltipShare`), with an example.
+  `stackPercent`, `hidden`, `referenceLines`, `colors`, `tooltipShare`), with an example that
+  also uses `-Zones Folded`.
   `ConvertFrom-UDPivotView`, the view files and the template stores keep them as they are.
 
 ### Changed

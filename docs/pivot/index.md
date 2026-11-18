@@ -132,7 +132,7 @@ The report adapts to its own width:
 | Where | What changes |
 | --- | --- |
 | A narrow column or a phone | The field list opens as a drawer and the zones stack above the table. |
-| Below 600 pixels of height (820 in the narrow layout) | The zones start folded into one line under **Fields in the report**; that heading opens them. A report with no field placed starts with them open. `-Zones Open` or `-Zones Folded` sets the start state instead. |
+| Below 600 pixels of height (820 in the narrow layout) | The zones start folded into one line under **Fields in the report**; that heading opens them ([Theme and layout](#theme-and-layout)). |
 | Several reports on one page | Each needs its own `-Label`, the name screen readers hear for the report. |
 
 ## Data
@@ -195,7 +195,7 @@ It wins over the view's chart settings. pivotkit leaves out options that are mar
 | Height | One screen: the window's height minus 180 pixels for PSU's app bar and a page title, between 600 and 1400 pixels (almost the whole window on a phone), so the whole report is on screen when the page loads and the table shows rows enough below the zones. `-Height` sets another one; give it at least 600 pixels where readers build reports: the zones take about 300 of them. |
 | Inside a fixed size | The report stays inside its height - in a card of a fixed size too: the table scrolls inside it, however small it gets (measured in a 560-pixel `New-UDCard` on PSU 2026.3.4). |
 | Growing | `-Grow On` lets it grow past the height instead when the table would get too small, and the page scrolls. |
-| Zones open or folded | Below 600 pixels of height (820 in the narrow layout) the zones start folded under **Fields in the report**, so the table keeps its room. `-Zones Open` keeps them open from the start (give the report about 700 pixels or more, or the table gets only a few rows); `-Zones Folded` starts them folded in any height. Readers fold and open them either way. |
+| Zones open or folded | Below 600 pixels of height (820 in the narrow layout) the zones start folded under **Fields in the report**, so the table keeps its room. `-Zones Open` keeps them open from the start (give the report about 700 pixels or more, or the table gets only a few rows); `-Zones Folded` starts them folded in any height. A report with no field placed starts with them open unless `-Zones` says otherwise. Readers fold and open them either way. |
 | Containers | Inside `New-UDTabs`, `New-UDCard`, `New-UDStack` and expansion panels it fits its container and grows when a hidden tab is shown. |
 
 ## Reports as files

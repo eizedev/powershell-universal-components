@@ -25,7 +25,11 @@ function examplesState(page) {
         if (pivot && pivot.querySelector(".ud-pivot-placeholder .pk-skeleton")) {
             return { id, placeholder: true };
         }
-        // the pivot report: rendered once its table or chart region is there
+        // the pivot report: rendered once its table, or its chart with the chart's canvas, is there
+        // (a start view that opens the chart loads ECharts after the result region shows)
+        if (pivot && pivot.querySelector(".pk-root .pk-result [data-testid=pivot-chart]") && !pivot.querySelector(".pk-result canvas")) {
+            return { id, pending: true };
+        }
         if (pivot && pivot.querySelector(".pk-root .pk-result")) {
             return { id, pivot: true, cells: pivot.querySelectorAll(".pk-result td").length, chart: Boolean(pivot.querySelector(".pk-result canvas")), firstSteps: Boolean(pivot.querySelector(".pk-result .pk-empty")) };
         }
@@ -161,21 +165,20 @@ test("Pivot: menus open inside the report's shadow root, styled, never on the pa
     expect(state).toEqual({ inShadow: true, position: "fixed", onBody: 0 });
 });
 
-test("Pivot: -Zones Open keeps the zones open in a report lower than 600 pixels, where the height alone folds them; the view's chart settings reach the chart", async ({ page }) => {
+// -Height 860px: above pivotkit's compact height, also in the narrow layout of the site's column
+// (820 px), so without -Zones the zones of this report start open
+test("Pivot: -Zones Folded starts the zones folded in a report tall enough for them; the view's chart settings reach the chart", async ({ page }) => {
     const errors = collectErrors(page);
-    // -Height 560px without -Zones: the zones start folded under "Fields in the report"
-    await openPage(page, "/pivot/");
-    const german = page.locator('[data-example="pivot-report-in-german"] .pk-root');
-    await expect(german.locator("[data-testid=layout-summary]")).toHaveAttribute("aria-expanded", "false");
-    // -Height 560px with -Zones Open
     await openPage(page, "/pivot/views/");
     const report = page.locator('[data-example="chart-settings-in-a-view"] .pk-root');
-    expect((await report.boundingBox()).height).toBeLessThan(600);
-    await expect(report.locator("[data-testid=layout-summary]")).toHaveAttribute("aria-expanded", "true");
+    expect((await report.boundingBox()).height).toBeGreaterThanOrEqual(820);
+    const fold = report.locator("[data-testid=layout-summary]");
+    await expect(fold).toHaveAttribute("aria-expanded", "false");
+    await expect(report.getByRole("region", { name: "Columns" })).toBeHidden();
+    // the reader can still open them
+    await fold.click();
+    await expect(fold).toHaveAttribute("aria-expanded", "true");
     await expect(report.getByRole("region", { name: "Columns" })).toContainText("Team");
-    // the reader can still fold them
-    await report.locator("[data-testid=layout-summary]").click();
-    await expect(report.locator("[data-testid=layout-summary]")).toHaveAttribute("aria-expanded", "false");
     // the start view opens the chart as stacked bars with the average as a reference line
     await expect(report.locator("[data-testid=pivot-chart] canvas")).toBeVisible();
     await expectChartType(report, "stacked");

@@ -460,15 +460,15 @@ $endoflife = 'Release data by [endoflife.date](https://endoflife.date/), MIT lic
             }
         }
     }
-    @{ Section = 'Pivot'; Title = 'Chart settings in a view'; Text = 'A start view that opens the chart: lead hours per month and team as stacked bars, Network in a fixed colour, the average as a reference line, and every team with its share in the tooltip. -Zones Open keeps the zones open although the report is lower than 600 pixels. Chart settings next to the Chart tab changes all of it; Undo takes each step back.'; Code = {
+    @{ Section = 'Pivot'; Title = 'Chart settings in a view'; Text = 'A start view that opens the chart: lead hours per month and team as stacked bars, Network in a fixed colour, the average as a reference line, and every team with its share in the tooltip. -Zones Folded starts the zones folded under Fields in the report, so the chart gets the room; the heading opens them. Chart settings next to the Chart tab changes all of it; Undo takes each step back.'; Code = {
             $rng = [System.Random]::new(21)
             $rows = foreach ($i in 1..900) {
                 [pscustomobject]@{ Ticket = $i; Month = ([datetime]'2026-01-01').AddMonths($rng.Next(0, 10)).ToString('yyyy-MM'); Team = ('Service Desk', 'Network', 'Server')[$rng.Next(0, 3)]; 'Lead hours' = [math]::Round(2 + 30 * $rng.NextDouble(), 1) }
             }
-            New-UDPivotReport -Id 'pivot-chart-settings' -Data $rows -Height 560px -Zones Open -TimeZone UTC -View @{
+            New-UDPivotReport -Id 'pivot-chart-settings' -Data $rows -Height 860px -Zones Folded -TimeZone UTC -View @{
                 rows = @('Month'); cols = @('Team'); values = @(@{ field = 'Lead hours'; agg = 'sum'; format = 'number:0' })
                 display = 'chart'
-                chart = @{ type = 'bar'; stacked = $true; referenceLines = @{ average = $true }; colors = @(@{ name = 'Network'; color = '#2e7d32' }); tooltip = 'axis'; tooltipShare = $true }
+                chart = @{ type = 'bar'; stacked = $true; referenceLines = @{ average = $true }; colors = @(@{ name = 'Network'; color = '#7b1fa2' }); tooltip = 'axis'; tooltipShare = $true }
             }
         }
     }
