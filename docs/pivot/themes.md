@@ -100,8 +100,8 @@ property used when the first one is not set; without either the default applies.
 | `--psu-pivot-accent-soft` | 12 % (dark 18 %) of the corporate accent over the surface | badges, opened buttons, focused inputs | `#e3effb` | `#1b2a38` |
 | `--psu-pivot-drop` | 18 % (dark 32 %) of the corporate accent over the surface | a zone while a field is dragged over it | `#d6e7f9` | `#1e3a55` |
 | `--psu-pivot-note` | 7 % (dark 10 %) of the corporate accent over the surface | notes and hints | `#eef5fc` | `#16212c` |
-| `--psu-pivot-surface` | - | background of the report | `#ffffff` | `#121212` |
-| `--psu-pivot-surface-2` | - | zones, table headers, the field list's panel | `#f5f6f8` | `#1a1a1a` |
+| `--psu-pivot-surface` | - | background of the report and of the zones | `#ffffff` | `#121212` |
+| `--psu-pivot-surface-2` | - | the zones' section, table headers, the field list's panel | `#f5f6f8` | `#1a1a1a` |
 | `--psu-pivot-surface-3` | - | hovered controls, the Table/Chart switch | `#eaecef` | `#262626` |
 | `--psu-pivot-surface-raised` | - | menus, popovers, the drill-down table, chart tooltips | `#ffffff` | `#1f1f1f` |
 | `--psu-pivot-border-strong` | - | frame of a zone, hovered buttons and chips, the switch track, the grand-total line, scroll bars | `#c4c4c4` | `#474747` |

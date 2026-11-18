@@ -18,8 +18,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
     - Each zone has a frame and is a little taller. Adding a field no longer moves the other zones.
     - The Filters hint is shorter: "Add or drop a field to filter".
     - Folding the field list to its rail gives the zones the freed width.
-- pivotkit 0.8.1 adds theme tokens for the zone frames, the tabs, the buttons and the primary
-  buttons. The module's PSU theme needs no new properties for them: they take PSU's colours from
+- pivotkit 0.8.1 adds theme tokens for the zone frames, the tabs, the icon buttons, the buttons
+  and the primary buttons. The module's PSU theme needs no new properties for them: they take PSU's colours from
   the tokens it already sets. The zone frames use the colour of `--psu-pivot-border-strong`.
 
 ## [0.7.1] - 2026-11-18
