@@ -71,7 +71,7 @@ templates: [Templates, view files and roles](templates.md).
   `Referer` header ([the `$schema` of a view file](templates.md#the-schema-of-a-view-file-schemaurl)).
   A reader controls these headers. A view the reader saves can then name another host in `$schema`.
   The module takes only a plain http or https origin, and nothing in pivotkit fetches it. To use no
-  header at all, pass an https address or set it as the default.
+  header at all, set the default to an https address.
 - `-Schema` with a URL is fetched by the server (https only, 15 seconds, at most 1 MB), never by the
   browser; pass only addresses you trust, never one a reader typed. `-ChartOptions` is plain JSON:
   pivotkit drops options that are markup or addresses.

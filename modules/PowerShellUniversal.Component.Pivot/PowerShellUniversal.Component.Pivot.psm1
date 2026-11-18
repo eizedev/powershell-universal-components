@@ -703,15 +703,16 @@ $Script:KnownViewFileVersions = @(1, 2)
 # the $schema a view file names (-SchemaUrl, or the module-wide default below): an https address, a
 # path on the instance (/assets/pivot/schema/view-file-2.json: the browser puts its origin in front, a
 # writer on the server the origin of the request), or '' for none. One check for every command (#110).
-# The default is an environment variable, as the module's other defaults ($env:TZ,
-# $env:Data__RepositoryPath): set once for the PSU process, it reaches the page, the event handlers'
-# runspaces and every job.
+# The default is an environment variable of the PSU process: set once, it reaches the page, the event
+# handlers' runspaces and every job. The module already reads the host's environment for defaults
+# ($env:TZ, $env:Data__RepositoryPath); this is the first variable of its own.
 $Script:SchemaUrlDefaultVariable = 'PSU_COMPONENT_PIVOT_SCHEMA_URL'
 $Script:MaxSchemaUrlLength = 2000
 $Script:SchemaUrlExample = '/assets/pivot/schema/view-file-2.json'
-# an https address without user name or password, or a path that starts with one "/" (never "//" or
-# "/\", which a browser reads as another host)
-$Script:SchemaUrlPattern = '^(https://[^\s/?#@\\]+([/?#]\S*)?|/(?![/\\])\S*)$'
+# an https address without user name or password (the scheme in any case), or a path that starts with
+# one "/" (never "//" or "/\", which a browser reads as another host). The browser keeps the same rule
+# in Components/prepare.js (schemaUrlOf).
+$Script:SchemaUrlPattern = '^((?i:https)://[^\s/?#@\\]+([/?#]\S*)?|/(?![/\\])\S*)$'
 # an address a request names (Origin, the page address, Referer): http or https, a host and a port
 $Script:RequestAddressPattern = '^https?://(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+)(:\d{1,5})?([/?#]\S*)?$'
 # the headers that carry the address the reader's browser used, in this order: an event's Origin, the
@@ -896,9 +897,10 @@ function Resolve-UDPivotSchemaUrl {
         The $schema a writer on the server puts into a view file: a path on the instance with an origin
         in front, anything else as it is.
     .DESCRIPTION
-        A path takes the origin of the request (Get-UDPivotRequestOrigin); without a request (a
-        scheduled job) the origin of PSU_COMPONENT_PIVOT_SCHEMA_URL when that is an https address.
-        With neither it stops: a $schema without an origin names no file anywhere.
+        A path takes the origin of PSU_COMPONENT_PIVOT_SCHEMA_URL when that is an https address: the
+        address the platform names, also behind a proxy. Otherwise it takes the origin of the request
+        (Get-UDPivotRequestOrigin). With neither (a scheduled job) it stops: a $schema without an
+        origin names no file anywhere.
     .PARAMETER SchemaUrl
         A value of Get-UDPivotSchemaUrl.
     .PARAMETER Headers
@@ -912,11 +914,10 @@ function Resolve-UDPivotSchemaUrl {
     [OutputType([string])]
     param([AllowNull()][AllowEmptyString()][string]$SchemaUrl, [AllowNull()][object]$Headers)
     if (-not $SchemaUrl -or -not $SchemaUrl.StartsWith('/')) { return $SchemaUrl }
-    $origin = Get-UDPivotRequestOrigin -Headers $Headers
-    if (-not $origin) {
-        $default = Get-UDPivotSchemaUrl
-        if ($default -and $default.StartsWith('https://')) { $origin = ([uri]$default).GetLeftPart([System.UriPartial]::Authority) }
-    }
+    $origin = $null
+    $default = Get-UDPivotSchemaUrl
+    if ($default -and -not $default.StartsWith('/')) { $origin = ([uri]$default).GetLeftPart([System.UriPartial]::Authority) }
+    if (-not $origin) { $origin = Get-UDPivotRequestOrigin -Headers $Headers }
     if (-not $origin) {
         throw ('-SchemaUrl "{0}": a path needs the address of a request, and there is none here. Set {1} to an https address, or pass -SchemaUrl as one.' -f $SchemaUrl, $Script:SchemaUrlDefaultVariable)
     }
@@ -1024,9 +1025,9 @@ function ConvertTo-UDPivotViewFile {
         a view of version 2 (what the report sends), 1 for a view of version 1 or without a version, so
         a pivotkit that reads only format 1 still loads the file of an older view.
 
-        A path in -SchemaUrl gets the origin the reader's browser used ($Headers of the page, event or
-        API endpoint that calls it: Origin, the page address, Referer). Without a request it takes the
-        origin of PSU_COMPONENT_PIVOT_SCHEMA_URL when that is an https address, and stops otherwise.
+        A path in -SchemaUrl gets the origin of PSU_COMPONENT_PIVOT_SCHEMA_URL when that is an https
+        address. Otherwise it gets the origin the reader's browser used: $Headers of the page, event or
+        API endpoint that calls this function (Origin, the page address, Referer). With neither it stops.
     .PARAMETER View
         The view (JSON text, a hashtable or an object).
     .PARAMETER Name
@@ -1602,6 +1603,7 @@ function Register-UDPivotTemplateStore {
     param([Parameter(Mandatory)][hashtable]$Settings)
     # the same report with the same settings gets the same key on every render; the entry is replaced,
     # so the latest store object (its script blocks) is the one the handlers use
+    # (the page's origin, SchemaOrigin, is kept in the entry only: a request header never makes a new key)
     $identity = [ordered]@{
         App        = $Settings.App
         Report     = $Settings.Report
@@ -1612,7 +1614,6 @@ function Register-UDPivotTemplateStore {
         SourceId   = $Settings.SourceId
         SourceName = $Settings.SourceName
         SchemaUrl  = $Settings.SchemaUrl
-        Origin     = $Settings.SchemaOrigin
     }
     $key = Get-UDPivotSha256 -Text (ConvertTo-Json -InputObject $identity -Compress) -Length 32
     $registry = Get-UDPivotStoreRegistry
@@ -1840,7 +1841,7 @@ function New-UDPivotReport {
     .PARAMETER SchemaUrl
         The $schema of the view files the report writes: an https address of your own copy, a path on
         PSU such as /assets/pivot/schema/view-file-2.json (the browser writes it with the address the
-        reader used, the template store with the page's), or '' to leave it out. Default: the
+        reader used, the template store as ConvertTo-UDPivotViewFile does), or '' to leave it out. Default: the
         environment variable PSU_COMPONENT_PIVOT_SCHEMA_URL, else pivotkit's published schema. Loading
         never depends on it.
     .PARAMETER FieldDefaults

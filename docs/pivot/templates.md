@@ -162,15 +162,18 @@ In `New-UDPivotReport` the page then stays empty, and PSU shows that error.
 A path becomes an address when a view file is written:
 
 - In the browser (Download view, Copy view as JSON), the report puts the page's origin in front. The
-  file names the address the reader used.
-- On the server (the template stores, `ConvertTo-UDPivotViewFile`), the module takes the origin from
-  the request. It reads the headers the browser sent: `Origin`, else the page address, else `Referer`.
-  PSU passes them to pages, event handlers and API endpoints.
-- Without a request, for example in a scheduled job, a path takes the origin of the module-wide
-  default when that is an https address. Otherwise the command stops with an error.
+  file names the address the reader used. A page without a usable origin writes pivotkit's address.
+- On the server (the template stores, `ConvertTo-UDPivotViewFile`), the module takes the origin of
+  the [module-wide default](#one-default-for-every-report-psu_component_pivot_schema_url) when that is
+  an https address.
+- Otherwise the server takes the origin from the request. It reads the headers the browser sent:
+  `Origin`, else the page address, else `Referer`. PSU passes them to pages, event handlers and API
+  endpoints.
+- Without either, for example in a scheduled job, the command stops with an error.
 
 The request must carry the address your users see. Behind a reverse proxy that rewrites these
-headers, set the module-wide default to the full https address.
+headers, set the module-wide default to the full https address. The server then uses its origin for
+every path.
 
 ```powershell
 New-UDPivotReport -Id 'tickets' -Data $tickets -SchemaUrl '/assets/pivot/schema/view-file-2.json'
@@ -211,7 +214,7 @@ validator fetches only your copy.
 
     ```powershell
     # the module as installed in the repository's Modules folder
-    New-PSUPublishedFolder -Name 'Pivot schema' -RequestPath '/assets/pivot/schema' -Path '<repository>/Modules/PowerShellUniversal.Component.Pivot/0.7.1/schema'
+    New-PSUPublishedFolder -Name 'Pivot schema' -RequestPath '/assets/pivot/schema' -Path '<repository>/Modules/PowerShellUniversal.Component.Pivot/<version>/schema'
     ```
 
     The module's folder carries its version in the path. Point the published folder at the new

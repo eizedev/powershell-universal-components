@@ -92,6 +92,7 @@ test("schemaUrlOf: a path on the instance gets the page's origin; what the serve
     assert.equal(mod.schemaUrlOf("relative/view-file-2.json", "https://psu.example.com"), undefined);
     // absolute https addresses and '' as before
     assert.equal(mod.schemaUrlOf("https://example.org/view-file-2.json", "https://psu.example.com"), "https://example.org/view-file-2.json");
+    assert.equal(mod.schemaUrlOf("HTTPS://example.org/view-file-2.json", "https://psu.example.com"), "HTTPS://example.org/view-file-2.json");
     assert.equal(mod.schemaUrlOf("", "https://psu.example.com"), null);
 });
 

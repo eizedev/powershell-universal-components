@@ -306,14 +306,15 @@ export function sourceOf(source) {
 /*
  * -SchemaUrl: undefined (pivotkit's default), null for '' (no $schema), else the address. A path on the
  * instance (/assets/pivot/schema/view-file-2.json) gets the page's origin, so a downloaded view names
- * the address the reader used. The server checks the value (Get-UDPivotSchemaUrl); what it would refuse
- * - another scheme, "//host", "/\host", a path without an origin - falls back to pivotkit's default.
+ * the address the reader used. The server checks the value with the same rule ($Script:SchemaUrlPattern,
+ * Get-UDPivotSchemaUrl). What it would refuse falls back to pivotkit's default: another scheme,
+ * "//host", "/\host", or a path on a page without a usable origin.
  */
 export function schemaUrlOf(value, origin = globalThis.location?.origin) {
     if (value === undefined || value === null) return undefined;
     const text = String(value).trim();
     if (!text) return null;
-    if (/^https:\/\/[^\s/?#@\\]+([/?#]\S*)?$/.test(text)) return text;
+    if (/^https:\/\/[^\s/?#@\\]+([/?#]\S*)?$/i.test(text)) return text;
     if (!/^\/(?![/\\])\S*$/.test(text) || typeof origin !== "string" || !/^https?:\/\/[^\s/?#@\\]+$/.test(origin)) return undefined;
     const address = new URL(text, origin);
     // the same text the server writes (Resolve-UDPivotSchemaUrl): the origin, then the path as given

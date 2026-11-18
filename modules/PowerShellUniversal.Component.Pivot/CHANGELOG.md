@@ -10,11 +10,12 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 ### Added
 
 - `-SchemaUrl` takes a path on the PSU server, such as `/assets/pivot/schema/view-file-2.json`. One
-  value fits every instance, a local one on `http://localhost` included. The browser writes it with
-  the page's origin. The template stores and `ConvertTo-UDPivotViewFile` take the origin of the
-  request (`Origin`, the page address, `Referer`). Without a request they take it from an https
-  default, and stop otherwise
+  value fits every instance, a local one on `http://localhost` included
   ([#138](https://github.com/eizedev/powershell-universal-components/issues/138)).
+    - The browser writes the path with the page's origin.
+    - The template stores and `ConvertTo-UDPivotViewFile` take the origin of an https default.
+    - Without one, they take the origin of the request (`Origin`, the page address, `Referer`).
+    - Without either, they stop with an error.
 - A module-wide default for `-SchemaUrl`: the environment variable `PSU_COMPONENT_PIVOT_SCHEMA_URL`
   of the PSU process. An explicit `-SchemaUrl` still wins, `''` included.
 - The module ships pivotkit-core's `view-file-1.json`, `view-file-2.json` and `view-2.json` in its
@@ -25,12 +26,13 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 - `New-UDPivotReport`, `ConvertTo-UDPivotViewFile` and the template stores check `-SchemaUrl` the
   same way: `''`, an https address or a path; no spaces, at most 2,000 characters, no user name or
-  password. `ConvertTo-UDPivotViewFile` and the stores took any text before; an `http://` address or
-  another value now stops them with an error. The error text is new in all of them
-  ([#110](https://github.com/eizedev/powershell-universal-components/issues/110)).
+  password. The scheme may be in any case. `ConvertTo-UDPivotViewFile` and the stores took any text
+  before: an `http://` address or another value now stops them with an error. The error text is new
+  in all of them ([#110](https://github.com/eizedev/powershell-universal-components/issues/110)).
 - An address of your own names the schema of the current format (view file format 2). A file of
   format 1 keeps pivotkit's `view-file-1.json` address, so it never names the schema of another
-  format ([#110](https://github.com/eizedev/powershell-universal-components/issues/110)).
+  format. An address of your own for format 1 is no longer possible
+  ([#110](https://github.com/eizedev/powershell-universal-components/issues/110)).
 
 ## [0.7.0] - 2026-11-18
 

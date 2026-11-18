@@ -782,11 +782,16 @@ Describe '-SchemaUrl: one check, a path on the instance, the module-wide default
         (ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' -SchemaUrl $script:path | ConvertFrom-Json).'$schema' | Should -BeExactly "https://api.example.com$($script:path)"
     }
 
-    It 'an absolute default gives the origin where the request has none; a path given explicitly follows the request' {
+    It 'an https default gives a path its origin, before the request: the address the platform names, also behind a proxy' {
         [Environment]::SetEnvironmentVariable($script:defaultName, 'https://psu.example.com/assets/pivot/schema/view-file-2.json')
         (ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' -SchemaUrl '/own/view-file-2.json' | ConvertFrom-Json).'$schema' | Should -BeExactly 'https://psu.example.com/own/view-file-2.json'
-        Set-Variable -Name Headers -Value (& $script:headersOf @{ Origin = 'http://localhost:5000' })
-        (ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' -SchemaUrl '/own/view-file-2.json' | ConvertFrom-Json).'$schema' | Should -BeExactly 'http://localhost:5000/own/view-file-2.json'
+        Set-Variable -Name Headers -Value (& $script:headersOf @{ Origin = 'http://internal:5000' })
+        (ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' -SchemaUrl '/own/view-file-2.json' | ConvertFrom-Json).'$schema' | Should -BeExactly 'https://psu.example.com/own/view-file-2.json'
+    }
+
+    It 'takes the https scheme in any case, as New-UDPivotReport did before' {
+        (New-UDPivotReport -Data $script:rows -SchemaUrl 'HTTPS://reports.example.com/s.json').schemaUrl | Should -BeExactly 'HTTPS://reports.example.com/s.json'
+        (ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' -SchemaUrl 'Https://reports.example.com/s.json' | ConvertFrom-Json).'$schema' | Should -BeExactly 'Https://reports.example.com/s.json'
     }
 
     It 'a path without a request and without an absolute default is an error, never a $schema without origin' {
