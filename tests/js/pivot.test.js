@@ -79,6 +79,23 @@ test("mergeTemplates: saved views appended or replacing deletable ones of their 
     assert.deepEqual(mod.mergeTemplates(server, saved, new Set([mod.templateKey("shared", "Built-in")])).map((t) => `${t.scope}:${t.name}`), ["user:Mine", "user:Built-in", "user:New"]);
 });
 
+test("schemaUrlOf: a path on the instance gets the page's origin; what the server would refuse is pivotkit's default (#138)", () => {
+    const path = "/assets/pivot/schema/view-file-2.json";
+    assert.equal(mod.schemaUrlOf(path, "https://psu.example.com"), "https://psu.example.com/assets/pivot/schema/view-file-2.json");
+    assert.equal(mod.schemaUrlOf(path, "http://localhost:5000"), "http://localhost:5000/assets/pivot/schema/view-file-2.json");
+    // never another host: a protocol-relative or backslash path, and no origin at all
+    assert.equal(mod.schemaUrlOf("//evil.example/s.json", "https://psu.example.com"), undefined);
+    assert.equal(mod.schemaUrlOf("/\\evil.example/s.json", "https://psu.example.com"), undefined);
+    assert.equal(mod.schemaUrlOf(path, "null"), undefined);
+    assert.equal(mod.schemaUrlOf(path, undefined), undefined);
+    assert.equal(mod.schemaUrlOf("javascript:alert(1)", "https://psu.example.com"), undefined);
+    assert.equal(mod.schemaUrlOf("relative/view-file-2.json", "https://psu.example.com"), undefined);
+    // absolute https addresses and '' as before
+    assert.equal(mod.schemaUrlOf("https://example.org/view-file-2.json", "https://psu.example.com"), "https://example.org/view-file-2.json");
+    assert.equal(mod.schemaUrlOf("HTTPS://example.org/view-file-2.json", "https://psu.example.com"), "HTTPS://example.org/view-file-2.json");
+    assert.equal(mod.schemaUrlOf("", "https://psu.example.com"), null);
+});
+
 test("sourceOf, schemaUrlOf, fieldListOf: the props of -SourceId, -SourceName, -SchemaUrl and -FieldList", () => {
     assert.deepEqual(mod.sourceOf({ id: " tickets ", name: "Tickets" }), { id: "tickets", name: "Tickets" });
     assert.deepEqual(mod.sourceOf({ id: "tickets", name: "" }), { id: "tickets" });

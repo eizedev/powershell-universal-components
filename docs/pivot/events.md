@@ -67,6 +67,11 @@ templates: [Templates, view files and roles](templates.md).
 - Views are data. The report checks them against the data and runs nothing from them; formats are
   names, not code. The table and the drill-down show values as text, never as HTML, and so are field
   labels and descriptions; a description's link must be `https://`.
+- A `-SchemaUrl` path gets its origin on the server from the request's `Origin`, page address or
+  `Referer` header ([the `$schema` of a view file](templates.md#the-schema-of-a-view-file-schemaurl)).
+  A reader controls these headers. A view the reader saves can then name another host in `$schema`.
+  The module takes only a plain http or https origin, and nothing in pivotkit fetches it. To use no
+  header at all, set the default to an https address.
 - `-Schema` with a URL is fetched by the server (https only, 15 seconds, at most 1 MB), never by the
   browser; pass only addresses you trust, never one a reader typed. `-ChartOptions` is plain JSON:
   pivotkit drops options that are markup or addresses.

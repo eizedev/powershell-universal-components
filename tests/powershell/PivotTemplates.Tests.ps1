@@ -706,3 +706,147 @@ Describe 'How ids and names are built (docs/pivot/templates.md#ids)' {
         foreach ($name in $names) { $script:idsDoc | Should -Match ([regex]::Escape($name)) }
     }
 }
+
+Describe '-SchemaUrl: one check, a path on the instance, the module-wide default (#138, #110)' {
+    BeforeAll {
+        $script:path = '/assets/pivot/schema/view-file-2.json'
+        $script:v2 = @{ version = 2; rows = @('Team') }
+        # the request data PSU gives an app (measured on PSU 2026.3.4: a case-sensitive Dictionary;
+        # the page's render has windowLocation and Referer, an event handler Origin and Referer)
+        # set with Set-Variable: the commands read $Headers of their caller, as PSU defines it
+        $script:headersOf = {
+            param([hashtable]$Values)
+            $d = [System.Collections.Generic.Dictionary[string, string]]::new()
+            foreach ($k in $Values.Keys) { $d[$k] = $Values[$k] }
+            , $d
+        }
+        $script:defaultName = 'PSU_COMPONENT_PIVOT_SCHEMA_URL'
+    }
+    BeforeEach {
+        $script:savedDefault = [Environment]::GetEnvironmentVariable($script:defaultName)
+        [Environment]::SetEnvironmentVariable($script:defaultName, $null)
+    }
+    AfterEach { [Environment]::SetEnvironmentVariable($script:defaultName, $script:savedDefault) }
+
+    It 'every command takes the same values: '''', an https address or a path on the instance' {
+        Set-Variable -Name Headers -Value (& $script:headersOf @{ Origin = 'https://psu.example.com' })
+        foreach ($good in '', 'https://reports.example.com/schema/view-file-2.json', $script:path) {
+            { New-UDPivotReport -Data $script:rows -SchemaUrl $good } | Should -Not -Throw -Because $good
+            { ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' -SchemaUrl $good } | Should -Not -Throw -Because $good
+        }
+    }
+
+    It 'every command refuses the same values with the same message' {
+        Set-Variable -Name Headers -Value (& $script:headersOf @{ Origin = 'https://psu.example.com' })
+        $bad = @('http://example.org/s.json', 'javascript:alert(1)', '//evil.example/s.json', '/\evil.example/s.json', 'schema/view-file-2.json',
+            '/a b.json', "/a`nb.json", 'https://user:secret@example.org/s.json', ('https://example.org/' + ('a' * 2000)), ' ')
+        foreach ($value in $bad) {
+            { New-UDPivotReport -Data $script:rows -SchemaUrl $value } | Should -Throw '*SchemaUrl*an https address, a path such as /assets/*' -Because $value
+            { ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' -SchemaUrl $value } | Should -Throw '*SchemaUrl*an https address, a path such as /assets/*' -Because $value
+            { & $script:module { param($v) Invoke-UDPivotTemplateStore -Store (New-UDPivotFileTemplateStore -Path ([System.IO.Path]::GetTempPath())) -Action List -Scope shared -SchemaUrl $v } $value } |
+                Should -Throw '*SchemaUrl*an https address, a path such as /assets/*' -Because $value
+        }
+    }
+
+    It 'New-UDPivotReport sends a path as it is: the browser puts its own origin in front' {
+        (New-UDPivotReport -Data $script:rows -SchemaUrl $script:path).schemaUrl | Should -BeExactly $script:path
+    }
+
+    It 'the module-wide default PSU_COMPONENT_PIVOT_SCHEMA_URL applies without -SchemaUrl; -SchemaUrl wins, also an empty one' {
+        [Environment]::SetEnvironmentVariable($script:defaultName, 'https://psu.example.com/assets/pivot/schema/view-file-2.json')
+        (New-UDPivotReport -Data $script:rows).schemaUrl | Should -BeExactly 'https://psu.example.com/assets/pivot/schema/view-file-2.json'
+        (ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' | ConvertFrom-Json).'$schema' | Should -BeExactly 'https://psu.example.com/assets/pivot/schema/view-file-2.json'
+        (New-UDPivotReport -Data $script:rows -SchemaUrl '').schemaUrl | Should -BeExactly ''
+        ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' -SchemaUrl '' | Should -Not -Match '\$schema'
+        (New-UDPivotReport -Data $script:rows -SchemaUrl 'https://other.example.com/s.json').schemaUrl | Should -BeExactly 'https://other.example.com/s.json'
+        # a path as the default goes to the browser as it is
+        [Environment]::SetEnvironmentVariable($script:defaultName, $script:path)
+        (New-UDPivotReport -Data $script:rows).schemaUrl | Should -BeExactly $script:path
+    }
+
+    It 'a default that does not pass the check stops with the name of the variable' {
+        [Environment]::SetEnvironmentVariable($script:defaultName, 'http://psu.example.com/s.json')
+        { New-UDPivotReport -Data $script:rows } | Should -Throw '*PSU_COMPONENT_PIVOT_SCHEMA_URL*'
+        { ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' } | Should -Throw '*PSU_COMPONENT_PIVOT_SCHEMA_URL*'
+    }
+
+    It 'ConvertTo-UDPivotViewFile writes a path with the address of the request: Origin, else the page address, else Referer' {
+        Set-Variable -Name Headers -Value (& $script:headersOf @{ Origin = 'https://psu.example.com'; Host = 'internal:5000' })
+        (ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' -SchemaUrl $script:path | ConvertFrom-Json).'$schema' | Should -BeExactly "https://psu.example.com$($script:path)"
+        Set-Variable -Name Headers -Value (& $script:headersOf @{ windowLocation = 'https://psu.example.com:8443/app/Home?x=1#pivot-a=b'; Referer = 'https://other.example.com/' })
+        (ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' -SchemaUrl $script:path | ConvertFrom-Json).'$schema' | Should -BeExactly "https://psu.example.com:8443$($script:path)"
+        Set-Variable -Name Headers -Value (& $script:headersOf @{ referer = 'http://localhost:5000/app/Home' })
+        (ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' -SchemaUrl $script:path | ConvertFrom-Json).'$schema' | Should -BeExactly "http://localhost:5000$($script:path)"
+        # an API endpoint's headers are a hashtable
+        Set-Variable -Name Headers -Value (@{ origin = 'https://api.example.com' })
+        (ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' -SchemaUrl $script:path | ConvertFrom-Json).'$schema' | Should -BeExactly "https://api.example.com$($script:path)"
+    }
+
+    It 'an https default gives a path its origin, before the request: the address the platform names, also behind a proxy' {
+        [Environment]::SetEnvironmentVariable($script:defaultName, 'https://psu.example.com/assets/pivot/schema/view-file-2.json')
+        (ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' -SchemaUrl '/own/view-file-2.json' | ConvertFrom-Json).'$schema' | Should -BeExactly 'https://psu.example.com/own/view-file-2.json'
+        Set-Variable -Name Headers -Value (& $script:headersOf @{ Origin = 'http://internal:5000' })
+        (ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' -SchemaUrl '/own/view-file-2.json' | ConvertFrom-Json).'$schema' | Should -BeExactly 'https://psu.example.com/own/view-file-2.json'
+    }
+
+    It 'takes the https scheme in any case, as New-UDPivotReport did before' {
+        (New-UDPivotReport -Data $script:rows -SchemaUrl 'HTTPS://reports.example.com/s.json').schemaUrl | Should -BeExactly 'HTTPS://reports.example.com/s.json'
+        (ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' -SchemaUrl 'Https://reports.example.com/s.json' | ConvertFrom-Json).'$schema' | Should -BeExactly 'Https://reports.example.com/s.json'
+    }
+
+    It 'a path without a request and without an absolute default is an error, never a $schema without origin' {
+        { ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' -SchemaUrl $script:path } | Should -Throw '*SchemaUrl*PSU_COMPONENT_PIVOT_SCHEMA_URL*'
+        [Environment]::SetEnvironmentVariable($script:defaultName, $script:path)
+        { ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' } | Should -Throw '*SchemaUrl*PSU_COMPONENT_PIVOT_SCHEMA_URL*'
+    }
+
+    It 'never takes an origin from a header that is no plain http or https address' {
+        foreach ($value in 'javascript:alert(1)', 'https://user:pw@evil.example', 'ftp://example.org', 'https://exa mple.org', 'null', 'https://example.org\@evil') {
+            Set-Variable -Name Headers -Value (& $script:headersOf @{ Origin = $value })
+            { ConvertTo-UDPivotViewFile -View $script:v2 -Name 'X' -SchemaUrl $script:path } | Should -Throw '*SchemaUrl*' -Because $value
+        }
+    }
+
+    It 'the template store writes a path with the origin of the event''s request, else of an https default' {
+        $folder = & $script:newFolder
+        try {
+            $store = New-UDPivotFileTemplateStore -Path $folder
+            $c = New-UDPivotReport -Id 'r' -Data $script:rows -TemplateStore $store -AdminRole 'Admin' -UserName 'boss' -Roles 'Admin' -SchemaUrl $script:path
+            $c.schemaUrl | Should -BeExactly $script:path
+            $key = & $script:keyOf $c.onPublishTemplate
+            $read = { Get-ChildItem -LiteralPath (Join-Path $folder 'shared') -File | Get-Content -Raw | ConvertFrom-Json }
+            # the handler runs with the headers of the event (PSU sends Origin with it)
+            Set-Variable -Name Headers -Value (& $script:headersOf @{ Origin = 'https://psu.example.com'; Host = 'internal:5000' })
+            Invoke-UDPivotTemplateRequest -Key $key -Action Publish -EventData @{ name = 'Hosted'; view = $script:v2 } -UserName 'boss' -Roles 'Admin' | Should -BeNullOrEmpty
+            (& $read).'$schema' | Should -BeExactly "https://psu.example.com$($script:path)"
+            # an https default wins over the request: the address the platform names
+            [Environment]::SetEnvironmentVariable($script:defaultName, 'https://reports.example.com/assets/pivot/schema/view-file-2.json')
+            Invoke-UDPivotTemplateRequest -Key $key -Action Publish -EventData @{ name = 'Hosted'; view = $script:v2 } -UserName 'boss' -Roles 'Admin' | Should -BeNullOrEmpty
+            (& $read).'$schema' | Should -BeExactly "https://reports.example.com$($script:path)"
+            # neither: the reader sees why nothing was saved
+            [Environment]::SetEnvironmentVariable($script:defaultName, $null)
+            Remove-Variable -Name Headers
+            (Invoke-UDPivotTemplateRequest -Key $key -Action Publish -EventData @{ name = 'Hosted'; view = $script:v2 } -UserName 'boss' -Roles 'Admin').error | Should -BeLike '*SchemaUrl*'
+        }
+        finally { Remove-Item -LiteralPath $folder -Recurse -Force -ErrorAction Ignore }
+    }
+
+    It 'the store''s key does not depend on the request: two renders from two addresses share one entry' {
+        $store = New-UDPivotFileTemplateStore -Path (& $script:newFolder)
+        Set-Variable -Name Headers -Value (& $script:headersOf @{ windowLocation = 'https://a.example.com/app' })
+        $first = New-UDPivotReport -Id 'r' -Data $script:rows -TemplateStore $store -AdminRole 'Admin' -UserName 'boss' -Roles 'Admin' -SchemaUrl $script:path
+        Set-Variable -Name Headers -Value (& $script:headersOf @{ windowLocation = 'https://b.example.com/app' })
+        $second = New-UDPivotReport -Id 'r' -Data $script:rows -TemplateStore $store -AdminRole 'Admin' -UserName 'boss' -Roles 'Admin' -SchemaUrl $script:path
+        (& $script:keyOf $second.onPublishTemplate) | Should -Be (& $script:keyOf $first.onPublishTemplate)
+    }
+
+    It 'a custom address names the current format only: a file of format 1 keeps pivotkit''s view-file-1 address (#110)' {
+        $file = ConvertTo-UDPivotViewFile -View @{ rows = @('Team') } -Name 'Old' -SchemaUrl 'https://reports.example.com/schema/view-file-2.json' | ConvertFrom-Json
+        $file.formatVersion | Should -Be 1
+        $file.'$schema' | Should -BeExactly 'https://pivotkit.eize.dev/schema/view-file-1.json'
+        [Environment]::SetEnvironmentVariable($script:defaultName, 'https://psu.example.com/assets/pivot/schema/view-file-2.json')
+        (ConvertTo-UDPivotViewFile -View @{ rows = @('Team') } -Name 'Old' | ConvertFrom-Json).'$schema' | Should -BeExactly 'https://pivotkit.eize.dev/schema/view-file-1.json'
+        # '' leaves $schema out in every format
+        ConvertTo-UDPivotViewFile -View @{ rows = @('Team') } -Name 'Old' -SchemaUrl '' | Should -Not -Match '\$schema'
+    }
+}

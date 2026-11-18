@@ -5,6 +5,36 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-18
+
+### Added
+
+- `-SchemaUrl` takes a path on the PSU server, such as `/assets/pivot/schema/view-file-2.json`. One
+  value fits every instance, a local one on `http://localhost` included
+  ([#138](https://github.com/eizedev/powershell-universal-components/issues/138)).
+    - The browser writes the path with the page's origin.
+    - The template stores and `ConvertTo-UDPivotViewFile` take the origin of an https default.
+    - Without one, they take the origin of the request (`Origin`, the page address, `Referer`). A
+      template store uses the request of the save.
+    - Without either, they stop with an error.
+- A module-wide default for `-SchemaUrl`: the environment variable `PSU_COMPONENT_PIVOT_SCHEMA_URL`
+  of the PSU process. An explicit `-SchemaUrl` still wins, `''` included.
+- The module ships pivotkit-core's `view-file-1.json`, `view-file-2.json` and `view-2.json` in its
+  `schema` folder. They come from the pivotkit-core version the bundle is built from, so a host can
+  publish the matching copy.
+
+### Changed
+
+- `New-UDPivotReport`, `ConvertTo-UDPivotViewFile` and the template stores check `-SchemaUrl` the
+  same way: `''`, an https address or a path; no spaces, at most 2,000 characters, no user name or
+  password. The scheme may be in any case. `ConvertTo-UDPivotViewFile` and the stores took any text
+  before: an `http://` address or another value now stops them with an error. The error text is new
+  in all of them ([#110](https://github.com/eizedev/powershell-universal-components/issues/110)).
+- An address of your own names the schema of the current format (view file format 2). A file of
+  format 1 keeps pivotkit's `view-file-1.json` address, so it never names the schema of another
+  format ([#110](https://github.com/eizedev/powershell-universal-components/issues/110)).
+- An address of your own for a file of format 1 is no longer possible.
+
 ## [0.7.0] - 2026-11-18
 
 ### Added
