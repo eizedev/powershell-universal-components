@@ -88,7 +88,7 @@ The function copies the template into the run's temporary folder and passes it a
 the command line reads only there. pivotkit's [print template](https://pivotkit.eize.dev/reference/print-template/)
 page lists the placeholders. `pivotkit example templates` writes two templates to start from. pivotkit
 trusts a template like code: use a file of your own, never one a reader sent. With `-Engine Rest` the
-server's source decides the template, so `-Template` is refused there.
+server's source decides the template, so the function refuses `-Template` there.
 
 The columns are those of the first row. Every row's values are read by those names, so rows whose
 properties come in another order (hashtables, objects merged from two sources) stay right; a column a
@@ -147,7 +147,7 @@ Each source is an object with these properties:
 | `Link` | Whether pivotkit's links (`create_link`) work for it |
 | `Schedulable` | Whether the server drafts schedules for it |
 | `Parameters` | The values the source takes, as the server describes them (`name`, `type`, `required`, `description`, `example`) |
-| `DataMaxBytes` | The largest request this caller may send with `-Data`; empty when it may send none. The same on every source |
+| `DataMaxBytes` | The largest request this caller may send with `-Data`. Empty when it may send none. The same on every source |
 | `RequestId` | The id of the answer, for the operator |
 
 pivotkit-server 0.3.1 lists no row count and no data date per source. When the server lists no
@@ -169,12 +169,13 @@ New-UDLink -Text ('Sales report, until {0:t}' -f $link.ExpiresAt.ToLocalTime()) 
 | --- | --- |
 | `Url` | The download link |
 | `ExpiresAt` | When the link stops working, a `DateTimeOffset` in UTC |
-| `Rows` | The rows of the report's table, without the header; empty where the server withholds it |
+| `Rows` | The rows of the report's table, without the header. Empty where the server withholds it |
 | `RequestId` | The id of the answer, for the operator |
 | `Format` | xlsx, html, csv, json or svg |
 | `FileName` | The file's name for the person who opens it |
 | `Bound` | `none` (anyone with the link), `once` (one download) or `signIn` (only the person who asked) |
-| `DataAsOf`, `Message` | When the data is from; the server's sentence for the person |
+| `DataAsOf` | When the data is from |
+| `Message` | The server's sentence for the person who asked |
 
 The server decides which report gets a link ([download links](https://pivotkit.eize.dev/reference/delivery/)).
 A report over an open source always gets one. A report over a closed source, or over data sent with

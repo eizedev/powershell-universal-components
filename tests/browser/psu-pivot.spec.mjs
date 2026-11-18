@@ -669,6 +669,29 @@ test.describe("pivot showcase on PSU", () => {
         }
     });
 
+    test("--psu-pivot-type-* and --psu-pivot-tab-* from the app's stylesheet colour the field type icons and the shown tab, per PSU mode (#137)", async ({ page }) => {
+        await open(page, "tickets");
+        const report = page.locator(REPORT);
+        const icon = report.locator(".pk-type-string").first();
+        const tab = report.locator('.pk-tab[aria-selected="true"]').first();
+        await expect(icon).toBeVisible();
+        await expect(tab).toBeVisible();
+        // without the app's values: pivotkit's own type colour, and the shown tab in the accent (PSU's blue)
+        await setTheme(page, "light");
+        await expect(icon).toHaveCSS("color", "rgb(98, 80, 214)");
+        await expect(tab).toHaveCSS("color", "rgb(25, 118, 210)");
+        await page.addStyleTag({
+            content: ':root, .ud-pivot-report [data-pk-theme="light"] { --psu-pivot-type-string: #8a1538; --psu-pivot-tab-selected-text: #005500; } ' +
+                ':root[data-theme="dark"], .ud-pivot-report [data-pk-theme="dark"] { --psu-pivot-type-string: #f4a3b8; --psu-pivot-tab-selected-text: #8fd18f; }'
+        });
+        for (const [mode, type, selected] of [["light", "rgb(138, 21, 56)", "rgb(0, 85, 0)"], ["dark", "rgb(244, 163, 184)", "rgb(143, 209, 143)"]]) {
+            await setTheme(page, mode);
+            await expect(report).toHaveAttribute("data-pk-theme", mode);
+            await expect(icon).toHaveCSS("color", type);
+            await expect(tab).toHaveCSS("color", selected);
+        }
+    });
+
     test("a colour scale without colours is blue in PSU's light and dark mode; a dark app exports the light colours of the documented stylesheet", async ({ page }) => {
         // the start view with a colour scale on the count, as a reader adds it (no colours of its own), as a link
         const view = { rows: ["Team"], cols: ["Priority"], values: [{ field: "Ticket", agg: "count", conditional: { type: "colorScale" } }] };

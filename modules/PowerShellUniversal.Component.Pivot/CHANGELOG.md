@@ -29,8 +29,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   ([#141](https://github.com/eizedev/powershell-universal-components/issues/141)).
 - `$_.Exception.Data` holds `Title` and `Detail` too. Its other keys and the error ids stay.
 - `Invoke-UDPivotReport -Template` gives an HTML report of the command line a print template of your
-  own. It goes with `-Format html` and `-Engine Node`; with `-Engine Rest` the server's source decides
-  the template, so it is refused there
+  own. It goes with `-Format html` and `-Engine Node`. With `-Engine Rest` the server's source decides
+  the template, so the function refuses it there
   ([#140](https://github.com/eizedev/powershell-universal-components/issues/140)).
 - Theme properties for the field type colours: `--psu-pivot-type-string`, `--psu-pivot-type-number`,
   `--psu-pivot-type-date` and `--psu-pivot-type-boolean`. Without them the colours stay pivotkit's
@@ -42,7 +42,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Changed
 
-- The docs give both zone heights: about 130 pixels in the 2×2 grid, about 300 pixels in one column.
+- The docs give both zone heights, measured on PSU: about 150 pixels in the 2×2 grid, about 390
+  pixels in one column.
   The showcase screenshots show pivotkit 0.8's toolbar and zones
   ([#143](https://github.com/eizedev/powershell-universal-components/issues/143)).
 
