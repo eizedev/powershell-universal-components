@@ -8,7 +8,7 @@ import "pivotkit-react/styles.css";
 import "./psu.css";
 import { useNarrowWindow } from "./hooks";
 import AdminPanel from "./AdminPanel";
-import { callEndpoint, cellEvent, dataLoadEvent, exportDataLabels, exportDataOf, fieldListOf, heightOf, importLimitsOf, MAX_OPTIONS_LENGTH, MAX_SCHEMA_LENGTH, mergeFieldDefaults, mergeTemplates, parseJsonObject, parseView, readStoredView, readTemplates, restoreRows, schemaUrlOf, sourceOf, startViewOf, switchOf, templateKey, themeOf, tipsOf, VIEW_EVENT_DELAY_MS, viewStoreKey, withoutBareLink, writeLinkView, writeStoredView } from "./prepare";
+import { callEndpoint, cellEvent, dataLoadEvent, exportDataLabels, exportDataOf, fieldListOf, heightOf, importLimitsOf, MAX_OPTIONS_LENGTH, MAX_SCHEMA_LENGTH, mergeFieldDefaults, mergeTemplates, parseJsonObject, parseView, readStoredView, readTemplates, restoreRows, schemaUrlOf, sourceOf, startViewOf, switchOf, templateKey, themeOf, tipsOf, VIEW_EVENT_DELAY_MS, viewStoreKey, withoutBareLink, writeLinkView, writeStoredView, zonesOf } from "./prepare";
 import { readStartLink } from "./links";
 
 /*
@@ -341,6 +341,8 @@ export default function PsuPivotReport(props) {
                 // a loaded file's limits; the app's -Data keeps pivotkit's own
                 importLimits={props.allowImport === true ? importLimitsOf(props.importLimits) : undefined}
                 drillDown={props.drillDown !== false}
+                // -DrillDownExport: the drill-down's copy and download while Source data is off
+                drillDownExport={props.drillDownExport === true}
                 // -ExportData: Export, Source data (and with columns, the drill-down's exports keep to them)
                 exportData={exportData}
                 fieldDefaults={fieldDefaults}
@@ -350,6 +352,7 @@ export default function PsuPivotReport(props) {
                 zoneInfo={switchOf(props.zoneInfo)}
                 settingInfo={switchOf(props.settingInfo)}
                 fieldList={fieldListOf(props.fieldList)}
+                zones={zonesOf(props.zones)}
                 grow={switchOf(props.grow)}
                 // dismissed tips are kept in localStorage per report; the view is kept by this
                 // component (address bar and sessionStorage), so pivotkit's persistView and shareLink stay off

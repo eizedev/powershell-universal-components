@@ -1729,22 +1729,29 @@ function New-UDPivotReport {
         e.g. @{ legend = @{ top = 0 }; grid = @{ left = 80 } }; it wins over the view's chart settings.
         pivotkit leaves out options that are markup or addresses (formatter strings, rich, link, image).
     .PARAMETER Tips
-        The tips above the result: On (default), Off (none, and no switch in Options), or the ids of the
+        The tips above the result: On (default), Off (none, and no switch in More, Help), or the ids of the
         tips allowed (showAs, colSubtotals, chartOverTime, pieSlices, pieColumns, chartDates, chartTrend, chartSeries,
         textValue, dateUngrouped, manyColumns, afterDrag, values, saveTemplate, menus, cells; the
         notices filterEmpty, top and chartCapped always show). Dismissed tips are remembered per report
         in the browser's localStorage.
     .PARAMETER FieldInfo
-        On or Off: the "i" with the field descriptions. Without it the reader switches it in Options.
+        On or Off: the "i" with the field descriptions. Without it the reader switches it ("Show
+        explanations" in More, Help).
     .PARAMETER ZoneInfo
         On or Off: the "i" next to the zone titles that explains each zone. Without it the reader
-        switches it in Options.
+        switches it ("Show explanations" in More, Help).
     .PARAMETER SettingInfo
         On or Off: the "i" next to settings that need explaining (totals, Show as, export formats, chart
-        labels). Without it the reader switches it ("Show explanations" in Options, Help).
+        labels). Without it the reader switches it ("Show explanations" in More, Help).
     .PARAMETER FieldList
         Open or Collapsed: how the field list starts on a wide report (collapsed: a rail of about 40
         pixels). Without it the reader's last choice decides.
+    .PARAMETER Zones
+        Open or Folded: how the zones (Rows, Columns, Values, Filters under "Fields in the report")
+        start. Without it the report's height decides: below 600 pixels (820 in the narrow layout) they
+        start folded into one line, and a report with no field placed starts with them open. Readers
+        can still fold and open them. Open keeps them open in a low box too, where the table then gets
+        little room: use it with a -Height of about 700 pixels or more.
     .PARAMETER Grow
         On or Off: whether the report grows past -Height to keep its result readable (the page scrolls)
         or stays inside it (the table scrolls). Default: Off, since the report always has a height; a
@@ -1782,12 +1789,19 @@ function New-UDPivotReport {
         requests. Use it for reports whose filter values are sensitive.
     .PARAMETER NoDrillDown
         No panel with the source rows when a value is clicked (-OnCellClick still runs).
+    .PARAMETER DrillDownExport
+        Keeps the drill-down panel's Export menu (copy, Copy as JSON, CSV and Excel of the rows behind a
+        clicked value, with every column) without -ExportData. Off by default: without -ExportData the
+        panel shows the rows but has no Export menu. With -ExportData the menu is there anyway. The
+        rows are in the browser either way; this only decides whether readers get a button to take
+        them. Not with -NoDrillDown.
     .PARAMETER ExportData
         Adds Source data to the Export menu: every row of the data, before filters, grouping and totals,
         as a CSV or JSON file (pivotkit's exportData). Off by default. The report and its drill-down
         hand out different things: the report's own exports (Excel, Table as CSV, HTML, Print) hold the
-        result the reader sees; the drill-down hands out up to 1,000 rows behind a clicked value, with
-        every column, unless -NoDrillDown; Source data hands out every row and every column of -Data,
+        result the reader sees; the drill-down panel's Export menu, there with -ExportData (or
+        -DrillDownExport alone), hands out up to 1,000 rows behind a clicked value, with every column;
+        Source data hands out every row and every column of -Data,
         also the columns no view places and the rows the filters leave out. All of these are rows the
         browser already holds (its developer tools reach them), so turn it on only where readers may take
         every row home, and select the columns first. With -AllowImport a loaded file's rows are exported
@@ -1924,6 +1938,7 @@ function New-UDPivotReport {
         [ValidateSet('On', 'Off')][string]$ZoneInfo,
         [ValidateSet('On', 'Off')][string]$SettingInfo,
         [ValidateSet('Open', 'Collapsed')][string]$FieldList,
+        [ValidateSet('Open', 'Folded')][string]$Zones,
         [ValidateSet('On', 'Off')][string]$Grow,
         [ValidateLength(1, 120)][string]$Label,
         [hashtable]$Labels,
@@ -1934,6 +1949,7 @@ function New-UDPivotReport {
         [ValidateLength(1, 120)][string]$FileName = 'pivot',
         [switch]$NoAddressBar,
         [switch]$NoDrillDown,
+        [switch]$DrillDownExport,
         [switch]$ExportData,
         [ValidateNotNullOrEmpty()][string[]]$ExportDataColumn,
         [switch]$AllowImport,
@@ -1951,6 +1967,7 @@ function New-UDPivotReport {
     if (-not $Script:AssetId) { throw $Script:MissingAssetMessage }
     if ($OnDataLoad -and -not $AllowImport) { throw '-OnDataLoad needs -AllowImport: without it the data shown never changes.' }
     if ($PSBoundParameters.ContainsKey('ImportLimit') -and -not $AllowImport) { throw '-ImportLimit needs -AllowImport: without it no file is loaded.' }
+    if ($DrillDownExport -and $NoDrillDown) { throw '-DrillDownExport needs the drill-down: -NoDrillDown leaves no panel to copy or download from.' }
     if ($ExportDataColumn -and -not $ExportData) { throw '-ExportDataColumn needs -ExportData: naming columns never turns an export on by itself.' }
     $timer = [System.Diagnostics.Stopwatch]::StartNew()
 
@@ -1983,6 +2000,7 @@ function New-UDPivotReport {
         drillDown   = -not $NoDrillDown
         addressBar  = -not $NoAddressBar
     }
+    if ($DrillDownExport) { $props['drillDownExport'] = $true }
     if ($ExportData) { $props['exportData'] = ConvertTo-UDPivotExportData -Column $ExportDataColumn -ColumnName $columnNames }
     if ($AllowImport) { $props['allowImport'] = $true }
     if ($PSBoundParameters.ContainsKey('ImportLimit') -and $null -ne $ImportLimit) {
@@ -2107,6 +2125,7 @@ function New-UDPivotReport {
     if ($ZoneInfo) { $props['zoneInfo'] = $ZoneInfo.ToLowerInvariant() }
     if ($SettingInfo) { $props['settingInfo'] = $SettingInfo.ToLowerInvariant() }
     if ($FieldList) { $props['fieldList'] = $FieldList.ToLowerInvariant() }
+    if ($Zones) { $props['zones'] = $Zones.ToLowerInvariant() }
     if ($Grow) { $props['grow'] = $Grow.ToLowerInvariant() }
     if ($Label) { $props['label'] = $Label }
     if ($Height) { $props['height'] = ConvertTo-UDPivotHeight -Height $Height }

@@ -29,9 +29,10 @@ your own `-OnSaveTemplate` and `-OnPublishTemplate` must do the same. Undo and R
 name with the view; Reset and New take it away. The menu is a flat list to scan; Save as…, Share and
 the questions before a delete, a publish or a Save over a shared view open levels of their own, with
 ‹ Back. **Share** (under its own heading, Share this view) has **Copy link**, **Copy view as JSON**,
-**Download view** (a [view file](#view-files)) and **Load view…** (a view file, JSON or a link). Toolbar buttons
-that do not fit move into **More**; Views is the last to go (pivotkit's order: Reset, Layout,
-Options, the chart type, Views), so it moves under More only when the report is narrow.
+**Download view** (a [view file](#view-files)) and **Load view…** (a view file, JSON or a link). **More** is
+always at the end of the toolbar, with Help first. Toolbar buttons that do not fit move into it
+below Help: Data first, then Start over, and Views last, so Views moves only when the report is
+narrow.
 
 | What you want | Parameters |
 | --- | --- |

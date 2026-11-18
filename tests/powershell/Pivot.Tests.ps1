@@ -210,6 +210,18 @@ Describe 'ConvertFrom-UDPivotView' {
         (ConvertFrom-UDPivotView $view -AsJson) | Should -Be '{"rows":["Team"],"values":[{"field":"Id","agg":"sum"}]}'
     }
 
+    It 'keeps pivotkit 0.8''s chart settings as they are, one-element lists included, through a view file and back' {
+        # every chart key pivotkit-core 0.8 adds, with lists of one entry and a list of 64 hidden series
+        $chart = '{"type":"bar","stacked":true,"tooltip":"axis","zoom":"on","stackPercent":true,"hidden":["North"],' +
+            '"referenceLines":{"average":true,"trend":false,"target":250},"colors":[{"name":"South","color":"#1f77b4"}],"tooltipShare":true}'
+        $json = '{"rows":["Month"],"cols":["Region"],"values":[{"field":"Revenue","agg":"sum"}],"display":"chart","chart":' + $chart + '}'
+        (ConvertFrom-UDPivotView $json -AsJson) | Should -BeExactly $json
+        $file = ConvertTo-UDPivotViewFile -View $json -Name 'Revenue chart'
+        (ConvertFrom-UDPivotView (ConvertFrom-UDPivotViewFile -InputObject $file).View -AsJson) | Should -BeExactly $json
+        $many = '{"display":"chart","chart":{"type":"line","hidden":[' + ((1..64 | ForEach-Object { '"S{0}"' -f $_ }) -join ',') + ']}}'
+        (ConvertFrom-UDPivotView $many -AsJson) | Should -BeExactly $many
+    }
+
     It 'returns compact JSON with -AsJson that reads back as the same view' {
         $json = ConvertFrom-UDPivotView @{ rows = @('Team'); filters = @(@{ field = 'Status'; type = 'include'; items = @('Open') }) } -AsJson
         $json | Should -Not -Match '\s{2}'

@@ -4,7 +4,7 @@
 // zensical build (see docs/development/index.md).
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { openSaveAs, openViews } from "./pivot-menus.mjs";
+import { expectChartType, openSaveAs, openViews } from "./pivot-menus.mjs";
 import { CSV, fileOf, openDataMenu, pickFile } from "./pivot-import.mjs";
 import { colorScaleCells, resolvedColor, workbookScaleColors } from "./pivot-colors.mjs";
 import { parseView, readLinkView, writeLinkView, writeStoredView } from "../../modules/PowerShellUniversal.Component.Pivot/Components/prepare.js";
@@ -93,7 +93,7 @@ test("Pivot: the report holds the DataTable, follows the switch and shows the $E
     const example = page.locator('[data-example="pivot-report-from-a-datatable"]');
     const report = example.locator(".pk-root");
     // 1200 rows: the grand total of the count
-    await expect(report.getByRole("region", { name: "Table" })).toContainText("1,200");
+    await expect(report.getByRole("tabpanel", { name: "Table" })).toContainText("1,200");
     const theme = await report.getAttribute("data-pk-theme");
     await page.locator("[data-md-component=palette] label:visible").first().click();
     await expect(report).not.toHaveAttribute("data-pk-theme", theme);
@@ -110,7 +110,7 @@ test("Pivot: the one-line example gets the API's rows; a click on a field puts i
     const report = page.locator('[data-example="pivot-report-from-a-web-api"] .pk-root');
     // the snapshot of https://endoflife.date/api/python.json: one row per release cycle
     await report.locator(".pk-field[data-field=cycle] .pk-field-name").click();
-    await expect(report.getByRole("region", { name: "Table" })).toContainText("3.14");
+    await expect(report.getByRole("tabpanel", { name: "Table" })).toContainText("3.14");
     expect(errors).toEqual([]);
 });
 
@@ -118,7 +118,7 @@ test("Pivot: the start view, field labels and both templates of the medium examp
     const errors = collectErrors(page);
     await openPage(page, "/pivot/");
     const report = page.locator('[data-example="start-view-field-names-and-templates"] .pk-root');
-    await expect(report.getByRole("region", { name: "Table" })).toContainText("End of life (year)");
+    await expect(report.getByRole("tabpanel", { name: "Table" })).toContainText("End of life (year)");
     // -FieldDefaults labels in the field list
     await expect(report.locator(".pk-field-list")).toContainText("Release cycle");
     await expect(report.locator(".pk-field-list")).toContainText("Latest version");
@@ -133,7 +133,7 @@ test("Pivot: in the app example a saved view is listed under My views, its $Even
     await openPage(page, "/pivot/");
     const example = page.locator('[data-example="a-report-app-with-loading-views-per-reader-and-roles"]');
     const report = example.locator(".pk-root");
-    await expect(report.getByRole("region", { name: "Table" })).toContainText("windows-server");
+    await expect(report.getByRole("tabpanel", { name: "Table" })).toContainText("windows-server");
     // the reader has the role of -AdminRole
     await expect(example.locator("[data-testid=pivot-admin]")).toBeVisible();
     await saveView(report, "Mine");
@@ -161,11 +161,33 @@ test("Pivot: menus open inside the report's shadow root, styled, never on the pa
     expect(state).toEqual({ inShadow: true, position: "fixed", onBody: 0 });
 });
 
+test("Pivot: -Zones Open keeps the zones open in a report lower than 600 pixels, where the height alone folds them; the view's chart settings reach the chart", async ({ page }) => {
+    const errors = collectErrors(page);
+    // -Height 560px without -Zones: the zones start folded under "Fields in the report"
+    await openPage(page, "/pivot/");
+    const german = page.locator('[data-example="pivot-report-in-german"] .pk-root');
+    await expect(german.locator("[data-testid=layout-summary]")).toHaveAttribute("aria-expanded", "false");
+    // -Height 560px with -Zones Open
+    await openPage(page, "/pivot/views/");
+    const report = page.locator('[data-example="chart-settings-in-a-view"] .pk-root');
+    expect((await report.boundingBox()).height).toBeLessThan(600);
+    await expect(report.locator("[data-testid=layout-summary]")).toHaveAttribute("aria-expanded", "true");
+    await expect(report.getByRole("region", { name: "Columns" })).toContainText("Team");
+    // the reader can still fold them
+    await report.locator("[data-testid=layout-summary]").click();
+    await expect(report.locator("[data-testid=layout-summary]")).toHaveAttribute("aria-expanded", "false");
+    // the start view opens the chart as stacked bars with the average as a reference line
+    await expect(report.locator("[data-testid=pivot-chart] canvas")).toBeVisible();
+    await expectChartType(report, "stacked");
+    await expect(report.locator("[data-testid=chart-summary]")).toContainText("Reference lines:");
+    expect(errors).toEqual([]);
+});
+
 test("Pivot: shared views and my views; a reader with -AdminRole publishes and the page shows the $EventData", async ({ page }) => {
     const errors = collectErrors(page);
     await openPage(page, "/pivot/templates/");
     const report = page.locator('[data-example="shared-views-and-my-views"] .pk-root');
-    await expect(report.getByRole("region", { name: "Table" })).toContainText("400");
+    await expect(report.getByRole("tabpanel", { name: "Table" })).toContainText("400");
     const menu = await openViews(report);
     await expect(menu).toContainText("Shared views");
     await expect(menu).toContainText("Lead time per priority");
@@ -188,7 +210,7 @@ test("Pivot: -ImportLimit refuses a file over its rows or bytes, loads one at th
     await openPage(page, "/pivot/import/");
     const report = page.locator('[data-example="readers-files-with-smaller-limits"] .pk-root');
     // the app's 300 rows, more than -ImportLimit rows = 200: the app's data keeps pivotkit's limits
-    await expect(report.getByRole("region", { name: "Table" })).toContainText("300");
+    await expect(report.getByRole("tabpanel", { name: "Table" })).toContainText("300");
     await expect(report.getByText("300 rows", { exact: true })).toBeVisible();
     const dialog = page.getByTestId("import-dialog");
     const alert = report.getByRole("alert");
@@ -199,7 +221,7 @@ test("Pivot: -ImportLimit refuses a file over its rows or bytes, loads one at th
     await expect(alert).toContainText("over.csv could not be loaded");
     await expect(alert).toContainText("more than 200 rows (limits.rows)");
     await expect(dialog).toHaveCount(0);
-    await expect(report.getByRole("region", { name: "Table" })).toContainText("300");
+    await expect(report.getByRole("tabpanel", { name: "Table" })).toContainText("300");
     await alert.getByRole("button", { name: "Close" }).click();
     await expect(alert).toHaveCount(0);
 
@@ -208,7 +230,7 @@ test("Pivot: -ImportLimit refuses a file over its rows or bytes, loads one at th
     await expect(alert).toContainText("large.csv could not be loaded");
     await expect(alert).toContainText("more than 1,048,576 bytes (limits.fileBytes)");
     await expect(dialog).toHaveCount(0);
-    await expect(report.getByRole("region", { name: "Table" })).toContainText("300");
+    await expect(report.getByRole("tabpanel", { name: "Table" })).toContainText("300");
     await alert.getByRole("button", { name: "Close" }).click();
 
     // exactly 200 rows load: the limit is the one set, not a lower one
@@ -230,7 +252,7 @@ test("Pivot: -ExportData offers Source data with the columns of -ExportDataColum
     const errors = collectErrors(page);
     await openPage(page, "/pivot/");
     const report = page.locator('[data-example="source-data-for-readers"] .pk-root');
-    const table = report.getByRole("region", { name: "Table" });
+    const table = report.getByRole("tabpanel", { name: "Table" });
     await expect(table).toContainText("250");
     const text = async (download) => readFileSync(await download.path(), "utf8").replace(/^\uFEFF/, "");
     // removed with Select-Object: nowhere; narrowed with -ExportDataColumn: still in the field list
@@ -271,7 +293,7 @@ test("Pivot: a colour scale without colours runs over the heatmap's blues in bot
     await page.goto(`/pivot/${writeLinkView("", "pivot-datatable", view)}`);
     const example = page.locator('[data-example="pivot-report-from-a-datatable"]');
     const report = example.locator(".pk-root");
-    const table = report.getByRole("region", { name: "Table" });
+    const table = report.getByRole("tabpanel", { name: "Table" });
     await expect(table).toContainText("1,200");
 
     const scaleCells = () => colorScaleCells(table);
@@ -611,7 +633,7 @@ test("Pivot: a create_link link opens its view, the address bar then holds the r
     expect(links.keyed).toMatch(/#pivot-pivot-datatable=1\./);
     await page.goto(linkPath(links.keyed));
     const report = page.locator('[data-example="pivot-report-from-a-datatable"] .pk-root');
-    const table = report.getByRole("region", { name: "Table" });
+    const table = report.getByRole("tabpanel", { name: "Table" });
     // the link's layout: priorities on the rows, no teams on the columns
     await expect(table).toContainText("P4");
     await expect(table).not.toContainText("Service Desk");
@@ -628,7 +650,7 @@ test("Pivot: a link without linkKey opens in the report of its data and leaves t
     expect(links.bare).toMatch(/#pivot=1\./);
     await page.goto(linkPath(links.bare));
     const report = page.locator('[data-example="pivot-report-from-a-datatable"] .pk-root');
-    const table = report.getByRole("region", { name: "Table" });
+    const table = report.getByRole("tabpanel", { name: "Table" });
     await expect(table).toContainText("P4");
     await expect(table).not.toContainText("Service Desk");
     await expect.poll(() => page.evaluate(() => location.hash)).not.toContain("pivot=1.");
@@ -640,7 +662,7 @@ test("Pivot: a create_link link made for other data is not loaded; the report ke
     const warnings = [];
     page.on("console", (m) => m.type() === "warning" && warnings.push(m.text()));
     await page.goto(linkPath(links.other));
-    const table = page.locator('[data-example="pivot-report-from-a-datatable"] .pk-root').getByRole("region", { name: "Table" });
+    const table = page.locator('[data-example="pivot-report-from-a-datatable"] .pk-root').getByRole("tabpanel", { name: "Table" });
     await expect(table).toContainText("1,200");
     // -View: teams on the rows
     await expect(table).toContainText("Service Desk");
@@ -662,7 +684,7 @@ test("Pivot: the tab's own view with 60 filters stays whole after a reload; only
     await page.addInitScript((entries) => { for (const [k, v] of entries) sessionStorage.setItem(k, v); }, [...items]);
     await page.goto("/pivot/" + writeLinkView("", "pivot-datatable", view));
     const report = page.locator('[data-example="pivot-report-from-a-datatable"] .pk-root');
-    await expect(report.getByRole("region", { name: "Table" })).toContainText("1,200");
+    await expect(report.getByRole("tabpanel", { name: "Table" })).toContainText("1,200");
     const shown = async () => readLinkView(await page.evaluate(() => location.hash), "pivot-datatable")?.filters?.length;
     await expect.poll(shown).toBe(60);
 
@@ -671,7 +693,7 @@ test("Pivot: the tab's own view with 60 filters stays whole after a reload; only
     await other.goto("/pivot/" + writeLinkView("", "pivot-datatable", view));
     await other.evaluate(() => sessionStorage.clear());
     await other.reload();
-    await expect(other.locator('[data-example="pivot-report-from-a-datatable"] .pk-root').getByRole("region", { name: "Table" })).toContainText("1,200");
+    await expect(other.locator('[data-example="pivot-report-from-a-datatable"] .pk-root').getByRole("tabpanel", { name: "Table" })).toContainText("1,200");
     await expect.poll(async () => readLinkView(await other.evaluate(() => location.hash), "pivot-datatable")?.filters?.length).toBe(50);
     expect(errors).toEqual([]);
 });

@@ -79,24 +79,26 @@ New-UDDynamic -Id 'tickets-report' -LoadingComponent {
 
 | Part | What readers do |
 | --- | --- |
-| **Fields** | Search the list (by name, display name and description), drag a field into a zone, or click it (numbers go to Values, the rest to Rows); every field has a menu with the same moves, for the keyboard too. An "i" next to a field explains it when the app describes its fields ([Field names and descriptions](fields.md)); an "i" next to each zone explains the zone. |
+| **Fields** | Search the list (by name, display name and description), drag a field into a zone, click it (numbers go to Values, the rest to Rows), or pick it with **+ Add** in a zone; every field has a menu with the same moves, for the keyboard too. The zones sit under **Fields in the report**, a heading that folds them into one line. An "i" next to a field explains it when the app describes its fields ([Field names and descriptions](fields.md)); an "i" next to each zone explains the zone. |
 | **Values** | Sum, count, average, minimum, maximum and more statistics; "show as" a share of the total, of the row or column, a running total, a rank or the difference to the previous one; a number format; colour scales and data bars. |
-| **Menus** | A chip's menu and Options are in levels: the first level says what is set per topic ("Filter · All", "Top items · Off"), a row opens the topic's level in place with ‹ Back, and every choice applies at once. A search above a chip's menu finds a choice of any level with its path, also a rule as words ("last 3 years", "from 2022"); "/" goes to it. |
+| **Menus** | A chip's menu, Table settings and Chart settings are in levels: the first level says what is set per topic ("Filter · All", "Top items · Off"), a row opens the topic's level in place with ‹ Back, and every choice applies at once. A search above a chip's menu finds a choice of any level with its path, also a rule as words ("last 3 years", "from 2022"); "/" goes to it. |
 | **Rows and columns** | Sort by label, by a value or in the field's own order, top or bottom N by any value, rules on the items and their totals ("Count of rows > 3", "from 2022"), number ranges. A date is grouped as soon as it is placed (by day, month, quarter or year, from the span of its values), and its menu groups along the time line or across years (month of the year, weekday, hour). |
 | **Filters** | The Filter level of every chip starts with a summary card that stays in view: what the table shows of the field ("3 of 12 months shown") and why the rest does not, each reason with its count, and **Reset filter**. Below it, in sections that fold: **Quick choices** for a date (This year, Last N years, Last N months or days, each with the days it keeps and the data's share, counted back from today or from the latest record), **Years combined** instead for a grouping that repeats every year (month of the year, weekday), **Pick items** (the values with their row counts and a search) and **Rules** (the item itself compared, "is in the last N years", its total compared, a rule on its name), each with an "i" and a line that says what it keeps. A field in Filters opens the same level from its chip. |
-| **Table or chart** | Bars, stacked or horizontal bars, lines, area, pie, donut, heatmap, or Automatic (lines over dates, bars otherwise); value labels, legend, title, smooth lines, axis and group labels, and for a pie or donut labels inside or outside, in the chart type's Display settings. |
+| **Table or chart** | **Table** and **Chart** are tabs on top of the result, each with its settings beside it. Charts: bars, stacked or horizontal bars, lines, area, pie, donut, heatmap, or Automatic (lines over dates, bars otherwise). Chart settings, Display: value labels, legend, title, axis and group labels, a zoom slider for a long axis, the tooltip (the element under the pointer or every series, with each value's share), the colour of each series, stacks to 100 %, and reference lines (average, trend, a target). A click on the legend hides a series. Export, Copy chart image puts the chart on the clipboard. |
 | **Enlarge, Full screen** | **Enlarge** lets the table or chart fill the report (the field list and the zones step aside; Escape brings them back), **Full screen** shows the report on the whole screen where the browser allows it. Neither is part of the view. |
-| **Drill-down** | A click on a value or a chart point opens the source rows behind it; the panel has its own Enlarge and an Export menu (Copy for a spreadsheet, Copy as JSON, Download CSV and Excel). |
+| **Drill-down** | A click on a value or a chart point opens the source rows behind it, with its own Enlarge. With `-ExportData` or `-DrillDownExport` the panel has an Export menu (Copy for a spreadsheet, Copy as JSON, Download CSV and Excel). |
 | **Source data** | With `-ExportData`: Export, Source data downloads every row behind the report as CSV or JSON, for the reader's own analysis or `pivotkit render` ([below](#source-data-exportdata)). |
 | **Undo, Reset, Views, Export** | **Undo and redo** (Ctrl/Cmd+Z), **Reset** to the start view, **Views** with shared views and the reader's own, Save, Save as and New, empty report ([Templates, view files and roles](templates.md)), and its Share level with "Copy link", "Copy view as JSON", "Download view" (a view file) and "Load view…", and **Export** to Excel (XLSX with number formats and merged headers), the table as CSV, PNG, SVG and an HTML report, Print or save as PDF, or Copy table and Copy data as JSON. Excel and print are light also from a dark app; the HTML report is light on paper and a light screen and dark on a dark one ([Themes](themes.md#one-stylesheet-for-echarts-and-the-pivot-report)). |
-| **Tips** | Above the result, for a layout that could be clearer: one at a time, each dismissible and remembered per report in the browser. `-Tips Off` or a list of tip ids limits them. Options, Help has "Show tips" and "Show explanations" (every "i" next to fields, zones and settings); `-FieldInfo`, `-ZoneInfo` and `-SettingInfo` decide one kind for the reader. |
+| **Tips** | Above the result, for a layout that could be clearer: one at a time, each dismissible and remembered per report in the browser. `-Tips Off` or a list of tip ids limits them. More, Help has "Show tips" and "Show explanations" (every "i" next to fields, zones and settings); `-FieldInfo`, `-ZoneInfo` and `-SettingInfo` decide one kind for the reader. |
 | **Own files** | With `-AllowImport`: drop a CSV, TSV, JSON or Excel file onto the report, or pick it under Data, check a preview with a type per column, and pivot it; read in the browser, never uploaded; views kept per file; Back to original data ([Readers' own files](import.md)). |
 | **Field list** | « collapses it to a narrow rail (the reader's choice is remembered); `-FieldList Collapsed` or `Open` starts every reader so. |
+| **Zones** | The heading **Fields in the report** folds the zones into one line that names what is placed, and opens them again. `-Zones Open` or `Folded` sets how they start; without it the report's height decides ([Theme and layout](#theme-and-layout)). |
 
 ### Source data (-ExportData)
 
 `-ExportData` adds **Source data** to the Export menu: every row of `-Data`, before filters, grouping
-and totals, as a CSV or JSON file. It is off by default. `-ExportDataColumn` keeps these files, and the
+and totals, as a CSV or JSON file. It is off by default. It also gives the drill-down panel its Export
+menu; `-DrillDownExport` gives the panel that menu alone, with every column, and Source data stays off. `-ExportDataColumn` keeps these files, and the
 drill-down panel's copies and files, to the columns it names (matched without regard to case, checked
 against the columns of the first row); a name that is no column of `-Data` is an error, so a typo
 never widens the export. The explanation next to Source data then names those columns.
@@ -115,7 +117,7 @@ What each part hands out:
 | Part | What a reader takes away | Turned off with |
 | --- | --- | --- |
 | Export (Excel, Table as CSV, HTML report, Print, PNG, SVG) | the result shown: groups, totals, the chart | - |
-| Drill-down | up to 1,000 rows behind a clicked value (all rows behind the grand total); the panel shows every column, its copies and files only those of `-ExportDataColumn` | `-NoDrillDown` |
+| Drill-down | up to 1,000 rows behind a clicked value (all rows behind the grand total); the panel shows every column. Its Export menu (copies and files) is there with `-ExportData`, holding only the columns of `-ExportDataColumn`, or with `-DrillDownExport`, holding every column | without `-ExportData` and `-DrillDownExport` (the default) its Export menu; `-NoDrillDown` the panel |
 | Source data | every row and every column of `-Data` (or those of `-ExportDataColumn`), also the rows the filters leave out | without `-ExportData` (the default) |
 
 All three are rows the browser holds already: its developer tools reach them. Turn Source data on only
@@ -130,7 +132,7 @@ The report adapts to its own width:
 | Where | What changes |
 | --- | --- |
 | A narrow column or a phone | The field list opens as a drawer and the zones stack above the table. |
-| Below 600 pixels of height (820 in the narrow layout) | The zones start folded into one line; the toolbar's Layout button opens them. |
+| Below 600 pixels of height (820 in the narrow layout) | The zones start folded into one line under **Fields in the report**; that heading opens them. A report with no field placed starts with them open. `-Zones Open` or `-Zones Folded` sets the start state instead. |
 | Several reports on one page | Each needs its own `-Label`, the name screen readers hear for the report. |
 
 ## Data
@@ -176,7 +178,7 @@ descriptions (`Get-UDPivotSqlColumnDescription`) or from a JSON Schema or an Ope
 ### Chart options
 
 `-ChartOptions` is plain JSON merged over the chart's Apache ECharts option, for what the reader
-cannot set in the chart's Display settings: `-ChartOptions @{ legend = @{ top = 0 }; grid = @{ left = 80 } }`.
+cannot set in Chart settings: `-ChartOptions @{ legend = @{ top = 0 }; grid = @{ left = 80 } }`.
 It wins over the view's chart settings. pivotkit leaves out options that are markup or addresses
 (`formatter` strings, `rich`, `link`, `image`) with a warning in the browser's console; at most 64 KB.
 
@@ -193,6 +195,7 @@ It wins over the view's chart settings. pivotkit leaves out options that are mar
 | Height | One screen: the window's height minus 180 pixels for PSU's app bar and a page title, between 600 and 1400 pixels (almost the whole window on a phone), so the whole report is on screen when the page loads and the table shows rows enough below the zones. `-Height` sets another one; give it at least 600 pixels where readers build reports: the zones take about 300 of them. |
 | Inside a fixed size | The report stays inside its height - in a card of a fixed size too: the table scrolls inside it, however small it gets (measured in a 560-pixel `New-UDCard` on PSU 2026.3.4). |
 | Growing | `-Grow On` lets it grow past the height instead when the table would get too small, and the page scrolls. |
+| Zones open or folded | Below 600 pixels of height (820 in the narrow layout) the zones start folded under **Fields in the report**, so the table keeps its room. `-Zones Open` keeps them open from the start (give the report about 700 pixels or more, or the table gets only a few rows); `-Zones Folded` starts them folded in any height. Readers fold and open them either way. |
 | Containers | Inside `New-UDTabs`, `New-UDCard`, `New-UDStack` and expansion panels it fits its container and grows when a hidden tab is shown. |
 
 ## Reports as files
