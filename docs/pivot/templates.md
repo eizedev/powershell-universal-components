@@ -138,37 +138,97 @@ A file loaded in the browser with `-AllowImport` needs none of this: its views a
 the browser, whatever `-SourceId` and `-TemplateStore` say ([Readers' own files](import.md#views-per-file)).
 
 Use a name the reader may see (it is in view files and links), never a path on the server.
-`-SchemaUrl` sets the file's `$schema`: by default pivotkit's address of the format version written
-(`view-file-2.json` or `view-file-1.json`), else an https address of your own copy, or `''` to leave it
-out; loading never depends on it.
+`-SchemaUrl` sets the file's `$schema`. Loading never depends on it. See the next section.
 
-### Your own copy of the schema
+### The `$schema` of a view file: `-SchemaUrl`
 
-Editors that know JSON Schema (VS Code, for one) fetch the address in `$schema` to check a view file
-and complete its keys. To keep that inside your network, host a copy and name it with `-SchemaUrl`:
+Editors that know JSON Schema (VS Code, for one) fetch the address in `$schema`. They use it to check a
+view file and complete its keys. By default the address is pivotkit's own copy:
+`https://pivotkit.eize.dev/schema/view-file-2.json`. To keep that request inside your network, host a
+copy and name it with `-SchemaUrl`.
 
-1. Take `view-file-2.json`, the schema of the format the report writes, unchanged: from
-   `https://pivotkit.eize.dev/schema/view-file-2.json` or from the npm package pivotkit-core
-   (`schema/view-file-2.json`, the same bytes). It refers to nothing outside itself, so its `$id`
-   (pivotkit's address) can stay: a validator then fetches only your copy.
-2. Serve it over https without a sign-in, for example from a PSU published folder
-   (`New-PSUPublishedFolder`, or Build, Published Folders): an editor fetches it without the reader's
-   PSU session, so a folder with `-Authentication` answers it with 401. PSU serves `.json` files as
-   `application/json`.
-3. Pass the file's address:
+`-SchemaUrl` takes one of these values:
+
+- A path on the PSU server, such as `/assets/pivot/schema/view-file-2.json`. This is one value for
+  every instance, including a local one on `http://localhost:5000`.
+- An https address of your copy, such as `https://psu.example.com/assets/pivot/schema/view-file-2.json`.
+- `''` to leave `$schema` out.
+
+Every command checks the value the same way: no spaces, at most 2,000 characters, no user name or
+password in an address. A path starts with a single `/`. Any other value stops the command with
+`-SchemaUrl "<value>": expected an https address, a path such as /assets/pivot/schema/view-file-2.json, or an empty string`.
+In `New-UDPivotReport` the page then stays empty, and PSU shows that error.
+
+A path becomes an address when a view file is written:
+
+- In the browser (Download view, Copy view as JSON), the report puts the page's origin in front. The
+  file names the address the reader used.
+- On the server (the template stores, `ConvertTo-UDPivotViewFile`), the module takes the origin from
+  the request. It reads the headers the browser sent: `Origin`, else the page address, else `Referer`.
+  PSU passes them to pages, event handlers and API endpoints.
+- Without a request, for example in a scheduled job, a path takes the origin of the module-wide
+  default when that is an https address. Otherwise the command stops with an error.
+
+The request must carry the address your users see. Behind a reverse proxy that rewrites these
+headers, set the module-wide default to the full https address.
 
 ```powershell
-New-UDPivotReport -Id 'tickets' -Data $tickets -SchemaUrl 'https://psu.example.com/pivotkit-schema/view-file-2.json'
+New-UDPivotReport -Id 'tickets' -Data $tickets -SchemaUrl '/assets/pivot/schema/view-file-2.json'
 ```
 
-`-SchemaUrl` names one file for every view file the report and its template store write; the report's
-views are of version 2, so their files are of format 2. (`ConvertTo-UDPivotViewFile` writes a view of
-version 1 as format 1: give it the address of `view-file-1.json` there.) When a release of this module
-writes a newer format version (its CHANGELOG says so), host that format's schema too and change the
-address. An address that is not https (without spaces, at most 2,000 characters) stops the page
-before the report is drawn: it stays empty, and PSU shows the error `SchemaUrl "<address>": expected
-an https address or an empty string.` A PSU that serves only http hosts its copy elsewhere over https,
-or leaves `-SchemaUrl` out.
+#### One default for every report: `PSU_COMPONENT_PIVOT_SCHEMA_URL`
+
+A platform sets the address once, as the environment variable `PSU_COMPONENT_PIVOT_SCHEMA_URL` of the
+PSU process. It takes the same values as `-SchemaUrl`. Every command without `-SchemaUrl` uses it. An
+explicit `-SchemaUrl` always wins, `''` included.
+
+- Set it where PSU starts: the service's environment, or the container's environment.
+- Every process PSU starts inherits it: pages, event handlers and jobs.
+- An empty or unset variable means pivotkit's address.
+- A value that does not pass the check stops each command with an error that names the variable.
+
+```yaml
+# a container: docker compose
+environment:
+  - PSU_COMPONENT_PIVOT_SCHEMA_URL=/assets/pivot/schema/view-file-2.json
+```
+
+#### Your own copy of the schema
+
+The module ships pivotkit's schemas in its `schema` folder:
+
+- `view-file-2.json`: the view file of format 2, which the report writes.
+- `view-file-1.json`: the view file of format 1.
+- `view-2.json`: the view of version 2.
+
+They are the files of the pivotkit-core version the module's bundle is built from, copied when the
+module is built. Their `$id` stays pivotkit's address. They refer to nothing outside themselves, so a
+validator fetches only your copy.
+
+1. Serve the folder over http or https without a sign-in. An editor fetches the file without the
+   reader's PSU session, so a folder with authentication answers it with 401. A PSU published folder
+   works (`New-PSUPublishedFolder`, or Build, Published Folders):
+
+    ```powershell
+    # the module as installed in the repository's Modules folder
+    New-PSUPublishedFolder -Name 'Pivot schema' -RequestPath '/assets/pivot/schema' -Path '<repository>/Modules/PowerShellUniversal.Component.Pivot/0.7.1/schema'
+    ```
+
+    The module's folder carries its version in the path. Point the published folder at the new
+    folder after an update, or copy `schema` into a folder of your own when you deploy. PSU serves
+    `.json` files as `application/json`.
+
+2. Pass the path, or set it as the default:
+
+    ```powershell
+    New-UDPivotReport -Id 'tickets' -Data $tickets -SchemaUrl '/assets/pivot/schema/view-file-2.json'
+    ```
+
+`-SchemaUrl` names the schema of format 2, which the report and its template stores write. A view
+file of format 1 keeps pivotkit's `view-file-1.json` address. `ConvertTo-UDPivotViewFile` writes that
+format for a view of version 1 or without a version. `''` leaves `$schema` out of both formats. When
+a release of this module writes a newer format version, its CHANGELOG says so: serve the new schema
+folder and change the file name in the address.
 
 ## Template stores: `-TemplateStore`
 

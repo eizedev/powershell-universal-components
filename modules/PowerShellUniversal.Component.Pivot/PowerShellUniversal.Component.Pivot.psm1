@@ -700,6 +700,23 @@ $Script:ViewFileSchemaUrls = @{
     2 = 'https://pivotkit.eize.dev/schema/view-file-2.json'
 }
 $Script:KnownViewFileVersions = @(1, 2)
+# the $schema a view file names (-SchemaUrl, or the module-wide default below): an https address, a
+# path on the instance (/assets/pivot/schema/view-file-2.json: the browser puts its origin in front, a
+# writer on the server the origin of the request), or '' for none. One check for every command (#110).
+# The default is an environment variable, as the module's other defaults ($env:TZ,
+# $env:Data__RepositoryPath): set once for the PSU process, it reaches the page, the event handlers'
+# runspaces and every job.
+$Script:SchemaUrlDefaultVariable = 'PSU_COMPONENT_PIVOT_SCHEMA_URL'
+$Script:MaxSchemaUrlLength = 2000
+$Script:SchemaUrlExample = '/assets/pivot/schema/view-file-2.json'
+# an https address without user name or password, or a path that starts with one "/" (never "//" or
+# "/\", which a browser reads as another host)
+$Script:SchemaUrlPattern = '^(https://[^\s/?#@\\]+([/?#]\S*)?|/(?![/\\])\S*)$'
+# an address a request names (Origin, the page address, Referer): http or https, a host and a port
+$Script:RequestAddressPattern = '^https?://(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+)(:\d{1,5})?([/?#]\S*)?$'
+# the headers that carry the address the reader's browser used, in this order: an event's Origin, the
+# page address PSU's client sends with a page (windowLocation), the Referer (measured on PSU 2026.3.4)
+$Script:RequestAddressHeaders = @('Origin', 'windowLocation', 'Referer')
 $Script:MaxViewFileLength = 1000000
 $Script:MaxViewFileDepth = 16
 $Script:MaxViewFileDescription = 2000
@@ -802,6 +819,110 @@ function Get-UDPivotViewFileName {
     '{0}-{1}.pivotkit.json' -f $slug, (Get-UDPivotSha256 -Text $text -Length 10)
 }
 
+function Get-UDPivotSchemaUrl {
+    <#
+    .SYNOPSIS
+        The checked -SchemaUrl of a command, else the module-wide default, else $null (pivotkit's own).
+    .DESCRIPTION
+        The one check of -SchemaUrl for every command: '' (no $schema), an https address without user
+        name or password, or a path on the instance that starts with a single "/"; no spaces or control
+        characters, at most 2000 characters. Without -Given the value of the environment variable
+        PSU_COMPONENT_PIVOT_SCHEMA_URL is checked the same way and returned; unset or empty, the result is
+        $null. A value that does not pass stops with the name it came from.
+    .PARAMETER SchemaUrl
+        The value of -SchemaUrl.
+    .PARAMETER Given
+        -SchemaUrl was passed: it wins over the default, also when it is ''.
+    .EXAMPLE
+        Get-UDPivotSchemaUrl -SchemaUrl '/assets/pivot/schema/view-file-2.json' -Given
+    .OUTPUTS
+        System.String, or $null.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([AllowNull()][AllowEmptyString()][string]$SchemaUrl, [switch]$Given)
+    $name = '-SchemaUrl'
+    if (-not $Given) {
+        $SchemaUrl = [Environment]::GetEnvironmentVariable($Script:SchemaUrlDefaultVariable)
+        if ([string]::IsNullOrWhiteSpace($SchemaUrl)) { return $null }
+        $name = $Script:SchemaUrlDefaultVariable
+    }
+    if ($SchemaUrl -eq '') { return '' }
+    if ($SchemaUrl.Length -gt $Script:MaxSchemaUrlLength -or $SchemaUrl -match '\p{Cc}' -or $SchemaUrl -cnotmatch $Script:SchemaUrlPattern) {
+        $shown = if ($SchemaUrl.Length -gt 100) { $SchemaUrl.Substring(0, 100) + '...' } else { $SchemaUrl }
+        throw ('{0} "{1}": expected an https address, a path such as {2}, or an empty string (no spaces, at most {3} characters).' -f $name, ($shown -replace '\p{Cc}', ' '), $Script:SchemaUrlExample, $Script:MaxSchemaUrlLength)
+    }
+    $SchemaUrl
+}
+
+function Get-UDPivotRequestOrigin {
+    <#
+    .SYNOPSIS
+        The origin (https://host:port) of the address the reader's browser used, from the request's
+        headers, or $null.
+    .DESCRIPTION
+        Reads Origin, then windowLocation (the page address PSU's client sends), then Referer, with any
+        case of the header name: PSU gives an app a case-sensitive Dictionary and an API a hashtable.
+        Only an http or https address with a plain host and port counts; a header with a user name, a
+        space or another scheme is passed over. The headers come from the browser: the origin names the
+        address the reader used, behind a proxy too, as long as the proxy passes them on.
+    .PARAMETER Headers
+        $Headers of the page, the event or the API endpoint.
+    .EXAMPLE
+        Get-UDPivotRequestOrigin -Headers $Headers
+    .OUTPUTS
+        System.String, or $null.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([AllowNull()][object]$Headers)
+    if ($Headers -isnot [System.Collections.IDictionary]) { return $null }
+    foreach ($wanted in $Script:RequestAddressHeaders) {
+        foreach ($key in @($Headers.Keys)) {
+            if ([string]$key -ne $wanted) { continue }
+            $value = [string]$Headers[$key]
+            $address = $null
+            if ($value -cmatch $Script:RequestAddressPattern -and [uri]::TryCreate($value, [System.UriKind]::Absolute, [ref]$address) -and -not $address.UserInfo) {
+                return $address.GetLeftPart([System.UriPartial]::Authority)
+            }
+        }
+    }
+    $null
+}
+
+function Resolve-UDPivotSchemaUrl {
+    <#
+    .SYNOPSIS
+        The $schema a writer on the server puts into a view file: a path on the instance with an origin
+        in front, anything else as it is.
+    .DESCRIPTION
+        A path takes the origin of the request (Get-UDPivotRequestOrigin); without a request (a
+        scheduled job) the origin of PSU_COMPONENT_PIVOT_SCHEMA_URL when that is an https address.
+        With neither it stops: a $schema without an origin names no file anywhere.
+    .PARAMETER SchemaUrl
+        A value of Get-UDPivotSchemaUrl.
+    .PARAMETER Headers
+        $Headers of the request, or $null.
+    .EXAMPLE
+        Resolve-UDPivotSchemaUrl -SchemaUrl '/assets/pivot/schema/view-file-2.json' -Headers $Headers
+    .OUTPUTS
+        System.String, or $null.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([AllowNull()][AllowEmptyString()][string]$SchemaUrl, [AllowNull()][object]$Headers)
+    if (-not $SchemaUrl -or -not $SchemaUrl.StartsWith('/')) { return $SchemaUrl }
+    $origin = Get-UDPivotRequestOrigin -Headers $Headers
+    if (-not $origin) {
+        $default = Get-UDPivotSchemaUrl
+        if ($default -and $default.StartsWith('https://')) { $origin = ([uri]$default).GetLeftPart([System.UriPartial]::Authority) }
+    }
+    if (-not $origin) {
+        throw ('-SchemaUrl "{0}": a path needs the address of a request, and there is none here. Set {1} to an https address, or pass -SchemaUrl as one.' -f $SchemaUrl, $Script:SchemaUrlDefaultVariable)
+    }
+    $origin + $SchemaUrl
+}
+
 function ConvertFrom-UDPivotViewFile {
     <#
     .SYNOPSIS
@@ -902,6 +1023,10 @@ function ConvertTo-UDPivotViewFile {
         view) with a two-space indent and a trailing newline. The format version follows the view: 2 for
         a view of version 2 (what the report sends), 1 for a view of version 1 or without a version, so
         a pivotkit that reads only format 1 still loads the file of an older view.
+
+        A path in -SchemaUrl gets the origin the reader's browser used ($Headers of the page, event or
+        API endpoint that calls it: Origin, the page address, Referer). Without a request it takes the
+        origin of PSU_COMPONENT_PIVOT_SCHEMA_URL when that is an https address, and stops otherwise.
     .PARAMETER View
         The view (JSON text, a hashtable or an object).
     .PARAMETER Name
@@ -913,8 +1038,11 @@ function ConvertTo-UDPivotViewFile {
     .PARAMETER SourceName
         The name of that data, for people.
     .PARAMETER SchemaUrl
-        The $schema of the file: by default pivotkit's schema of the format version written
-        (view-file-2.json or view-file-1.json), else your own copy, or '' to leave it out.
+        The $schema of a file of format 2: an https address of your own copy, a path on PSU such as
+        /assets/pivot/schema/view-file-2.json (written with the origin of the request, see the
+        description), or '' to leave it out. Default: the environment variable
+        PSU_COMPONENT_PIVOT_SCHEMA_URL, else pivotkit's view-file-2.json. A file of format 1 keeps
+        pivotkit's view-file-1.json unless the value is ''.
     .PARAMETER CreatedAt
         When it was written (UTC). Without it the file is the same bytes for the same view.
     .EXAMPLE
@@ -942,9 +1070,13 @@ function ConvertTo-UDPivotViewFile {
         throw ([string]::Format([cultureinfo]::InvariantCulture, 'View file: view version {0} is not one this module writes (1 to {1}).', $viewVersion, $Script:KnownViewVersion))
     }
     $formatVersion = if ($null -ne $viewVersion -and $viewVersion -ge 2) { 2 } else { 1 }
-    if (-not $PSBoundParameters.ContainsKey('SchemaUrl')) { $SchemaUrl = $Script:ViewFileSchemaUrls[$formatVersion] }
+    # an address of your own names the current format's schema; a file of format 1 keeps pivotkit's
+    # (#110), and '' leaves $schema out of every format
+    $schemaAddress = Get-UDPivotSchemaUrl -SchemaUrl $SchemaUrl -Given:$PSBoundParameters.ContainsKey('SchemaUrl')
+    if ($null -eq $schemaAddress -or ($schemaAddress -and $formatVersion -ne $Script:KnownViewVersion)) { $schemaAddress = $Script:ViewFileSchemaUrls[$formatVersion] }
+    else { $schemaAddress = Resolve-UDPivotSchemaUrl -SchemaUrl $schemaAddress -Headers $PSCmdlet.SessionState.PSVariable.GetValue('Headers') }
     $file = [ordered]@{}
-    if ($SchemaUrl) { $file['$schema'] = $SchemaUrl }
+    if ($schemaAddress) { $file['$schema'] = $schemaAddress }
     $file['format'] = $Script:ViewFileFormat
     $file['formatVersion'] = $formatVersion
     $file['name'] = ConvertTo-UDPivotTemplateName -Name $Name
@@ -1221,7 +1353,11 @@ function Invoke-UDPivotTemplateStore {
     .PARAMETER SourceName
         Its name for people.
     .PARAMETER SchemaUrl
-        The $schema of the view file; without it pivotkit's schema of the format version written.
+        The $schema of the view file, as ConvertTo-UDPivotViewFile -SchemaUrl takes it; without it that
+        function's default.
+    .PARAMETER Headers
+        The request's headers, for the origin of a path in -SchemaUrl: ConvertTo-UDPivotViewFile reads
+        $Headers of its caller, which is this parameter.
     .EXAMPLE
         Invoke-UDPivotTemplateStore -Store $store -Action List -Scope shared
     .OUTPUTS
@@ -1238,7 +1374,8 @@ function Invoke-UDPivotTemplateStore {
         [AllowNull()][object]$View,
         [AllowEmptyString()][string]$SourceId,
         [AllowEmptyString()][string]$SourceName,
-        [AllowEmptyString()][string]$SchemaUrl
+        [AllowEmptyString()][string]$SchemaUrl,
+        [AllowNull()][object]$Headers
     )
     if (-not (Test-UDPivotTemplateStore -Store $Store)) { throw '-TemplateStore: expected a store of New-UDPivotFileTemplateStore or New-UDPivotTemplateStore.' }
     if ($Action -eq 'Publish') { $Scope = 'shared' }
@@ -1295,7 +1432,7 @@ function Invoke-UDPivotTemplateStore {
     $reportData = [string]$SourceId
     # -SchemaUrl only when given: ConvertTo-UDPivotViewFile picks pivotkit's schema of the format otherwise
     $viewFile = @{ SourceName = $SourceName; Schema = @{} }
-    if ($PSBoundParameters.ContainsKey('SchemaUrl')) { $viewFile.Schema['SchemaUrl'] = $SchemaUrl }
+    if ($PSBoundParameters.ContainsKey('SchemaUrl')) { $viewFile.Schema['SchemaUrl'] = Get-UDPivotSchemaUrl -SchemaUrl $SchemaUrl -Given }
     $listed = { param($Entry) -not $reportData -or -not $Entry.SourceId -or $Entry.SourceId -ceq $reportData }
     if ($Action -eq 'List') { return & $list | Where-Object { & $listed $_ } }
 
@@ -1454,7 +1591,7 @@ function Register-UDPivotTemplateStore {
         Keeps a report's store and settings for the event handlers the module registers, and returns
         the key the handlers find them under.
     .PARAMETER Settings
-        Store, AdminRole, SourceId, SourceName, SchemaUrl and the app and report it belongs to.
+        Store, AdminRole, SourceId, SourceName, SchemaUrl, SchemaOrigin and the app and report it belongs to.
     .EXAMPLE
         $key = Register-UDPivotTemplateStore -Settings $settings
     .OUTPUTS
@@ -1475,6 +1612,7 @@ function Register-UDPivotTemplateStore {
         SourceId   = $Settings.SourceId
         SourceName = $Settings.SourceName
         SchemaUrl  = $Settings.SchemaUrl
+        Origin     = $Settings.SchemaOrigin
     }
     $key = Get-UDPivotSha256 -Text (ConvertTo-Json -InputObject $identity -Compress) -Length 32
     $registry = Get-UDPivotStoreRegistry
@@ -1567,8 +1705,11 @@ function Invoke-UDPivotTemplateRequest {
             SourceId   = $settings.SourceId
             SourceName = $settings.SourceName
         }
-        # $null: pivotkit's schema of the format the view file is written in
+        # $null: the default of ConvertTo-UDPivotViewFile. A path takes the origin of this event's
+        # request, else the one of the page the report was drawn on
         if ($null -ne $settings.SchemaUrl) { $arguments['SchemaUrl'] = $settings.SchemaUrl }
+        $eventHeaders = $PSCmdlet.SessionState.PSVariable.GetValue('Headers')
+        $arguments['Headers'] = if (Get-UDPivotRequestOrigin -Headers $eventHeaders) { $eventHeaders } elseif ($settings.SchemaOrigin) { @{ Origin = $settings.SchemaOrigin } }
         if ($Action -ne 'Delete') { $arguments['View'] = Get-UDPivotEntryValue -InputObject $data -Name 'view' }
         Invoke-UDPivotTemplateStore @arguments
     }
@@ -1697,8 +1838,11 @@ function New-UDPivotReport {
     .PARAMETER SourceName
         The name of that data for people (in view files and the load check). Default: -Label.
     .PARAMETER SchemaUrl
-        The $schema of the view files the report writes: pivotkit's published schema by default, an
-        https address of your own copy, or '' to leave it out. Loading never depends on it.
+        The $schema of the view files the report writes: an https address of your own copy, a path on
+        PSU such as /assets/pivot/schema/view-file-2.json (the browser writes it with the address the
+        reader used, the template store with the page's), or '' to leave it out. Default: the
+        environment variable PSU_COMPONENT_PIVOT_SCHEMA_URL, else pivotkit's published schema. Loading
+        never depends on it.
     .PARAMETER FieldDefaults
         Per field name, what the report knows about the field:
         @{ LeadHours = @{ Agg = 'average'; Format = 'number:1'; Label = 'Lead time (h)'; Description = 'Hours from created to resolved'; Href = 'https://wiki.example.org/lead-time' }; Priority = @{ Order = 'Low', 'Normal', 'High' } }.
@@ -1927,7 +2071,7 @@ function New-UDPivotReport {
         [AllowEmptyCollection()][AllowNull()][string[]]$Roles,
         [ValidateLength(1, 256)][string]$SourceId,
         [ValidateLength(1, 256)][string]$SourceName,
-        [ValidateScript({ $_ -eq '' -or ($_ -match '^https://\S+$' -and $_.Length -le 2000) }, ErrorMessage = 'SchemaUrl "{0}": expected an https address or an empty string.')][AllowEmptyString()][string]$SchemaUrl,
+        [AllowEmptyString()][string]$SchemaUrl,
         [System.Collections.IDictionary]$FieldDefaults,
         [System.Collections.IDictionary]$FieldDescriptions,
         [object]$Schema,
@@ -2020,7 +2164,9 @@ function New-UDPivotReport {
     $source = [ordered]@{ id = if ($SourceId) { $SourceId } else { $storageKey } }
     if ($SourceName) { $source['name'] = $SourceName } elseif ($Label) { $source['name'] = $Label }
     $props['source'] = [pscustomobject]$source
-    if ($PSBoundParameters.ContainsKey('SchemaUrl')) { $props['schemaUrl'] = $SchemaUrl }
+    # -SchemaUrl, else the module-wide default; a path goes as it is, the browser adds its origin
+    $schemaAddress = Get-UDPivotSchemaUrl -SchemaUrl $SchemaUrl -Given:$PSBoundParameters.ContainsKey('SchemaUrl')
+    if ($null -ne $schemaAddress) { $props['schemaUrl'] = $schemaAddress }
 
     #region Templates, the store and who may change shared views
     $store = if (Test-UDPivotTemplateStore -Store $TemplateStore) { $TemplateStore }
@@ -2072,13 +2218,15 @@ function New-UDPivotReport {
     foreach ($t in @($storeViews['shared'] | Where-Object { -not $replaced.Contains($_.name) }) + @($storeViews['user'])) { $templateList.Add($t) }
     if ($store) {
         $settings = @{
-            App        = [string]$PSCmdlet.SessionState.PSVariable.GetValue('DashboardName')
-            Report     = $storageKey
-            Store      = $store
-            AdminRole  = @($AdminRole)
-            SourceId   = $source.id
-            SourceName = [string]$source['name']
-            SchemaUrl  = if ($PSBoundParameters.ContainsKey('SchemaUrl')) { $SchemaUrl } else { $null }
+            App          = [string]$PSCmdlet.SessionState.PSVariable.GetValue('DashboardName')
+            Report       = $storageKey
+            Store        = $store
+            AdminRole    = @($AdminRole)
+            SourceId     = $source.id
+            SourceName   = [string]$source['name']
+            SchemaUrl    = $schemaAddress
+            # the origin of the page's request, for a path in -SchemaUrl when the event's has none
+            SchemaOrigin = Get-UDPivotRequestOrigin -Headers $PSCmdlet.SessionState.PSVariable.GetValue('Headers')
         }
         $key = Register-UDPivotTemplateStore -Settings $settings
         # without a signed-in user the server cannot tell readers apart: their own views stay in the browser

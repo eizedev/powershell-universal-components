@@ -22,3 +22,27 @@ Describe 'Build-Module.ps1 with a component module' {
         Join-Path $built.FullName "$script:component.psd1" | Should -Exist
     }
 }
+
+Describe 'Build-Module.ps1 with the pivot module' {
+    BeforeAll {
+        $script:pivot = 'PowerShellUniversal.Component.Pivot'
+        $script:pivotCore = Join-Path $script:repo 'modules' $script:pivot 'node_modules' 'pivotkit-core'
+    }
+
+    It 'Build.psd1 ships pivotkit-core''s schema folder from the installed package, never a copy kept in the repository (#138)' {
+        $build = Import-PowerShellDataFile -LiteralPath (Join-Path $script:repo 'modules' $script:pivot 'Build.psd1')
+        $build.Include['schema'] | Should -Be "modules/$script:pivot/node_modules/pivotkit-core/schema"
+    }
+
+    It 'the built module carries pivotkit-core''s view-file and view schemas of the version the bundle uses (#138)' -Skip:(-not (Test-Path -LiteralPath (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..' '..')) 'modules' 'PowerShellUniversal.Component.Pivot' 'node_modules' 'webpack'))) {
+        $built = & (Join-Path $script:repo 'build' 'Build-Module.ps1') -Module $script:pivot -OutputPath (Join-Path $TestDrive 'out') -SkipNpmInstall 6>$null
+        $lock = Get-Content -LiteralPath (Join-Path $script:repo 'modules' $script:pivot 'package-lock.json') -Raw | ConvertFrom-Json -AsHashtable
+        $installed = (Get-Content -LiteralPath (Join-Path $script:pivotCore 'package.json') -Raw | ConvertFrom-Json).version
+        $installed | Should -Be $lock.packages['node_modules/pivotkit-core'].version
+        foreach ($name in 'view-file-1.json', 'view-file-2.json', 'view-2.json') {
+            $file = Join-Path $built.FullName 'schema' $name
+            $file | Should -Exist
+            (Get-FileHash -LiteralPath $file).Hash | Should -Be (Get-FileHash -LiteralPath (Join-Path $script:pivotCore 'schema' $name)).Hash
+        }
+    }
+}
