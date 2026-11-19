@@ -10,7 +10,7 @@
   "dependencies": {
     "@perspective-dev/client": "5.7.0",
     "@perspective-dev/server": "5.7.0",
-    "@perspective-dev/viewer": "5.7.0",
+    "@perspective-dev/viewer": "5.9.0",
     "@perspective-dev/viewer-charts": "5.7.0",
     "@perspective-dev/viewer-datagrid": "5.7.0",
     "universal-dashboard": "1.1.2"
