@@ -122,7 +122,7 @@ function ConvertFrom-UDPivotView {
         - values, filters, derived and sort: lists of at most 64 objects.
         - display: "table", "chart" or "both", in lower case.
         - fieldLabels: the report's own names for fields, an object of at most 1000 field names, each
-          with a text of 1 to 256 characters.
+          with a text of 1 to 256 characters (an empty field name is no valid JSON here).
 
         Anything else throws an error that says what is wrong. Filters pass as they are, of view version
         2 (in, blank, text, compare, relative, top, value with not and blanks) and of version 1 (include,
@@ -192,7 +192,8 @@ function ConvertFrom-UDPivotView {
                     if ($names.Count -gt $Script:MaxFields) { throw ('Pivot view: {0} must name at most {1} fields.' -f $key, $Script:MaxFields) }
                     foreach ($name in $names) {
                         $text = $name.Value
-                        if ($name.Name.Length -lt 1 -or $name.Name.Length -gt $Script:MaxNameLength -or $text -isnot [string] -or $text.Trim().Length -lt 1 -or $text.Length -gt $Script:MaxNameLength) {
+                        # an empty field name never gets here: ConvertFrom-Json refuses it; pivotkit trims the text
+                        if ($name.Name.Length -gt $Script:MaxNameLength -or $text -isnot [string] -or $text.Trim().Length -lt 1 -or $text.Trim().Length -gt $Script:MaxNameLength) {
                             throw ('Pivot view: {0} must name each field with a text of 1 to {1} characters.' -f $key, $Script:MaxNameLength)
                         }
                     }

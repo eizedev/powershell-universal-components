@@ -250,7 +250,7 @@ Describe 'ConvertFrom-UDPivotView' {
     It 'refuses fieldLabels that are no names of fields' {
         { ConvertFrom-UDPivotView '{"fieldLabels":{"City":"  "}}' } | Should -Throw '*fieldLabels*'
         # an empty name: ConvertFrom-Json refuses it already
-        { ConvertFrom-UDPivotView '{"fieldLabels":{"":"Town"}}' } | Should -Throw 'Pivot view:*'
+        { ConvertFrom-UDPivotView '{"fieldLabels":{"":"Town"}}' } | Should -Throw '*not valid JSON*'
         { ConvertFrom-UDPivotView '{"fieldLabels":["City"]}' } | Should -Throw '*fieldLabels*'
         { ConvertFrom-UDPivotView '{"fieldLabels":{"City":1}}' } | Should -Throw '*fieldLabels*'
         { ConvertFrom-UDPivotView '{"fieldLabels":{"City":{"a":"b"}}}' } | Should -Throw '*fieldLabels*'

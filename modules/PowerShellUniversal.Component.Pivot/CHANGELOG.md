@@ -43,7 +43,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 - pivotkit 0.9's view keys pass `ConvertFrom-UDPivotView`, view files, `-Templates` and the template
   stores: `fieldLabels` (a field's name of the report's own), `display = 'both'` (the table and the chart
   side by side), `sort[].column` (rows sorted by one column) and a colour scale's `conditional.colors`.
-  The check refuses a `fieldLabels` that is no object of field names with a text of at most 256
+  The check refuses a `fieldLabels` that is no object of field names with a text of 1 to 256
   characters each.
 - Theme properties `--psu-pivot-chart-axis` (falls back to `--psu-chart-axis`) for the chart's axis
   line, and `--psu-pivot-chart-other` for a pie's slice "Other (n)". Without it the slice takes
@@ -73,7 +73,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   refused.
 - The bundle is about 1.8 MB, 550 KB with gzip.
 - Views with the new keys need this version on every PSU server that reads them. Module 0.8 skips a
-  view with `display = 'both'` with a warning, and drops `fieldLabels`. Update every server that shares
+  view with `display = 'both'` in a view folder or store with a warning, refuses it in `-View` and
+  `-Templates`, and drops `fieldLabels`. Update every server that shares
   a template store or a view folder before readers save such views.
 - The chart's axis line takes `--psu-chart-axis` where an app sets it, also when it sets
   `--psu-pivot-border` for the report's other lines.
