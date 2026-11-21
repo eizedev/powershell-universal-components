@@ -174,7 +174,7 @@ Set `--psu-pivot-scale-mid` in the dark block too: without it, the HTML report o
 
 A view whose colour scale has colours of its own keeps them. Readers pick such colours in a value's
 menu, Highlight, Colour scale, **Colours**: blue to orange, blue to red or red to green
-([the colours](views.md#the-start-view-view)). Only the row "theme" follows the three properties above.
+([the colours](views.md#the-start-view-view)). Only the row **Theme colours, light to dark** follows the three properties above.
 
 Without a corporate accent the highlight, drop zone and note colours keep PSU's values; with one
 (`--psu-pivot-accent` or `--psu-chart-accent`) they are mixed from it, so they match. Set

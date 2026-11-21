@@ -189,6 +189,29 @@ test.describe("pivot showcase on PSU", () => {
         await expect(log).toContainText('"field":"Priority"');
     });
 
+    // pivotkit 0.9's view keys through a view file of -TemplatePath and PSU's props (camelCased keys):
+    // fieldLabels, display "both", a colour scale's own colours and a sort by one column
+    test("a view file with fieldLabels, both, a colour preset and a sort by one column opens as written", async ({ page }) => {
+        const errors = await open(page, "templates");
+        const report = page.locator(REPORT);
+        const menu = await openViews(report);
+        await menu.locator("[data-testid='saved-view-Hours to close per group (table and chart)']").click();
+        await expect(report.locator("[data-testid=show-both]")).toHaveAttribute("aria-selected", "true");
+        await expect(report.locator("[data-testid=chip-menu-Team]")).toContainText("Group");
+        const table = report.getByRole("tabpanel").locator("table").first();
+        await expect(table).toContainText("Group");
+        await expect(table).toContainText("Hours to close");
+        await expect(report.locator(".pk-chart canvas").first()).toBeVisible();
+        // the colours of the file, blue to orange, not the theme's scale
+        await expect.poll(async () => resolvedColor(report, (await colorScaleCells(table)).high)).toBe(await resolvedColor(report, "#eb6834"));
+        // the rows follow P1's values, the first column, highest first (the last row is the grand total)
+        const p1 = await table.evaluate((t) => [...t.querySelectorAll("tbody tr")].map((tr) => tr.querySelector("td")?.textContent.trim()));
+        const teams = p1.slice(0, -1).map((v) => Number(String(v).replace(/[^\d.]/g, "")));
+        expect(teams.length).toBeGreaterThan(2);
+        expect(teams).toEqual([...teams].sort((a, b) => b - a));
+        expect(errors).toEqual([]);
+    });
+
     // pivotkit 0.9 (#53): a click on a bar opens its menu; -OnCellClick runs at Show the rows, not before
     test("a click on a chart point opens its menu, Show the rows runs -OnCellClick", async ({ page }) => {
         await open(page, "events");

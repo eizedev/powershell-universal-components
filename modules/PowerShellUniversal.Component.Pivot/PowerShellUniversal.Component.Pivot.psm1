@@ -12,18 +12,18 @@ $Script:AssetId = Register-PSUComponentAsset -Path $PSScriptRoot
 #region Limits of a view
 # The keys of a pivotkit view (pivotkit-core's View); ConvertFrom-UDPivotView keeps only these.
 $Script:ViewKeys = @{
-    version    = 'number'
-    rows       = 'names'
-    cols       = 'names'
-    values     = 'objects'
-    filters    = 'objects'
-    derived    = 'objects'
-    sort       = 'objects'
-    totals     = 'object'
-    collapsed  = 'object'
-    display    = 'string'
-    chart      = 'object'
-    formatting = 'object'
+    version     = 'number'
+    rows        = 'names'
+    cols        = 'names'
+    values      = 'objects'
+    filters     = 'objects'
+    derived     = 'objects'
+    sort        = 'objects'
+    totals      = 'object'
+    collapsed   = 'object'
+    display     = 'string'
+    chart       = 'object'
+    formatting  = 'object'
     fieldLabels = 'labels'
 }
 # pivotkit-core's DISPLAY_MODES
@@ -113,17 +113,21 @@ function ConvertFrom-UDPivotView {
         a view is stored or used.
 
         It accepts a JSON string, a hashtable or a PSCustomObject. The view goes through one round trip
-        ConvertTo-Json/ConvertFrom-Json (nothing is evaluated) and must be a JSON object of at most
-        -MaxLength characters and at most eight levels deep. Only the keys of a pivotkit view are kept
-        (version, rows, cols, values, filters, derived, sort, totals, collapsed, display, chart,
-        formatting, fieldLabels); rows and cols must be lists of at most 64 field names, values, filters,
-        derived and sort lists of at most 64 objects, display "table", "chart" or "both", fieldLabels an
-        object of at most 1000 field names with a text of at most 256 characters each (the report's own
-        names for fields). Anything else throws an error that
-        says what is wrong. Filters pass as they are, of view version 2 (in, blank, text, compare,
-        relative, top, value with not and blanks) and of version 1 (include, exclude, label), which the
-        report migrates. The report itself checks every field name and setting against the data
-        again (pivotkit-core's normalize) and drops what does not fit.
+        ConvertTo-Json/ConvertFrom-Json (nothing is evaluated). It must be a JSON object of at most
+        -MaxLength characters and at most eight levels deep. Only the keys of a pivotkit view are kept:
+        version, rows, cols, values, filters, derived, sort, totals, collapsed, display, chart,
+        formatting and fieldLabels. The checks:
+
+        - rows and cols: lists of at most 64 field names.
+        - values, filters, derived and sort: lists of at most 64 objects.
+        - display: "table", "chart" or "both", in lower case.
+        - fieldLabels: the report's own names for fields, an object of at most 1000 field names, each
+          with a text of 1 to 256 characters.
+
+        Anything else throws an error that says what is wrong. Filters pass as they are, of view version
+        2 (in, blank, text, compare, relative, top, value with not and blanks) and of version 1 (include,
+        exclude, label), which the report migrates. The report itself checks every field name and setting
+        against the data again (pivotkit-core's normalize) and drops what does not fit.
     .PARAMETER InputObject
         The view: a JSON string, a hashtable or a PSCustomObject (e.g. $EventData.view).
     .PARAMETER MaxLength
@@ -183,11 +187,13 @@ function ConvertFrom-UDPivotView {
                 }
                 'labels' {
                     # names of the report's own for fields (pivotkit-core's view.fieldLabels): field name -> text
-                    $names = if ($value -is [System.Management.Automation.PSCustomObject]) { @($value.PSObject.Properties) }
-                    if ($null -eq $names -or $names.Count -gt $Script:MaxFields) { throw ('Pivot view: {0} must be an object of at most {1} field names and their names.' -f $key, $Script:MaxFields) }
+                    if ($value -isnot [System.Management.Automation.PSCustomObject]) { throw ('Pivot view: {0} must be an object of field names and their names.' -f $key) }
+                    $names = @($value.PSObject.Properties)
+                    if ($names.Count -gt $Script:MaxFields) { throw ('Pivot view: {0} must name at most {1} fields.' -f $key, $Script:MaxFields) }
                     foreach ($name in $names) {
-                        if ($name.Name.Length -gt $Script:MaxNameLength -or $name.Value -isnot [string] -or $name.Value.Length -gt $Script:MaxNameLength) {
-                            throw ('Pivot view: {0} must name each field with a text of at most {1} characters.' -f $key, $Script:MaxNameLength)
+                        $text = $name.Value
+                        if ($name.Name.Length -lt 1 -or $name.Name.Length -gt $Script:MaxNameLength -or $text -isnot [string] -or $text.Trim().Length -lt 1 -or $text.Length -gt $Script:MaxNameLength) {
+                            throw ('Pivot view: {0} must name each field with a text of 1 to {1} characters.' -f $key, $Script:MaxNameLength)
                         }
                     }
                 }
@@ -2033,7 +2039,8 @@ function New-UDPivotReport {
         also ends up in the browser history, in copied links and in the page address PSU sends with its
         requests. Use it for reports whose filter values are sensitive.
     .PARAMETER NoDrillDown
-        No panel with the source rows when a value is clicked (-OnCellClick still runs).
+        No panel with the source rows when a value is clicked or Show the rows is picked in a chart point's
+        menu (-OnCellClick still runs; without it, Show the rows does nothing).
     .PARAMETER DrillDownExport
         Keeps the drill-down panel's Export menu (copy, Copy as JSON, CSV and Excel of the rows behind a
         clicked value, with every column) without -ExportData. Off by default: without -ExportData the

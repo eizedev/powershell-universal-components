@@ -32,12 +32,15 @@ New-UDPivotReport -Id 'tickets' -Data $tickets -OnCellClick {
 ```
 
 A grouped date has its group as value: `202605` for May 2026 by month, `2026` by year. The panel with
-the source rows opens with every `-OnCellClick`; `-NoDrillDown` turns it off, `-OnCellClick` still runs.
+the source rows opens at every click on a value and at **Show the rows**; `-NoDrillDown` turns it off,
+`-OnCellClick` still runs. With `-NoDrillDown` and without `-OnCellClick`, **Show the rows** in a chart
+point's menu does nothing.
 
 A click on a bar, a point or a heatmap cell opens a small menu at it: **Show the rows**, then
 **Only …** and **Without …** to filter by its item. `-OnCellClick` runs at **Show the rows** or at a
 double click, not at the click that opens the menu. On a phone or tablet the second tap opens the menu.
-A pie or donut slice and a treemap tile have no rows of their own: they never run `-OnCellClick`.
+A pie or donut slice opens a menu with **Only …** and **Without …** only; a treemap tile opens none.
+Neither runs `-OnCellClick`.
 Filtering from the menu is a view change (`-OnViewChange`).
 
 `-OnViewChange` can keep the reader's layout, for example for the session:
@@ -112,7 +115,7 @@ endpoint follow no redirect, so a token never goes to another host.
 
 ## Size and limits
 
-The module's bundle is about 1.8 MB, 550 KB compressed (pivotkit, the parts of Apache ECharts the
+The module's bundle is about 1.8 MB, 550 KB with gzip (pivotkit, the parts of Apache ECharts the
 chart uses, drag and drop, the readers of `-AllowImport` with the Excel reader);
 the browser downloads it once and caches it. The pivot runs in the browser: tens of thousands of rows
 stay fast (measured by hand on one laptop: about a tenth of a second to read 100,000 rows once, a frame
@@ -121,7 +124,7 @@ the limit is what the server sends and the browser holds. A layout with more cel
 show says so instead of drawing them. ECharts, the menus, the Excel export and the HTML report are set up on first use;
 they are all in the module's one bundle, with the German texts and the tips, so a German report
 renders in German from the first frame and needs no request of its own. The one file next to it is the import worker of
-`-AllowImport` (about 26 KB), which PSU serves like the bundle and the browser loads only when a
+`-AllowImport` (about 28 KB), which PSU serves like the bundle and the browser loads only when a
 reader's CSV or JSON file is read.
 
 A file a reader loads is bounded by pivotkit's limits (100 MiB, 1,000,000 rows, 1,000 columns,

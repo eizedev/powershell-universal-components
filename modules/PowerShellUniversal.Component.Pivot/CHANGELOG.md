@@ -69,6 +69,12 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
       new file.
 - `-OnCellClick` for a chart point runs at **Show the rows** in the point's menu or at a double click,
   no longer at the first click. The docs of the event say so.
+- `ConvertFrom-UDPivotView` takes `display` in lower case only, as pivotkit writes it: `'Table'` is
+  refused.
+- The bundle is about 1.8 MB, 550 KB with gzip.
+- Views with the new keys need this version on every PSU server that reads them. Module 0.8 skips a
+  view with `display = 'both'` with a warning, and drops `fieldLabels`. Update every server that shares
+  a template store or a view folder before readers save such views.
 - The chart's axis line takes `--psu-chart-axis` where an app sets it, also when it sets
   `--psu-pivot-border` for the report's other lines.
 - `Invoke-UDPivotReport -Engine Node` names Node 24 or later for pivotkit's command line of pivotkit 0.9
