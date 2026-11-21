@@ -118,7 +118,7 @@ pivotkit's side: [create_link](https://pivotkit.eize.dev/reference/mcp/) and
 
 A source only the server can reach opens with the person's own rows: `New-UDPivotReport -Uri -Source`
 fetches them on the PSU server, with the link's parameters from the page's query string
-([rows from a server](reports.md#server-rows)).
+([rows from a server](server-rows.md)).
 
 ## Filters
 

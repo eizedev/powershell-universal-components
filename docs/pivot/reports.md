@@ -148,13 +148,13 @@ Each source is an object with these properties:
 | `Schedulable` | Whether the server drafts schedules for it |
 | `Parameters` | The values the source takes, as the server describes them (`name`, `type`, `required`, `description`, `example`) |
 | `DataMaxBytes` | The largest request this caller may send with `-Data`. Empty when it may send none. The same on every source |
-| `Records` | Whether the caller may read the source's rows: [rows from a server](#server-rows) |
+| `Records` | Whether the caller may read the source's rows ([rows from a server](server-rows.md)) |
 | `LinkParams` | The parameters a link may carry in the page's query string |
 | `Views` | The views the operator publishes for the source: `name`, `title`, `description` |
 | `Rows`, `DataAsOf` | The row count and the data's date, where the server read the data and shows them to the caller |
 | `RequestId` | The id of the answer, for the operator |
 
-A server older than pivotkit-server 0.4 leaves `Records`, `LinkParams`, `Views`, `Rows` and `DataAsOf`
+A server released before pivotkit 0.9 leaves `Records`, `LinkParams`, `Views`, `Rows` and `DataAsOf`
 empty. When the server lists no source, the function returns nothing and writes the server's reason to
 the warning stream: the sign-in lacks the sources' scopes.
 
@@ -212,151 +212,6 @@ What the function does on the way:
 - The token and the client secret never appear in an error, `$Error`, the verbose or the debug stream
   or the output, also with `-Verbose` and `-Debug`.
 
-## Rows from a server for the signed-in person { #server-rows }
-
-Some data only a pivotkit-server can reach, for the person who opens the page: an HTTP source with a
-token exchange, a file on the server. `New-UDPivotReport -Uri -Source -Token` shows such a source as
-a live report. A link from pivotkit's `create_link` opens on it too.
-
-```powershell
-New-UDPage -Name 'Orders' -Url '/orders' -Content {
-    New-UDPivotReport -Id 'orders' -Uri 'https://reports.example.com/api/v1' -Source 'orders' -Token $AccessToken
-}
-```
-
-How it works:
-
-1. PowerShell asks the server's rows route, `POST /sources/records`, with the person's token.
-2. The server answers with the rows the person may see, as JSON text in pivotkit's columnar shape.
-3. The module hands that text to the report as it is. It never turns the rows into PowerShell objects.
-4. The report parses the text in the browser and works as with `-Data`.
-
-The browser makes no request to the server. There is no CORS, and the token never reaches the
-browser.
-
-### What it needs
-
-On PSU:
-
-- PSU's OpenID Connect sign-in with `Authentication__OIDC__SaveTokens=true`. PSU then gives the page
-  the person's access token as `$AccessToken`.
-- `$AccessToken` exists on app pages and in `New-UDDynamic`. It does not exist in API endpoints, so
-  this mode is for pages.
-- There is no refresh token. When the token has expired, the report asks the person to sign in again.
-
-On pivotkit-server (its [rows route](https://pivotkit.eize.dev/reference/rest/#records-host)):
-
-- The server accepts the token as an OAuth token of its issuer. `rest.audience` lists the audience of
-  PSU's tokens, and the token carries the scopes of `rest.requiredScopes` and of the source.
-- A profile of the person names the source in `records`. Only fields at `show` for the person leave
-  the server.
-- A token PSU signs for the person ([tokens from another
-  system](https://pivotkit.eize.dev/reference/rest/#external-issuers)) works too. It cannot read a
-  source with a token exchange.
-- A static token and OAuth client credentials get no rows: the server hands rows only to a person.
-
-`Get-UDPivotSource` shows `Records` as `$true` for each source the caller may read the rows of.
-
-### Links with parameters
-
-A link from `create_link` names the source's parameters in the page's query string, such as
-`/orders?customer=acme#pivot-orders=1.<view>`. The view stays in the fragment, and the report reads
-it in the browser as before ([links from pivotkit](views.md#links-from-pivotkit-create_link)).
-
-- The module reads `$Query` of the page and passes on only the names the server lists as the
-  source's `linkParams` in `GET /sources`. Other names in the query string stay out.
-- Pass `-Query $Query` where the call runs in a script block or function defined in the app script.
-- `-Parameter` replaces the query string: `-Parameter @{ customer = $Query.customer }` narrows what a
-  link may set. Its values go to the server as they are.
-- The server checks every value again with the rights of the person who opens the page.
-- The report writes its view into the fragment and keeps the query string. A link a person copies from
-  the address bar still names the customer.
-- Values in a query string land in access logs, the browser history and the `Referer` header. List
-  only parameters whose values may show up there, and send a strict `Referrer-Policy`
-  ([pivotkit's security notes](https://pivotkit.eize.dev/security/#link-params)).
-
-A view the server publishes for the source goes by its name: `-View 'by-region'`. Then only the fields
-it uses leave the server. The server lists its views' names, not the views, so the report starts with
-the view of the link, else empty.
-
-### When the server gives no rows
-
-The report shows a message instead, in its language. The message for the operator, with the error id,
-the server's address and its answer, goes to the warning stream, the app's log. It is no error on
-purpose: PSU shows an error of a page to the reader as a toast. With `-ErrorAction` or
-`-ErrorVariable` the error goes to the error stream, and `-ErrorAction Stop` throws it, for a page that
-handles it itself.
-
-| Server answer | Error id | The reader reads |
-| --- | --- | --- |
-| 401 | `PivotTokenRefused` | Sign in again |
-| 403 `NOT_ALLOWED` | `PivotRowsNotAllowed` | Not available for you, with the fields from `notShown` |
-| 400 `INVALID_INPUT` | `PivotServerError` | The link does not fit: a value or a view name is wrong |
-| 404 `SOURCE_NOT_FOUND`, `DATA_NOT_AVAILABLE` | `PivotNoData` | No data |
-| 413 `LIMIT_EXCEEDED`, or more than `-MaxBytes` | `PivotDataTooLarge` | The server's own message, which names the limit |
-| 429 `RATE_LIMITED`, 503 `BUSY` | `PivotServerBusy` | The service is busy, try again in the seconds of `Retry-After` |
-| 503 `SOURCE_UNAVAILABLE`, any other 5xx, an answer cut off | `PivotServerError` | Try again later |
-| no answer | `PivotServerUnreachable` | The service does not answer |
-
-- `$_.TargetObject` is the server's answer as a `PivotServerProblem` ([errors](#errors)). `NotShown`
-  lists the fields of a `NOT_ALLOWED` answer.
-- A reader never sees the server's address, the token or a stack trace. The message ends with the
-  request id, for the operator.
-- A link's view that needs a field the server did not hand out says which field above the report,
-  and that the operator decides. The report does not leave the field out silently.
-- The server answers 403 `NOT_ALLOWED` for a source that does not exist too, so a person cannot tell
-  which sources there are.
-
-### What stays on the PSU server
-
-- The token: only in the request to pivotkit-server. It is never in a prop, an error or a log line.
-- The rows, as text, while PSU renders the page: in the PowerShell process that runs the page and
-  in PSU's server process on their way to the browser. Neither keeps them afterwards, but .NET returns
-  little of that memory ([sizing](#sizing-of-server-rows)).
-- `-MaxBytes` (default 32 MB) caps the answer. The module reads it in pieces and stops past the cap
-  before it reads the rest.
-
-### Sizing { #sizing-of-server-rows }
-
-Three places hold the rows:
-
-- **The browser.** It parses the text and keeps the rows encoded, as with `-Data`. pivotkit's
-  [browser benchmark](https://pivotkit.eize.dev/concepts/limits/) measured about 10 MB for the data
-  and 13 MB for the report at 100,000 rows of 9 columns.
-- **The PowerShell process of the page.** In an app of PSU's **Integrated** environment, that is
-  PSU's server process. In a **PowerShell 7** environment, it is a host process of its own.
-- **PSU's server process.** It passes the text on to the browser.
-
-Measured on two PSU test instances (2026.2.5 and 2026.3.4 in containers with a 2 GiB limit), an app in
-a PowerShell 7 environment, a pivotkit-server on the same host, 20 columns, three page loads each.
-The numbers are the growth of each process's memory (RSS) at the peak, sampled every 0.25 seconds:
-
-| Rows | Answer | Page process | PSU server process | Page load |
-| --- | --- | --- | --- | --- |
-| 10,000 | 1.6 MiB | +5 to +22 MB | +0 to +15 MB | 0.5 to 1.5 s |
-| 50,000 (the server's default limit) | 8.2 MiB | +145 to +162 MB | +53 to +105 MB | 0.9 to 3 s |
-| 100,000 | 16.3 MiB | +161 to +284 MB | +12 to +87 MB | 1.4 to 4.6 s |
-| 10,000 as `-Data` (`Import-Csv` objects) | - | +73 to +116 MB | +1 to +35 MB | 2.9 to 4.5 s |
-| 50,000 as `-Data` (`Import-Csv` objects) | - | +467 to +509 MB | +0 to +4 MB | 14.5 to 17.8 s |
-
-- These are numbers of two test instances with other apps running, not a benchmark. .NET's garbage
-  collector frees at its own time, so a single load can show more or less. Measure with your data.
-- The largest text the module passed through PSU to the browser was 64 MiB, on both instances. A
-  string of 128 MiB crashed the browser tab, not PSU.
-- PSU keeps much of the memory a process took, as the process grows. Several people opening large
-  reports at once add up.
-
-Set a memory limit per PSU process, so an overflow ends as an error in one request instead of the
-system killing the whole container:
-
-- `DOTNET_GCHeapHardLimit` caps the managed heap of a .NET process. Its value is a number of bytes in
-  hexadecimal, such as `0x40000000` for 1 GiB
-  ([.NET garbage collector settings](https://learn.microsoft.com/dotnet/core/runtime-config/garbage-collector)).
-- Set it in the environment of PSU's container or service. The host processes PSU starts for its
-  environments inherit it (checked on PSU 2026.2.5): each process gets the same cap.
-- Choose it so that the server process and the host processes you expect fit together into the
-  container's limit.
-
 ## Size and memory
 
 The rows go into the request one by one: a DataTable (or DataView) straight from its rows, a list of
@@ -396,8 +251,9 @@ render with `-Source`. `-Data` is for what a script has at hand, a few megabytes
 
 ## Errors
 
-Every failure of `Invoke-UDPivotReport` and `Get-UDPivotSource` is an ErrorRecord with a fixed error
-id (`$_.FullyQualifiedErrorId`, or `catch` and `Should -Throw -ErrorId` in a test).
+Every failure of `Invoke-UDPivotReport` and `Get-UDPivotSource`, and every answer the server refuses
+to `New-UDPivotReport -Uri` ([rows from a server](server-rows.md#when-the-server-gives-no-rows)), is an
+ErrorRecord with a fixed error id (`$_.FullyQualifiedErrorId`, or `catch` and `Should -Throw -ErrorId` in a test).
 
 For an answer of pivotkit-server, `$_.TargetObject` is the server's
 [problem document](https://pivotkit.eize.dev/reference/rest/) as a `PivotServerProblem`. It has these
@@ -410,6 +266,7 @@ properties:
 - `RequestId`: the id the operator finds the log lines by.
 - `Retryable`, `RetryAfter`: whether trying again may work, and when.
 - `Type`, `Findings`: the address that names the code, and the findings of a view with errors.
+- `NotShown`: the fields of a `NOT_ALLOWED` answer of the rows route.
 
 A field the answer lacks is empty. An error that is no answer of the server (no connection, a missing
 command line) has no `TargetObject`. A page uses the code to tell the reader why a report failed:
@@ -450,7 +307,10 @@ catch {
 | `PivotDataTooLarge` | `-Data` passed `-MaxBytes`, or the server answered 413: `BODY_TOO_LARGE` (the request is over the server's cap: send fewer rows or columns, or use `-Source`) or `LIMIT_EXCEEDED` (the report is over a limit of the server, rows, cells or memory: make the view smaller or filter) |
 | `PivotViewHasErrors` | the view has errors: the server's 422 (with `-AsLink` its 200 with `ok: false`) or the command line's findings (exit 1) |
 | `PivotNoLink` | `-AsLink`: the server saved the report without a download link, or it has no output directory (409 `NO_OUTPUT`) |
-| `PivotServerError` | any other answer of the server that is no report (400, 403, 404, 429, 500, 502, 503 and so on) |
+| `PivotRowsNotAllowed` | `New-UDPivotReport -Uri`: the rows route answered 403 `NOT_ALLOWED` |
+| `PivotNoData` | `New-UDPivotReport -Uri`: the rows route answered 404 `SOURCE_NOT_FOUND` or `DATA_NOT_AVAILABLE` |
+| `PivotServerBusy` | `New-UDPivotReport -Uri`: the rows route answered 429 `RATE_LIMITED` or 503 `BUSY` |
+| `PivotServerError` | any other answer of the server that is no report (400, 403, 404, 429, 500, 502, 503 and so on). The three ids above apply to the rows route only; on the other routes these answers stay `PivotServerError` |
 | `PivotCliNotFound` | `pivotkit` (or `node` for a .js) was not found, or `-CliPath` is no file |
 | `PivotCliFailed` | the command line did not start, took longer than `-TimeoutSec`, gave no `--json` answer or failed otherwise (exit 2) |
 

@@ -157,7 +157,7 @@ their PowerShell spelling. Every column gets a type from its values:
 
 Instead of `-Data`, `-Uri -Source -Token` show the rows of a pivotkit-server source for the signed-in
 person. The server hands them out, PowerShell passes them on as text, and a link with parameters opens
-on them ([rows from a server](reports.md#server-rows)).
+on them ([rows from a server](server-rows.md)).
 
 ### Dates and time zones
 

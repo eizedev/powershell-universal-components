@@ -63,6 +63,7 @@ nav = [
     { "Templates, view files and roles" = "pivot/templates.md" },
     { "Readers' own files" = "pivot/import.md" },
     { "Events, security and limits" = "pivot/events.md" },
+    { "Rows from a server" = "pivot/server-rows.md" },
     { "Reports without a browser" = "pivot/reports.md" },
     { "Commands and parameters" = "pivot/reference.md" },
   ] },

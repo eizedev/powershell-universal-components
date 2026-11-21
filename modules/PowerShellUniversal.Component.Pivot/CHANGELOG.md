@@ -10,7 +10,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 - `New-UDPivotReport -Uri -Source -Token` shows the rows of a pivotkit-server source for the signed-in
   person, also when a link from pivotkit's `create_link` opens the page
   ([#144](https://github.com/eizedev/powershell-universal-components/issues/144),
-  [rows from a server](https://powershell-universal-components.eize.dev/pivot/reports/#server-rows)).
+  [rows from a server](https://powershell-universal-components.eize.dev/pivot/server-rows/)).
     - PowerShell fetches the rows from the server's rows route (`POST /sources/records`) with the
       person's token, `$AccessToken` of PSU's OpenID Connect sign-in. The browser makes no request to
       the server, and the token never reaches it.
@@ -41,8 +41,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Changed
 
-- pivotkit-core 0.9.0, pivotkit-react 0.9.0, pivotkit-report 0.9.0 and pivotkit-xlsx 0.6.0, all pinned
-  (TODO before the release: the versions pivotkit publishes). What readers see:
+- pivotkit-core 0.9.0, pivotkit-react 0.9.0, pivotkit-report 0.9.0 and pivotkit-xlsx 0.6.0, all pinned.
+  What readers see:
     - Chart settings offers **Bars and lines** and **Treemap**, and **High and low points** under
       Reference lines.
     - A pie or donut without a legend puts its smallest slices into one grey slice "Other (n)" when

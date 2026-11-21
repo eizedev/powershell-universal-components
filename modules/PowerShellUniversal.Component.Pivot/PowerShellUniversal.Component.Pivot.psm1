@@ -1752,7 +1752,8 @@ function ConvertTo-UDPivotReaderProblem {
         and what goes with it. Never the token, never the operator's details beyond a request id.
     .DESCRIPTION
         kind: signIn (PivotTokenRefused), notAllowed (PivotRowsNotAllowed, with fields from notShown),
-        badLink (the server's 400: a parameter's value or a view name that does not fit), noData (PivotNoData), tooLarge (PivotDataTooLarge, with the server's detail as it is), busy
+        badLink (the server's 400: a parameter's value or a view name that does not fit), notSetUp (403
+        INSUFFICIENT_SCOPE: the sign-in lacks a scope the server asks for), noData (PivotNoData), tooLarge (PivotDataTooLarge, with the server's detail as it is), busy
         (PivotServerBusy, with retryAfter in seconds where the server sent them), unreachable
         (PivotServerUnreachable) or serverError (the rest). requestId is the server's, for the operator.
     .PARAMETER ErrorRecord
@@ -1778,6 +1779,8 @@ function ConvertTo-UDPivotReaderProblem {
     $p = $ErrorRecord.TargetObject
     # the server refused the request itself: a link's value or view name that does not fit the source
     if ($kind -eq 'serverError' -and $p -and $p.Status -eq 400) { $kind = 'badLink' }
+    # the token lacks a scope the server asks for: the operator's setting, signing in again cannot help
+    if ($p -and $p.Status -eq 403 -and $p.Code -eq 'INSUFFICIENT_SCOPE') { $kind = 'notSetUp' }
     $out = [ordered]@{ kind = $kind }
     if ($p -and $p.NotShown -and $p.NotShown.Count) { $out['fields'] = [string[]]@($p.NotShown | Select-Object -First 64 | ForEach-Object { Limit-UDPivotText -Text $_ -MaxLength $Script:MaxNameLength }) }
     $seconds = 0
@@ -1818,7 +1821,7 @@ function New-UDPivotReport {
         PivotRowsNotAllowed, PivotNoData, PivotDataTooLarge, PivotServerBusy, PivotServerError): the report
         tells the reader in plain words, and the operator's message with the id goes to the warning
         stream, the app's log (PSU would show an error to the reader as a toast). With -ErrorAction or
-        -ErrorVariable the error itself goes to the error stream; -ErrorAction Stop throws it. https://powershell-universal-components.eize.dev/pivot/reports/#server-rows
+        -ErrorVariable the error itself goes to the error stream; -ErrorAction Stop throws it. https://powershell-universal-components.eize.dev/pivot/server-rows/
     .PARAMETER Id
         Component id. Default: a new GUID. Get-UDElement -Id returns the current view as .view;
         Set-UDElement -Id -Properties @{ view = ... } shows another view (one undo step). The browser
@@ -1849,8 +1852,9 @@ function New-UDPivotReport {
         With -Uri: the page's query string. Default: $Query of the page. Pass $Query where the call runs
         in a script block or function defined in the app script.
     .PARAMETER MaxBytes
-        With -Uri: the most bytes of the server's answer the report takes, default 32 MB. A larger answer
-        stops with PivotDataTooLarge before the rest is read.
+        With -Uri: the most bytes of the server's answer the report takes, default 32 MB, at most 64 MB
+        (the largest text measured through PSU to the browser). A larger answer stops with
+        PivotDataTooLarge before the rest is read.
     .PARAMETER TimeoutSec
         With -Uri: the longest the server may take to answer, in seconds. Default 120.
     .PARAMETER View
@@ -2149,9 +2153,9 @@ function New-UDPivotReport {
         [Parameter(Mandatory, ParameterSetName = 'Server')][uri]$Uri,
         [Parameter(Mandatory, ParameterSetName = 'Server')][ValidateLength(1, 256)][string]$Source,
         [Parameter(Mandatory, ParameterSetName = 'Server')][AllowNull()][AllowEmptyString()][object]$Token,
-        [Parameter(ParameterSetName = 'Server')][System.Collections.IDictionary]$Parameter,
+        [Parameter(ParameterSetName = 'Server')][Alias('Params')][System.Collections.IDictionary]$Parameter,
         [Parameter(ParameterSetName = 'Server')][AllowNull()][System.Collections.IDictionary]$Query,
-        [Parameter(ParameterSetName = 'Server')][ValidateRange(1, 2GB)][long]$MaxBytes = $Script:RecordsMaxBytes,
+        [Parameter(ParameterSetName = 'Server')][ValidateScript({ $_ -ge 1 -and $_ -le $Script:RecordsMaxBytesLimit }, ErrorMessage = '-MaxBytes {0}: from 1 to 64 MB (67108864), the largest text measured through PSU to the browser.')][long]$MaxBytes = $Script:RecordsMaxBytes,
         [Parameter(ParameterSetName = 'Server')][ValidateRange(1, 3600)][int]$TimeoutSec = $Script:ReportTimeoutSec,
         [object]$View,
         [object]$SavedView,
@@ -2215,9 +2219,14 @@ function New-UDPivotReport {
     $problem = $null
     if ($fromServer) {
         $auth = Resolve-UDPivotRestSignIn -Bound @{ Uri = $Uri; Token = $Token } -TimeoutSec $TimeoutSec
-        # a missing token is the app's mistake, not the server's answer: it stops before anything is sent
-        $null = ConvertTo-UDPivotPlainText -Secret $Token -Name '-Token'
         try {
+            # no token: a visitor who is not signed in, or PSU's sign-in without SaveTokens. The reader is
+            # asked to sign in; nothing is sent
+            $tokenText = if ($Token -is [securestring]) { [System.Net.NetworkCredential]::new('', $Token).Password } else { [string]$Token }
+            if ([string]::IsNullOrEmpty($tokenText)) {
+                throw (New-UDPivotError -Id PivotTokenRefused -Category AuthenticationError -Message '-Token is empty: no access token of the signed-in person. Pass $AccessToken on a page of an app with sign-in, and turn on Authentication__OIDC__SaveTokens in PSU, so PSU keeps the token.')
+            }
+            $tokenText = $null
             $sent = if ($PSBoundParameters.ContainsKey('Parameter')) { $Parameter } else {
                 # $Query of the page, as $User below; a script block defined in the app script has none
                 $pageQuery = if ($PSBoundParameters.ContainsKey('Query')) { $Query } else { $PSCmdlet.SessionState.PSVariable.GetValue('Query') }
@@ -2233,11 +2242,11 @@ function New-UDPivotReport {
             # asks for the error (-ErrorAction, -ErrorVariable) gets it with its id; with Stop it throws
             # (the module's own preference is Stop, so the caller's choice decides here)
             $problem = ConvertTo-UDPivotReaderProblem -ErrorRecord $_
+            Write-Warning ('{0}: {1}' -f ($_.FullyQualifiedErrorId -split ',')[0], $_.Exception.Message)
             if ($PSBoundParameters.ContainsKey('ErrorAction') -or $PSBoundParameters.ContainsKey('ErrorVariable')) {
                 if (-not $PSBoundParameters.ContainsKey('ErrorAction')) { $ErrorActionPreference = 'Continue' }
                 $PSCmdlet.WriteError($_)
             }
-            else { Write-Warning ('{0}: {1}' -f ($_.FullyQualifiedErrorId -split ',')[0], $_.Exception.Message) }
         }
     }
     else {
@@ -2626,6 +2635,10 @@ $Script:ReportTimeoutSec = 120
 # about 4 MiB for 8 columns; PSU passed a text prop of 64 MiB to the browser (measured on 2026.2.5 and
 # 2026.3.4), but each copy costs PSU's memory (docs/pivot/reports.md, sizing)
 $Script:RecordsMaxBytes = 32MB
+# the largest -MaxBytes: what PSU passed to the browser in the measurement above
+$Script:RecordsMaxBytesLimit = 64MB
+# an error answer of the rows route is read up to this many bytes (a problem document is far smaller)
+$Script:ErrorBodyMaxBytes = 1MB
 # the name of a view the server publishes for a source (pivotkit-server's named views)
 $Script:ViewNamePattern = '^[A-Za-z0-9_-]{1,80}$'
 # a request body above this gets a warning: pivotkit-server's default rest.data.maxBytes
@@ -3627,10 +3640,18 @@ function Invoke-UDPivotHttp {
                     Text       = Read-UDPivotAnswerText -Content $response.Content -MaxBytes $textMax -TimeoutSec $(if ($Request['TimeoutSec']) { [int]$Request['TimeoutSec'] } else { 100 }) -What $What
                 }
             }
+            # an answer that is no success holds a problem document of a few hundred bytes: in the text
+            # mode its body is read with the same cap and time limit, so a stalled or huge error body
+            # cannot hold the page
+            $content = if ($textMax -gt 0) {
+                $errorText = try { Read-UDPivotAnswerText -Content $response.Content -MaxBytes $Script:ErrorBodyMaxBytes -TimeoutSec $(if ($Request['TimeoutSec']) { [int]$Request['TimeoutSec'] } else { 100 }) -What $What } catch { '' }
+                [System.Text.Encoding]::UTF8.GetBytes([string]$errorText)
+            }
+            else { [byte[]]$response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult() }
             return [pscustomobject]@{
                 StatusCode = $status
                 Headers    = $headers
-                Content    = [byte[]]$response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
+                Content    = $content
             }
         }
         catch {
@@ -3970,7 +3991,8 @@ function New-UDPivotServerError {
             else { '-Parameter needs a source with parameters on pivotkit-server 0.2.0 or later.' })
     }
     $scopeMissing = $status -eq 403 -and $code -eq 'INSUFFICIENT_SCOPE'
-    if ($scopeMissing) { $message += [Environment]::NewLine + 'The token lacks a scope the server needs: ask the token endpoint for it with -Scope (the scope the operator set in rest.requiredScopes, for example pivotkit:rest), and make sure the OAuth provider grants it to this client.' }
+    if ($scopeMissing -and $RowsRoute) { $message += [Environment]::NewLine + 'The person''s token lacks a scope the server needs (rest.requiredScopes and the source''s scopes): let PSU''s OpenID Connect sign-in ask the provider for it, and make sure the provider puts it into the access token.' }
+    elseif ($scopeMissing) { $message += [Environment]::NewLine + 'The token lacks a scope the server needs: ask the token endpoint for it with -Scope (the scope the operator set in rest.requiredScopes, for example pivotkit:rest), and make sure the OAuth provider grants it to this client.' }
     if ($RowsRoute -and $p.NotShown.Count) { $message += [Environment]::NewLine + ('Fields not at show for this person: {0}. The operator decides which fields leave the server.' -f ($p.NotShown -join ', ')) }
     if ($p.RequestId) { $message += [Environment]::NewLine + ('Request id for the operator: {0}' -f $p.RequestId) }
     $id = if ($scopeMissing) { 'PivotTokenRefused' } else { switch ($status) { 401 { 'PivotTokenRefused' } 413 { 'PivotDataTooLarge' } 422 { 'PivotViewHasErrors' } default { 'PivotServerError' } } }
@@ -4264,7 +4286,7 @@ function Get-UDPivotRecordText {
     .EXAMPLE
         Get-UDPivotRecordText -Uri $uri -Source 'vms' -Auth @{ Token = $AccessToken } -MaxBytes 32MB
     .OUTPUTS
-        PSCustomObject with Text, Columns, RowCount, Withheld, DataAsOf and RequestId.
+        PSCustomObject with Text, Columns, RowCount and RequestId.
     #>
     [CmdletBinding()]
     [OutputType([pscustomobject])]
@@ -4280,8 +4302,10 @@ function Get-UDPivotRecordText {
     $body = [ordered]@{ source = $Source }
     if ($Parameter -and $Parameter.Count) {
         $params = [ordered]@{}
-        foreach ($k in @($Parameter.Keys | ForEach-Object { [string]$_ } | Sort-Object)) { $params[$k] = $Parameter[$k] }
-        $body['params'] = $params
+        # a value the page does not have ($Query.customer of a page opened without it) is left out, so the
+        # server says which parameter is missing instead of refusing a null
+        foreach ($k in @($Parameter.Keys | Sort-Object { [string]$_ })) { if ($null -ne $Parameter[$k]) { $params[[string]$k] = $Parameter[$k] } }
+        if ($params.Count) { $body['params'] = $params }
     }
     if ($ViewName) { $body['view'] = $ViewName }
     $json = ConvertTo-Json -InputObject $body -Depth 4 -Compress
@@ -4292,7 +4316,8 @@ function Get-UDPivotRecordText {
     try { $document = [System.Text.Json.JsonDocument]::Parse($text) }
     catch {
         if ($global:Error.Count -and [object]::ReferenceEquals($global:Error[0].Exception, $_.Exception)) { $global:Error.RemoveAt(0) }
-        throw (New-UDPivotError -Id PivotServerError -Data @{ Status = $response.StatusCode } -Message ('pivotkit-server {0}: the answer is no whole JSON text; it was cut off on the way (a slow or idle reader, the server''s time limit). Ask again.' -f $where))
+        $why = if ($text.TrimStart().StartsWith('{')) { 'it was cut off on the way (a slow or idle reader, the server''s time limit). Ask again.' } else { 'it is no JSON at all (a proxy''s page, another service at this address). Check -Uri.' }
+        throw (New-UDPivotError -Id PivotServerError -Data @{ Status = $response.StatusCode } -Message ('pivotkit-server {0}: the answer is no whole JSON text; {1}' -f $where, $why))
     }
     try {
         $root = $document.RootElement
@@ -4303,14 +4328,12 @@ function Get-UDPivotRecordText {
         if (-not $isTable) { throw (New-UDPivotError -Id PivotServerError -Data @{ Status = $response.StatusCode } -Message ('pivotkit-server {0}: the answer holds no columnar rows (columns and data).' -f $where)) }
         $names = { param($Element) if ($null -ne $Element -and $Element.ValueKind -eq 'Array') { [string[]]@(foreach ($e in $Element.EnumerateArray()) { if ($e.ValueKind -eq 'String') { $e.GetString() } }) } else { [string[]]@() } }
         $rowCount = $keys['rowCount']
-        $asOf = $keys['dataAsOf']
         $requestId = $keys['requestId']
+        $count = [long]0
         [pscustomobject]@{
             Text      = $text
             Columns   = & $names $keys['columns']
-            RowCount  = if ($null -ne $rowCount -and $rowCount.ValueKind -eq 'Number') { $rowCount.GetInt64() } else { $null }
-            Withheld  = & $names $keys['withheld']
-            DataAsOf  = if ($null -ne $asOf -and $asOf.ValueKind -eq 'String') { $asOf.GetString() } else { $null }
+            RowCount  = if ($null -ne $rowCount -and $rowCount.ValueKind -eq 'Number' -and $rowCount.TryGetInt64([ref]$count)) { $count } else { $null }
             RequestId = if ($null -ne $requestId -and $requestId.ValueKind -eq 'String') { $requestId.GetString() } elseif ($response.Headers['X-Request-Id']) { [string]$response.Headers['X-Request-Id'] } else { $null }
         }
     }
@@ -4699,7 +4722,7 @@ function Get-UDPivotSource {
         parameters a link may carry in the page's query string), Views (the views the operator
         publishes for the source: name, title, description), Rows and DataAsOf (the row count and the
         data's date, where the server has read the data and shows them to the caller) and RequestId.
-        A server older than pivotkit-server 0.4 leaves Records, LinkParams, Views, Rows and DataAsOf
+        A server released before pivotkit 0.9 leaves Records, LinkParams, Views, Rows and DataAsOf
         empty.
 
         When the server lists no source, nothing is returned and the server's reason (its hint: the

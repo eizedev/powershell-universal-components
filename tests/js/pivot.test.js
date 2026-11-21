@@ -806,7 +806,7 @@ test("problemOf and problemText: what the reader reads when the server gave no r
     // the server's "too many rows" message as it is, the module's own words without one
     assert.match(mod.problemText(mod.problemOf({ kind: "tooLarge", detail: "this source has too many rows to open here (60,000, the limit is 50,000)" }), "en-US").text, /60,000, the limit is 50,000/);
     assert.match(mod.problemText(mod.problemOf({ kind: "tooLarge" }), "de-DE").text, /zu viele Zeilen/);
-    for (const kind of ["signIn", "notAllowed", "badLink", "noData", "tooLarge", "busy", "unreachable", "serverError"]) {
+    for (const kind of ["signIn", "notAllowed", "notSetUp", "badLink", "noData", "tooLarge", "busy", "unreachable", "serverError"]) {
         for (const locale of ["en-US", "de-DE"]) {
             const t = mod.problemText(mod.problemOf({ kind }), locale);
             assert.ok(t.title && t.text, `${kind} ${locale}`);

@@ -47,13 +47,6 @@ function sessionStorageOrNull() {
 }
 
 /*
- * pivotkit's report builder with the props New-UDPivotReport sends. The report runs controlled: this
- * component keeps the view, so a view the server sets later (Set-UDElement -Properties @{ view = ... })
- * becomes one undo step, Get-UDElement sees the current view, and -OnViewChange gets every change once
- * the user paused. Templates saved, published or deleted through the endpoints show up at once, after
- * the server confirmed them.
- */
-/*
  * What the report says in place of itself when New-UDPivotReport -Uri got no rows from the server
  * (the problem prop), in the report's language. The details for the operator are in the app's log.
  */
@@ -68,6 +61,13 @@ function ProblemBox({ problem, locale }) {
     );
 }
 
+/*
+ * pivotkit's report builder with the props New-UDPivotReport sends. The report runs controlled: this
+ * component keeps the view, so a view the server sets later (Set-UDElement -Properties @{ view = ... })
+ * becomes one undo step, Get-UDElement sees the current view, and -OnViewChange gets every change once
+ * the user paused. Templates saved, published or deleted through the endpoints show up at once, after
+ * the server confirmed them.
+ */
 export default function PsuPivotReport(props) {
     // -Uri -Source: the server's answer as text, parsed here once (no PowerShell objects on the way);
     // else -Data's rows with the names PowerShell had

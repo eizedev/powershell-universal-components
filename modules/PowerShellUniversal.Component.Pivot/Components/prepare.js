@@ -700,7 +700,7 @@ export function withheldFieldsOf(view, withheld) {
     return held.size ? viewFieldsOf(view).filter((f) => held.has(f.toLowerCase())) : [];
 }
 
-const PROBLEM_KINDS = ["signIn", "notAllowed", "badLink", "noData", "tooLarge", "busy", "unreachable", "serverError"];
+const PROBLEM_KINDS = ["signIn", "notAllowed", "notSetUp", "badLink", "noData", "tooLarge", "busy", "unreachable", "serverError"];
 const MAX_PROBLEM_FIELDS = 64;
 const MAX_PROBLEM_TEXT = 1000;
 
@@ -718,6 +718,7 @@ const PROBLEM_TEXTS = {
     en: {
         signIn: ["Sign in again", "Your sign-in has expired or was not accepted by the report service. Sign in again, then open this page once more."],
         notAllowed: ["Not available for you", "You may not see the rows of this report{fields}. The operator of the report service decides what you may see."],
+        notSetUp: ["Not set up for your sign-in", "The report service is not set up for your sign-in yet. Tell the operator of the report service."],
         badLink: ["This link does not fit", "A value of the link or the name of its view does not fit this report. Ask for a new link."],
         noData: ["No data", "The data of this report is not available at the moment."],
         tooLarge: ["Too much data", "This report has too many rows to open here. Choose fewer rows, for example with a parameter of the link."],
@@ -732,6 +733,7 @@ const PROBLEM_TEXTS = {
     de: {
         signIn: ["Bitte erneut anmelden", "Ihre Anmeldung ist abgelaufen oder wurde vom Berichtsdienst nicht angenommen. Melden Sie sich erneut an und öffnen Sie die Seite noch einmal."],
         notAllowed: ["Für Sie nicht verfügbar", "Sie dürfen die Zeilen dieses Berichts nicht sehen{fields}. Was Sie sehen dürfen, entscheidet der Betreiber des Berichtsdienstes."],
+        notSetUp: ["Für Ihre Anmeldung nicht eingerichtet", "Der Berichtsdienst ist für Ihre Anmeldung noch nicht eingerichtet. Wenden Sie sich an den Betreiber des Berichtsdienstes."],
         badLink: ["Dieser Link passt nicht", "Ein Wert des Links oder der Name seiner Ansicht passt nicht zu diesem Bericht. Bitten Sie um einen neuen Link."],
         noData: ["Keine Daten", "Die Daten dieses Berichts sind gerade nicht verfügbar."],
         tooLarge: ["Zu viele Daten", "Dieser Bericht hat zu viele Zeilen, um ihn hier zu öffnen. Wählen Sie weniger Zeilen, zum Beispiel mit einem Parameter des Links."],

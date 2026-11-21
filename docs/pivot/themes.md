@@ -113,7 +113,7 @@ property used when the first one is not set; without either the default applies.
 | `--psu-pivot-total-strong` | - | the grand total | `#eaecef` | `#242424` |
 | `--psu-pivot-heat-low` | - | heatmap chart, lowest value | `#eaf1fb` | `#1d2735` |
 | `--psu-pivot-heat-high` | - | heatmap chart, highest value | `#2a78d6` | `#3987e5` |
-| `--psu-pivot-chart-other` | `--psu-pivot-muted`, `--psu-chart-muted` | the grey slice "Other (n)" a pie or donut without a legend puts its smallest slices into | `rgba(0, 0, 0, 0.62)` | `rgba(255, 255, 255, 0.64)` |
+| `--psu-pivot-chart-other` | - | the grey slice "Other (n)" a pie or donut without a legend puts its smallest slices into | `rgba(0, 0, 0, 0.62)` | `#6b7280` |
 | `--psu-pivot-scale-low` | `--psu-pivot-heat-low` | colour scale of a value without colours of its own, lowest | `#eaf1fb` | `#1d2735` |
 | `--psu-pivot-scale-mid` | - | colour scale of a value, middle: set, the scale has three colours | none | none |
 | `--psu-pivot-scale-high` | `--psu-pivot-heat-high` | colour scale of a value without colours of its own, highest | `#2a78d6` | `#3987e5` |

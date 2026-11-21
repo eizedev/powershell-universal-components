@@ -96,7 +96,7 @@ The module itself makes these requests, all from the PSU server, never from the 
 - `Get-UDPivotSource`: `GET /sources` of pivotkit-server.
 - `New-UDPivotReport -Uri -Source`: `POST /sources/records` of pivotkit-server on every render, and
   `GET /sources` first when the page has a query string
-  ([rows from a server](reports.md#server-rows)).
+  ([rows from a server](server-rows.md)).
 - `-Credential` with `-TokenUri`: the OAuth token endpoint, before the request to pivotkit-server.
 - The demo module's **Live data** switch: the public APIs of endoflife.date and Open-Meteo. It is off
   by default ([the demo](demo.md#public-data-offline-or-live)).

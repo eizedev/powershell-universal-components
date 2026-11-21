@@ -147,7 +147,12 @@ console.log(JSON.stringify({ ok: true, exitCode: 0, command: "render", findings:
                 continue
             }
             if ($answer.Chunked) { $response.SendChunked = $true } else { $response.ContentLength64 = $bytes.Length }
-            $response.OutputStream.Write($bytes, 0, $bytes.Length)
+            # Piece: the body in pieces of this many bytes, each flushed on its own
+            $step = if ($answer.Piece) { [int]$answer.Piece } else { [math]::Max($bytes.Length, 1) }
+            for ($at = 0; $at -lt $bytes.Length; $at += $step) {
+                $response.OutputStream.Write($bytes, $at, [math]::Min($step, $bytes.Length - $at))
+                $response.OutputStream.Flush()
+            }
             $response.Close()
         }
     }
@@ -1083,7 +1088,7 @@ Describe 'New-UDPivotReport -Uri -Source: the rows of a pivotkit-server for the 
         # the error of a call with -ErrorAction Stop, or $null
         function Get-RowsError {
             param([hashtable]$Extra = @{})
-            try { $null = New-UDPivotReport @server @Extra -ErrorAction Stop; $null } catch { $_ }
+            try { $null = New-UDPivotReport @server @Extra -ErrorAction Stop -WarningAction SilentlyContinue; $null } catch { $_ }
         }
     }
     BeforeEach { $null = Get-Log }
@@ -1109,7 +1114,8 @@ Describe 'New-UDPivotReport -Uri -Source: the rows of a pivotkit-server for the 
         $ae = [string][char]0xE4
         $names = (1..20000 | ForEach-Object { '"' + $ae + $_ + '"' }) -join ','
         $body = '{"columns":["Name"],"types":["string"],"rowCount":20000,"data":[[' + $names + ']]}'
-        $mock.Records.Enqueue(@{ Status = 200; Chunked = $true; Body = $body })
+        # pieces of an odd size: many of the two-byte characters straddle two pieces
+        $mock.Records.Enqueue(@{ Status = 200; Chunked = $true; Piece = 1001; Body = $body })
         (New-UDPivotReport @server)['records'] | Should -BeExactly $body
     }
 
@@ -1154,6 +1160,7 @@ Describe 'New-UDPivotReport -Uri -Source: the rows of a pivotkit-server for the 
 
     It 'a server error is a typed error: <Id> for <Status> <Code>' -ForEach @(
         @{ Status = 401; Code = 'INVALID_TOKEN'; Id = 'PivotTokenRefused'; Problem = 'signIn' }
+        @{ Status = 403; Code = 'INSUFFICIENT_SCOPE'; Id = 'PivotTokenRefused'; Problem = 'notSetUp' }
         @{ Status = 403; Code = 'NOT_ALLOWED'; Id = 'PivotRowsNotAllowed'; Problem = 'notAllowed'; Extra = ',"notShown":["Team","Owner"]' }
         @{ Status = 404; Code = 'SOURCE_NOT_FOUND'; Id = 'PivotNoData'; Problem = 'noData' }
         @{ Status = 404; Code = 'DATA_NOT_AVAILABLE'; Id = 'PivotNoData'; Problem = 'noData' }
@@ -1178,8 +1185,11 @@ Describe 'New-UDPivotReport -Uri -Source: the rows of a pivotkit-server for the 
         if ($RetryAfter) { $caught.TargetObject.RetryAfter | Should -Be $RetryAfter; $caught.Exception.Message | Should -BeLike "*Try again in $RetryAfter seconds*" }
         # without -ErrorAction Stop the page still gets a report that tells the reader what happened
         $mock.Records.Enqueue(@{ Status = $Status; Body = $body; Headers = $headers })
-        $props = New-UDPivotReport @server -ErrorVariable failed -ErrorAction SilentlyContinue
-        $failed[0].FullyQualifiedErrorId | Should -Be $Id
+        $props = New-UDPivotReport @server -ErrorVariable failed -ErrorAction SilentlyContinue -WarningVariable warned -WarningAction SilentlyContinue
+        # -ErrorVariable also collects the module's own errors on the way: the last record is the one written
+        $failed[-1].FullyQualifiedErrorId | Should -Be ('{0},New-UDPivotReport' -f $Id)
+        # the operator's message goes to the warning stream in every case, also with -ErrorAction
+        "$warned" | Should -BeLike "$Id*what the server says*"
         $props['problem'].kind | Should -Be $Problem
         $props.ContainsKey('records') | Should -BeFalse
         if ($Extra) { $props['problem'].fields | Should -Be @('Team', 'Owner') }
@@ -1213,10 +1223,31 @@ Describe 'New-UDPivotReport -Uri -Source: the rows of a pivotkit-server for the 
         (Get-RowsError).Exception.Message | Should -BeLike '*no columnar rows*'
     }
 
+    It 'without a token the reader is asked to sign in and nothing is sent; the log names SaveTokens' {
+        foreach ($empty in '', $null) {
+            $props = New-UDPivotReport -Uri ($base + '/api/v1') -Source 'vms' -Token $empty -WarningVariable warned -WarningAction SilentlyContinue
+            $props['problem'].kind | Should -Be 'signIn'
+            "$warned" | Should -BeLike 'PivotTokenRefused: -Token is empty*SaveTokens*'
+        }
+        @(Get-Log).Count | Should -Be 0
+    }
+
+    It 'leaves out a parameter without a value, as $Query.customer of a page opened without it' {
+        $null = New-UDPivotReport @server -Parameter @{ customer = $null; region = 'north' }
+        (@(Get-Log))[0].Body | Should -Be '{"source":"vms","params":{"region":"north"}}'
+        $null = New-UDPivotReport @server -Parameter @{ customer = $null }
+        (@(Get-Log))[0].Body | Should -Be '{"source":"vms"}'
+    }
+
+    It 'an answer that is no JSON at all says so' {
+        $mock.Records.Enqueue(@{ Status = 200; Body = '<html>proxy login</html>' })
+        (Get-RowsError).Exception.Message | Should -BeLike '*no JSON at all*Check -Uri*'
+    }
+
     It 'never puts the token into the props or an error' {
         $mock.Records.Enqueue(@{ Status = 401; Body = '{"status":401,"code":"INVALID_TOKEN"}' })
-        $props = New-UDPivotReport @server -ErrorVariable failed -ErrorAction SilentlyContinue
-        $text = ($props | ConvertTo-Json -Depth 8) + ($failed[0].TargetObject | ConvertTo-Json -Depth 8) + $failed[0].Exception.Message
+        $props = New-UDPivotReport @server -ErrorVariable failed -ErrorAction SilentlyContinue -WarningVariable warned -WarningAction SilentlyContinue
+        $text = "$warned" + ($props | ConvertTo-Json -Depth 8) + ($failed[-1].TargetObject | ConvertTo-Json -Depth 8) + $failed[-1].Exception.Message
         $text | Should -Not -BeLike '*static-token-0123456789*'
         $props = New-UDPivotReport @server
         ($props | ConvertTo-Json -Depth 8) | Should -Not -BeLike '*static-token-0123456789*'
@@ -1225,8 +1256,7 @@ Describe 'New-UDPivotReport -Uri -Source: the rows of a pivotkit-server for the 
     It 'checks what does not fit before anything is sent' {
         { New-UDPivotReport -Data @() @server } | Should -Throw -ErrorId 'AmbiguousParameterSet,New-UDPivotReport'
         { New-UDPivotReport -Uri 'http://reports.example.com/api/v1' -Source 'vms' -Token 't' } | Should -Throw '*an https address*'
-        { New-UDPivotReport -Uri ($base + '/api/v1') -Source 'vms' -Token '' } | Should -Throw '*-Token*'
-        { New-UDPivotReport -Uri ($base + '/api/v1') -Source 'vms' -Token $null } | Should -Throw '*-Token*'
+        { New-UDPivotReport @server -MaxBytes 65MB } | Should -Throw '*from 1 to 64 MB*'
         @(Get-Log).Count | Should -Be 0
         # the columns are known once the server answered
         { New-UDPivotReport @server -ExportData -ExportDataColumn 'Nope' } | Should -Throw '*Nope*'
