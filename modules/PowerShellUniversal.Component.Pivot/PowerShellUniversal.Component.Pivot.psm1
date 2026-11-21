@@ -4753,7 +4753,7 @@ function Get-UDPivotSource {
         parameters a link may carry in the page's query string), Views (the views the operator
         publishes for the source: name, title, description), Rows and DataAsOf (the row count and the
         data's date, where the server has read the data and shows them to the caller) and RequestId.
-        A server released before pivotkit 0.9 leaves Records, LinkParams, Views, Rows and DataAsOf
+        A pivotkit-server older than 0.4.0 leaves Records, LinkParams, Views, Rows and DataAsOf
         empty.
 
         When the server lists no source, nothing is returned and the server's reason (its hint: the

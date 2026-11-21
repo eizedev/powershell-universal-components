@@ -32,7 +32,7 @@ file's bytes, for an endpoint's answer or a mail attachment.
 | | `-Engine Node` | `-Engine Rest` |
 | --- | --- | --- |
 | Runs | pivotkit's command line on the PSU server | a pivotkit-server somewhere else |
-| Needs | Node and `npm install --global pivotkit-cli` (0.2.1 or later; tested with 0.4.0) on the PSU server: Node 22 or later, Node 24 or later for the command line released with pivotkit 0.9 | a pivotkit-server, its address and a token or OAuth client; for `-Data` and `-Parameter` pivotkit-server 0.2.0 or later ([which server](#rest-a-pivotkit-server)) |
+| Needs | Node and `npm install --global pivotkit-cli` (0.2.1 or later; tested with 0.4.0) on the PSU server: Node 22 or later, Node 24 or later for pivotkit-cli 0.5.0 and later | a pivotkit-server, its address and a token or OAuth client; for `-Data` and `-Parameter` pivotkit-server 0.2.0 or later ([which server](#rest-a-pivotkit-server)) |
 | Data | `-Data`, written to a temporary folder of its own (mode 0700 on Linux and macOS; on Windows it inherits the ACL of the user's TEMP folder), removed afterwards | `-Data`, sent in the request; or `-Source`, a source the server's operator configured |
 | Language, time zone | `-Locale`, `-TimeZone` | the server's |
 | HTML print template | `-Template` | the server's source decides |
@@ -154,7 +154,7 @@ Each source is an object with these properties:
 | `Rows`, `DataAsOf` | The row count and the data's date, where the server read the data and shows them to the caller |
 | `RequestId` | The id of the answer, for the operator |
 
-A server released before pivotkit 0.9 leaves `Records`, `LinkParams`, `Views`, `Rows` and `DataAsOf`
+A pivotkit-server older than 0.4.0 leaves `Records`, `LinkParams`, `Views`, `Rows` and `DataAsOf`
 empty. When the server lists no source, the function returns nothing and writes the server's reason to
 the warning stream: the sign-in lacks the sources' scopes.
 

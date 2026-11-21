@@ -40,7 +40,7 @@ explains the design.
 
 ### On pivotkit-server
 
-You need the pivotkit-server released with pivotkit 0.9 or later: older servers have no rows route.
+You need pivotkit-server 0.4.0 or later: older servers have no rows route.
 pivotkit's [rows route for a host backend](https://pivotkit.eize.dev/reference/rest/#records-host) has
 the details. In short:
 

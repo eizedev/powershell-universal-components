@@ -5,6 +5,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-21
+
 ### Added
 
 - `New-UDPivotReport -Uri -Source -Token` shows the rows of a pivotkit-server source for the signed-in
@@ -51,7 +53,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Changed
 
-- pivotkit-core 0.9.0, pivotkit-react 0.9.0, pivotkit-report 0.9.0 and pivotkit-xlsx 0.6.0, all pinned.
+- pivotkit-core 0.9.0, pivotkit-react 0.9.0, pivotkit-report 0.5.0 and pivotkit-xlsx 0.6.0, all pinned.
   What readers see:
     - Chart settings offers **Bars and lines** and **Treemap**, and **High and low points** under
       Reference lines.
@@ -78,7 +80,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   a template store or a view folder before readers save such views.
 - The chart's axis line takes `--psu-chart-axis` where an app sets it, also when it sets
   `--psu-pivot-border` for the report's other lines.
-- `Invoke-UDPivotReport -Engine Node` names Node 24 or later for pivotkit's command line of pivotkit 0.9
+- `Invoke-UDPivotReport -Engine Node` names Node 24 or later for pivotkit-cli 0.5.0 and later
   (Node 22 for pivotkit-cli 0.4 and older).
 
 ## [0.8.0] - 2026-11-18
@@ -545,7 +547,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   them); `examples/templates.ps1`: an app with sign-in, readers' views on the server, publishing for
   two roles and the admin panel.
 
-[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.8.0...HEAD
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.9.0...HEAD
+[0.9.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.8.0...PowerShellUniversal.Component.Pivot-v0.9.0
 [0.8.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.7.2...PowerShellUniversal.Component.Pivot-v0.8.0
 [0.7.2]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.7.1...PowerShellUniversal.Component.Pivot-v0.7.2
 [0.7.1]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.7.0...PowerShellUniversal.Component.Pivot-v0.7.1
