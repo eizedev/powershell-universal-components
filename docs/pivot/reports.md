@@ -303,7 +303,7 @@ catch {
 | --- | --- |
 | `PivotServerUnreachable` | pivotkit-server or the token endpoint did not answer (no connection, a time-out) |
 | `PivotRedirectRefused` | the server or the token endpoint answered with a redirect, which is not followed |
-| `PivotTokenRefused` | the server answered 401, or 403 `INSUFFICIENT_SCOPE` (the token lacks the REST scope: ask for it with `-Scope`), or the token endpoint refused the client credentials or gave no usable token |
+| `PivotTokenRefused` | the server answered 401, or 403 `INSUFFICIENT_SCOPE` (the token lacks the REST scope: with client credentials ask for it with `-Scope`; for `New-UDPivotReport -Uri` see [rows from a server](server-rows.md#when-the-server-gives-no-rows)), or the token endpoint refused the client credentials or gave no usable token, or `New-UDPivotReport -Uri` got no token |
 | `PivotDataTooLarge` | `-Data` passed `-MaxBytes`, or the server answered 413: `BODY_TOO_LARGE` (the request is over the server's cap: send fewer rows or columns, or use `-Source`) or `LIMIT_EXCEEDED` (the report is over a limit of the server, rows, cells or memory: make the view smaller or filter) |
 | `PivotViewHasErrors` | the view has errors: the server's 422 (with `-AsLink` its 200 with `ok: false`) or the command line's findings (exit 1) |
 | `PivotNoLink` | `-AsLink`: the server saved the report without a download link, or it has no output directory (409 `NO_OUTPUT`) |

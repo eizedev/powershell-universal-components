@@ -82,8 +82,6 @@
     --psu-default-total-strong: #eaecef;
     --psu-default-heat-low: #eaf1fb;
     --psu-default-heat-high: #2a78d6;
-    /* pivotkit's own grey of the slice "Other (n)" in each mode */
-    --psu-default-chart-other: rgba(0, 0, 0, 0.62);
     --psu-default-chart-1: #2a78d6;
     --psu-default-chart-2: #eb6834;
     --psu-default-chart-3: #1baf7a;
@@ -125,6 +123,7 @@
     --psu-default-total-strong: #242424;
     --psu-default-heat-low: #1d2735;
     --psu-default-heat-high: #3987e5;
+    /* pivotkit's own grey of the slice "Other (n)" in the dark; the light one is the muted text */
     --psu-default-chart-other: #6b7280;
     --psu-default-chart-1: #3987e5;
     --psu-default-chart-2: #d95926;
@@ -188,9 +187,9 @@
     --pk-heat-low: var(--psu-pivot-heat-low, var(--psu-default-heat-low));
     --pk-heat-high: var(--psu-pivot-heat-high, var(--psu-default-heat-high));
     /* the chart's axis line apart from the table's lines (PSU's axis colour of the chart modules), and the
-       pie's slice "Other (n)"; without a value of the app pivotkit's own: the border and a grey */
+       pie's slice "Other (n)"; without a value of the app pivotkit's own: the border, and the muted text (light) or a grey (dark) */
     --pk-chart-axis: var(--psu-pivot-chart-axis, var(--psu-chart-axis));
-    --pk-chart-other: var(--psu-pivot-chart-other, var(--psu-default-chart-other));
+    --pk-chart-other: var(--psu-pivot-chart-other, var(--psu-default-chart-other, var(--pk-muted)));
     /* the colour scale a view leaves to the theme: the heatmap's colours; a middle colour only when the
        app sets one (without it the property has no value and the scale has two colours) */
     --pk-scale-low: var(--psu-pivot-scale-low, var(--pk-heat-low));

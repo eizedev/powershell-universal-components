@@ -20,11 +20,15 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
       server lists in the source's `linkParams`. `-Parameter` sets them instead.
     - `-View` takes the name of a view the server publishes for the source: only the fields it uses
       leave the server.
-    - `-MaxBytes` (default 32 MB) caps the answer. The module reads it in pieces and stops past the cap.
+    - `-MaxBytes` (default 32 MB, at most 64 MB) caps the answer. The module reads it in pieces and
+      stops past the cap.
+    - `-Parameter` also binds as `-Params`, the name of the issue.
     - When the server refuses, the report tells the reader in plain words, in English or German. The
       operator's message with a fixed error id goes to the warning stream, the app's log.
       `-ErrorAction` or `-ErrorVariable` get the error itself; `-ErrorAction Stop` throws it. The new
       error ids are `PivotRowsNotAllowed`, `PivotNoData` and `PivotServerBusy`.
+    - A page without a token asks the reader to sign in, and a token without the server's scope says
+      the service is not set up for the sign-in.
     - A link's view that needs a field the server held back says which field above the report.
 - `Get-UDPivotSource` gives each source `Records`, `LinkParams`, `Views`, `Rows` and `DataAsOf`, where
   the server sends them.
@@ -37,7 +41,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 - pivotkit 0.9's chart types in views and in `Invoke-UDPivotReport -Layout`: `combo` (bars and lines)
   and `treemap`. High and low points on a chart, `chart.referenceLines.extremes`.
 - Theme properties `--psu-pivot-chart-axis` (falls back to `--psu-chart-axis`) for the chart's axis
-  line, and `--psu-pivot-chart-other` (falls back to the muted text) for a pie's slice "Other (n)".
+  line, and `--psu-pivot-chart-other` for a pie's slice "Other (n)". Without it the slice takes
+  pivotkit's colours: the muted text in the light theme, a grey in the dark.
 
 ### Changed
 

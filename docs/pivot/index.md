@@ -39,6 +39,7 @@ Then, depending on what the report needs:
 | Your corporate colours | [Themes and corporate design](themes.md) |
 | Readers download the rows behind the report | [Source data](#source-data-exportdata) |
 | Open a view from a link pivotkit made | [Links from pivotkit](views.md#links-from-pivotkit-create_link) |
+| Rows only a pivotkit-server can reach, for the signed-in person | [Rows from a server](server-rows.md) |
 | The report as a file from an endpoint or a schedule | [Reports without a browser](reports.md) |
 | Run code when readers click or change the view | [Events, security and limits](events.md) |
 | Every parameter | [Commands and parameters](reference.md) |

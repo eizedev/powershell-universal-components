@@ -1237,6 +1237,9 @@ Describe 'New-UDPivotReport -Uri -Source: the rows of a pivotkit-server for the 
         (@(Get-Log))[0].Body | Should -Be '{"source":"vms","params":{"region":"north"}}'
         $null = New-UDPivotReport @server -Parameter @{ customer = $null }
         (@(Get-Log))[0].Body | Should -Be '{"source":"vms"}'
+        # the issue's name for it binds too
+        $null = New-UDPivotReport @server -Params @{ customer = 'acme' }
+        (@(Get-Log))[0].Body | Should -Be '{"source":"vms","params":{"customer":"acme"}}'
     }
 
     It 'an answer that is no JSON at all says so' {

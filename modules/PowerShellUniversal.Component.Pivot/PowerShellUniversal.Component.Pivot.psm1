@@ -1752,8 +1752,8 @@ function ConvertTo-UDPivotReaderProblem {
         and what goes with it. Never the token, never the operator's details beyond a request id.
     .DESCRIPTION
         kind: signIn (PivotTokenRefused), notAllowed (PivotRowsNotAllowed, with fields from notShown),
-        badLink (the server's 400: a parameter's value or a view name that does not fit), notSetUp (403
-        INSUFFICIENT_SCOPE: the sign-in lacks a scope the server asks for), noData (PivotNoData), tooLarge (PivotDataTooLarge, with the server's detail as it is), busy
+        badLink (the server's 400: a parameter's value or a view name that does not fit), notSetUp
+        (403 INSUFFICIENT_SCOPE: the sign-in lacks a scope the server asks for), noData (PivotNoData), tooLarge (PivotDataTooLarge, with the server's detail as it is), busy
         (PivotServerBusy, with retryAfter in seconds where the server sent them), unreachable
         (PivotServerUnreachable) or serverError (the rest). requestId is the server's, for the operator.
     .PARAMETER ErrorRecord
@@ -2222,11 +2222,12 @@ function New-UDPivotReport {
         try {
             # no token: a visitor who is not signed in, or PSU's sign-in without SaveTokens. The reader is
             # asked to sign in; nothing is sent
-            $tokenText = if ($Token -is [securestring]) { [System.Net.NetworkCredential]::new('', $Token).Password } else { [string]$Token }
-            if ([string]::IsNullOrEmpty($tokenText)) {
+            $empty = $null -eq $Token -or ($Token -is [string] -and $Token -eq '') -or ($Token -is [securestring] -and $Token.Length -eq 0)
+            if ($empty) {
                 throw (New-UDPivotError -Id PivotTokenRefused -Category AuthenticationError -Message '-Token is empty: no access token of the signed-in person. Pass $AccessToken on a page of an app with sign-in, and turn on Authentication__OIDC__SaveTokens in PSU, so PSU keeps the token.')
             }
-            $tokenText = $null
+            # a token of another type or with whitespace in it is the app's mistake: a plain error
+            $null = ConvertTo-UDPivotPlainText -Secret $Token -Name '-Token'
             $sent = if ($PSBoundParameters.ContainsKey('Parameter')) { $Parameter } else {
                 # $Query of the page, as $User below; a script block defined in the app script has none
                 $pageQuery = if ($PSBoundParameters.ContainsKey('Query')) { $Query } else { $PSCmdlet.SessionState.PSVariable.GetValue('Query') }
@@ -3644,7 +3645,12 @@ function Invoke-UDPivotHttp {
             # mode its body is read with the same cap and time limit, so a stalled or huge error body
             # cannot hold the page
             $content = if ($textMax -gt 0) {
-                $errorText = try { Read-UDPivotAnswerText -Content $response.Content -MaxBytes $Script:ErrorBodyMaxBytes -TimeoutSec $(if ($Request['TimeoutSec']) { [int]$Request['TimeoutSec'] } else { 100 }) -What $What } catch { '' }
+                $errorText = try { Read-UDPivotAnswerText -Content $response.Content -MaxBytes $Script:ErrorBodyMaxBytes -TimeoutSec $(if ($Request['TimeoutSec']) { [int]$Request['TimeoutSec'] } else { 100 }) -What $What }
+                catch {
+                    # the status says enough; keep no record of the cut body in $Error
+                    if ($global:Error.Count -and [object]::ReferenceEquals($global:Error[0].Exception, $_.Exception)) { $global:Error.RemoveAt(0) }
+                    ''
+                }
                 [System.Text.Encoding]::UTF8.GetBytes([string]$errorText)
             }
             else { [byte[]]$response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult() }
@@ -3993,7 +3999,7 @@ function New-UDPivotServerError {
     $scopeMissing = $status -eq 403 -and $code -eq 'INSUFFICIENT_SCOPE'
     if ($scopeMissing -and $RowsRoute) { $message += [Environment]::NewLine + 'The person''s token lacks a scope the server needs (rest.requiredScopes and the source''s scopes): let PSU''s OpenID Connect sign-in ask the provider for it, and make sure the provider puts it into the access token.' }
     elseif ($scopeMissing) { $message += [Environment]::NewLine + 'The token lacks a scope the server needs: ask the token endpoint for it with -Scope (the scope the operator set in rest.requiredScopes, for example pivotkit:rest), and make sure the OAuth provider grants it to this client.' }
-    if ($RowsRoute -and $p.NotShown.Count) { $message += [Environment]::NewLine + ('Fields not at show for this person: {0}. The operator decides which fields leave the server.' -f ($p.NotShown -join ', ')) }
+    if ($RowsRoute -and $p.NotShown.Count) { $message += [Environment]::NewLine + ('Fields this person may not take from the server (not at "show" in their profile): {0}. The operator decides which fields leave the server.' -f ($p.NotShown -join ', ')) }
     if ($p.RequestId) { $message += [Environment]::NewLine + ('Request id for the operator: {0}' -f $p.RequestId) }
     $id = if ($scopeMissing) { 'PivotTokenRefused' } else { switch ($status) { 401 { 'PivotTokenRefused' } 413 { 'PivotDataTooLarge' } 422 { 'PivotViewHasErrors' } default { 'PivotServerError' } } }
     if ($RowsRoute -and -not $scopeMissing) {

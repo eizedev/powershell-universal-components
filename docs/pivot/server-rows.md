@@ -70,7 +70,7 @@ The server's limits for this route decide how many people can open the report at
 
 | Key | Default | What it means here |
 | --- | --- | --- |
-| `rest.records.concurrency` | 1 | One person at a time. A second person, or a second load of the same person, gets the "busy" message. Raise it with `compute.workers` |
+| `rest.records.concurrency` | 1 | One person at a time. A second person, or a second load of the same person, gets the "busy" message. Raise it together with `compute.workers`, and keep it below the workers |
 | `rest.records.maxRows`, `rest.records.maxCells` | 50,000 rows, 1,000,000 values | Above them the reader gets the server's "too many rows" message |
 | `rest.records.writeMs` | 10 seconds | The module reads the answer at once; a slow link to PSU counts here |
 
@@ -98,7 +98,7 @@ it in the browser as before ([links from pivotkit](views.md#links-from-pivotkit-
   `linkParams` in `GET /sources`. Other names in the query string stay out.
 - Pass `-Query $Query` where the call runs in a script block or function defined in the app script.
 - `-Parameter` replaces the query string: `-Parameter @{ customer = $Query.customer }` narrows what a
-  link may set. A value that is `$null` is left out.
+  link may set. A value that is `$null` is left out. `-Params` is another name for it.
 - The server checks every value again with the rights of the person who opens the page.
 - The report writes its view into the fragment and keeps the query string. A link a person copies from
   the address bar still names the customer.
@@ -186,16 +186,20 @@ Before the loads, PSU's server process held about 1.0 to 1.2 GB and the host pro
 - The largest text the module passed through PSU to the browser was 64 MiB, on both instances. A
   string of 128 MiB crashed the browser tab, not PSU. That is why `-MaxBytes` stops at 64 MB.
 - A worked guess for a container: PSU's server process at rest, plus the page processes, plus about
-  200 to 270 MB per person who opens a report at the default row limit at the same time (both processes
-  of the table's 50,000 row).
+  200 to 270 MB per person who opens a report at the default row limit at the same time. That is the
+  page process and PSU's server process together, in the row of 50,000 rows.
 
 Set a memory limit per PSU process, so a load too large fails with an `OutOfMemoryException` in .NET
 before the system kills the whole container:
 
 - `DOTNET_GCHeapHardLimit` caps the managed heap of a .NET process. Its value is a number of bytes in
-  hexadecimal, such as `0x40000000` for 1 GiB
+  hexadecimal, such as `0x60000000` for 1.5 GiB
   ([.NET garbage collector settings](https://learn.microsoft.com/dotnet/core/runtime-config/garbage-collector)).
-  It caps the managed heap, not all of the process's memory, so keep room above it.
+  It caps the managed heap, not all of the process's memory.
+- To choose the value, measure the busiest PSU process at its peak on a normal day (its RSS), add the
+  reports you expect at once, and stay below the container's limit with room for memory outside the
+  heap. On the test instances above, PSU's server process alone took 1.0 to 1.2 GB, so 1 GiB would
+  have been too low.
 - Set it in the environment of PSU's container or service. The host processes PSU starts for its
   environments inherit it (checked on PSU 2026.2.5): each process gets the same cap.
 - An `OutOfMemoryException` in PSU's server process can still hit other requests running at the same
