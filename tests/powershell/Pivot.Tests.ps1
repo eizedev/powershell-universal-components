@@ -231,6 +231,26 @@ Describe 'ConvertFrom-UDPivotView' {
         }
     }
 
+    It 'keeps pivotkit 0.9''s view keys: fieldLabels, display both, a sort by one column, a colour scale''s colours, through a view file and back' {
+        $json = '{"version":2,"rows":["City"],"cols":["Month"],"values":[{"field":"Temp","agg":"average","conditional":{"type":"colorScale","colors":["#2a78d6","#f2f2f2","#eb6834"]}}],' +
+            '"sort":[{"field":"City","by":"value","order":"desc","value":{"field":"Temp","agg":"average"},"column":["Jul"]}],"display":"both","fieldLabels":{"City":"Town","Temp":"Mean in C"}}'
+        (ConvertFrom-UDPivotView $json -AsJson) | Should -BeExactly $json
+        $file = ConvertTo-UDPivotViewFile -View $json -Name 'Weather'
+        (ConvertFrom-UDPivotView (ConvertFrom-UDPivotViewFile -InputObject $file).View -AsJson) | Should -BeExactly $json
+        # -Templates, with a view and with a view file
+        $c = New-UDPivotReport -Data @() -Templates @(@{ Name = 'Weather'; View = $json }, @{ File = $file })
+        foreach ($t in $c.templates) { (ConvertFrom-UDPivotView $t.view -AsJson) | Should -BeExactly $json }
+    }
+
+    It 'refuses fieldLabels that are no names of fields' {
+        { ConvertFrom-UDPivotView '{"fieldLabels":["City"]}' } | Should -Throw '*fieldLabels*'
+        { ConvertFrom-UDPivotView '{"fieldLabels":{"City":1}}' } | Should -Throw '*fieldLabels*'
+        { ConvertFrom-UDPivotView '{"fieldLabels":{"City":{"a":"b"}}}' } | Should -Throw '*fieldLabels*'
+        { ConvertFrom-UDPivotView ('{"fieldLabels":{"City":"' + ('x' * 257) + '"}}') } | Should -Throw '*fieldLabels*'
+        $many = '{"fieldLabels":{' + ((1..1001 | ForEach-Object { '"f{0}":"n"' -f $_ }) -join ',') + '}}'
+        { ConvertFrom-UDPivotView $many -MaxLength 1MB } | Should -Throw '*fieldLabels*'
+    }
+
     It 'returns compact JSON with -AsJson that reads back as the same view' {
         $json = ConvertFrom-UDPivotView @{ rows = @('Team'); filters = @(@{ field = 'Status'; type = 'include'; items = @('Open') }) } -AsJson
         $json | Should -Not -Match '\s{2}'

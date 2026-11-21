@@ -24,7 +24,10 @@ $Script:ViewKeys = @{
     display    = 'string'
     chart      = 'object'
     formatting = 'object'
+    fieldLabels = 'labels'
 }
+# pivotkit-core's DISPLAY_MODES
+$Script:DisplayModes = @('table', 'chart', 'both')
 # a view as JSON is a few kilobytes; this leaves room for long filter lists
 $Script:MaxViewLength = 64KB
 # nesting of a view: values[].conditional.colors, collapsed.rows[][] - four levels
@@ -113,8 +116,10 @@ function ConvertFrom-UDPivotView {
         ConvertTo-Json/ConvertFrom-Json (nothing is evaluated) and must be a JSON object of at most
         -MaxLength characters and at most eight levels deep. Only the keys of a pivotkit view are kept
         (version, rows, cols, values, filters, derived, sort, totals, collapsed, display, chart,
-        formatting); rows and cols must be lists of at most 64 field names, values, filters, derived and
-        sort lists of at most 64 objects, display "table" or "chart". Anything else throws an error that
+        formatting, fieldLabels); rows and cols must be lists of at most 64 field names, values, filters,
+        derived and sort lists of at most 64 objects, display "table", "chart" or "both", fieldLabels an
+        object of at most 1000 field names with a text of at most 256 characters each (the report's own
+        names for fields). Anything else throws an error that
         says what is wrong. Filters pass as they are, of view version 2 (in, blank, text, compare,
         relative, top, value with not and blanks) and of version 1 (include, exclude, label), which the
         report migrates. The report itself checks every field name and setting against the data
@@ -171,10 +176,20 @@ function ConvertFrom-UDPivotView {
                     if ($value -isnot [long] -and $value -isnot [int] -and $value -isnot [double]) { throw ('Pivot view: {0} must be a number.' -f $key) }
                 }
                 'string' {
-                    if ($value -isnot [string] -or $value -notin 'table', 'chart') { throw ('Pivot view: {0} must be "table" or "chart".' -f $key) }
+                    if ($value -isnot [string] -or $value -cnotin $Script:DisplayModes) { throw ('Pivot view: {0} must be "table", "chart" or "both".' -f $key) }
                 }
                 'object' {
                     if ($value -isnot [System.Management.Automation.PSCustomObject]) { throw ('Pivot view: {0} must be an object.' -f $key) }
+                }
+                'labels' {
+                    # names of the report's own for fields (pivotkit-core's view.fieldLabels): field name -> text
+                    $names = if ($value -is [System.Management.Automation.PSCustomObject]) { @($value.PSObject.Properties) }
+                    if ($null -eq $names -or $names.Count -gt $Script:MaxFields) { throw ('Pivot view: {0} must be an object of at most {1} field names and their names.' -f $key, $Script:MaxFields) }
+                    foreach ($name in $names) {
+                        if ($name.Name.Length -gt $Script:MaxNameLength -or $name.Value -isnot [string] -or $name.Value.Length -gt $Script:MaxNameLength) {
+                            throw ('Pivot view: {0} must name each field with a text of at most {1} characters.' -f $key, $Script:MaxNameLength)
+                        }
+                    }
                 }
                 'names' {
                     $list = @($value)
@@ -1863,7 +1878,8 @@ function New-UDPivotReport {
         Keys: version (2), rows, cols (field names), values (field, agg: sum, count, average, min, max,
         ...; format: a format name), filters (e.g. @{ field = 'Status'; type = 'in'; items = @('Open');
         blanks = 'exclude' }; a view without version is read as version 1 and migrated), sort, totals,
-        display (table or chart), chart (type: bar, line, area, pie, donut, heatmap, combo, treemap). A saved template's view
+        display (table, chart or both), fieldLabels (names of the report's own for fields, e.g.
+        @{ Cust = 'Customer' }), chart (type: bar, line, area, pie, donut, heatmap, combo, treemap). A saved template's view
         goes in as it is. Default: an empty report with the hint where to start. A view in the address bar (#pivot-<id>=..., written by the report on every
         change unless -NoAddressBar, so a copied link opens the same layout) wins over it. With -Uri also
         the name of a view the server publishes for the source, such as 'by-region': only the fields it
@@ -1959,7 +1975,7 @@ function New-UDPivotReport {
         pivotkit leaves out options that are markup or addresses (formatter strings, rich, link, image).
     .PARAMETER Tips
         The tips above the result: On (default), Off (none, and no switch in More, Help), or the ids of the
-        tips allowed (showAs, colSubtotals, chartOverTime, pieSlices, pieColumns, chartDates, chartTrend, chartSeries,
+        tips allowed (showAs, colSubtotals, chartOverTime, pieSlices, stackedTotal, pieColumns, chartDates, chartTrend, chartSeries,
         textValue, dateUngrouped, manyColumns, afterDrag, values, saveTemplate, menus, cells; the
         notices filterEmpty, top and chartCapped always show). Dismissed tips are remembered per report
         in the browser's localStorage.
@@ -2079,7 +2095,8 @@ function New-UDPivotReport {
         Runs on the server after the reader changed the view (once the reader paused for 0.6 seconds).
         $EventData: view (the view as an object), json (the same as JSON text, to store).
     .PARAMETER OnCellClick
-        Runs on the server when the reader clicks a value or a chart point. $EventData: row, col (the
+        Runs on the server when the reader clicks a value in the table, or picks Show the rows in a chart
+        point's menu (or double-clicks the point; a pie slice or a treemap tile never runs it). $EventData: row, col (the
         key paths), rowFields, colFields, filter (one @{ field; value } per level, rows first), valueField,
         value, text (as shown), count (source rows behind the value) and rows (the first 100 of them).
     .PARAMETER OnSaveTemplate

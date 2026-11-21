@@ -189,6 +189,32 @@ test.describe("pivot showcase on PSU", () => {
         await expect(log).toContainText('"field":"Priority"');
     });
 
+    // pivotkit 0.9 (#53): a click on a bar opens its menu; -OnCellClick runs at Show the rows, not before
+    test("a click on a chart point opens its menu, Show the rows runs -OnCellClick", async ({ page }) => {
+        await open(page, "events");
+        const report = page.locator(REPORT);
+        await report.locator("[data-testid=show-chart]").click();
+        const canvas = report.locator(".pk-chart canvas").first();
+        await expect(canvas).toBeVisible();
+        // no ECharts instance on the page: real clicks along the plot's lower part until one hits a bar
+        const rows = page.getByTestId("point-rows");
+        await expect(async () => {
+            const box = await canvas.boundingBox();
+            for (let x = 0.15; x < 0.9; x += 0.05) {
+                await page.mouse.click(box.x + box.width * x, box.y + box.height * 0.8);
+                // the menu waits for a second click that would make a double click
+                if (await rows.waitFor({ state: "visible", timeout: 1000 }).then(() => true, () => false)) return;
+            }
+            throw new Error("no bar hit");
+        }).toPass({ timeout: 20000 });
+        const log = page.locator("#event-log");
+        await expect(log).not.toContainText("OnCellClick");
+        await rows.click();
+        await expect(log).toContainText("OnCellClick", { timeout: 15000 });
+        await expect(log).toContainText('"field":"Team"');
+        await expect(page.getByTestId("drill-panel")).toBeVisible();
+    });
+
     test("a view change runs -OnViewChange with the view as JSON", async ({ page }) => {
         await open(page, "events");
         await page.locator(`${REPORT} [data-testid=swap]`).click();

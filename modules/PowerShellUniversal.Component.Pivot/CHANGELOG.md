@@ -40,6 +40,11 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   server process, measured on PSU 2026.2.5 and 2026.3.4, and `DOTNET_GCHeapHardLimit` per PSU process.
 - pivotkit 0.9's chart types in views and in `Invoke-UDPivotReport -Layout`: `combo` (bars and lines)
   and `treemap`. High and low points on a chart, `chart.referenceLines.extremes`.
+- pivotkit 0.9's view keys pass `ConvertFrom-UDPivotView`, view files, `-Templates` and the template
+  stores: `fieldLabels` (a field's name of the report's own), `display = 'both'` (the table and the chart
+  side by side), `sort[].column` (rows sorted by one column) and a colour scale's `conditional.colors`.
+  The check refuses a `fieldLabels` that is no object of field names with a text of at most 256
+  characters each.
 - Theme properties `--psu-pivot-chart-axis` (falls back to `--psu-chart-axis`) for the chart's axis
   line, and `--psu-pivot-chart-other` for a pie's slice "Other (n)". Without it the slice takes
   pivotkit's colours: the muted text in the light theme, a grey in the dark.
@@ -53,6 +58,17 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
     - A pie or donut without a legend puts its smallest slices into one grey slice "Other (n)" when
       their labels have no room.
     - The messages about a loaded view no longer name pivotkit.
+    - A click on a bar, a point or a heatmap cell opens a menu at it: **Show the rows**, **Only …** and
+      **Without …**. A double click opens the rows at once.
+    - **Name** in the menu of a field in Rows, Columns or Filters, a tab **Both** for the table and the
+      chart side by side, **Colours** for a colour scale, a click on a column's name sorts by that
+      column, and a date in Filters can be grouped.
+    - A tip on stacked bars of a value that does not add up (`stackedTotal` for `-Tips`).
+    - On a touch screen every button and menu row is at least 44 by 44 pixels.
+    - The German texts and the tips are part of the module's one bundle, as before: PSU loads no
+      new file.
+- `-OnCellClick` for a chart point runs at **Show the rows** in the point's menu or at a double click,
+  no longer at the first click. The docs of the event say so.
 - The chart's axis line takes `--psu-chart-axis` where an app sets it, also when it sets
   `--psu-pivot-border` for the report's other lines.
 - `Invoke-UDPivotReport -Engine Node` names Node 24 or later for pivotkit's command line of pivotkit 0.9
