@@ -222,6 +222,15 @@ Describe 'ConvertFrom-UDPivotView' {
         (ConvertFrom-UDPivotView $many -AsJson) | Should -BeExactly $many
     }
 
+    It 'keeps pivotkit 0.9''s chart types and high and low points, through a view file and back' {
+        foreach ($type in 'combo', 'treemap') {
+            $json = '{"rows":["Month"],"values":[{"field":"Revenue","agg":"sum"},{"field":"Units","agg":"sum"}],"display":"chart","chart":{"type":"' + $type + '","referenceLines":{"average":false,"trend":false,"target":null,"extremes":true}}}'
+            (ConvertFrom-UDPivotView $json -AsJson) | Should -BeExactly $json
+            $file = ConvertTo-UDPivotViewFile -View $json -Name 'Chart'
+            (ConvertFrom-UDPivotView (ConvertFrom-UDPivotViewFile -InputObject $file).View -AsJson) | Should -BeExactly $json
+        }
+    }
+
     It 'returns compact JSON with -AsJson that reads back as the same view' {
         $json = ConvertFrom-UDPivotView @{ rows = @('Team'); filters = @(@{ field = 'Status'; type = 'include'; items = @('Open') }) } -AsJson
         $json | Should -Not -Match '\s{2}'

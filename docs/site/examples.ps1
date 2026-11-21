@@ -460,7 +460,7 @@ $endoflife = 'Release data by [endoflife.date](https://endoflife.date/), MIT lic
             }
         }
     }
-    @{ Section = 'Pivot'; Title = 'Chart settings in a view'; Text = 'A start view that opens the chart: lead hours per month and team as stacked bars, Network in a fixed colour, the average as a reference line, and every team with its share in the tooltip. -Zones Folded starts the zones folded under Fields in the report, so the chart gets the room; the heading opens them. Chart settings next to the Chart tab changes all of it; Undo takes each step back.'; Code = {
+    @{ Section = 'Pivot'; Title = 'Chart settings in a view'; Text = 'A start view that opens the chart: lead hours per month and team as stacked bars, Network in a fixed colour, the average as a reference line, the highest and lowest month marked (extremes), and every team with its share in the tooltip. -Zones Folded starts the zones folded under Fields in the report, so the chart gets the room; the heading opens them. Chart settings next to the Chart tab changes all of it; Undo takes each step back.'; Code = {
             $rng = [System.Random]::new(21)
             $rows = foreach ($i in 1..900) {
                 [pscustomobject]@{ Ticket = $i; Month = ([datetime]'2026-01-01').AddMonths($rng.Next(0, 10)).ToString('yyyy-MM'); Team = ('Service Desk', 'Network', 'Server')[$rng.Next(0, 3)]; 'Lead hours' = [math]::Round(2 + 30 * $rng.NextDouble(), 1) }
@@ -468,7 +468,19 @@ $endoflife = 'Release data by [endoflife.date](https://endoflife.date/), MIT lic
             New-UDPivotReport -Id 'pivot-chart-settings' -Data $rows -Height 860px -Zones Folded -TimeZone UTC -View @{
                 rows = @('Month'); cols = @('Team'); values = @(@{ field = 'Lead hours'; agg = 'sum'; format = 'number:0' })
                 display = 'chart'
-                chart = @{ type = 'bar'; stacked = $true; referenceLines = @{ average = $true }; colors = @(@{ name = 'Network'; color = '#7b1fa2' }); tooltip = 'axis'; tooltipShare = $true }
+                chart = @{ type = 'bar'; stacked = $true; referenceLines = @{ average = $true; extremes = $true }; colors = @(@{ name = 'Network'; color = '#7b1fa2' }); tooltip = 'axis'; tooltipShare = $true }
+            }
+        }
+    }
+    @{ Section = 'Pivot'; Title = 'Bars and lines'; Text = 'A start view with the chart type combo: the first value, lead hours per month, as bars on the left axis, the second, the tickets, as a line on an axis of its own. Chart settings offers the type as Bars and lines, next to Treemap (treemap), which draws a tile per category.'; Code = {
+            $rng = [System.Random]::new(34)
+            $rows = foreach ($i in 1..900) {
+                [pscustomobject]@{ Ticket = $i; Month = ([datetime]'2026-01-01').AddMonths($rng.Next(0, 10)).ToString('yyyy-MM'); 'Lead hours' = [math]::Round(2 + 30 * $rng.NextDouble(), 1) }
+            }
+            New-UDPivotReport -Id 'pivot-combo' -Data $rows -Height 760px -Zones Folded -TimeZone UTC -View @{
+                rows = @('Month'); values = @(@{ field = 'Lead hours'; agg = 'sum'; format = 'number:0' }, @{ field = 'Ticket'; agg = 'count' })
+                display = 'chart'
+                chart = @{ type = 'combo' }
             }
         }
     }

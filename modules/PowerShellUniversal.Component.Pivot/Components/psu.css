@@ -184,6 +184,10 @@
     --pk-total-strong: var(--psu-pivot-total-strong, var(--psu-default-total-strong));
     --pk-heat-low: var(--psu-pivot-heat-low, var(--psu-default-heat-low));
     --pk-heat-high: var(--psu-pivot-heat-high, var(--psu-default-heat-high));
+    /* the chart's axis line apart from the table's lines (PSU's axis colour of the chart modules), and the
+       pie's slice "Other (n)"; without a value of the app pivotkit's own: the border and the muted text */
+    --pk-chart-axis: var(--psu-pivot-chart-axis, var(--psu-chart-axis));
+    --pk-chart-other: var(--psu-pivot-chart-other, var(--pk-muted));
     /* the colour scale a view leaves to the theme: the heatmap's colours; a middle colour only when the
        app sets one (without it the property has no value and the scale has two colours) */
     --pk-scale-low: var(--psu-pivot-scale-low, var(--pk-heat-low));
@@ -277,4 +281,34 @@
     background: var(--psu-default-admin-code);
     font-size: var(--psu-default-font-size-small);
     white-space: pre;
+}
+
+/*
+ * New-UDPivotReport -Uri -Source: the message in place of the report when the server gave no rows, and
+ * the notice above it when a link's view needs fields the server held back. Outside pivotkit's root,
+ * like the admin panel: the page's text colour, the report's corners.
+ */
+.ud-pivot-problem,
+.ud-pivot-withheld {
+    border: 1px solid var(--psu-default-admin-border);
+    border-radius: var(--psu-pivot-radius, var(--psu-default-radius));
+    padding: 12px 16px;
+    color: inherit;
+    overflow-wrap: anywhere;
+}
+.ud-pivot-withheld {
+    margin-bottom: 8px;
+    font-size: var(--psu-default-font-size-small);
+}
+.ud-pivot-problem h3 {
+    margin: 0 0 6px;
+    font-size: var(--psu-pivot-font-size, var(--psu-default-font-size));
+    font-weight: var(--psu-pivot-weight-strong, var(--psu-default-weight-strong));
+}
+.ud-pivot-problem p {
+    margin: 4px 0;
+}
+.ud-pivot-problem-reference {
+    font-size: var(--psu-default-font-size-small);
+    opacity: var(--psu-default-admin-note-opacity);
 }

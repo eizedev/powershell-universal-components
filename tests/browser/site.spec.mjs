@@ -183,6 +183,20 @@ test("Pivot: -Zones Folded starts the zones folded in a report tall enough for t
     await expect(report.locator("[data-testid=pivot-chart] canvas")).toBeVisible();
     await expectChartType(report, "stacked");
     await expect(report.locator("[data-testid=chart-summary]")).toContainText("Reference lines:");
+    // pivotkit 0.9's high and low points (chart.referenceLines.extremes) are known, not left out
+    await expect(report.getByText("could not be used")).toHaveCount(0);
+    expect(errors).toEqual([]);
+});
+
+test("Pivot: a start view with bars and lines reaches the chart (pivotkit 0.9)", async ({ page }) => {
+    const errors = collectErrors(page);
+    await openPage(page, "/pivot/views/");
+    const report = page.locator('[data-example="bars-and-lines"] .pk-root');
+    await expect(report.locator("[data-testid=pivot-chart] canvas")).toBeVisible();
+    // the text for screen readers names the type drawn: a pivotkit that does not know combo draws bars
+    await expect(report.locator("[data-testid=chart-summary]")).toContainText("Bars and lines:");
+    // nothing of the view was left out
+    await expect(report.getByText("could not be used")).toHaveCount(0);
     expect(errors).toEqual([]);
 });
 

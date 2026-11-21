@@ -31,9 +31,11 @@ The keys of a view:
 | `derived` | Grouped dates and number ranges: `@{ name = 'Created (Month)'; field = 'Created'; by = 'yearMonth' }` (units `year`, `yearQuarter`, `yearMonth`, `yearWeek`, `day`, `quarter`, `month`, `week`, `weekday`, `hour`); the name then goes into `rows` or `cols`. |
 | `sort` | `@{ field = 'Team'; by = 'value'; order = 'desc' }`. |
 | `totals` | `@{ grandTotalRow = $true; grandTotalColumn = $true; rowSubtotals = $true; colSubtotals = $true }`. A key left out keeps the default: both grand totals and the row subtotals on, the column subtotals off; a view with two or more fields in `cols` that should show their subtotals sets `colSubtotals = $true`. The report writes all four into every view it saves or shares. |
-| `display`, `chart` | `'table'` or `'chart'`; `@{ type = 'bar'; stacked = $false; horizontal = $false }`, types `auto` (the default: lines over dates, bars otherwise), `bar`, `line`, `area`, `pie`, `donut`, `heatmap`; the Display settings of Chart settings `valueLabels` (`auto`, `off`, `value`, `percent`, `both`), `legend` (`auto`, `bottom`, `right`, `off`), `title`, `smooth`, `axisLabels` (`auto`, `all`, `nth`), `groupLabels` (`auto`, `on`, `off`), for a pie or donut `labelPosition` (`outside`, `inside`); for bars, lines and areas `tooltip` (`auto`: the element under the pointer, `axis`: every series), `zoom` (`auto`, `on`, `off`: the zoom slider) and `referenceLines` (`@{ average = $true; trend = $true; target = 250 }`); for stacked bars and areas `stackPercent` (`$true`: stacked to 100 %); `hidden` (the series or slices hidden in the legend, by name), `colors` (`@(@{ name = 'North'; color = '#1f77b4' })`) and `tooltipShare` (`$true`: each value's share in the tooltip). |
+| `display`, `chart` | `'table'` or `'chart'`; `@{ type = 'bar'; stacked = $false; horizontal = $false }`, types `auto` (the default: lines over dates, bars otherwise), `bar`, `line`, `area`, `pie`, `donut`, `heatmap`, `combo` (bars and lines: the first value as bars, every other value as a line on an axis of its own) and `treemap` (a tile per category); the Display settings of Chart settings `valueLabels` (`auto`, `off`, `value`, `percent`, `both`), `legend` (`auto`, `bottom`, `right`, `off`), `title`, `smooth`, `axisLabels` (`auto`, `all`, `nth`), `groupLabels` (`auto`, `on`, `off`), for a pie or donut `labelPosition` (`outside`, `inside`); for bars, lines and areas `tooltip` (`auto`: the element under the pointer, `axis`: every series), `zoom` (`auto`, `on`, `off`: the zoom slider) and `referenceLines` (`@{ average = $true; trend = $true; target = 250; extremes = $true }`, `extremes` marking each series' highest and lowest value); for stacked bars and areas `stackPercent` (`$true`: stacked to 100 %); `hidden` (the series or slices hidden in the legend, by name), `colors` (`@(@{ name = 'North'; color = '#1f77b4' })`) and `tooltipShare` (`$true`: each value's share in the tooltip). |
 
 --8<-- "examples/chart-settings-in-a-view.md"
+
+--8<-- "examples/bars-and-lines.md"
 
 The simplest way to a view is to build it in the report and copy it: **Views, Share, Copy view as JSON** (a
 [view file](templates.md#view-files); `-View` takes its `view`), or `$EventData.json` of `-OnViewChange`.
@@ -113,6 +115,10 @@ New-UDPivotReport -Id 'tickets' -SourceId 'tickets' -Data $tickets
 
 pivotkit's side: [create_link](https://pivotkit.eize.dev/reference/mcp/) and
 [sources](https://pivotkit.eize.dev/reference/mcp/#configuration) (`sources.<id>.link`, `.linkKey`).
+
+A source only the server can reach opens with the person's own rows: `New-UDPivotReport -Uri -Source`
+fetches them on the PSU server, with the link's parameters from the page's query string
+([rows from a server](reports.md#server-rows)).
 
 ## Filters
 

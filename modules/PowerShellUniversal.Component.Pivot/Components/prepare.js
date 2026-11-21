@@ -643,3 +643,134 @@ export function switchOf(value) {
     const v = String(value ?? "").toLowerCase();
     return v === "on" || v === "off" ? v : undefined;
 }
+
+/*
+ * New-UDPivotReport -Uri -Source: pivotkit-server's rows route answer, as the JSON text PowerShell
+ * passed on (records). Its columns, types and data are the columnar data pivotkit-core's encode takes
+ * as it is (one array per column); { table, withheld, rowCount }, or undefined for anything else: text
+ * that does not parse, columns that are not names, a column without its array. pivotkit checks the
+ * values themselves.
+ */
+export function recordsOf(text) {
+    if (typeof text !== "string" || text === "") return undefined;
+    let answer;
+    try {
+        answer = JSON.parse(text);
+    } catch {
+        return undefined;
+    }
+    if (!answer || typeof answer !== "object" || Array.isArray(answer)) return undefined;
+    const { columns, types, data } = answer;
+    if (!Array.isArray(columns) || !columns.every((c) => typeof c === "string")) return undefined;
+    if (!Array.isArray(data) || data.length !== columns.length || !data.every(Array.isArray)) return undefined;
+    if (types !== undefined && (!Array.isArray(types) || types.length !== columns.length)) return undefined;
+    const table = types === undefined ? { columns, data } : { columns, types, data };
+    const withheld = Array.isArray(answer.withheld) ? answer.withheld.filter((w) => typeof w === "string") : [];
+    return { table, withheld, rowCount: Number.isFinite(answer.rowCount) ? answer.rowCount : undefined };
+}
+
+/*
+ * The data's fields a view uses: rows, columns, values, filters, sort and the fields derived fields
+ * are made from, each once (without case, the first spelling kept). A derived field's own name is no
+ * field of the data and stays out.
+ */
+export function viewFieldsOf(view) {
+    if (!view || typeof view !== "object") return [];
+    const derived = new Set((Array.isArray(view.derived) ? view.derived : []).map((d) => String(d?.name ?? "").toLowerCase()));
+    const names = [];
+    const seen = new Set();
+    const add = (name) => {
+        if (typeof name !== "string" || name === "") return;
+        const key = name.toLowerCase();
+        if (seen.has(key) || derived.has(key)) return;
+        seen.add(key);
+        names.push(name);
+    };
+    const list = (value) => (Array.isArray(value) ? value : []);
+    list(view.rows).forEach(add);
+    list(view.cols).forEach(add);
+    for (const key of ["values", "filters", "sort"]) list(view[key]).forEach((item) => add(item?.field));
+    list(view.derived).forEach((d) => add(d?.field));
+    return names;
+}
+
+// the fields of `view` the server held back from this person (its answer's withheld), as the view names them
+export function withheldFieldsOf(view, withheld) {
+    const held = new Set((Array.isArray(withheld) ? withheld : []).map((w) => String(w).toLowerCase()));
+    return held.size ? viewFieldsOf(view).filter((f) => held.has(f.toLowerCase())) : [];
+}
+
+const PROBLEM_KINDS = ["signIn", "notAllowed", "badLink", "noData", "tooLarge", "busy", "unreachable", "serverError"];
+const MAX_PROBLEM_FIELDS = 64;
+const MAX_PROBLEM_TEXT = 1000;
+
+/* What New-UDPivotReport says went wrong (its problem prop), kept to its known kinds and sizes. */
+export function problemOf(problem) {
+    if (!problem || typeof problem !== "object" || Array.isArray(problem)) return undefined;
+    const kind = PROBLEM_KINDS.includes(problem.kind) ? problem.kind : "serverError";
+    const text = (v) => (typeof v === "string" && v !== "" ? v.slice(0, MAX_PROBLEM_TEXT) : undefined);
+    const fields = Array.isArray(problem.fields) ? problem.fields.filter((f) => typeof f === "string").slice(0, MAX_PROBLEM_FIELDS) : [];
+    const retryAfter = Number.isInteger(problem.retryAfter) && problem.retryAfter >= 0 ? problem.retryAfter : undefined;
+    return { kind, fields, retryAfter, detail: text(problem.detail), requestId: text(problem.requestId) };
+}
+
+const PROBLEM_TEXTS = {
+    en: {
+        signIn: ["Sign in again", "Your sign-in has expired or was not accepted by the report service. Sign in again, then open this page once more."],
+        notAllowed: ["Not available for you", "You may not see the rows of this report{fields}. The operator of the report service decides what you may see."],
+        badLink: ["This link does not fit", "A value of the link or the name of its view does not fit this report. Ask for a new link."],
+        noData: ["No data", "The data of this report is not available at the moment."],
+        tooLarge: ["Too much data", "This report has too many rows to open here. Choose fewer rows, for example with a parameter of the link."],
+        busy: ["The report service is busy", "The report service is busy. Try again {when}."],
+        unreachable: ["The report service does not answer", "The report service could not be reached. Try again later."],
+        serverError: ["The report could not be loaded", "The report service could not hand out the rows. Try again later."],
+        fields: ": {list}",
+        seconds: "in {n} seconds",
+        moment: "in a moment",
+        reference: "For the operator: request {id}"
+    },
+    de: {
+        signIn: ["Bitte erneut anmelden", "Ihre Anmeldung ist abgelaufen oder wurde vom Berichtsdienst nicht angenommen. Melden Sie sich erneut an und öffnen Sie die Seite noch einmal."],
+        notAllowed: ["Für Sie nicht verfügbar", "Sie dürfen die Zeilen dieses Berichts nicht sehen{fields}. Was Sie sehen dürfen, entscheidet der Betreiber des Berichtsdienstes."],
+        badLink: ["Dieser Link passt nicht", "Ein Wert des Links oder der Name seiner Ansicht passt nicht zu diesem Bericht. Bitten Sie um einen neuen Link."],
+        noData: ["Keine Daten", "Die Daten dieses Berichts sind gerade nicht verfügbar."],
+        tooLarge: ["Zu viele Daten", "Dieser Bericht hat zu viele Zeilen, um ihn hier zu öffnen. Wählen Sie weniger Zeilen, zum Beispiel mit einem Parameter des Links."],
+        busy: ["Der Berichtsdienst ist ausgelastet", "Der Berichtsdienst ist ausgelastet. Versuchen Sie es {when} erneut."],
+        unreachable: ["Der Berichtsdienst antwortet nicht", "Der Berichtsdienst war nicht erreichbar. Versuchen Sie es später erneut."],
+        serverError: ["Der Bericht ließ sich nicht laden", "Der Berichtsdienst konnte die Zeilen nicht liefern. Versuchen Sie es später erneut."],
+        fields: ": {list}",
+        seconds: "in {n} Sekunden",
+        moment: "gleich",
+        reference: "Für den Betreiber: Anfrage {id}"
+    }
+};
+
+const languageOf = (locale) => (/^de(-|$)/i.test(String(locale || "")) ? "de" : "en");
+
+/*
+ * { title, text, reference } for a problem of problemOf, in German for a de-* locale, else English.
+ * A too large answer shows the server's own message where it sent one: it names the limit.
+ */
+export function problemText(problem, locale) {
+    const words = PROBLEM_TEXTS[languageOf(locale)];
+    const p = problem || { kind: "serverError", fields: [] };
+    const [title, template] = words[p.kind] || words.serverError;
+    let text = template
+        .replace("{fields}", p.fields && p.fields.length ? words.fields.replace("{list}", p.fields.join(", ")) : "")
+        .replace("{when}", p.retryAfter !== undefined ? words.seconds.replace("{n}", String(p.retryAfter)) : words.moment);
+    if (p.kind === "tooLarge" && p.detail) text = p.detail;
+    return { title, text, reference: p.requestId ? words.reference.replace("{id}", p.requestId) : undefined };
+}
+
+const WITHHELD_TEXTS = {
+    en: "This view needs {list}, which the report service does not hand out to you. The report leaves {it} out. The operator of the report service decides which fields you may see.",
+    de: "Diese Ansicht braucht {list}, {rel} der Berichtsdienst Ihnen nicht herausgibt. Der Bericht lässt {it} weg. Welche Felder Sie sehen dürfen, entscheidet der Betreiber des Berichtsdienstes."
+};
+
+// the notice above a report whose view (from a link) needs fields the server held back
+export function withheldText(fields, locale) {
+    const lang = languageOf(locale);
+    const it = lang === "de" ? (fields.length > 1 ? "sie" : "es") : fields.length > 1 ? "them" : "it";
+    const rel = fields.length > 1 ? "die" : "das";
+    return WITHHELD_TEXTS[lang].replace("{list}", fields.join(", ")).replace("{it}", it).replace("{rel}", rel);
+}

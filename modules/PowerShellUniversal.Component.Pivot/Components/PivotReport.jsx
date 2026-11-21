@@ -8,7 +8,7 @@ import "pivotkit-react/styles.css";
 import "./psu.css";
 import { useNarrowWindow } from "./hooks";
 import AdminPanel from "./AdminPanel";
-import { callEndpoint, cellEvent, dataLoadEvent, exportDataLabels, exportDataOf, fieldListOf, heightOf, importLimitsOf, MAX_OPTIONS_LENGTH, MAX_SCHEMA_LENGTH, mergeFieldDefaults, mergeTemplates, parseJsonObject, parseView, readStoredView, readTemplates, restoreRows, schemaUrlOf, sourceOf, startViewOf, switchOf, templateKey, themeOf, tipsOf, VIEW_EVENT_DELAY_MS, viewStoreKey, withoutBareLink, writeLinkView, writeStoredView, zonesOf } from "./prepare";
+import { callEndpoint, cellEvent, problemOf, problemText, recordsOf, withheldFieldsOf, withheldText, dataLoadEvent, exportDataLabels, exportDataOf, fieldListOf, heightOf, importLimitsOf, MAX_OPTIONS_LENGTH, MAX_SCHEMA_LENGTH, mergeFieldDefaults, mergeTemplates, parseJsonObject, parseView, readStoredView, readTemplates, restoreRows, schemaUrlOf, sourceOf, startViewOf, switchOf, templateKey, themeOf, tipsOf, VIEW_EVENT_DELAY_MS, viewStoreKey, withoutBareLink, writeLinkView, writeStoredView, zonesOf } from "./prepare";
 import { readStartLink } from "./links";
 
 /*
@@ -53,8 +53,28 @@ function sessionStorageOrNull() {
  * the user paused. Templates saved, published or deleted through the endpoints show up at once, after
  * the server confirmed them.
  */
+/*
+ * What the report says in place of itself when New-UDPivotReport -Uri got no rows from the server
+ * (the problem prop), in the report's language. The details for the operator are in the app's log.
+ */
+function ProblemBox({ problem, locale }) {
+    const t = problemText(problem, locale);
+    return (
+        <div className="ud-pivot-problem" role="alert" data-problem={problem.kind}>
+            <h3>{t.title}</h3>
+            <p>{t.text}</p>
+            {t.reference ? <p className="ud-pivot-problem-reference">{t.reference}</p> : null}
+        </div>
+    );
+}
+
 export default function PsuPivotReport(props) {
-    const rows = useMemo(() => restoreRows(props.data, props.columnNames), [props.data, props.columnNames]);
+    // -Uri -Source: the server's answer as text, parsed here once (no PowerShell objects on the way);
+    // else -Data's rows with the names PowerShell had
+    const records = useMemo(() => recordsOf(props.records), [props.records]);
+    const rows = useMemo(() => (records ? records.table : restoreRows(props.data, props.columnNames)), [records, props.data, props.columnNames]);
+    // a text that does not parse is the server's fault, never a partial report
+    const problem = problemOf(props.problem) ?? (typeof props.records === "string" && !records ? problemOf({ kind: "serverError" }) : undefined);
     const latest = useRef(props);
     latest.current = props;
     const narrow = useNarrowWindow();
@@ -319,8 +339,19 @@ export default function PsuPivotReport(props) {
           }
         : undefined;
 
+    // a view (a link's, -View) that needs fields the server held back from this person: said, not hidden
+    const withheld = useMemo(() => (records && !fileShown ? withheldFieldsOf(view, records.withheld) : []), [records, view, fileShown]);
+
+    if (problem) {
+        return (
+            <div id={props.id} className={["ud-pivot-report", props.className].filter(Boolean).join(" ")} style={{ width: "100%", minWidth: 0, ...(props.style || {}) }}>
+                <ProblemBox problem={problem} locale={props.locale} />
+            </div>
+        );
+    }
     return (
         <div id={props.id} className={["ud-pivot-report", props.className].filter(Boolean).join(" ")} style={{ width: "100%", minWidth: 0, ...(props.style || {}) }}>
+            {withheld.length ? <div className="ud-pivot-withheld" role="status">{withheldText(withheld, props.locale)}</div> : null}
             <Report
                 data={rows}
                 view={view}

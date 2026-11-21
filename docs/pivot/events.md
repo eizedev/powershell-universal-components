@@ -82,6 +82,28 @@ templates: [Templates, view files and roles](templates.md).
   ([Readers' own files](import.md#security)).
 - The report loads nothing from the internet.
 
+## Network requests
+
+pivotkit's [network requests](https://pivotkit.eize.dev/security/#network) lists every request
+pivotkit can make. In a PSU app, the report in the browser makes none of its own: PSU serves its code
+and the import worker, and the app passes the rows.
+
+The module itself makes these requests, all from the PSU server, never from the browser:
+
+- `-Schema` with an `https://` address: the server fetches the schema (15 seconds, at most 1 MB, kept
+  10 minutes per runspace).
+- `Invoke-UDPivotReport -Engine Rest`, also with `-AsLink`: one request to pivotkit-server.
+- `Get-UDPivotSource`: `GET /sources` of pivotkit-server.
+- `New-UDPivotReport -Uri -Source`: `POST /sources/records` of pivotkit-server on every render, and
+  `GET /sources` first when the page has a query string
+  ([rows from a server](reports.md#server-rows)).
+- `-Credential` with `-TokenUri`: the OAuth token endpoint, before the request to pivotkit-server.
+- The demo module's **Live data** switch: the public APIs of endoflife.date and Open-Meteo. It is off
+  by default ([the demo](demo.md#public-data-offline-or-live)).
+
+Each goes only to an address the app's script names. The requests to pivotkit-server and to the token
+endpoint follow no redirect, so a token never goes to another host.
+
 ## Size and limits
 
 The module's bundle is about 1.4 MB, 430 KB compressed (pivotkit, the parts of Apache ECharts the

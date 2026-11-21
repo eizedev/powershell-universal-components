@@ -5,6 +5,54 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+### Added
+
+- `New-UDPivotReport -Uri -Source -Token` shows the rows of a pivotkit-server source for the signed-in
+  person, also when a link from pivotkit's `create_link` opens the page
+  ([#144](https://github.com/eizedev/powershell-universal-components/issues/144),
+  [rows from a server](https://powershell-universal-components.eize.dev/pivot/reports/#server-rows)).
+    - PowerShell fetches the rows from the server's rows route (`POST /sources/records`) with the
+      person's token, `$AccessToken` of PSU's OpenID Connect sign-in. The browser makes no request to
+      the server, and the token never reaches it.
+    - The server's answer goes to the report as JSON text, never as PowerShell objects. The report
+      parses it in the browser.
+    - A link's parameters come from the page's query string (`$Query`, or `-Query`), only those the
+      server lists in the source's `linkParams`. `-Parameter` sets them instead.
+    - `-View` takes the name of a view the server publishes for the source: only the fields it uses
+      leave the server.
+    - `-MaxBytes` (default 32 MB) caps the answer. The module reads it in pieces and stops past the cap.
+    - When the server refuses, the report tells the reader in plain words, in English or German. The
+      operator's message with a fixed error id goes to the warning stream, the app's log.
+      `-ErrorAction` or `-ErrorVariable` get the error itself; `-ErrorAction Stop` throws it. The new
+      error ids are `PivotRowsNotAllowed`, `PivotNoData` and `PivotServerBusy`.
+    - A link's view that needs a field the server held back says which field above the report.
+- `Get-UDPivotSource` gives each source `Records`, `LinkParams`, `Views`, `Rows` and `DataAsOf`, where
+  the server sends them.
+- `PivotServerProblem` has `NotShown`, the fields of a `NOT_ALLOWED` answer of the rows route.
+- The docs list the module's own network requests next to pivotkit's
+  ([#146](https://github.com/eizedev/powershell-universal-components/issues/146),
+  [network requests](https://powershell-universal-components.eize.dev/pivot/events/#network-requests)).
+- A sizing section: what the rows of a server take in the browser, the PowerShell process and PSU's
+  server process, measured on PSU 2026.2.5 and 2026.3.4, and `DOTNET_GCHeapHardLimit` per PSU process.
+- pivotkit 0.9's chart types in views and in `Invoke-UDPivotReport -Layout`: `combo` (bars and lines)
+  and `treemap`. High and low points on a chart, `chart.referenceLines.extremes`.
+- Theme properties `--psu-pivot-chart-axis` (falls back to `--psu-chart-axis`) for the chart's axis
+  line, and `--psu-pivot-chart-other` (falls back to the muted text) for a pie's slice "Other (n)".
+
+### Changed
+
+- pivotkit-core 0.9.0, pivotkit-react 0.9.0, pivotkit-report 0.9.0 and pivotkit-xlsx 0.6.0, all pinned
+  (TODO before the release: the versions pivotkit publishes). What readers see:
+    - Chart settings offers **Bars and lines** and **Treemap**, and **High and low points** under
+      Reference lines.
+    - A pie or donut without a legend puts its smallest slices into one grey slice "Other (n)" when
+      their labels have no room.
+    - The messages about a loaded view no longer name pivotkit.
+- The chart's axis line takes `--psu-chart-axis` where an app sets it, also when it sets
+  `--psu-pivot-border` for the report's other lines.
+- `Invoke-UDPivotReport -Engine Node` names Node 24 or later for pivotkit's command line of pivotkit 0.9
+  (Node 22 for pivotkit-cli 0.4 and older).
+
 ## [0.8.0] - 2026-11-18
 
 ### Added
