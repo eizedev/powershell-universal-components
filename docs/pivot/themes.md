@@ -92,7 +92,8 @@ property used when the first one is not set; without either the default applies.
 | `--psu-chart-1` ... `--psu-chart-8` | - | series colours of the report's chart, by position; positions without a property keep theirs | pivotkit's palette | pivotkit's palette |
 | `--psu-pivot-text` | `--psu-chart-text` | text | `rgba(0, 0, 0, 0.87)` | `rgba(255, 255, 255, 0.87)` |
 | `--psu-pivot-muted` | `--psu-chart-muted` | secondary text, chart labels | `rgba(0, 0, 0, 0.62)` | `rgba(255, 255, 255, 0.64)` |
-| `--psu-pivot-border` | `--psu-chart-axis` | borders of buttons, chips, panels and menus; chart axes | `#e0e0e0` | `#2e2e2e` |
+| `--psu-pivot-border` | `--psu-chart-axis` | borders of buttons, chips, panels and menus; the chart's axis line, unless an app sets one of the next row | `#e0e0e0` | `#2e2e2e` |
+| `--psu-pivot-chart-axis` | `--psu-chart-axis` | the chart's axis line, apart from the table's lines | as `--psu-pivot-border` | as `--psu-pivot-border` |
 | `--psu-pivot-grid` | `--psu-chart-grid` | lines between table cells, chart grid lines | `#eeeeee` | `#232323` |
 | `--psu-pivot-accent` | `--psu-chart-accent` | primary buttons, badges, links, opened menus | `#1976d2` | `#90caf9` |
 | `--psu-pivot-accent-text` | - | text on the accent | `#ffffff` | `#0b1a2a` |
@@ -112,6 +113,7 @@ property used when the first one is not set; without either the default applies.
 | `--psu-pivot-total-strong` | - | the grand total | `#eaecef` | `#242424` |
 | `--psu-pivot-heat-low` | - | heatmap chart, lowest value | `#eaf1fb` | `#1d2735` |
 | `--psu-pivot-heat-high` | - | heatmap chart, highest value | `#2a78d6` | `#3987e5` |
+| `--psu-pivot-chart-other` | - | the grey slice "Other (n)" a pie or donut without a legend puts its smallest slices into; without a value, in the light theme the muted text, in the dark a fixed grey | `rgba(0, 0, 0, 0.62)` | `#6b7280` |
 | `--psu-pivot-scale-low` | `--psu-pivot-heat-low` | colour scale of a value without colours of its own, lowest | `#eaf1fb` | `#1d2735` |
 | `--psu-pivot-scale-mid` | - | colour scale of a value, middle: set, the scale has three colours | none | none |
 | `--psu-pivot-scale-high` | `--psu-pivot-heat-high` | colour scale of a value without colours of its own, highest | `#2a78d6` | `#3987e5` |
@@ -170,7 +172,10 @@ Excel's red, yellow and green, set the three scale properties per mode:
 
 Set `--psu-pivot-scale-mid` in the dark block too: without it, the HTML report on a dark screen runs the scale between low and high.
 
-A view whose colour scale has colours of its own keeps them.
+A view whose colour scale has colours of its own keeps them. Readers pick such colours in a value's
+menu, Highlight, Colour scale, **Colours**: **Low blue, high orange**, **Low blue, high red** or
+**Low red, high green** ([the colours](views.md#the-start-view-view)). Only **Theme colours, light to
+dark** follows the three properties above.
 
 Without a corporate accent the highlight, drop zone and note colours keep PSU's values; with one
 (`--psu-pivot-accent` or `--psu-chart-accent`) they are mixed from it, so they match. Set

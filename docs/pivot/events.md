@@ -12,7 +12,7 @@ Every event runs a script block on the server with `$EventData`:
 | Parameter | When | `$EventData` |
 | --- | --- | --- |
 | `-OnViewChange` | The reader changed the view and paused for 0.6 seconds | `view` (an object), `json` (the same as JSON text) |
-| `-OnCellClick` | A click (or Enter) on a value or a chart point | `row`, `col` (the key paths), `rowFields`, `colFields`, `filter` (one `@{ field; value }` per level, rows first), `valueField`, `value`, `text` (as shown), `count` (source rows), `rows` (the first 100 of them) |
+| `-OnCellClick` | A click (or Enter) on a value in the table; on a chart point, **Show the rows** in its menu or a double click | `row`, `col` (the key paths), `rowFields`, `colFields`, `filter` (one `@{ field; value }` per level, rows first), `valueField`, `value`, `text` (as shown), `count` (source rows), `rows` (the first 100 of them) |
 | `-OnSaveTemplate` | The reader saves the view: Save as… under a new name, or Save and a confirmed Save as under the name of one of their views (replace that view) | `name`, `view`, `json`, `scope` (`user`) |
 | `-OnDeleteTemplate` | The reader deletes a template and confirmed it | `name`, `scope` (`user` or `shared`) |
 | `-OnPublishTemplate` | A reader with a role of `-AdminRole` publishes one of their views as a shared view, or saves a loaded shared view (Save: replace that view) | `name`, `view`, `json` |
@@ -32,7 +32,16 @@ New-UDPivotReport -Id 'tickets' -Data $tickets -OnCellClick {
 ```
 
 A grouped date has its group as value: `202605` for May 2026 by month, `2026` by year. The panel with
-the source rows opens on every click; `-NoDrillDown` turns it off, `-OnCellClick` still runs.
+the source rows opens at every click on a value and at **Show the rows**; `-NoDrillDown` turns it off,
+`-OnCellClick` still runs. With `-NoDrillDown` and without `-OnCellClick`, **Show the rows** in a chart
+point's menu does nothing.
+
+A click on a bar, a point or a heatmap cell opens a small menu at it: **Show the rows**, then
+**Only …** and **Without …** to filter by its item. `-OnCellClick` runs at **Show the rows** or at a
+double click, not at the click that opens the menu. On a phone or tablet the second tap opens the menu.
+A pie or donut slice opens a menu with **Only …** and **Without …** only; a treemap tile opens none.
+Neither runs `-OnCellClick`.
+Filtering from the menu is a view change (`-OnViewChange`).
 
 `-OnViewChange` can keep the reader's layout, for example for the session:
 `$Session:PivotView = ConvertFrom-UDPivotView -InputObject $EventData.json`, then `-SavedView $Session:PivotView`
@@ -82,17 +91,40 @@ templates: [Templates, view files and roles](templates.md).
   ([Readers' own files](import.md#security)).
 - The report loads nothing from the internet.
 
+## Network requests
+
+pivotkit's [network requests](https://pivotkit.eize.dev/security/#network) lists every request
+pivotkit can make. In a PSU app, the report in the browser makes none of its own: PSU serves its code
+and the import worker, and the app passes the rows.
+
+The module itself makes these requests, all from the PSU server, never from the browser:
+
+- `-Schema` with an `https://` address: the server fetches the schema (15 seconds, at most 1 MB, kept
+  10 minutes per runspace).
+- `Invoke-UDPivotReport -Engine Rest`, also with `-AsLink`: one request to pivotkit-server.
+- `Get-UDPivotSource`: `GET /sources` of pivotkit-server.
+- `New-UDPivotReport -Uri -Source`: `POST /sources/records` of pivotkit-server on every render, and
+  `GET /sources` first when the page has a query string
+  ([rows from a server](server-rows.md)).
+- `-Credential` with `-TokenUri`: the OAuth token endpoint, before the request to pivotkit-server.
+- The demo module's **Live data** switch: the public APIs of endoflife.date and Open-Meteo. It is off
+  by default ([the demo](demo.md#public-data-offline-or-live)).
+
+Each goes only to an address the app's script names. The requests to pivotkit-server and to the token
+endpoint follow no redirect, so a token never goes to another host.
+
 ## Size and limits
 
-The module's bundle is about 1.4 MB, 430 KB compressed (pivotkit, the parts of Apache ECharts the
+The module's bundle is about 1.8 MB, 550 KB with gzip (pivotkit, the parts of Apache ECharts the
 chart uses, drag and drop, the readers of `-AllowImport` with the Excel reader);
 the browser downloads it once and caches it. The pivot runs in the browser: tens of thousands of rows
 stay fast (measured by hand on one laptop: about a tenth of a second to read 100,000 rows once, a frame
 or two for a change of the view);
 the limit is what the server sends and the browser holds. A layout with more cells than the table can
 show says so instead of drawing them. ECharts, the menus, the Excel export and the HTML report are set up on first use;
-they are all in the module's one bundle. The one file next to it is the import worker of
-`-AllowImport` (about 26 KB), which PSU serves like the bundle and the browser loads only when a
+they are all in the module's one bundle, with the German texts and the tips, so a German report
+renders in German from the first frame and needs no request of its own. The one file next to it is the import worker of
+`-AllowImport` (about 28 KB), which PSU serves like the bundle and the browser loads only when a
 reader's CSV or JSON file is read.
 
 A file a reader loads is bounded by pivotkit's limits (100 MiB, 1,000,000 rows, 1,000 columns,

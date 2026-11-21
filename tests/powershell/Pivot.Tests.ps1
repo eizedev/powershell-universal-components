@@ -222,6 +222,43 @@ Describe 'ConvertFrom-UDPivotView' {
         (ConvertFrom-UDPivotView $many -AsJson) | Should -BeExactly $many
     }
 
+    It 'keeps pivotkit 0.9''s chart types and high and low points, through a view file and back' {
+        foreach ($type in 'combo', 'treemap') {
+            $json = '{"rows":["Month"],"values":[{"field":"Revenue","agg":"sum"},{"field":"Units","agg":"sum"}],"display":"chart","chart":{"type":"' + $type + '","referenceLines":{"average":false,"trend":false,"target":null,"extremes":true}}}'
+            (ConvertFrom-UDPivotView $json -AsJson) | Should -BeExactly $json
+            $file = ConvertTo-UDPivotViewFile -View $json -Name 'Chart'
+            (ConvertFrom-UDPivotView (ConvertFrom-UDPivotViewFile -InputObject $file).View -AsJson) | Should -BeExactly $json
+        }
+    }
+
+    It 'keeps pivotkit 0.9''s view keys: fieldLabels, display both, a sort by one column, a colour scale''s colours, through a view file and back' {
+        $json = '{"version":2,"rows":["City"],"cols":["Month"],"values":[{"field":"Temp","agg":"average","conditional":{"type":"colorScale","colors":["#2a78d6","#f2f2f2","#eb6834"]}}],' +
+            '"sort":[{"field":"City","by":"value","order":"desc","value":{"field":"Temp","agg":"average"},"column":["Jul"]}],"display":"both","fieldLabels":{"City":"Town","Temp":"Mean in C"}}'
+        (ConvertFrom-UDPivotView $json -AsJson) | Should -BeExactly $json
+        $file = ConvertTo-UDPivotViewFile -View $json -Name 'Weather'
+        (ConvertFrom-UDPivotView (ConvertFrom-UDPivotViewFile -InputObject $file).View -AsJson) | Should -BeExactly $json
+        # -Templates, with a view and with a view file
+        $c = New-UDPivotReport -Data @() -Templates @(@{ Name = 'Weather'; View = $json }, @{ File = $file })
+        foreach ($t in $c.templates) { (ConvertFrom-UDPivotView $t.view -AsJson) | Should -BeExactly $json }
+    }
+
+    It 'keeps an empty fieldLabels, as pivotkit does' {
+        (ConvertFrom-UDPivotView '{"rows":["A"],"fieldLabels":{}}' -AsJson) | Should -BeExactly '{"rows":["A"],"fieldLabels":{}}'
+        (ConvertFrom-UDPivotView @{ rows = @('A'); fieldLabels = @{} }).PSObject.Properties.Name | Should -Contain 'fieldLabels'
+    }
+
+    It 'refuses fieldLabels that are no names of fields' {
+        { ConvertFrom-UDPivotView '{"fieldLabels":{"City":"  "}}' } | Should -Throw '*fieldLabels*'
+        # an empty name: ConvertFrom-Json refuses it already
+        { ConvertFrom-UDPivotView '{"fieldLabels":{"":"Town"}}' } | Should -Throw '*not valid JSON*'
+        { ConvertFrom-UDPivotView '{"fieldLabels":["City"]}' } | Should -Throw '*fieldLabels*'
+        { ConvertFrom-UDPivotView '{"fieldLabels":{"City":1}}' } | Should -Throw '*fieldLabels*'
+        { ConvertFrom-UDPivotView '{"fieldLabels":{"City":{"a":"b"}}}' } | Should -Throw '*fieldLabels*'
+        { ConvertFrom-UDPivotView ('{"fieldLabels":{"City":"' + ('x' * 257) + '"}}') } | Should -Throw '*fieldLabels*'
+        $many = '{"fieldLabels":{' + ((1..1001 | ForEach-Object { '"f{0}":"n"' -f $_ }) -join ',') + '}}'
+        { ConvertFrom-UDPivotView $many -MaxLength 1MB } | Should -Throw '*fieldLabels*'
+    }
+
     It 'returns compact JSON with -AsJson that reads back as the same view' {
         $json = ConvertFrom-UDPivotView @{ rows = @('Team'); filters = @(@{ field = 'Status'; type = 'include'; items = @('Open') }) } -AsJson
         $json | Should -Not -Match '\s{2}'
@@ -236,6 +273,8 @@ Describe 'ConvertFrom-UDPivotView' {
         { ConvertFrom-UDPivotView '{"rows":[1]}' } | Should -Throw '*field names*'
         { ConvertFrom-UDPivotView '{"values":["Id"]}' } | Should -Throw '*object*'
         { ConvertFrom-UDPivotView '{"display":"grid"}' } | Should -Throw '*table*'
+        # display as pivotkit writes it: lower case
+        { ConvertFrom-UDPivotView '{"display":"Table"}' } | Should -Throw '*both*'
         { ConvertFrom-UDPivotView '{"totals":[]}' } | Should -Throw '*object*'
     }
 
@@ -526,7 +565,7 @@ Describe 'The pivot module' {
         $manifest.PrivateData.PSData.Tags | Should -Contain 'PowerShellUniversal'
         $manifest.FunctionsToExport | Should -Be @('New-UDPivotReport', 'New-UDPivotReportPlaceholder', 'ConvertFrom-UDPivotView', 'ConvertFrom-UDPivotViewFile', 'ConvertTo-UDPivotViewFile', 'New-UDPivotFileTemplateStore', 'New-UDPivotTemplateStore', 'Invoke-UDPivotTemplateRequest', 'Get-UDPivotSqlColumnDescription', 'Invoke-UDPivotReport', 'Get-UDPivotSource')
         (Get-Command -Module $script:module.Name).Name | Sort-Object | Should -Be ($manifest.FunctionsToExport | Sort-Object)
-        $manifest.ModuleVersion | Should -Be '0.8.0'
+        $manifest.ModuleVersion | Should -Be '0.9.0'
     }
 
     It 'documents every parameter with an example' {

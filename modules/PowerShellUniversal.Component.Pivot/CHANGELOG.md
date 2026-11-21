@@ -5,6 +5,84 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-21
+
+### Added
+
+- `New-UDPivotReport -Uri -Source -Token` shows the rows of a pivotkit-server source for the signed-in
+  person, also when a link from pivotkit's `create_link` opens the page
+  ([#144](https://github.com/eizedev/powershell-universal-components/issues/144),
+  [rows from a server](https://powershell-universal-components.eize.dev/pivot/server-rows/)).
+    - PowerShell fetches the rows from the server's rows route (`POST /sources/records`) with the
+      person's token, `$AccessToken` of PSU's OpenID Connect sign-in. The browser makes no request to
+      the server, and the token never reaches it.
+    - The server's answer goes to the report as JSON text, never as PowerShell objects. The report
+      parses it in the browser.
+    - A link's parameters come from the page's query string (`$Query`, or `-Query`), only those the
+      server lists in the source's `linkParams`. `-Parameter` sets them instead.
+    - `-View` takes the name of a view the server publishes for the source: only the fields it uses
+      leave the server.
+    - `-MaxBytes` (default 32 MB, at most 64 MB) caps the answer. The module reads it in pieces and
+      stops past the cap.
+    - `-Parameter` also binds as `-Params`, the name of the issue.
+    - When the server refuses, the report tells the reader in plain words, in English or German. The
+      operator's message with a fixed error id goes to the warning stream, the app's log.
+      `-ErrorAction` or `-ErrorVariable` get the error itself; `-ErrorAction Stop` throws it. The new
+      error ids are `PivotRowsNotAllowed`, `PivotNoData` and `PivotServerBusy`.
+    - A page without a token asks the reader to sign in, and a token without the server's scope says
+      the service is not set up for the sign-in.
+    - A link's view that needs a field the server held back says which field above the report.
+- `Get-UDPivotSource` gives each source `Records`, `LinkParams`, `Views`, `Rows` and `DataAsOf`, where
+  the server sends them.
+- `PivotServerProblem` has `NotShown`, the fields of a `NOT_ALLOWED` answer of the rows route.
+- The docs list the module's own network requests next to pivotkit's
+  ([#146](https://github.com/eizedev/powershell-universal-components/issues/146),
+  [network requests](https://powershell-universal-components.eize.dev/pivot/events/#network-requests)).
+- A sizing section: what the rows of a server take in the browser, the PowerShell process and PSU's
+  server process, measured on PSU 2026.2.5 and 2026.3.4, and `DOTNET_GCHeapHardLimit` per PSU process.
+- pivotkit 0.9's chart types in views and in `Invoke-UDPivotReport -Layout`: `combo` (bars and lines)
+  and `treemap`. High and low points on a chart, `chart.referenceLines.extremes`.
+- pivotkit 0.9's view keys pass `ConvertFrom-UDPivotView`, view files, `-Templates` and the template
+  stores: `fieldLabels` (a field's name of the report's own), `display = 'both'` (the table and the chart
+  side by side), `sort[].column` (rows sorted by one column) and a colour scale's `conditional.colors`.
+  The check refuses a `fieldLabels` that is no object of field names with a text of 1 to 256
+  characters each.
+- Theme properties `--psu-pivot-chart-axis` (falls back to `--psu-chart-axis`) for the chart's axis
+  line, and `--psu-pivot-chart-other` for a pie's slice "Other (n)". Without it the slice takes
+  pivotkit's colours: the muted text in the light theme, a grey in the dark.
+
+### Changed
+
+- pivotkit-core 0.9.0, pivotkit-react 0.9.0, pivotkit-report 0.5.0 and pivotkit-xlsx 0.6.0, all pinned.
+  What readers see:
+    - Chart settings offers **Bars and lines** and **Treemap**, and **High and low points** under
+      Reference lines.
+    - A pie or donut without a legend puts its smallest slices into one grey slice "Other (n)" when
+      their labels have no room.
+    - The messages about a loaded view no longer name pivotkit.
+    - A click on a bar, a point or a heatmap cell opens a menu at it: **Show the rows**, **Only …** and
+      **Without …**. A double click opens the rows at once.
+    - **Name** in the menu of a field in Rows, Columns or Filters, a tab **Both** for the table and the
+      chart side by side, **Colours** for a colour scale, a click on a column's name sorts by that
+      column, and a date in Filters can be grouped.
+    - A tip on stacked bars of a value that does not add up (`stackedTotal` for `-Tips`).
+    - On a touch screen every button and menu row is at least 44 by 44 pixels.
+    - The German texts and the tips are part of the module's one bundle, as before: PSU loads no
+      new file.
+- `-OnCellClick` for a chart point runs at **Show the rows** in the point's menu or at a double click,
+  no longer at the first click. The docs of the event say so.
+- `ConvertFrom-UDPivotView` takes `display` in lower case only, as pivotkit writes it: `'Table'` is
+  refused.
+- The bundle is about 1.8 MB, 550 KB with gzip.
+- Views with the new keys need this version on every PSU server that reads them. Module 0.8 skips a
+  view with `display = 'both'` in a view folder or store with a warning, refuses it in `-View` and
+  `-Templates`, and drops `fieldLabels`. Update every server that shares
+  a template store or a view folder before readers save such views.
+- The chart's axis line takes `--psu-chart-axis` where an app sets it, also when it sets
+  `--psu-pivot-border` for the report's other lines.
+- `Invoke-UDPivotReport -Engine Node` names Node 24 or later for pivotkit-cli 0.5.0 and later
+  (Node 22 for pivotkit-cli 0.4 and older).
+
 ## [0.8.0] - 2026-11-18
 
 ### Added
@@ -469,7 +547,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   them); `examples/templates.ps1`: an app with sign-in, readers' views on the server, publishing for
   two roles and the admin panel.
 
-[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.8.0...HEAD
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.9.0...HEAD
+[0.9.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.8.0...PowerShellUniversal.Component.Pivot-v0.9.0
 [0.8.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.7.2...PowerShellUniversal.Component.Pivot-v0.8.0
 [0.7.2]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.7.1...PowerShellUniversal.Component.Pivot-v0.7.2
 [0.7.1]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.7.0...PowerShellUniversal.Component.Pivot-v0.7.1

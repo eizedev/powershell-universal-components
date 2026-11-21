@@ -536,6 +536,7 @@ for (const mode of ["light", "dark"]) {
         for (const [name, value] of Object.entries(t)) {
             if (name === "--pk-font") assert.equal(value, undefined, "pivotkit inherits the page's font");
             else if (name === "--pk-scale-mid") assert.equal(value, undefined, "a two-colour scale");
+            else if (name === "--pk-chart-axis") assert.equal(value, undefined, "without an app's value pivotkit draws the axis in --pk-border");
             else assert.ok(value && !value.includes("var("), `${name}: ${value}`);
         }
     });
@@ -759,4 +760,68 @@ test("outsideView: pivotkit's limits for views from outside; withoutBareLink dro
     assert.equal(mod.withoutBareLink("#pivot=1.abc"), "");
     assert.equal(mod.withoutBareLink("#/a?x=1&pivot=1.abc&pivot-t=e30"), "#/a?x=1&pivot-t=e30");
     assert.equal(mod.withoutBareLink("#pivot-t=e30"), "#pivot-t=e30");
+});
+
+// ---- New-UDPivotReport -Uri -Source: the server's rows as text -----------------------------------
+
+test("recordsOf: the server's columnar answer, as pivotkit-core's encode takes it; nothing else", () => {
+    const text = '{"columns":["Name","Cpu"],"types":["string","number"],"rowCount":2,"withheld":["Owner"],"data":[["a","b"],[1,2]]}';
+    const r = mod.recordsOf(text);
+    assert.deepEqual(r.table, { columns: ["Name", "Cpu"], types: ["string", "number"], data: [["a", "b"], [1, 2]] });
+    assert.deepEqual(r.withheld, ["Owner"]);
+    assert.equal(r.rowCount, 2);
+    // without types pivotkit finds them itself
+    assert.deepEqual(mod.recordsOf('{"columns":["A"],"data":[[1]]}').table, { columns: ["A"], data: [[1]] });
+    for (const bad of [undefined, null, "", "{", "[]", '{"columns":["A"]}', '{"columns":["A"],"data":[[1],[2]]}', '{"columns":[1],"data":[[1]]}', '{"columns":["A"],"data":[1]}', '{"columns":["A"],"types":["string","number"],"data":[[1]]}']) {
+        assert.equal(mod.recordsOf(bad), undefined, String(bad));
+    }
+});
+
+test("viewFieldsOf and withheldFieldsOf: which fields of a view the server did not hand out", () => {
+    const view = {
+        rows: ["Team"], cols: ["Region"], values: [{ field: "Hours", agg: "sum" }, { field: "Month of Created", agg: "count" }],
+        filters: [{ field: "owner", type: "in", items: ["kim"] }], sort: [{ field: "Team", by: "label" }],
+        derived: [{ name: "Month of Created", field: "Created", by: "month" }]
+    };
+    assert.deepEqual(mod.viewFieldsOf(view), ["Team", "Region", "Hours", "owner", "Created"]);
+    // without case, as pivotkit matches fields; a derived field's own name is no field of the data
+    assert.deepEqual(mod.withheldFieldsOf(view, ["Owner", "Created", "Nobody"]), ["owner", "Created"]);
+    assert.deepEqual(mod.withheldFieldsOf(view, []), []);
+    assert.deepEqual(mod.withheldFieldsOf(undefined, ["Owner"]), []);
+});
+
+test("problemOf and problemText: what the reader reads when the server gave no rows", () => {
+    assert.equal(mod.problemOf(undefined), undefined);
+    assert.equal(mod.problemOf({ kind: "nonsense" }).kind, "serverError");
+    const notAllowed = mod.problemOf({ kind: "notAllowed", fields: ["Team", 3, "Owner"], requestId: "r-1" });
+    assert.deepEqual(notAllowed.fields, ["Team", "Owner"]);
+    const en = mod.problemText(notAllowed, "en-US");
+    assert.match(en.text, /Team, Owner/);
+    assert.match(en.text, /operator/);
+    assert.match(en.reference, /r-1/);
+    assert.match(mod.problemText(mod.problemOf({ kind: "signIn" }), "en-US").text, /[Ss]ign in again/);
+    assert.match(mod.problemText(mod.problemOf({ kind: "signIn" }), "de-DE").text, /erneut an/);
+    assert.match(mod.problemText(mod.problemOf({ kind: "busy", retryAfter: 7 }), "en-US").text, /7 seconds/);
+    assert.match(mod.problemText(mod.problemOf({ kind: "busy" }), "en-US").text, /in a moment/);
+    // the server's "too many rows" message as it is, the module's own words without one
+    assert.match(mod.problemText(mod.problemOf({ kind: "tooLarge", detail: "this source has too many rows to open here (60,000, the limit is 50,000)" }), "en-US").text, /60,000, the limit is 50,000/);
+    assert.match(mod.problemText(mod.problemOf({ kind: "tooLarge" }), "de-DE").text, /zu viele Zeilen/);
+    for (const kind of ["signIn", "notAllowed", "notSetUp", "badLink", "noData", "tooLarge", "busy", "unreachable", "serverError"]) {
+        for (const locale of ["en-US", "de-DE"]) {
+            const t = mod.problemText(mod.problemOf({ kind }), locale);
+            assert.ok(t.title && t.text, `${kind} ${locale}`);
+        }
+    }
+});
+
+test("withheldText: names the fields and that the operator decides", () => {
+    assert.match(mod.withheldText(["Owner"], "en-US"), /Owner.*operator/s);
+    assert.match(mod.withheldText(["Owner", "Team"], "de-DE"), /Owner, Team.*Betreiber/s);
+});
+
+test("parseView and outsideView keep pivotkit 0.9's chart types and high and low points", () => {
+    for (const type of ["combo", "treemap"]) {
+        const view = { rows: ["Month"], values: [{ field: "A", agg: "sum" }, { field: "B", agg: "sum" }], display: "chart", chart: { type, referenceLines: { extremes: true } } };
+        assert.deepEqual(mod.outsideView(mod.parseView(JSON.stringify(view)), { json: 100000, filters: 16 }), view);
+    }
 });

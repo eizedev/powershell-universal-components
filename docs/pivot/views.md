@@ -26,14 +26,17 @@ The keys of a view:
 | --- | --- |
 | `version` | The view format's version: `2`. Write it in a view with filters; a view without it is read as version 1 and migrated ([Filters](#filters)). |
 | `rows`, `cols` | Field names, outermost first. |
-| `values` | `@{ field = 'Cost'; agg = 'sum'; format = 'currency:EUR' }`: aggregators `sum`, `count`, `countUnique`, `average`, `median`, `min`, `max`, `stdev`, `var`, `first`, `last`, ...; formats `number`, `number:2`, `integer`, `percent`, `currency:EUR`, `compact`, `bytes`, `duration:h`, `date`, `datetime`, `time`; `showAs = @{ type = 'percentOfGrandTotal' }` and the other "show as" types. |
+| `values` | `@{ field = 'Cost'; agg = 'sum'; format = 'currency:EUR' }`: aggregators `sum`, `count`, `countUnique`, `average`, `median`, `min`, `max`, `stdev`, `var`, `first`, `last`, ...; formats `number`, `number:2`, `integer`, `percent`, `currency:EUR`, `compact`, `bytes`, `duration:h`, `date`, `datetime`, `time`; `showAs = @{ type = 'percentOfGrandTotal' }` and the other "show as" types; `conditional = @{ type = 'colorScale'; colors = @('#2a78d6', '#f2f2f2', '#eb6834') }` (two or three colours, low to high; without `colors` the theme's scale) or `@{ type = 'dataBar' }`. The **Colours** row of the value menu writes these colours: blue to orange `#2a78d6`, `#f2f2f2`, `#eb6834`; blue to red `#2a78d6`, `#f2f2f2`, `#e34948`; red to green `#e34948`, `#f2d16b`, `#1baf7a` (pivotkit-core's `COLOR_SCALES`). |
 | `filters` | `@{ field = 'Status'; type = 'in'; items = @('Open', 'Waiting'); blanks = 'exclude' }`; the types, `not` and `blanks` are under [Filters](#filters). |
 | `derived` | Grouped dates and number ranges: `@{ name = 'Created (Month)'; field = 'Created'; by = 'yearMonth' }` (units `year`, `yearQuarter`, `yearMonth`, `yearWeek`, `day`, `quarter`, `month`, `week`, `weekday`, `hour`); the name then goes into `rows` or `cols`. |
-| `sort` | `@{ field = 'Team'; by = 'value'; order = 'desc' }`. |
+| `sort` | `@{ field = 'Team'; by = 'value'; order = 'desc' }`. A row field sorted by a value can follow one column: `column = @('Jul')`, the column's items, outermost first (a click on a column's name in the table writes it). |
 | `totals` | `@{ grandTotalRow = $true; grandTotalColumn = $true; rowSubtotals = $true; colSubtotals = $true }`. A key left out keeps the default: both grand totals and the row subtotals on, the column subtotals off; a view with two or more fields in `cols` that should show their subtotals sets `colSubtotals = $true`. The report writes all four into every view it saves or shares. |
-| `display`, `chart` | `'table'` or `'chart'`; `@{ type = 'bar'; stacked = $false; horizontal = $false }`, types `auto` (the default: lines over dates, bars otherwise), `bar`, `line`, `area`, `pie`, `donut`, `heatmap`; the Display settings of Chart settings `valueLabels` (`auto`, `off`, `value`, `percent`, `both`), `legend` (`auto`, `bottom`, `right`, `off`), `title`, `smooth`, `axisLabels` (`auto`, `all`, `nth`), `groupLabels` (`auto`, `on`, `off`), for a pie or donut `labelPosition` (`outside`, `inside`); for bars, lines and areas `tooltip` (`auto`: the element under the pointer, `axis`: every series), `zoom` (`auto`, `on`, `off`: the zoom slider) and `referenceLines` (`@{ average = $true; trend = $true; target = 250 }`); for stacked bars and areas `stackPercent` (`$true`: stacked to 100 %); `hidden` (the series or slices hidden in the legend, by name), `colors` (`@(@{ name = 'North'; color = '#1f77b4' })`) and `tooltipShare` (`$true`: each value's share in the tooltip). |
+| `display`, `chart` | `'table'`, `'chart'` or `'both'` (the table and the chart side by side on a wide report, the table on a narrow one); `@{ type = 'bar'; stacked = $false; horizontal = $false }`, types `auto` (the default: lines over dates, bars otherwise), `bar`, `line`, `area`, `pie`, `donut`, `heatmap`, `combo` (bars and lines: the first value as bars, every other value as a line on an axis of its own) and `treemap` (a tile per category); the Display settings of Chart settings `valueLabels` (`auto`, `off`, `value`, `percent`, `both`), `legend` (`auto`, `bottom`, `right`, `off`), `title`, `smooth`, `axisLabels` (`auto`, `all`, `nth`), `groupLabels` (`auto`, `on`, `off`), for a pie or donut `labelPosition` (`outside`, `inside`); for bars, lines and areas `tooltip` (`auto`: the element under the pointer, `axis`: every series), `zoom` (`auto`, `on`, `off`: the zoom slider) and `referenceLines` (`@{ average = $true; trend = $true; target = 250; extremes = $true }`, `extremes` marking each series' highest and lowest value); for stacked bars and areas `stackPercent` (`$true`: stacked to 100 %); `hidden` (the series or slices hidden in the legend, by name), `colors` (`@(@{ name = 'North'; color = '#1f77b4' })`) and `tooltipShare` (`$true`: each value's share in the tooltip). |
+| `fieldLabels` | Names of the report's own for fields, by the field's name: `@{ Cust = 'Customer' }`. The chips, the table, the chart and the exports show them; a reader sets them with **Name** in a field's menu. A view without them has no `fieldLabels`. |
 
 --8<-- "examples/chart-settings-in-a-view.md"
+
+--8<-- "examples/bars-and-lines.md"
 
 The simplest way to a view is to build it in the report and copy it: **Views, Share, Copy view as JSON** (a
 [view file](templates.md#view-files); `-View` takes its `view`), or `$EventData.json` of `-OnViewChange`.
@@ -113,6 +116,10 @@ New-UDPivotReport -Id 'tickets' -SourceId 'tickets' -Data $tickets
 
 pivotkit's side: [create_link](https://pivotkit.eize.dev/reference/mcp/) and
 [sources](https://pivotkit.eize.dev/reference/mcp/#configuration) (`sources.<id>.link`, `.linkKey`).
+
+A source only the server can reach opens with the person's own rows: `New-UDPivotReport -Uri -Source`
+fetches them on the PSU server, with the link's parameters from the page's query string
+([rows from a server](server-rows.md)).
 
 ## Filters
 
