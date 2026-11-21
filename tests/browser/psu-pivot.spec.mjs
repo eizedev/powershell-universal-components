@@ -197,7 +197,8 @@ test.describe("pivot showcase on PSU", () => {
         const menu = await openViews(report);
         await menu.locator("[data-testid='saved-view-Hours to close per group (table and chart)']").click();
         await expect(report.locator("[data-testid=show-both]")).toHaveAttribute("aria-selected", "true");
-        await expect(report.locator("[data-testid=chip-menu-Team]")).toContainText("Group");
+        // a chip is named by what it shows
+        await expect(report.locator("[data-testid=chip-menu-Group]")).toBeVisible();
         const table = report.getByRole("tabpanel").locator("table").first();
         await expect(table).toContainText("Group");
         await expect(table).toContainText("Hours to close");
