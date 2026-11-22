@@ -7,6 +7,10 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [0.9.1] - 2026-11-22
 
+### Added
+
+- The showcase's Events page has a button that reads the report's view with `Get-UDElement`.
+
 ### Fixed
 
 - `Get-UDElement -Id <report id>` returns the reader's current view as `.view`, as documented.
