@@ -72,8 +72,8 @@ export default function EChart(props) {
     const latest = useRef(props);
     latest.current = props;
     // Get-UDElement: the last click, range and zoom, kept here because PSU asks for them synchronously
-    // (shared/js/elementState.js); the component's state holds them as well, which the wrapper's own
-    // late answer (a POST that PSU ignores) sends
+    // (shared/js/elementState.js). The component's state holds them too; the wrapper's late POST sends
+    // that copy, which PSU ignores
     const elementState = useRef({});
     const remember = (part) => {
         elementState.current = { ...elementState.current, ...part };

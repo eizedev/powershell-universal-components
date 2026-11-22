@@ -35,7 +35,7 @@ keeps messages small with wide rows.
 chart's data:
 
 - `.selected`: the last `-OnClick` `$EventData`, with its `row` (`-EventColumns` limits it).
-- `.range`: the last `-OnSelect` range, without rows. It is `$null` after the reader clears the selection.
+- `.range`: the last `-OnSelect` range, without rows. It is `$null` after the reader removes the selection with a click.
 - `.zoom`: the last `-OnZoom` `$EventData`.
 
 Each one is `$null` until the reader has clicked, selected or zoomed.
