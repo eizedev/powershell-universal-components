@@ -25,6 +25,16 @@ jobs:
           # no install scripts: the tests need none, and a hijacked dependency could run one
           npm ci --no-audit --no-fund --ignore-scripts
           npm test
+      # The growth guards (build/growth.js): a ratchet on build/growth-baseline.json, one step each so
+      # a red step names its guard. The powershell guard uses the runner's pwsh.
+      - name: PowerShell file and function size
+        run: node build/growth.js powershell
+      - name: JavaScript function size and complexity
+        run: node build/growth.js javascript
+      - name: Duplicated JavaScript
+        run: node build/growth.js duplication
+      - name: Docs size
+        run: node build/growth.js docs
 
   build:
     runs-on: ubuntu-latest

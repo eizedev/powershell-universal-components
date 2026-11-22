@@ -33,7 +33,7 @@ The modules form one product. Judge code, tests, docs and these rules as a whole
 - `shared/powershell/` - PowerShell used by several modules (data conversion, asset registration);
   copied into each built module's `Private/` by `build/Copy-SharedCode.ps1`, which also writes
   `Private/SHARED.txt`: the content hashes of `shared/` the module was built from.
-- `build/` - `Build-Module.ps1` and the shared webpack configuration.
+- `build/` - `Build-Module.ps1`, the shared webpack configuration and the growth guards in `growth.js`.
 - `docs/` - the documentation site (Zensical, `zensical.toml`, shared design of eizedev/brand): the pages
   as Markdown, the complete documentation of every module. `docs/site/` builds its live parts:
   `examples.ps1` (code and chart from one source, run with the real `New-UDEChart`/`New-UDPerspective`/`New-UDPivotReport`
@@ -50,6 +50,7 @@ The modules form one product. Judge code, tests, docs and these rules as a whole
 
 ```bash
 npm ci && npm test                                   # JavaScript unit tests (repository root)
+npm run growth                                       # the growth guards, below
 npx playwright install chromium firefox webkit && npm run test:browser   # after building the site
 # browser tests against showcase apps on a PSU instance: docs/development/index.md#browser-tests-on-psu
 pwsh ./build/Build-Module.ps1 -Module PowerShellUniversal.Component.ECharts   # output/<Module>/<Version>
@@ -59,6 +60,17 @@ pwsh ./build/Publish-Module.ps1 -Module <Module> -Version x.y.z   # release chec
 pwsh -c 'Invoke-Pester -Path tests/powershell'       # Pester 5 or 6
 pwsh -c 'foreach ($f in "modules", "shared", "build", "tests") { Invoke-ScriptAnalyzer -Path $f -Recurse -Severity Warning, Error | Where-Object ScriptPath -NotMatch "node_modules|public|output" }'   # as CI
 ```
+
+`npm run growth` runs `build/growth.js`. It keeps code, tests, and docs from growing by appending.
+The limits and their reasons are in that file. Each guard is a CI step:
+
+- `powershell`: code lines per `.ps1`/`.psm1` file and per function, read with the PowerShell parser.
+- `javascript`: lines and complexity per function in `modules/*/Components` and `shared/js`, read with ESLint.
+- `duplication`: copied JavaScript in the same folders, over the threshold in `.jscpd.json`, found with jscpd.
+- `docs`: lines per docs page and README by kind of page, and of all of them together.
+
+The offenders over a limit are in `build/growth-baseline.json`. A new or grown one fails. A smaller one
+fails until `node build/growth.js --update` lowers the baseline in the same pull request.
 
 A change to a component is checked on a PSU test instance in a browser (light and dark theme, a
 narrow and a wide window, the events it fires) before it is called done; unit tests do not cover

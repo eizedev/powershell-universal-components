@@ -1,0 +1,8 @@
+{
+  "path": ["."],
+  "pattern": "{modules/*/Components,shared/js}/**/*.{js,jsx}",
+  "ignore": ["**/node_modules/**"],
+  "format": ["javascript", "jsx"],
+  "threshold": 0.3,
+  "reporters": ["console", "threshold"]
+}
