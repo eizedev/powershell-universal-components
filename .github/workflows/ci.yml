@@ -26,14 +26,19 @@ jobs:
           npm ci --no-audit --no-fund --ignore-scripts
           npm test
       # The growth guards (build/growth.js): a ratchet on build/growth-baseline.json, one step each so
-      # a red step names its guard. The powershell guard uses the runner's pwsh.
+      # a red step names its guard, and each runs when an earlier step failed. The powershell guard
+      # uses the runner's pwsh.
       - name: PowerShell file and function size
+        if: ${{ !cancelled() }}
         run: node build/growth.js powershell
       - name: JavaScript function size and complexity
+        if: ${{ !cancelled() }}
         run: node build/growth.js javascript
       - name: Duplicated JavaScript
+        if: ${{ !cancelled() }}
         run: node build/growth.js duplication
       - name: Docs size
+        if: ${{ !cancelled() }}
         run: node build/growth.js docs
 
   build:

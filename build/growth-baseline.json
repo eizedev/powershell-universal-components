@@ -12,19 +12,19 @@
     },
     "javascript": {
         "complexity": {
-            "modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js Arrow function": [35],
-            "modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js Function 'cartesian'": [46],
-            "modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js Function 'histogram'": [27],
-            "modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js Function 'responsive'": [38],
-            "modules/PowerShellUniversal.Component.Pivot/Components/PivotReport.jsx Function 'PsuPivotReport'": [39],
-            "shared/js/formatters.js Function 'formatter'": [26]
+            "Function 'PsuPivotReport'": [39],
+            "Function 'cartesian'": [46],
+            "Function 'formatter'": [26],
+            "Function 'histogram'": [27],
+            "Function 'responsive'": [38],
+            "modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js Arrow function": [35]
         },
         "lines": {
-            "modules/PowerShellUniversal.Component.ECharts/Components/EChart.jsx Arrow function": [127],
-            "modules/PowerShellUniversal.Component.ECharts/Components/EChart.jsx Function 'EChart'": [277],
-            "modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js Function 'cartesian'": [337],
-            "modules/PowerShellUniversal.Component.Perspective/Components/Perspective.jsx Function 'Perspective'": [139],
-            "modules/PowerShellUniversal.Component.Pivot/Components/PivotReport.jsx Function 'PsuPivotReport'": [260]
+            "Function 'EChart'": [277],
+            "Function 'Perspective'": [139],
+            "Function 'PsuPivotReport'": [260],
+            "Function 'cartesian'": [337],
+            "modules/PowerShellUniversal.Component.ECharts/Components/EChart.jsx Arrow function": [127]
         }
     },
     "powershell": {

@@ -10,7 +10,8 @@
     and compares with the baseline. A code line is a line with at least one token that is not a
     comment or a line break, so blank lines and comment-based help cost nothing; a here-string counts
     with all its lines. A function's lines are the code lines from its "function" keyword to its
-    closing brace, functions nested in it included. A file that does not parse fails the measurement:
+    closing brace, functions nested in it included; a filter counts as a function, a class method
+    does not. Hidden files and folders are measured too. A file that does not parse fails the measurement:
     a guard that reads nothing must not report nothing.
 
 .PARAMETER Path
@@ -38,7 +39,7 @@ $notCode = [System.Management.Automation.Language.TokenKind[]]@('Comment', 'NewL
 
 $files = [System.Collections.Generic.List[object]]::new()
 $functions = [System.Collections.Generic.List[object]]::new()
-$all = Get-ChildItem -LiteralPath $root -Recurse -File -Include '*.ps1', '*.psm1' |
+$all = Get-ChildItem -LiteralPath $root -Recurse -Force -File -Include '*.ps1', '*.psm1' |
     Where-Object { [System.IO.Path]::GetRelativePath($root, $_.FullName) -cnotmatch $skipped } |
     Sort-Object { [System.IO.Path]::GetRelativePath($root, $_.FullName).Replace('\', '/') }
 foreach ($file in $all) {
@@ -55,7 +56,12 @@ foreach ($file in $all) {
     }
     $files.Add([ordered]@{ path = $relative; lines = $code.Count })
 
-    $definitions = $ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)
+    # functions and filters; a class method is a FunctionDefinitionAst inside a FunctionMemberAst
+    $definitions = $ast.FindAll({
+            param($node)
+            $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+            $node.Parent -isnot [System.Management.Automation.Language.FunctionMemberAst]
+        }, $true)
     foreach ($definition in $definitions) {
         $lines = @($code | Where-Object { $_ -ge $definition.Extent.StartLineNumber -and $_ -le $definition.Extent.EndLineNumber }).Count
         $functions.Add([ordered]@{ path = $relative; name = $definition.Name; lines = $lines })

@@ -63,8 +63,11 @@ const ADVICE = {
     powershell: `Split the function into smaller ones, one job each, and the file into one file per function (AGENTS.md, "Small units"). Limits: ${POWERSHELL_LIMITS.function} code lines per function, ${POWERSHELL_LIMITS.file} per file; blank lines and comments do not count.`,
     javascript: `Split the function into smaller ones, one job each (AGENTS.md, "Small units"). Limits: ${FUNCTION_LIMITS.lines} lines without blank lines and comments, complexity ${FUNCTION_LIMITS.complexity}.`,
     duplication: "Move the copied code into one function or module that both places import (AGENTS.md, \"One place per fact\"; shared/js once a second module needs it). The threshold is in .jscpd.json.",
-    docs: "Shorten the page, or split it into pages with one topic each; rewrite instead of appending (AGENTS.md, \"Shape what exists\").",
+    docs: "Shorten the page, or split it into pages with one topic each; rewrite instead of appending (AGENTS.md, \"Shape what exists\"). When all pages together grew, make room in the pages the change touches.",
 };
+
+/** The way out when the growth is right, said under every guard that grew. */
+const ACCEPT = `If the growth is right, raise the baseline with ${UPDATE} --accept-growth and say why in the pull request.`;
 
 const posix = (path, base = root) => relative(base, path).split(sep).join("/");
 
@@ -121,7 +124,8 @@ export function parseFunctionMessage({ ruleId, message }) {
 }
 
 /**
- * The JavaScript functions over FUNCTION_LIMITS, as "<file> <name>" -> numbers per metric. ESLint
+ * The JavaScript functions over FUNCTION_LIMITS, as "Function 'name'" (or "<file> Arrow function" for
+ * an anonymous one) -> numbers per metric. ESLint
  * runs with these two rules only and ignores eslint-disable comments, so a comment cannot hide a
  * function from the guard. The repository has no ESLint configuration of its own.
  * @param {string} [cwd]
@@ -141,7 +145,9 @@ export async function measureJavaScript(cwd = root) {
         for (const message of result.messages) {
             if (message.fatal) throw new Error(`growth: ${posix(result.filePath, cwd)}: ${message.message}`);
             const { metric, name, value } = parseFunctionMessage(message);
-            addSorted(found[metric], `${posix(result.filePath, cwd)} ${name}`, value);
+            // a named function by its name alone, so moving it into another file keeps its entry;
+            // an anonymous one by its file
+            addSorted(found[metric], /'.+'/.test(name) ? name : `${posix(result.filePath, cwd)} ${name}`, value);
         }
     }
     return found;
@@ -245,8 +251,8 @@ export function compareTotal(baseline, current) {
 }
 
 /** The duplication check: jscpd with .jscpd.json, which fails above its threshold. */
-function checkDuplication() {
-    const result = spawnSync(process.execPath, [join(root, "node_modules", "jscpd", "run-jscpd.js"), "--no-colors"], { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+function checkDuplication(dir = root) {
+    const result = spawnSync(process.execPath, [join(root, "node_modules", "jscpd", "run-jscpd.js"), "--no-colors"], { cwd: dir, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
     if (result.error) throw result.error;
     if (result.status === 0) return { grew: [], stale: [] };
     const reason = /ERROR: .*/.exec(result.stdout + result.stderr)?.[0];
@@ -262,21 +268,21 @@ function merge(...results) {
 /** Each guard: what it measures now (for the baseline) and how that compares. */
 const GUARDS = {
     powershell: {
-        measure: async () => ({ powershell: measurePowerShell() }),
+        measure: async (dir) => ({ powershell: measurePowerShell(dir) }),
         compare: (base, now) => merge(compareCounts(base.powershell.files, now.powershell.files, "code lines"), compareCounts(base.powershell.functions, now.powershell.functions, "code lines")),
     },
     javascript: {
-        measure: async () => ({ javascript: await measureJavaScript() }),
+        measure: async (dir) => ({ javascript: await measureJavaScript(dir) }),
         compare: (base, now) => merge(compareCounts(base.javascript.lines, now.javascript.lines, "lines"), compareCounts(base.javascript.complexity, now.javascript.complexity, "complexity")),
     },
     duplication: {
         // no baseline: its threshold is in .jscpd.json, and --accept-growth does not raise it
         fixed: true,
         measure: async () => ({}),
-        compare: () => checkDuplication(),
+        compare: (base, now, dir) => checkDuplication(dir),
     },
     docs: {
-        measure: async () => ({ docs: measureDocs() }),
+        measure: async (dir) => ({ docs: measureDocs(docsPages(dir)) }),
         compare: (base, now) => merge(compareCounts(base.docs.pages, now.docs.pages, "lines"), compareTotal(base.docs.totalLines, now.docs.totalLines)),
     },
 };
@@ -294,22 +300,27 @@ export function formatBaseline(baseline) {
     return `${JSON.stringify(sortKeys(baseline), null, 4).replace(/\[\s+([\d,\s]+?)\s+\]/g, (_, numbers) => `[${numbers.split(/,\s*/).join(", ")}]`)}\n`;
 }
 
-async function main(argv) {
+/**
+ * Runs the guards named in argv (all without a name) and sets process.exitCode.
+ * @param {string[]} argv  guard names, --update, --accept-growth
+ * @param {{ dir?: string, baselineFile?: string }} [options]  the repository and the baseline (tests)
+ */
+export async function main(argv, { dir = root, baselineFile = fileURLToPath(BASELINE) } = {}) {
     const update = argv.includes("--update");
     const acceptGrowth = argv.includes("--accept-growth");
     const names = argv.filter((a) => !a.startsWith("--"));
     for (const name of names) if (!(name in GUARDS)) throw new Error(`growth: no guard "${name}"; the guards are ${GUARD_NAMES.join(", ")}`);
     const chosen = names.length > 0 ? names : GUARD_NAMES;
-    const baseline = existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, "utf8")) : EMPTY;
+    const baseline = { ...EMPTY, ...(existsSync(baselineFile) ? JSON.parse(readFileSync(baselineFile, "utf8")) : {}) };
     const next = { ...baseline };
     let failed = false;
     for (const name of chosen) {
-        const now = await GUARDS[name].measure();
-        const { grew, stale } = GUARDS[name].compare(baseline, now);
+        const now = await GUARDS[name].measure(dir);
+        const { grew, stale } = GUARDS[name].compare(baseline, now, dir);
         Object.assign(next, now);
         if (grew.length > 0) {
             if (!(update && acceptGrowth) || GUARDS[name].fixed) failed = true;
-            console.error(`\n${name}: grew\n  ${grew.join("\n  ")}\n${ADVICE[name]}`);
+            console.error(`\n${name}: grew\n  ${grew.join("\n  ")}\n${ADVICE[name]}${GUARDS[name].fixed ? "" : `\n${ACCEPT}`}`);
         }
         if (stale.length > 0 && !update) {
             failed = true;
@@ -318,8 +329,8 @@ async function main(argv) {
         if (grew.length === 0 && stale.length === 0) console.log(`${name}: ok`);
     }
     if (update && !failed) {
-        writeFileSync(BASELINE, formatBaseline(next));
-        console.log(`wrote ${posix(fileURLToPath(BASELINE))}`);
+        writeFileSync(baselineFile, formatBaseline(next));
+        console.log(`wrote ${posix(baselineFile)}`);
     } else if (update) {
         console.error(`\nThe baseline was not written: something grew. Fix that, or raise the baseline with ${UPDATE} --accept-growth and say why in the pull request.`);
     }

@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
     DOCS_LIMITS, FUNCTION_LIMITS, GUARD_NAMES, POWERSHELL_LIMITS, compareCounts, compareTotal, docsKind, docsPages,
-    formatBaseline, measureDocs, measureJavaScript, parseFunctionMessage, powershellOffenders,
+    formatBaseline, main, measureDocs, measureJavaScript, parseFunctionMessage, powershellOffenders,
 } from "../../build/growth.js";
 
 /** A temporary folder, removed after the test. */
@@ -32,11 +32,12 @@ test("ESLint's messages give each function's name and numbers, and an eslint-dis
     // outside the folders the guard reads
     writeFileSync(join(dir, "modules/A/webpack.config.js"), `export function config(x) {\n${statements(FUNCTION_LIMITS.lines + 5)}\n}\n`);
     const found = await measureJavaScript(dir);
-    // the head, the statements, the return and the closing brace
-    assert.deepEqual(found.lines, { "modules/A/Components/View.jsx Function 'View'": [FUNCTION_LIMITS.lines + 5 + 3] });
+    // the head, the statements, the return and the closing brace; a named function is keyed by its
+    // name alone, so moving it into another file keeps its entry
+    assert.deepEqual(found.lines, { "Function 'View'": [FUNCTION_LIMITS.lines + 5 + 3] });
     // one path plus one per if; complexity names an arrow function without its variable
     assert.deepEqual(found.complexity, {
-        "modules/A/Components/View.jsx Function 'View'": [FUNCTION_LIMITS.lines + 5 + 1],
+        "Function 'View'": [FUNCTION_LIMITS.lines + 5 + 1],
         "shared/js/branched.js Arrow function": [FUNCTION_LIMITS.complexity + 2],
     });
 });
@@ -100,6 +101,59 @@ test("docs pages and READMEs count their lines by kind; docs/site/ is not a page
         totalLines: DOCS_LIMITS.topic + DOCS_LIMITS.readme + 4,
     });
     assert.deepEqual(["README.md", "docs/index.md", "docs/pivot/reference.md", "docs/pivot/views.md"].map(docsKind), ["readme", "overview", "reference", "topic"]);
+});
+
+/**
+ * Runs the docs guard of main() on a repository in `dir`, with its output captured.
+ * @returns {Promise<{ exitCode: number, output: string }>}
+ */
+async function runDocsGuard(dir, ...flags) {
+    const output = [];
+    const { log, error } = console;
+    console.log = console.error = (text) => output.push(text);
+    try {
+        await main(["docs", ...flags], { dir, baselineFile: join(dir, "baseline.json") });
+    } finally {
+        Object.assign(console, { log, error });
+    }
+    const exitCode = process.exitCode;
+    process.exitCode = 0;
+    return { exitCode, output: output.join("\n") };
+}
+
+test("the command fails on growth and on a stale baseline, and --update writes only what may be written", async (t) => {
+    const dir = tempDir(t, "main");
+    mkdirSync(join(dir, "docs"));
+    mkdirSync(join(dir, "modules"));
+    const page = (lines) => writeFileSync(join(dir, "docs/page.md"), "x\n".repeat(lines));
+    const baseline = () => JSON.parse(readFileSync(join(dir, "baseline.json"), "utf8"));
+    page(DOCS_LIMITS.topic + 10);
+
+    // the first run: everything over a limit is new
+    let run = await runDocsGuard(dir);
+    assert.equal(run.exitCode, 1);
+    assert.ok(run.output.includes(`docs: grew\n  docs/page.md: ${DOCS_LIMITS.topic + 10} lines, new`), run.output);
+    assert.match(run.output, /Shorten the page/);
+    assert.match(run.output, /--accept-growth and say why/);
+    run = await runDocsGuard(dir, "--update");
+    assert.equal(run.exitCode, 1, "--update alone never raises the baseline");
+    run = await runDocsGuard(dir, "--update", "--accept-growth");
+    assert.equal(run.exitCode, 0);
+    assert.deepEqual(baseline().docs.pages, { "docs/page.md": [DOCS_LIMITS.topic + 10] });
+    assert.equal((await runDocsGuard(dir)).exitCode, 0);
+
+    // a page that shrank fails until the baseline follows
+    page(DOCS_LIMITS.topic + 9);
+    run = await runDocsGuard(dir);
+    assert.equal(run.exitCode, 1);
+    assert.ok(run.output.includes(`smaller than the baseline\n  docs/page.md: ${DOCS_LIMITS.topic + 9} lines, baseline ${DOCS_LIMITS.topic + 10}\nLower the baseline in this pull request`), run.output);
+    assert.equal((await runDocsGuard(dir, "--update")).exitCode, 0);
+    assert.deepEqual(baseline().docs.pages, { "docs/page.md": [DOCS_LIMITS.topic + 9] });
+
+    // a page that grew again fails, and --update leaves the baseline as it was
+    page(DOCS_LIMITS.topic + 10);
+    assert.equal((await runDocsGuard(dir, "--update")).exitCode, 1);
+    assert.deepEqual(baseline().docs.pages, { "docs/page.md": [DOCS_LIMITS.topic + 9] });
 });
 
 test("the committed baseline is sorted, one entry per line, as --update writes it", () => {

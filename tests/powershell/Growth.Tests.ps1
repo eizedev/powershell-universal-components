@@ -59,6 +59,21 @@ Describe 'Measure-PowerShellSize.ps1' {
         @($result.files.path) | Should -Be @('docs/site/c.ps1', 'modules/M/Public/c.ps1')
     }
 
+    It 'counts a filter as a function and leaves out class methods' {
+        $text = "filter Select-Even {`n    if (`$_ % 2 -eq 0) { `$_ }`n}`nclass Thing {`n    [int] Size() {`n        return 1`n    }`n}`n"
+        Set-Content -LiteralPath (Join-Path $script:dir 'd.ps1') -Value $text
+        $result = & $script:measure -Path $script:dir | ConvertFrom-Json
+        @($result.functions.name) | Should -Be @('Select-Even')
+    }
+
+    It 'measures hidden files and folders on every platform' {
+        $hidden = Join-Path $script:dir '.universal'
+        New-Item -ItemType Directory -Path $hidden | Out-Null
+        Set-Content -LiteralPath (Join-Path $hidden 'endpoints.ps1') -Value '1'
+        $result = & $script:measure -Path $script:dir | ConvertFrom-Json
+        @($result.files.path) | Should -Be @('.universal/endpoints.ps1')
+    }
+
     It 'fails on a file that does not parse instead of measuring nothing' {
         Set-Content -LiteralPath (Join-Path $script:dir 'broken.ps1') -Value 'function Broken {'
         { & $script:measure -Path $script:dir } | Should -Throw '*broken.ps1:1*'
