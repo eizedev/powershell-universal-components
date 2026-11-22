@@ -5,6 +5,15 @@ All notable changes to PowerShellUniversal.Component.ECharts.Demo. Format:
 
 ## [Unreleased]
 
+### Added
+
+- The Basics page has a chart whose last click and zoom a button reads with `Get-UDElement`.
+
+### Changed
+
+- Requires PowerShellUniversal.Component.ECharts 0.3.1, where `Get-UDElement` works for charts
+  ([#159](https://github.com/eizedev/powershell-universal-components/issues/159)).
+
 ## [0.3.0] - 2026-11-09
 
 ### Changed

@@ -12,7 +12,7 @@ hashtable PSU renders; see [README.md](README.md).
   A module's `Build.psd1` names files from elsewhere in the repository the build copies into it (the
   pivot demo carries the site's examples and data snapshots and the pivot showcase), so each is defined once.
 - `shared/js/` - JavaScript used by several modules (PSU theme bridge, column matching, formats,
-  CSV/XLSX export, text contrast on fills). Compiled into each module's bundle; never a runtime dependency between modules.
+  CSV/XLSX export, text contrast on fills, the answer to `Get-UDElement` in `elementState.js`). Compiled into each module's bundle; never a runtime dependency between modules.
 - `shared/powershell/` - PowerShell used by several modules (data conversion, asset registration);
   copied into each built module's `Private/` by `build/Copy-SharedCode.ps1`, which also writes
   `Private/SHARED.txt`: the content hashes of `shared/` the module was built from.
