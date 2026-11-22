@@ -547,8 +547,7 @@ Describe 'The pivot module' {
         }
     }
     It 'every public function marks the caller''s -ErrorVariable and cuts it back in a trap before it throws (#153)' {
-        # three lines in each function, not one wrapper: a trap only catches in its own function's scope,
-        # and a throw in a nested block adds a record again
+        # three lines in each function, not one wrapper: a trap only catches errors of its own function
         $manifest = Import-PowerShellDataFile (Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.Pivot' 'PowerShellUniversal.Component.Pivot.psd1')
         $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.Pivot' 'PowerShellUniversal.Component.Pivot.psm1'), [ref]$null, [ref]$null)
         foreach ($command in $manifest.FunctionsToExport) {

@@ -1288,7 +1288,7 @@ Describe '-ErrorVariable holds the error itself, not the module''s steps on the 
     AfterAll { $env:FAKE_PIVOTKIT_MODE = 'ok' }
 
     It '<Name>: one record, the error the caller catches, with its id and Data; -ErrorAction "<Action>"' -ForEach @(
-        foreach ($action in '', 'SilentlyContinue', 'Stop', 'Continue') {
+        foreach ($action in '', 'SilentlyContinue', 'Ignore', 'Stop', 'Continue') {
             @{ Name = 'a closed port'; Action = $action; Id = 'PivotServerUnreachable'; Command = 'Invoke-UDPivotReport'; Arguments = { @{ Engine = 'Rest'; Uri = 'http://127.0.0.1:{0}/api/v1' -f (Get-ClosedPort); Token = 't'; Data = $rows; View = $view } } }
             @{ Name = 'a 422 of the server'; Action = $action; Id = 'PivotViewHasErrors'; RequestId = 'req-ev'; Command = 'Invoke-UDPivotReport'; Arguments = { $mock.Render.Enqueue(@{ Status = 422; Body = '{"type":"x","title":"t","status":422,"code":"VIEW_HAS_ERRORS","detail":"d","requestId":"req-ev","findings":[]}' }); $rest + @{ Token = 'static-token-0123456789'; Data = $rows; View = $view } } }
             @{ Name = 'no command line'; Action = $action; Id = 'PivotCliNotFound'; Command = 'Invoke-UDPivotReport'; Arguments = { @{ Engine = 'Node'; CliPath = Join-Path $TestDrive 'none.js'; Data = $rows; View = $view } } }
@@ -1312,17 +1312,31 @@ Describe '-ErrorVariable holds the error itself, not the module''s steps on the 
         $appended.Collected[1].FullyQualifiedErrorId | Should -Be $Id
     }
 
-    It 'with SilentlyContinue an error still stops the command: no later step runs, a pipeline gives no result for the input it refused' {
-        $result = Invoke-Collected -Command 'Invoke-UDPivotReport' -Arguments @{ Engine = 'Node'; CliPath = Join-Path $TestDrive 'none.js'; Data = $rows; View = $view } -Action SilentlyContinue
-        $result.Caught.FullyQualifiedErrorId | Should -Be 'PivotCliNotFound'
-        $result.Collected.FullyQualifiedErrorId | Should -Not -Contain 'PivotCliFailed' -Because 'the command line it did not find is not run'
-        $collected = $null
-        $out = $null
-        $caught = $null
-        try { $out = 'x', '{"rows":["A"]}' | ConvertFrom-UDPivotView -ErrorAction SilentlyContinue -ErrorVariable collected } catch { $caught = $_ }
-        $caught | Should -Not -BeNullOrEmpty
-        $out | Should -BeNullOrEmpty
-        @($collected).Count | Should -Be 1
+    It 'with SilentlyContinue or Ignore an error still stops the command: no later step runs, a pipeline gives no result for the input it refused' -ForEach @(
+        @{ Action = 'SilentlyContinue' }, @{ Action = 'Ignore' }
+    ) {
+        # in a process of its own: a try anywhere on the call stack (Pester's own) makes every throw
+        # terminating, and a script without one is where a throw under SilentlyContinue ran on
+        $probe = Join-Path $TestDrive 'silently.ps1'
+        Set-Content -LiteralPath $probe -Encoding utf8NoBOM -Value @'
+param($Module, $Action, $Case)
+Add-Type -TypeDefinition 'public class Endpoint { public System.Management.Automation.ScriptBlock ScriptBlock; public Endpoint(System.Management.Automation.ScriptBlock s) { ScriptBlock = s; } public void Register(string id, object c) { } }'
+Import-Module $Module
+$collected = $null
+if ($Case -eq 'cli') {
+    $out = Invoke-UDPivotReport -Engine Node -CliPath (Join-Path $PSScriptRoot 'none.js') -Data @([pscustomobject]@{ A = 1 }) -Layout @{ rows = 'A' } -ErrorAction $Action -ErrorVariable collected
+}
+else {
+    $out = 'x', '{"rows":["A"]}' | ConvertFrom-UDPivotView -ErrorAction $Action -ErrorVariable collected
+}
+'went on: {0} result(s), {1}' -f @($out | Where-Object { $null -ne $_ }).Count, ((@($collected) | ForEach-Object { $_.FullyQualifiedErrorId }) -join ',')
+'@
+        $psm1 = Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.Pivot' 'PowerShellUniversal.Component.Pivot.psm1'
+        foreach ($case in 'cli', 'pipeline') {
+            $output = & (Join-Path $PSHOME 'pwsh') -NoProfile -NonInteractive -File $probe -Module $psm1 -Action $Action -Case $case 2>&1 | Out-String
+            $output | Should -Not -BeLike '*went on:*' -Because "the error stops the script ($case): $output"
+            $output | Should -BeLike $(if ($case -eq 'cli') { '*no such file*' } else { '*Pivot view*' })
+        }
     }
 
     It 'a refusal of the function itself is one record too' {
