@@ -93,7 +93,7 @@ test.describe("pivot demo showcase on PSU", () => {
         // the reader swaps rows and columns: the file follows the view on the page, not the start view
         await report.locator("[data-testid=swap]").click();
         await expect(report.locator("[data-zone=rows]")).toContainText("Season");
-        // the server reads the view the report reported (Get-UDElement)
+        // the server reads the view the report reported (-OnViewChange)
         await page.waitForTimeout(1500);
         download = page.waitForEvent("download", { timeout: 60000 });
         await page.getByRole("button", { name: "Download HTML report" }).click();

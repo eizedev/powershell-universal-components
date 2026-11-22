@@ -6,6 +6,7 @@ import xlsxReader from "pivotkit-xlsx";
 import { bundleScriptOf, importWorkerOf, workerUrlOf } from "./importWorker";
 import "pivotkit-react/styles.css";
 import "./psu.css";
+import { answerStateRequests } from "../../../shared/js/elementState.js";
 import { useNarrowWindow } from "./hooks";
 import AdminPanel from "./AdminPanel";
 import { callEndpoint, cellEvent, problemOf, problemText, recordsOf, withheldFieldsOf, withheldText, dataLoadEvent, exportDataLabels, exportDataOf, fieldListOf, heightOf, importLimitsOf, MAX_OPTIONS_LENGTH, MAX_SCHEMA_LENGTH, mergeFieldDefaults, mergeTemplates, parseJsonObject, parseView, readStoredView, readTemplates, restoreRows, schemaUrlOf, sourceOf, startViewOf, switchOf, templateKey, themeOf, tipsOf, VIEW_EVENT_DELAY_MS, viewStoreKey, withoutBareLink, writeLinkView, writeStoredView, zonesOf } from "./prepare";
@@ -151,7 +152,7 @@ export default function PsuPivotReport(props) {
             // page brings; storage that has it already is left as it is
             if (start.inStorage) showInLink(start.view);
             else remember(start.view);
-            // Get-UDElement reads the restored view too
+            // the component's state holds the restored view too (withComponentFeatures passes it back as props.view)
             if (typeof latest.current.setState === "function") latest.current.setState({ view: start.view });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -170,6 +171,14 @@ export default function PsuPivotReport(props) {
             remember(next);
         }
     }, [serverViewKey, remember]);
+
+    // Get-UDElement: the view of the app's data, also while a reader's file is shown. Only the view and
+    // the id: the props hold every row, and this answer travels back in one hub message. (The wrapper of
+    // universal-dashboard 1.1.2 still POSTs its whole state, rows included, which PSU ignores.)
+    useEffect(() => {
+        const pubsub = typeof window !== "undefined" ? window.UniversalDashboard : undefined;
+        return answerStateRequests(pubsub, props.id, () => ({ id: props.id, view: hostView.current }));
+    }, [props.id]);
 
     // ---- a file the reader loaded (-AllowImport) ---------------------------------------------------
     // While a file's data is shown, its view, its cells and its saved views stay in the browser: the
@@ -199,7 +208,7 @@ export default function PsuPivotReport(props) {
         (next) => {
             hostView.current = next;
             remember(next);
-            // Get-UDElement reads the view from the component's state
+            // the component's state holds the view (withComponentFeatures passes it back as props.view)
             if (typeof latest.current.setState === "function") latest.current.setState({ view: next });
             if (typeof latest.current.onViewChange === "function") {
                 if (pending.current) clearTimeout(pending.current.timer);

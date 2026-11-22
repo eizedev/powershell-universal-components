@@ -5,6 +5,18 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-22
+
+### Added
+
+- The showcase's Events page has a button that reads the report's view with `Get-UDElement`.
+
+### Fixed
+
+- `Get-UDElement -Id <report id>` returns the reader's current view as `.view`, as documented.
+  It returned the string `"null"` on PSU 2026.2 and 2026.3. It now returns only `id` and `view`, not
+  the rows ([#158](https://github.com/eizedev/powershell-universal-components/issues/158)).
+
 ## [0.9.0] - 2026-11-22
 
 ### Added
@@ -569,7 +581,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   them); `examples/templates.ps1`: an app with sign-in, readers' views on the server, publishing for
   two roles and the admin panel.
 
-[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.9.0...HEAD
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.9.1...HEAD
+[0.9.1]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.9.0...PowerShellUniversal.Component.Pivot-v0.9.1
 [0.9.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.8.0...PowerShellUniversal.Component.Pivot-v0.9.0
 [0.8.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.7.2...PowerShellUniversal.Component.Pivot-v0.8.0
 [0.7.2]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.7.1...PowerShellUniversal.Component.Pivot-v0.7.2

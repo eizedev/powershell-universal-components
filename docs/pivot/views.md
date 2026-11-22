@@ -45,7 +45,7 @@ The simplest way to a view is to build it in the report and copy it: **Views, Sh
 
 `Reset` in the toolbar goes back to `-View`. `Set-UDElement -Id <id> -Properties @{ view = $view }`
 shows another view (the reader can undo it), and `(Get-UDElement -Id <id>).view` is the view the reader
-has now.
+has now. `Get-UDElement` returns only `id` and `view`, not the rows.
 
 The browser tab keeps the reader's view: PSU builds the report anew when the app switches between
 light and dark, and the report comes back with the same fields, table or chart, chart type and

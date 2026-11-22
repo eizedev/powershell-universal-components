@@ -315,6 +315,26 @@ test.describe("pivot showcase on PSU", () => {
         await expect(log).toContainText('"rows":["Priority"]');
     });
 
+    test("Get-UDElement reads the report's view: the start view, after a change and after a reload (#158)", async ({ page }) => {
+        await open(page, "events");
+        const read = page.getByRole("button", { name: "Read the view (Get-UDElement)" });
+        const log = page.locator("#element-log");
+        // every expected answer differs from the one before it (a reload starts with "Not read yet.")
+        const readView = async (text) => {
+            await read.click();
+            await expect(log).toContainText(text, { timeout: 15000 });
+        };
+        await readView('"rows":["Team"]');
+        await page.locator(`${REPORT} [data-testid=swap]`).click();
+        await expect(page.locator(`${REPORT} [data-zone=rows]`)).toContainText("Priority");
+        await readView('"rows":["Priority"]');
+        // the tab restores the reader's view on a reload; the server reads that one, not -View
+        await page.reload();
+        await expect(page.locator(REPORT).first()).toBeVisible({ timeout: 30000 });
+        await expect(page.locator(`${REPORT} [data-zone=rows]`)).toContainText("Priority");
+        await readView('"rows":["Priority"]');
+    });
+
     // -AllowImport (pivotkit#44): the reader's file next to the app's data, on the page "Your file"
     test("-AllowImport: a CSV dropped onto the report is read in the module's worker, previewed and loaded; -OnDataLoad hears of it", async ({ page }) => {
         const errors = await open(page, "your-file");
