@@ -1312,6 +1312,19 @@ Describe '-ErrorVariable holds the error itself, not the module''s steps on the 
         $appended.Collected[1].FullyQualifiedErrorId | Should -Be $Id
     }
 
+    It 'with SilentlyContinue an error still stops the command: no later step runs, a pipeline gives no result for the input it refused' {
+        $result = Invoke-Collected -Command 'Invoke-UDPivotReport' -Arguments @{ Engine = 'Node'; CliPath = Join-Path $TestDrive 'none.js'; Data = $rows; View = $view } -Action SilentlyContinue
+        $result.Caught.FullyQualifiedErrorId | Should -Be 'PivotCliNotFound'
+        $result.Collected.FullyQualifiedErrorId | Should -Not -Contain 'PivotCliFailed' -Because 'the command line it did not find is not run'
+        $collected = $null
+        $out = $null
+        $caught = $null
+        try { $out = 'x', '{"rows":["A"]}' | ConvertFrom-UDPivotView -ErrorAction SilentlyContinue -ErrorVariable collected } catch { $caught = $_ }
+        $caught | Should -Not -BeNullOrEmpty
+        $out | Should -BeNullOrEmpty
+        @($collected).Count | Should -Be 1
+    }
+
     It 'a refusal of the function itself is one record too' {
         $result = Invoke-Collected -Command 'Invoke-UDPivotReport' -Arguments @{ Engine = 'Node'; Data = $rows; View = $view; Uri = 'https://x.example' }
         $result.Caught.Exception.Message | Should -BeLike '*only with -Engine Rest*'

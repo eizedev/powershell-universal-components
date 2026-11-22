@@ -2881,7 +2881,7 @@ function Get-UDPivotErrorMark {
         trap, cuts the list back to the mark before it throws the error again; the throw then adds that
         one record. Entries the caller had before (-ErrorVariable +name) stay.
     .PARAMETER Cmdlet
-        The public function's $PSCmdlet. Its session state is the caller's, where the variable lives.
+        The public function's $PSCmdlet. Its SessionState finds the variable in the caller's scope.
     .EXAMPLE
         $errorMark = Get-UDPivotErrorMark -Cmdlet $PSCmdlet
         trap { Reset-UDPivotErrorVariable -Mark $errorMark; throw $_ }

@@ -7,9 +7,14 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Fixed
 
-- `-ErrorVariable` holds the error itself, once. It also held each step the error took through the
-  module, up to eleven records for one failed `Invoke-UDPivotReport`. With `-ErrorVariable +name`,
-  the entries you had before stay. This holds for every command of the module
+- `-ErrorVariable` holds the error that stops a command, once. It also held each step the error took
+  through the module, often eight records or more. With `-ErrorVariable +name`, the entries you had
+  before stay. This holds for every command of the module
+  ([#153](https://github.com/eizedev/powershell-universal-components/issues/153)).
+- With `-ErrorAction SilentlyContinue` or `Ignore`, a command of the module went on after its own
+  error: `Invoke-UDPivotReport` without a command line still tried to run it, and
+  `ConvertFrom-UDPivotView` returned a result for a view it had refused. Such an error now stops the
+  command with every `-ErrorAction`. Catch it with `try` and `catch`
   ([#153](https://github.com/eizedev/powershell-universal-components/issues/153)).
 - `New-UDPivotReport -Tips` refuses an id pivotkit does not know, and names the ones it knows. A wrong
   id or a notice id such as `filterEmpty` went to pivotkit, which ignored it. An id in other case, such as

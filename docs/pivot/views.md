@@ -34,29 +34,6 @@ The keys of a view:
 | `display` | `'table'` or `'chart'`. |
 | `chart` | `@{ type = 'bar'; stacked = $false; horizontal = $false }` and the other [chart settings](#chart-settings). |
 
-### Chart settings
-
-The keys of `chart`. From `valueLabels` on, they are the Display settings of **Chart settings** in the report.
-
-| Key | What |
-| --- | --- |
-| `type` | `auto`, `bar`, `line`, `area`, `pie`, `donut`, `heatmap`. `auto` is the default: lines over dates, bars otherwise. |
-| `stacked`, `horizontal` | `$true` or `$false`. |
-| `valueLabels` | `auto`, `off`, `value`, `percent`, `both`. |
-| `legend` | `auto`, `bottom`, `right`, `off`. |
-| `title` | The chart's title, a text. |
-| `smooth` | `$true`: smooth lines. |
-| `axisLabels` | `auto`, `all`, `nth`. |
-| `groupLabels` | `auto`, `on`, `off`. |
-| `labelPosition` | A pie or donut: `outside`, `inside`. |
-| `tooltip` | Bars, lines and areas: `auto` shows the element under the pointer, `axis` every series. |
-| `zoom` | Bars, lines and areas: the zoom slider, `auto`, `on` or `off`. |
-| `referenceLines` | Bars, lines and areas: `@{ average = $true; trend = $true; target = 250 }`. |
-| `stackPercent` | Stacked bars and areas: `$true` stacks to 100 %. |
-| `hidden` | The series or slices hidden in the legend, by name. |
-| `colors` | `@(@{ name = 'North'; color = '#1f77b4' })`. |
-| `tooltipShare` | `$true`: each value's share in the tooltip. |
-
 --8<-- "examples/chart-settings-in-a-view.md"
 
 The simplest way to a view is to build it in the report and copy it: **Views, Share, Copy view as JSON** (a
@@ -98,6 +75,29 @@ not fit, and nothing in it runs as code. A view from a link is held to pivotkit'
 from outside: at most 50 filters (the rest are left out) and 1,000,000 characters. The tab's own view
 (the one its sessionStorage keeps, also when the same view is in the address bar after a reload or the
 light/dark switch) keeps the app's limits.
+
+### Chart settings
+
+The keys of `chart`. From `valueLabels` on, they are the Display settings of **Chart settings** in the report.
+
+| Key | What |
+| --- | --- |
+| `type` | `auto`, `bar`, `line`, `area`, `pie`, `donut`, `heatmap`. `auto` is the default: lines over dates, bars otherwise. |
+| `stacked`, `horizontal` | `$true` or `$false`. |
+| `valueLabels` | `auto`, `off`, `value`, `percent`, `both`. |
+| `legend` | `auto`, `bottom`, `right`, `off`. |
+| `title` | The chart's title, a text. |
+| `smooth` | `$true`: smooth lines. |
+| `axisLabels` | `auto`, `all`, `nth`. |
+| `groupLabels` | `auto`, `on`, `off`. |
+| `labelPosition` | A pie or donut: `outside`, `inside`. |
+| `tooltip` | Bars, lines and areas: `auto` shows the element under the pointer, `axis` every series. |
+| `zoom` | Bars, lines and areas: the zoom slider, `auto`, `on` or `off`. |
+| `referenceLines` | Bars, lines and areas: `@{ average = $true; trend = $true; target = 250 }`. |
+| `stackPercent` | Stacked bars and areas: `$true` stacks to 100 %. |
+| `hidden` | The series or slices hidden in the legend, by name. |
+| `colors` | `@(@{ name = 'North'; color = '#1f77b4' })`. |
+| `tooltipShare` | `$true`: each value's share in the tooltip. |
 
 ### Links from pivotkit (create_link)
 
