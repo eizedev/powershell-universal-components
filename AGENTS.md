@@ -25,6 +25,8 @@ The modules form one product. Judge code, tests, docs and these rules as a whole
 
 - `modules/<Module>/` - one component module: `Components/` (React/JavaScript), `<Module>.psm1`,
   `<Module>.psd1`, `package.json` + `package-lock.json`, `examples/`, `README.md`, `CHANGELOG.md`.
+  A split module (Pivot so far) has `Public/` and `Private/` with one function per file, its
+  `$Script:` limits and state in `Private/Settings/` (loaded after the functions) and C# in `Private/*.cs`.
   A module without `package.json` is PowerShell only (the demo modules with their app in `Apps/`).
   A module's `Build.psd1` names files from elsewhere in the repository the build copies into it (the
   pivot demo carries the site's examples and data snapshots and the pivot showcase), so each is defined once.

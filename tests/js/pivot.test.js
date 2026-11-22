@@ -162,8 +162,8 @@ test("exportDataLabels: the Source data explanation names the columns of -Export
 });
 
 test("importLimitsOf: the same keys as -ImportLimit in the module", () => {
-    const psm1 = readFileSync(new URL("../../modules/PowerShellUniversal.Component.Pivot/PowerShellUniversal.Component.Pivot.psm1", import.meta.url), "utf8");
-    const block = psm1.match(/\$Script:ImportLimitDefaults = \[ordered\]@\{([^}]*)\}/);
+    const settings = readFileSync(new URL("../../modules/PowerShellUniversal.Component.Pivot/Private/Settings/Parameters.ps1", import.meta.url), "utf8");
+    const block = settings.match(/\$Script:ImportLimitDefaults = \[ordered\]@\{([^}]*)\}/);
     assert.ok(block, "$Script:ImportLimitDefaults in the module");
     const keys = [...block[1].matchAll(/^\s*(\w+)\s*=/gm)].map((m) => m[1]);
     assert.deepEqual(keys, [...mod.IMPORT_LIMIT_KEYS]);
@@ -276,9 +276,9 @@ test("the default height fills a desktop window below PSU's app bar and a page t
     assert.equal(defaultHeightAt(2160).px, 1400);
     // the help of -Height and the page that describes it give the same numbers
     const { min, offset, max } = defaultHeightAt(0);
-    const psm1 = readFileSync(new URL("../../modules/PowerShellUniversal.Component.Pivot/PowerShellUniversal.Component.Pivot.psm1", import.meta.url), "utf8");
+    const command = readFileSync(new URL("../../modules/PowerShellUniversal.Component.Pivot/Public/New-UDPivotReport.ps1", import.meta.url), "utf8");
     const page = readFileSync(new URL("../../docs/pivot/index.md", import.meta.url), "utf8");
-    for (const [name, text] of [["the help of -Height", psm1], ["docs/pivot/index.md", page]]) {
+    for (const [name, text] of [["the help of -Height", command], ["docs/pivot/index.md", page]]) {
         assert.ok(text.includes(`minus ${offset} pixels`), `${name} names the ${offset} pixels`);
         assert.ok(text.includes(`between ${min} and ${max} pixels`), `${name} names ${min} and ${max}`);
     }

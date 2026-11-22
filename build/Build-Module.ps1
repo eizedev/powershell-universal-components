@@ -7,11 +7,11 @@
 .DESCRIPTION
     For modules/<Module>: installs the exact npm versions from package-lock.json (npm ci; npm install
     only when no lock file exists yet - commit it), runs webpack (shared/js is compiled into the
-    bundle), and assembles a clean folder with the bundle, the manifest, the module, Private/
-    (shared/powershell/*.ps1 and SHARED.txt, the state of shared/ it was built from), Apps/ when the
-    module has one, the files Build.psd1 names (Include: destination below the module = source below the
-    repository, e.g. the documentation's examples and data a demo app shows), and
-    THIRD-PARTY-NOTICES.txt. A module
+    bundle), and assembles a clean folder with the bundle, the manifest, the module, its Public/ and
+    Private/ functions (.ps1 and .cs), Private/ also with shared/powershell/*.ps1 and SHARED.txt (the
+    state of shared/ it was built from), Apps/ when the module has one, the files Build.psd1 names
+    (Include: destination below the module = source below the repository, e.g. the documentation's
+    examples and data a demo app shows), and THIRD-PARTY-NOTICES.txt. A module
     without package.json (PowerShell only, e.g. a demo app) skips the JavaScript steps. The version
     comes from the manifest. Old output is removed first, so a failed build never leaves a stale bundle
     behind.
@@ -88,6 +88,17 @@ if (Test-Path -LiteralPath $buildFile) {
     }
 }
 Copy-Item -LiteralPath $manifest, (Join-Path $source "$Module.psm1") -Destination $out
+# the module's own functions (Public/, Private/ with its settings and C# sources), where it has them
+foreach ($folder in 'Public', 'Private') {
+    $from = Join-Path $source $folder
+    if (-not (Test-Path -LiteralPath $from -PathType Container)) { continue }
+    foreach ($file in Get-ChildItem -LiteralPath $from -Include '*.ps1', '*.cs' -File -Recurse) {
+        $to = Join-Path $out ([System.IO.Path]::GetRelativePath($source, $file.FullName))
+        if (Test-Path -LiteralPath (Join-Path $repo 'shared' 'powershell' $file.Name)) { throw ('{0}: shared/powershell has a file of the same name, which the build copies into Private/ too.' -f $to) }
+        New-Item -ItemType Directory -Path (Split-Path -Parent $to) -Force | Out-Null
+        Copy-Item -LiteralPath $file.FullName -Destination $to
+    }
+}
 if ($component) { $null = & (Join-Path $PSScriptRoot 'Copy-SharedCode.ps1') -Destination (Join-Path $out 'Private') -SharedPath (Join-Path $repo 'shared') }
 # README and CHANGELOG travel with the module (PowerShell Gallery, an installed copy), where links
 # relative to the repository lead nowhere: they become links to the same file on the default branch
