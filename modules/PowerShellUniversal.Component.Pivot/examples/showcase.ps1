@@ -173,6 +173,13 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
             Set-UDElement -Id 'event-log' -Properties @{ text = 'OnCellClick: ' + ($summary | ConvertTo-Json -Depth 5 -Compress) }
         }
         New-UDTypography -Id 'event-log' -Variant body2 -Text 'No event yet.' -Style @{ marginTop = '12px'; fontFamily = 'monospace'; overflowWrap = 'anywhere' }
+        # the server asks the browser for the report's current view, without an event
+        New-UDButton -Id 'read-view' -Text 'Read the view (Get-UDElement)' -Style @{ marginTop = '12px' } -OnClick {
+            $view = (Get-UDElement -Id 'events-report').view
+            $text = if ($null -eq $view) { 'no view' } else { ConvertFrom-UDPivotView -InputObject $view -AsJson }
+            Set-UDElement -Id 'element-log' -Properties @{ text = 'Get-UDElement: ' + $text }
+        }
+        New-UDTypography -Id 'element-log' -Variant body2 -Text 'Not read yet.' -Style @{ marginTop = '12px'; fontFamily = 'monospace'; overflowWrap = 'anywhere' }
     }
 
     New-UDPage -Name 'Your file' -Url '/your-file' -Content {
