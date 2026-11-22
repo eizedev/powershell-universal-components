@@ -61,18 +61,34 @@ Describe 'Build-Module.ps1 with the pivot module' {
         $installed.Tips.Count | Should -BeGreaterThan 10 -Because 'the reader found the tips'
         $installed.Notices.Count | Should -BeGreaterThan 0 -Because 'the reader found the notices'
         # read from the source: importing the module needs PSU's types
-        $psm1 = Join-Path $script:repo 'modules' $script:pivot "$script:pivot.psm1"
-        $ast = [System.Management.Automation.Language.Parser]::ParseFile($psm1, [ref]$null, [ref]$null)
+        $settings = Join-Path $script:repo 'modules' $script:pivot 'Private' 'Settings' 'Fields.ps1'
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($settings, [ref]$null, [ref]$null)
         $assignment = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -eq '$Script:TipIds' }, $false)
         $tipIds = $assignment.Right.Expression.SafeGetValue()
         # the same ids in the same spelling; the order does not matter
         ($tipIds | Sort-Object -CaseSensitive) -join ',' | Should -BeExactly (($installed.Tips | Sort-Object -CaseSensitive) -join ',')
+        $command = Join-Path $script:repo 'modules' $script:pivot 'Public' 'New-UDPivotReport.ps1'
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($command, [ref]$null, [ref]$null)
         $function = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'New-UDPivotReport' }, $false)
         $help = $function.GetHelpContent().Parameters['TIPS'] -replace '\s+', ' '
         $listed = [regex]::Match($help, 'the ids of the tips allowed \(([^;]+); the notices (.+?) always show\)')
         $listed.Success | Should -BeTrue -Because "the help of -Tips lists the ids: $help"
         (($listed.Groups[1].Value -split ', ') | Sort-Object -CaseSensitive) -join ',' | Should -BeExactly (($installed.Tips | Sort-Object -CaseSensitive) -join ',')
         (($listed.Groups[2].Value -split ', | and ') | Sort-Object -CaseSensitive) -join ',' | Should -BeExactly (($installed.Notices | Sort-Object -CaseSensitive) -join ',')
+    }
+
+    It 'the built module carries its Public/ and Private/ files, its settings and C# sources (#163)' -Skip:(-not (Test-Path -LiteralPath (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..' '..')) 'modules' 'PowerShellUniversal.Component.Pivot' 'node_modules' 'webpack'))) {
+        $built = & (Join-Path $script:repo 'build' 'Build-Module.ps1') -Module $script:pivot -OutputPath (Join-Path $TestDrive 'out') -SkipNpmInstall 6>$null
+        $source = Join-Path $script:repo 'modules' $script:pivot
+        foreach ($file in Get-ChildItem -LiteralPath (Join-Path $source 'Public'), (Join-Path $source 'Private') -Include '*.ps1', '*.cs' -File -Recurse) {
+            Join-Path $built.FullName ([System.IO.Path]::GetRelativePath($source, $file.FullName)) | Should -Exist
+        }
+        Join-Path $built.FullName 'Private' 'SHARED.txt' | Should -Exist
+        # the built folder loads on its own and exports the manifest's commands (a process of its own:
+        # this session has the source module loaded)
+        $manifest = Import-PowerShellDataFile -LiteralPath (Join-Path $source "$script:pivot.psd1")
+        $exported = & (Join-Path $PSHOME 'pwsh') -NoProfile -NonInteractive -Command "Add-Type -TypeDefinition 'public class Endpoint { }'; (Import-Module '$(Join-Path $built.FullName "$script:pivot.psd1")' -PassThru).ExportedFunctions.Keys | Sort-Object"
+        $exported | Should -Be ($manifest.FunctionsToExport | Sort-Object)
     }
 
     It 'the built module carries pivotkit-core''s view-file and view schemas of the version the bundle uses (#138)' -Skip:(-not (Test-Path -LiteralPath (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..' '..')) 'modules' 'PowerShellUniversal.Component.Pivot' 'node_modules' 'webpack'))) {
