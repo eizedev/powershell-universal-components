@@ -10,8 +10,8 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
 ### Fixed
 
 - `Get-UDElement -Id <chart id>` returns the last click (`.selected`), range (`.range`) and zoom
-  (`.zoom`), as documented. It returned the string `"null"` on PSU 2026.2 and 2026.3. It returns only
-  these and the id, not the data
+  (`.zoom`), as documented. It returned the string `"null"` on PSU 2026.3.4. It returns only
+  these and the id, not the chart's data
   ([#159](https://github.com/eizedev/powershell-universal-components/issues/159)).
   The answer comes from `shared/js/elementState.js`, new in the repository's shared code.
 

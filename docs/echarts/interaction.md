@@ -29,9 +29,16 @@ shows the `$EventData` it would send instead.
 | `-OnLegendChange` | `name`, `selected` |
 
 `-EventColumns Name, Id` limits the rows in `$EventData` to the columns the script block needs, which
-keeps messages small with wide rows. The last click, range and zoom are also in the component's state:
-`(Get-UDElement -Id <id>).selected`, `.range` and `.zoom` (`$null` until the reader did it).
-`Get-UDElement` returns only these and the id, not the data.
+keeps messages small with wide rows.
+
+`Get-UDElement -Id <id>` returns the chart's last events. It returns the id and these three, not the
+chart's data:
+
+- `.selected`: the last `-OnClick` `$EventData`, with its `row` (`-EventColumns` limits it).
+- `.range`: the last `-OnSelect` range, without rows. It is `$null` after the reader clears the selection.
+- `.zoom`: the last `-OnZoom` `$EventData`.
+
+Each one is `$null` until the reader has clicked, selected or zoomed.
 
 ### Click and range selection
 

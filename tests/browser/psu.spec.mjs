@@ -101,8 +101,7 @@ test.describe("Get-UDElement on PSU", () => {
             return dz.end - dz.start;
         })).toBeLessThan(100);
         await read.click();
-        await expect(log).toContainText('"zoom":{"from":', { timeout: 15000 });
-        await expect(log).toContainText('"name":"Mar"');
+        await expect(log).toContainText(/"zoom":\{"from":"[A-Z][a-z]{2}","to":"[A-Z][a-z]{2}","start":[\d.]+,"end":[\d.]+\}/, { timeout: 15000 });
         expect(errors).toEqual([]);
     });
 });

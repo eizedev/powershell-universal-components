@@ -72,7 +72,8 @@ export default function EChart(props) {
     const latest = useRef(props);
     latest.current = props;
     // Get-UDElement: the last click, range and zoom, kept here because PSU asks for them synchronously
-    // (shared/js/elementState.js); the component's state holds them as well
+    // (shared/js/elementState.js); the component's state holds them as well, which the wrapper's own
+    // late answer (a POST that PSU ignores) sends
     const elementState = useRef({});
     const remember = (part) => {
         elementState.current = { ...elementState.current, ...part };
@@ -80,6 +81,7 @@ export default function EChart(props) {
     };
     useEffect(() => {
         const pubsub = typeof window !== "undefined" ? window.UniversalDashboard : undefined;
+        elementState.current = {};
         // only these, never the props: they hold every row
         return answerStateRequests(pubsub, props.id, () => {
             const { selected, range, zoom } = elementState.current;
@@ -251,6 +253,7 @@ export default function EChart(props) {
         const onBrush = (e) => {
             const area = (e.areas || [])[0];
             if (!area || !area.coordRange) {
+                remember({ range: null });
                 call("onSelect", { from: null, to: null });
                 return;
             }
