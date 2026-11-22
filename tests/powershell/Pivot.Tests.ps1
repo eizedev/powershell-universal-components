@@ -395,6 +395,13 @@ Describe 'New-UDPivotReport: fields, schema, chart options and tips' {
         (New-UDPivotReport -Data $rows -Tips values, chartSeries).tips | Should -Be @('values', 'chartSeries')
         { New-UDPivotReport -Data $rows -Tips On, values } | Should -Throw '*alone*'
         { New-UDPivotReport -Data $rows -Tips 'a b' } | Should -Throw
+        # the ids pivotkit-react knows, in its spelling (it compares them case-sensitively); anything else
+        # is refused instead of being dropped without a word (#154)
+        (New-UDPivotReport -Data $rows -Tips Values, CHARTSERIES).tips | Should -BeExactly @('values', 'chartSeries')
+        (New-UDPivotReport -Data $rows -Tips OFF).tips | Should -BeExactly 'off'
+        { New-UDPivotReport -Data $rows -Tips values, chartSerie } | Should -Throw '*"chartSerie"*showAs*cells*'
+        # the notices always show; they are no tips to allow
+        { New-UDPivotReport -Data $rows -Tips filterEmpty } | Should -Throw '*"filterEmpty"*'
         $c = New-UDPivotReport -Data $rows -FieldInfo Off -ZoneInfo On -Label 'Tickets per team'
         $c.fieldInfo | Should -Be 'off'
         $c.zoneInfo | Should -Be 'on'
@@ -576,6 +583,19 @@ Describe 'The pivot module' {
             foreach ($p in $help.parameters.parameter) {
                 ($p.description | Out-String).Trim() | Should -Not -BeNullOrEmpty -Because "$command -$($p.name)"
             }
+        }
+    }
+    It 'every public function marks the caller''s -ErrorVariable and cuts it back in a trap before it throws (#153)' {
+        # three lines in each function, not one wrapper: a trap only catches errors of its own function
+        $manifest = Import-PowerShellDataFile (Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.Pivot' 'PowerShellUniversal.Component.Pivot.psd1')
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.Pivot' 'PowerShellUniversal.Component.Pivot.psm1'), [ref]$null, [ref]$null)
+        foreach ($command in $manifest.FunctionsToExport) {
+            $function = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $command }, $false)
+            # the block that runs the body: process where there is one, else end
+            $block = if ($function.Body.ProcessBlock) { $function.Body.ProcessBlock } else { $function.Body.EndBlock }
+            $block.Statements[0].Extent.Text | Should -Be '$errorMark = Get-UDPivotErrorMark -Cmdlet $PSCmdlet' -Because $command
+            @($block.Traps).Count | Should -Be 1 -Because $command
+            $block.Traps[0].Body.Extent.Text | Should -Be '{ Reset-UDPivotErrorVariable -Mark $errorMark; throw $_ }' -Because $command
         }
     }
 }

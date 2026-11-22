@@ -1177,8 +1177,8 @@ Describe 'New-UDPivotReport -Uri -Source: the rows of a pivotkit-server for the 
         $headers = if ($RetryAfter) { @{ 'Retry-After' = $RetryAfter } } else { @{} }
         $mock.Records.Enqueue(@{ Status = $Status; Body = $body; Headers = $headers })
         $caught = Get-RowsError
-        # thrown by -ErrorAction Stop: PowerShell adds the command's name, as to every error a command writes
-        $caught.FullyQualifiedErrorId | Should -Be ('{0},New-UDPivotReport' -f $Id)
+        # thrown by -ErrorAction Stop with its own id, as every command of the module throws (#153)
+        $caught.FullyQualifiedErrorId | Should -Be $Id
         $caught.TargetObject.Status | Should -Be $Status
         $caught.Exception.Message | Should -BeLike '*what the server says*'
         if ($Extra) { $caught.TargetObject.NotShown | Should -Be @('Team', 'Owner') }
@@ -1186,8 +1186,9 @@ Describe 'New-UDPivotReport -Uri -Source: the rows of a pivotkit-server for the 
         # without -ErrorAction Stop the page still gets a report that tells the reader what happened
         $mock.Records.Enqueue(@{ Status = $Status; Body = $body; Headers = $headers })
         $props = New-UDPivotReport @server -ErrorVariable failed -ErrorAction SilentlyContinue -WarningVariable warned -WarningAction SilentlyContinue
-        # -ErrorVariable also collects the module's own errors on the way: the last record is the one written
-        $failed[-1].FullyQualifiedErrorId | Should -Be ('{0},New-UDPivotReport' -f $Id)
+        # -ErrorVariable holds the error written, once, not the module's steps on the way (#153)
+        $failed.Count | Should -Be 1
+        $failed[0].FullyQualifiedErrorId | Should -Be ('{0},New-UDPivotReport' -f $Id)
         # the operator's message goes to the warning stream in every case, also with -ErrorAction
         "$warned" | Should -BeLike "$Id*what the server says*"
         $props['problem'].kind | Should -Be $Problem
@@ -1209,14 +1210,14 @@ Describe 'New-UDPivotReport -Uri -Source: the rows of a pivotkit-server for the 
 
     It 'stops past -MaxBytes before the text is handed on' {
         $caught = Get-RowsError -Extra @{ MaxBytes = 64 }
-        $caught.FullyQualifiedErrorId | Should -Be 'PivotDataTooLarge,New-UDPivotReport'
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotDataTooLarge'
         $caught.Exception.Message | Should -BeLike '*more than 64 bytes*-MaxBytes*'
     }
 
     It 'an answer cut off on the way is an error, never a part of the rows' {
         $mock.Records.Enqueue(@{ Status = 200; Cut = 60; Body = '{"columns":["Name","Cpu"],"types":["string","number"],"rowCount":2,"data":[["a","b"],[1,2]]}' })
         $caught = Get-RowsError
-        $caught.FullyQualifiedErrorId | Should -Be 'PivotServerError,New-UDPivotReport'
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotServerError'
         $mock.Records.Enqueue(@{ Status = 200; Body = '{"columns":["Name"],"types":["string"],"rowCount":1,"data":[["a"]' })
         (Get-RowsError).Exception.Message | Should -BeLike '*cut off*Ask again*'
         $mock.Records.Enqueue(@{ Status = 200; Body = '{"rows":[]}' })
@@ -1489,5 +1490,98 @@ Describe 'Invoke-UDPivotReport against the real pivotkit' {
         $caught.FullyQualifiedErrorId | Should -Be 'PivotDataTooLarge'
         $caught.Exception.Data['Code'] | Should -Be 'BODY_TOO_LARGE'
         $caught.Exception.Data['RequestId'] | Should -Not -BeNullOrEmpty
+    }
+}
+
+Describe '-ErrorVariable holds the error itself, not the module''s steps on the way (#153)' {
+    BeforeAll {
+        # runs one call with -ErrorVariable (and -ErrorAction when given); returns what the caller caught
+        # and what the variable holds. -Append: the caller had an entry before (-ErrorVariable +name).
+        # The call runs here, not in a script block, so the variable is this function's own.
+        function Invoke-Collected {
+            param([string]$Command, [hashtable]$Arguments, [string]$Action, [switch]$Append)
+            $collected = [System.Collections.ArrayList]::new()
+            if ($Append) { [void]$collected.Add('prior') }
+            $common = @{ ErrorVariable = $(if ($Append) { '+collected' } else { 'collected' }) }
+            if ($Action) { $common['ErrorAction'] = $Action }
+            $caught = $null
+            try { & $Command @Arguments @common } catch { $caught = $_ }
+            [pscustomobject]@{ Caught = $caught; Collected = @($collected) }
+        }
+        function Get-ClosedPort {
+            $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+            $listener.Start(); $port = $listener.LocalEndpoint.Port; $listener.Stop()
+            $port
+        }
+    }
+    BeforeEach { $null = Get-Log; & $module { $Script:TokenCache.Clear() }; $env:FAKE_PIVOTKIT_MODE = 'ok' }
+    AfterAll { $env:FAKE_PIVOTKIT_MODE = 'ok' }
+
+    It '<Name>: one record, the error the caller catches, with its id and Data; -ErrorAction "<Action>"' -ForEach @(
+        foreach ($action in '', 'SilentlyContinue', 'Ignore', 'Stop', 'Continue') {
+            @{ Name = 'a closed port'; Action = $action; Id = 'PivotServerUnreachable'; Command = 'Invoke-UDPivotReport'; Arguments = { @{ Engine = 'Rest'; Uri = 'http://127.0.0.1:{0}/api/v1' -f (Get-ClosedPort); Token = 't'; Data = $rows; View = $view } } }
+            @{ Name = 'a 422 of the server'; Action = $action; Id = 'PivotViewHasErrors'; RequestId = 'req-ev'; Command = 'Invoke-UDPivotReport'; Arguments = { $mock.Render.Enqueue(@{ Status = 422; Body = '{"type":"x","title":"t","status":422,"code":"VIEW_HAS_ERRORS","detail":"d","requestId":"req-ev","findings":[]}' }); $rest + @{ Token = 'static-token-0123456789'; Data = $rows; View = $view } } }
+            @{ Name = 'no command line'; Action = $action; Id = 'PivotCliNotFound'; Command = 'Invoke-UDPivotReport'; Arguments = { @{ Engine = 'Node'; CliPath = Join-Path $TestDrive 'none.js'; Data = $rows; View = $view } } }
+            @{ Name = 'a view with errors (command line)'; Action = $action; Id = 'PivotViewHasErrors'; Command = 'Invoke-UDPivotReport'; Arguments = { $env:FAKE_PIVOTKIT_MODE = 'errors'; @{ Engine = 'Node'; CliPath = $fakeCli; Data = $rows; View = $view } } }
+            @{ Name = 'Get-UDPivotSource, a refused token'; Action = $action; Id = 'PivotTokenRefused'; Command = 'Get-UDPivotSource'; Arguments = { @{ Uri = $base + '/api/v1'; Token = 'static-token-WRONG-0000' } } }
+            @{ Name = 'Get-UDPivotSource, a closed port'; Action = $action; Id = 'PivotServerUnreachable'; Command = 'Get-UDPivotSource'; Arguments = { @{ Uri = 'http://127.0.0.1:{0}/api/v1' -f (Get-ClosedPort); Token = 't' } } }
+        }
+    ) {
+        $result = Invoke-Collected -Command $Command -Arguments (& $Arguments) -Action $Action
+        $result.Caught | Should -Not -BeNullOrEmpty -Because 'the error still stops the call'
+        $result.Caught.FullyQualifiedErrorId | Should -Be $Id
+        $result.Collected.Count | Should -Be 1 -Because ('only the error, not the steps: {0}' -f (($result.Collected | ForEach-Object { '{0} {1}' -f $_.GetType().Name, $_.FullyQualifiedErrorId }) -join ' | '))
+        $result.Collected[0] | Should -BeOfType [System.Management.Automation.ErrorRecord]
+        $result.Collected[0].FullyQualifiedErrorId | Should -Be $Id
+        $result.Collected[0].Exception | Should -Be $result.Caught.Exception
+        if ($RequestId) { $result.Collected[0].Exception.Data['RequestId'] | Should -Be $RequestId }
+        # -ErrorVariable +name: what the caller had stays, the error follows it
+        $appended = Invoke-Collected -Command $Command -Arguments (& $Arguments) -Action $Action -Append
+        $appended.Collected.Count | Should -Be 2
+        $appended.Collected[0] | Should -Be 'prior'
+        $appended.Collected[1].FullyQualifiedErrorId | Should -Be $Id
+    }
+
+    It 'with SilentlyContinue or Ignore an error still stops the command: no later step runs, a pipeline gives no result for the input it refused' -ForEach @(
+        @{ Action = 'SilentlyContinue' }, @{ Action = 'Ignore' }
+    ) {
+        # in a process of its own: a try anywhere on the call stack (Pester's own) makes every throw
+        # terminating, and a script without one is where a throw under SilentlyContinue ran on
+        $probe = Join-Path $TestDrive 'silently.ps1'
+        Set-Content -LiteralPath $probe -Encoding utf8NoBOM -Value @'
+param($Module, $Action, $Case)
+Add-Type -TypeDefinition 'public class Endpoint { public System.Management.Automation.ScriptBlock ScriptBlock; public Endpoint(System.Management.Automation.ScriptBlock s) { ScriptBlock = s; } public void Register(string id, object c) { } }'
+Import-Module $Module
+$collected = $null
+if ($Case -eq 'cli') {
+    $out = Invoke-UDPivotReport -Engine Node -CliPath (Join-Path $PSScriptRoot 'none.js') -Data @([pscustomobject]@{ A = 1 }) -Layout @{ rows = 'A' } -ErrorAction $Action -ErrorVariable collected
+}
+else {
+    $out = 'x', '{"rows":["A"]}' | ConvertFrom-UDPivotView -ErrorAction $Action -ErrorVariable collected
+}
+'went on: {0} result(s), {1}' -f @($out | Where-Object { $null -ne $_ }).Count, ((@($collected) | ForEach-Object { $_.FullyQualifiedErrorId }) -join ',')
+'@
+        $psm1 = Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.Pivot' 'PowerShellUniversal.Component.Pivot.psm1'
+        foreach ($case in 'cli', 'pipeline') {
+            $output = & (Join-Path $PSHOME 'pwsh') -NoProfile -NonInteractive -File $probe -Module $psm1 -Action $Action -Case $case 2>&1 | Out-String
+            $output | Should -Not -BeLike '*went on:*' -Because "the error stops the script ($case): $output"
+            $output | Should -BeLike $(if ($case -eq 'cli') { '*no such file*' } else { '*Pivot view*' })
+        }
+    }
+
+    It 'a refusal of the function itself is one record too' {
+        $result = Invoke-Collected -Command 'Invoke-UDPivotReport' -Arguments @{ Engine = 'Node'; Data = $rows; View = $view; Uri = 'https://x.example' }
+        $result.Caught.Exception.Message | Should -BeLike '*only with -Engine Rest*'
+        $result.Collected.Count | Should -Be 1
+    }
+
+    It 'a call that succeeds after a step it handled itself (OAuth: a 401, a new token, one more try) leaves the variable empty' {
+        $oauth = @{ Credential = $client; TokenUri = $base + '/token' }
+        $null = Invoke-UDPivotReport @rest @oauth -Data $rows -View $view
+        $mock.Render.Enqueue(@{ Status = 401; Body = '{"type":"x","title":"Unauthorized","status":401,"code":"INVALID_TOKEN","detail":"token expired"}' })
+        $result = Invoke-Collected -Command 'Invoke-UDPivotReport' -Arguments ($rest + $oauth + @{ Data = $rows; View = $view })
+        $result.Caught | Should -BeNullOrEmpty
+        @(Get-Log | Where-Object Path -EQ '/token').Count | Should -Be 2 -Because 'the 401 was handled with a new token'
+        $result.Collected.Count | Should -Be 0 -Because ('nothing failed: {0}' -f (($result.Collected | ForEach-Object { $_.FullyQualifiedErrorId }) -join ' | '))
     }
 }
