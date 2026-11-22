@@ -2,7 +2,8 @@
 # Pester tests for build/Build-Module.ps1 with a component module (a JavaScript bundle). They need the
 # module's packages (npm ci in its folder) and run webpack, so they are skipped where those are not
 # installed (CI's PowerShell job; its build job builds every module). The pivot module's build job runs
-# the Describe "Build-Module.ps1 with the pivot module" (ci.yml selects it by that name).
+# the Describe "Build-Module.ps1 with the pivot module" (ci.yml selects it by that name); it also holds
+# the checks against the pivot module's installed packages.
 
 BeforeDiscovery {
     $script:component = 'PowerShellUniversal.Component.Perspective'
@@ -28,6 +29,50 @@ Describe 'Build-Module.ps1 with the pivot module' {
     BeforeAll {
         $script:pivot = 'PowerShellUniversal.Component.Pivot'
         $script:pivotCore = Join-Path $script:repo 'modules' $script:pivot 'node_modules' 'pivotkit-core'
+
+        # pivotkit-react's TIP_IDS and NOTICE_IDS, read from its bundle: the package does not export them.
+        # 0.8 derives both from TIPS (the notices have kind: "notice"), 0.9 writes them as lists.
+        function Get-PivotkitTipId {
+            param([string]$Package)
+            $file = Get-ChildItem -LiteralPath (Join-Path $Package 'dist') -Recurse -Filter '*.js' |
+                Where-Object { (Get-Content -LiteralPath $_.FullName -Raw).Contains('var TIP_IDS = ') } | Select-Object -First 1
+            if (-not $file) { throw "pivotkit-react's bundle declares no TIP_IDS: update this reader." }
+            $text = Get-Content -LiteralPath $file.FullName -Raw
+            $strings = { param($List) @([regex]::Matches($List, '"([A-Za-z0-9-]+)"') | ForEach-Object { $_.Groups[1].Value }) }
+            $tips = [regex]::Match($text, 'var TIP_IDS = Object\.freeze\(\[([^\]]*)\]\)')
+            $notices = [regex]::Match($text, 'var NOTICE_IDS = Object\.freeze\(\[([^\]]*)\]\)')
+            if ($tips.Success -and $notices.Success) {
+                return [pscustomobject]@{ Tips = & $strings $tips.Groups[1].Value; Notices = & $strings $notices.Groups[1].Value }
+            }
+            if (-not $text.Contains('var TIP_IDS = Object.freeze(TIPS.filter((t) => t.kind !== "notice")')) { throw "pivotkit-react's TIP_IDS has a shape this reader does not know: update it." }
+            $start = $text.IndexOf('var TIPS = Object.freeze([')
+            $block = $text.Substring($start, $text.IndexOf('var TIP_IDS = ') - $start)
+            # each entry starts with its id; a notice says so in the next line
+            $entries = [regex]::Matches($block, '(?m)^    id: "([A-Za-z0-9-]+)",\r?\n(    kind: "notice")?')
+            [pscustomobject]@{
+                Tips    = @($entries | Where-Object { -not $_.Groups[2].Success } | ForEach-Object { $_.Groups[1].Value })
+                Notices = @($entries | Where-Object { $_.Groups[2].Success } | ForEach-Object { $_.Groups[1].Value })
+            }
+        }
+    }
+
+    It '-Tips takes the tip ids of the installed pivotkit-react, and its help lists them and the notices (#154)' -Skip:(-not (Test-Path -LiteralPath (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..' '..')) 'modules' 'PowerShellUniversal.Component.Pivot' 'node_modules' 'pivotkit-react'))) {
+        $installed = Get-PivotkitTipId -Package (Join-Path $script:repo 'modules' $script:pivot 'node_modules' 'pivotkit-react')
+        $installed.Tips.Count | Should -BeGreaterThan 10 -Because 'the reader found the tips'
+        $installed.Notices.Count | Should -BeGreaterThan 0 -Because 'the reader found the notices'
+        # read from the source: importing the module needs PSU's types
+        $psm1 = Join-Path $script:repo 'modules' $script:pivot "$script:pivot.psm1"
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($psm1, [ref]$null, [ref]$null)
+        $assignment = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -eq '$Script:TipIds' }, $false)
+        $tipIds = $assignment.Right.Expression.SafeGetValue()
+        # the same ids in the same spelling; the order does not matter
+        ($tipIds | Sort-Object -CaseSensitive) -join ',' | Should -BeExactly (($installed.Tips | Sort-Object -CaseSensitive) -join ',')
+        $function = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'New-UDPivotReport' }, $false)
+        $help = $function.GetHelpContent().Parameters['TIPS'] -replace '\s+', ' '
+        $listed = [regex]::Match($help, 'the ids of the tips allowed \(([^;]+); the notices (.+?) always show\)')
+        $listed.Success | Should -BeTrue -Because "the help of -Tips lists the ids: $help"
+        (($listed.Groups[1].Value -split ', ') | Sort-Object -CaseSensitive) -join ',' | Should -BeExactly (($installed.Tips | Sort-Object -CaseSensitive) -join ',')
+        (($listed.Groups[2].Value -split ', | and ') | Sort-Object -CaseSensitive) -join ',' | Should -BeExactly (($installed.Notices | Sort-Object -CaseSensitive) -join ',')
     }
 
     It 'the built module carries pivotkit-core''s view-file and view schemas of the version the bundle uses (#138)' -Skip:(-not (Test-Path -LiteralPath (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..' '..')) 'modules' 'PowerShellUniversal.Component.Pivot' 'node_modules' 'webpack'))) {

@@ -5,6 +5,19 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+### Fixed
+
+- `-ErrorVariable` holds the error itself, once. It also held each step the error took through the
+  module, up to eleven records for one failed `Invoke-UDPivotReport`. With `-ErrorVariable +name`,
+  the entries you had before stay. This holds for every command of the module
+  ([#153](https://github.com/eizedev/powershell-universal-components/issues/153)).
+- `New-UDPivotReport -Tips` refuses an id pivotkit does not know, and names the ones it knows. A wrong
+  id or a notice id such as `filterEmpty` went to pivotkit, which ignored it. An id in other case, such as
+  `Values`, now reaches pivotkit in its spelling
+  ([#154](https://github.com/eizedev/powershell-universal-components/issues/154)).
+- The views page lists the chart settings in a table of their own
+  ([#154](https://github.com/eizedev/powershell-universal-components/issues/154)).
+
 ## [0.8.0] - 2026-11-18
 
 ### Added

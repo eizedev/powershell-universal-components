@@ -31,7 +31,31 @@ The keys of a view:
 | `derived` | Grouped dates and number ranges: `@{ name = 'Created (Month)'; field = 'Created'; by = 'yearMonth' }` (units `year`, `yearQuarter`, `yearMonth`, `yearWeek`, `day`, `quarter`, `month`, `week`, `weekday`, `hour`); the name then goes into `rows` or `cols`. |
 | `sort` | `@{ field = 'Team'; by = 'value'; order = 'desc' }`. |
 | `totals` | `@{ grandTotalRow = $true; grandTotalColumn = $true; rowSubtotals = $true; colSubtotals = $true }`. A key left out keeps the default: both grand totals and the row subtotals on, the column subtotals off; a view with two or more fields in `cols` that should show their subtotals sets `colSubtotals = $true`. The report writes all four into every view it saves or shares. |
-| `display`, `chart` | `'table'` or `'chart'`; `@{ type = 'bar'; stacked = $false; horizontal = $false }`, types `auto` (the default: lines over dates, bars otherwise), `bar`, `line`, `area`, `pie`, `donut`, `heatmap`; the Display settings of Chart settings `valueLabels` (`auto`, `off`, `value`, `percent`, `both`), `legend` (`auto`, `bottom`, `right`, `off`), `title`, `smooth`, `axisLabels` (`auto`, `all`, `nth`), `groupLabels` (`auto`, `on`, `off`), for a pie or donut `labelPosition` (`outside`, `inside`); for bars, lines and areas `tooltip` (`auto`: the element under the pointer, `axis`: every series), `zoom` (`auto`, `on`, `off`: the zoom slider) and `referenceLines` (`@{ average = $true; trend = $true; target = 250 }`); for stacked bars and areas `stackPercent` (`$true`: stacked to 100 %); `hidden` (the series or slices hidden in the legend, by name), `colors` (`@(@{ name = 'North'; color = '#1f77b4' })`) and `tooltipShare` (`$true`: each value's share in the tooltip). |
+| `display` | `'table'` or `'chart'`. |
+| `chart` | `@{ type = 'bar'; stacked = $false; horizontal = $false }` and the other [chart settings](#chart-settings). |
+
+### Chart settings
+
+The keys of `chart`. From `valueLabels` on, they are the Display settings of **Chart settings** in the report.
+
+| Key | What |
+| --- | --- |
+| `type` | `auto`, `bar`, `line`, `area`, `pie`, `donut`, `heatmap`. `auto` is the default: lines over dates, bars otherwise. |
+| `stacked`, `horizontal` | `$true` or `$false`. |
+| `valueLabels` | `auto`, `off`, `value`, `percent`, `both`. |
+| `legend` | `auto`, `bottom`, `right`, `off`. |
+| `title` | The chart's title, a text. |
+| `smooth` | `$true`: smooth lines. |
+| `axisLabels` | `auto`, `all`, `nth`. |
+| `groupLabels` | `auto`, `on`, `off`. |
+| `labelPosition` | A pie or donut: `outside`, `inside`. |
+| `tooltip` | Bars, lines and areas: `auto` shows the element under the pointer, `axis` every series. |
+| `zoom` | Bars, lines and areas: the zoom slider, `auto`, `on` or `off`. |
+| `referenceLines` | Bars, lines and areas: `@{ average = $true; trend = $true; target = 250 }`. |
+| `stackPercent` | Stacked bars and areas: `$true` stacks to 100 %. |
+| `hidden` | The series or slices hidden in the legend, by name. |
+| `colors` | `@(@{ name = 'North'; color = '#1f77b4' })`. |
+| `tooltipShare` | `$true`: each value's share in the tooltip. |
 
 --8<-- "examples/chart-settings-in-a-view.md"
 
