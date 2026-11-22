@@ -100,7 +100,7 @@ jobs:
           # dynamic assembly" and hung the job (#39). Findings in node_modules or build output do not count.
           $findings = foreach ($folder in 'modules', 'shared', 'build', 'tests') {
               Invoke-ScriptAnalyzer -Path $folder -Recurse -Severity Warning, Error |
-                  Where-Object ScriptPath -NotMatch '[\\/](node_modules|public|output)[\\/]'
+                  Where-Object ScriptPath -NotMatch '[\\/](node_modules|dist|output)[\\/]'
           }
           $findings | Format-Table RuleName, ScriptName, Line, Message -AutoSize -Wrap
           if ($findings) { throw ('PSScriptAnalyzer: {0} finding(s)' -f @($findings).Count) }

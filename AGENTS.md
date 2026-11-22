@@ -58,7 +58,7 @@ pwsh ./docs/site/Build-Site.ps1                      # examples, reference, char
 uv run --with-requirements <eizedev/brand>/docs-site/requirements.txt zensical build   # site/ (copy site.css from there into docs/assets/ first)
 pwsh ./build/Publish-Module.ps1 -Module <Module> -Version x.y.z   # release check and zip (CI publishes)
 pwsh -c 'Invoke-Pester -Path tests/powershell'       # Pester 5 or 6
-pwsh -c 'foreach ($f in "modules", "shared", "build", "tests") { Invoke-ScriptAnalyzer -Path $f -Recurse -Severity Warning, Error | Where-Object ScriptPath -NotMatch "node_modules|public|output" }'   # as CI
+pwsh -c 'foreach ($f in "modules", "shared", "build", "tests") { Invoke-ScriptAnalyzer -Path $f -Recurse -Severity Warning, Error | Where-Object ScriptPath -NotMatch "node_modules|dist|output" }'   # as CI
 ```
 
 `npm run growth` runs `build/growth.js`. It keeps code, tests, and docs from growing by appending.
@@ -118,6 +118,6 @@ rendering.
 
 ## Do not
 
-- Commit `node_modules/`, `public/` or `output/`.
+- Commit `node_modules/`, `dist/` or `output/`.
 - Add a module without the `PowerShellUniversal` tag in its manifest, a README and an example app.
 - Put secrets, host names or anything about a particular installation into code, examples or tests.

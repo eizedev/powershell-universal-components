@@ -1,5 +1,5 @@
 node_modules/
-public/
+dist/
 output/
 /site/
 # the documentation site: the shared design (eizedev/brand) and what docs/site/Build-Site.ps1 generates

@@ -74,7 +74,7 @@ if ($component) {
 
 New-Item -ItemType Directory -Path $out -Force | Out-Null
 # the bundle and its licence banner; the source map is for development only (PSU never serves it)
-if ($component) { Copy-Item -Path (Join-Path $source 'public' '*') -Exclude '*.map' -Destination $out }
+if ($component) { Copy-Item -Path (Join-Path $source 'dist' '*') -Exclude '*.map' -Destination $out }
 if (Test-Path -LiteralPath (Join-Path $source 'Apps')) { Copy-Item -LiteralPath (Join-Path $source 'Apps') -Destination $out -Recurse }
 # files defined elsewhere in the repository and shipped with this module (Build.psd1 stays behind)
 $buildFile = Join-Path $source 'Build.psd1'

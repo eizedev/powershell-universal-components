@@ -17,7 +17,7 @@ module.exports = function config(moduleDir) {
         context: moduleDir,
         entry: { index: path.join(moduleDir, "Components", "index.js") },
         output: {
-            path: path.join(moduleDir, "public"),
+            path: path.join(moduleDir, "dist"),
             filename: "[name].[contenthash].bundle.js",
             libraryTarget: "umd",
             clean: true
