@@ -173,7 +173,8 @@ export default function PsuPivotReport(props) {
     }, [serverViewKey, remember]);
 
     // Get-UDElement: the view of the app's data, also while a reader's file is shown. Only the view and
-    // the id: the props hold every row, and the answer travels back in one hub message.
+    // the id: the props hold every row, and this answer travels back in one hub message. (The wrapper of
+    // universal-dashboard 1.1.2 still POSTs its whole state, rows included, which PSU ignores.)
     useEffect(() => {
         const pubsub = typeof window !== "undefined" ? window.UniversalDashboard : undefined;
         return answerStateRequests(pubsub, props.id, () => ({ id: props.id, view: hostView.current }));

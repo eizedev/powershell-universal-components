@@ -8,7 +8,7 @@
     Description       = 'Showcase app for PowerShellUniversal.Component.Pivot: pivot reports on software release cycles (endoflife.date) and weather (Open-Meteo) with shipped snapshots or live data, your own CSV, JSON and Excel files read in the browser, the report as an Excel workbook or HTML file, rows from a pivotkit-server for the signed-in person, and a 5,000-row ticket report with templates, events, charts and page layouts; English and German.'
     PowerShellVersion = '7.4'
     # the pivot report itself; PSU loads it from its Modules folder or the gallery
-    RequiredModules   = @(@{ ModuleName = 'PowerShellUniversal.Component.Pivot'; ModuleVersion = '0.9.0' })
+    RequiredModules   = @(@{ ModuleName = 'PowerShellUniversal.Component.Pivot'; ModuleVersion = '0.9.1' })
     FunctionsToExport = @('New-UDPivotShowcase', 'Get-UDPivotShowcaseData')
     CmdletsToExport   = @()
     VariablesToExport = @()
