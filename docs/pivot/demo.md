@@ -62,8 +62,8 @@ See [Readers' own files](import.md).
 ![Report as a file in the light theme: the buttons Excel workbook and HTML report above a report of rain days per city and season](../assets/pivot-showcase-report-file-light.png#only-light)
 ![Report as a file in the dark theme: the buttons Excel workbook and HTML report above a report of rain days per city and season](../assets/pivot-showcase-report-file-dark.png#only-dark)
 
-The page "Report as a file" has a report of the weather rows and two buttons, **Excel workbook** and
-**HTML report**. A button makes the file of the view the reader has on the page, on the PSU server,
+The page "Report as a file" has a report of the weather rows and two buttons, **Download Excel
+workbook** and **Download HTML report**. A button makes the file of the view the reader has on the page, on the PSU server,
 with `Invoke-UDPivotReport -Engine Node`, and the browser downloads it. A schedule can make the same file
 every Monday and mail it ([Reports without a browser](reports.md)).
 
@@ -72,6 +72,11 @@ every Monday and mail it ([Reports without a browser](reports.md)).
   `npm install --global pivotkit-cli`. `New-UDPivotShowcase -PivotkitPath` names the program when it
   is not on the PATH.
 - Without it, the page says what to install, and the buttons are off. The report still works.
+- Each click runs Node on the PSU server. The app has no sign-in: protect it before people outside
+  your network can reach it.
+- PSU 2026.2 has no `Start-UDDownload -Bytes`. There the file waits in the folder
+  `pivot-showcase-downloads` of the server's temporary folder; a later click removes files older than
+  10 minutes.
 
 ## Rows from a server
 
@@ -85,8 +90,8 @@ New-UDPivotShowcase -ServerUri 'https://reports.example.com/api/v1' -ServerSourc
 - PSU's OpenID Connect sign-in with `Authentication__OIDC__SaveTokens=true`, so the page has the
   person's token (`$AccessToken`).
 - pivotkit-server 0.4.0 or later. The person's profile names the source under `records`.
-- Without `-ServerUri`, the page says what it needs and shows no report. Without a sign-in, the report
-  asks the reader to sign in and sends nothing to the server.
+- Without `-ServerUri`, the page says what it needs and shows no report. Without a token (no sign-in,
+  or tokens not saved), it says that the page needs a sign-in and sends nothing to the server.
 
 ## Views stored on the server
 

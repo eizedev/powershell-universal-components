@@ -176,15 +176,15 @@ Describe 'Pivot demo: rows from a server' {
         $global:PivotDemoAlerts | Should -Contain 'No pivotkit-server is set up for this page'
     }
 
-    It 'shows the server''s source with the person''s token; without a token it asks to sign in and sends nothing' {
+    It 'shows the server''s source with the person''s token; without a token it says the page needs a sign-in and sends nothing' {
         $app = New-UDPivotShowcase -ServerUri 'https://reports.example.com/api/v1' -ServerSource 'orders'
         $page = $app.Pages | Where-Object Name -EQ 'Rows from a server'
-        $report = @(& $page.Content 3>$null | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' })
-        $report.Count | Should -Be 1
-        $report[0].id | Should -Be 'server-rows'
-        $global:PivotDemoAlerts | Should -BeNullOrEmpty
+        # no $AccessToken: no report, so no request to the server either
+        @(& $page.Content | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }).Count | Should -Be 0
+        $global:PivotDemoAlerts | Should -Contain 'This page needs a sign-in'
         # the page's code names the configured server and source, never another
         $page.Content.ToString() | Should -Match ([regex]::Escape("-Uri 'https://reports.example.com/api/v1' -Source 'orders' -Token `$AccessToken -Query `$Query"))
+        $page.Content.ToString() | Should -Match ([regex]::Escape('if ($AccessToken) {'))
     }
 
     It 'takes -ServerUri and -ServerSource only together, and only an http(s) address without a query' {
@@ -202,7 +202,7 @@ Describe 'Pivot demo: report as a file' {
         $out = @(& ($app.Pages | Where-Object Name -EQ 'Report as a file').Content)
         $global:PivotDemoAlerts | Should -Contain 'pivotkit''s command line is not installed on this PSU server'
         $buttons = @($out | Where-Object { $_ -is [hashtable] -and $_.type -eq 'button' })
-        $buttons.text | Should -Be @('Excel workbook', 'HTML report')
+        $buttons.text | Should -Be @('Download Excel workbook', 'Download HTML report')
         $buttons.disabled | Should -Be @($true, $true)
         @($out | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }).Count | Should -Be 1
     }
@@ -215,6 +215,11 @@ Describe 'Pivot demo: report as a file' {
         $app = New-UDPivotShowcase -PivotkitPath $cli
         $out = @(& ($app.Pages | Where-Object Name -EQ 'Report as a file').Content)
         $global:PivotDemoAlerts | Should -BeNullOrEmpty
+        # the code the page shows never names the server's own path of the program
+        $page = $app.Pages | Where-Object Name -EQ 'Report as a file'
+        $shown = [regex]::Match($page.Content.ToString(), '(?s)New-UDExpansionPanel .*').Value
+        $shown | Should -Match 'Invoke-UDPivotReport'
+        $shown | Should -Not -Match ([regex]::Escape($cli))
         $button = $out | Where-Object { $_ -is [hashtable] -and $_.type -eq 'button' -and $_.id -eq "weather-file-$Format" }
         $button.disabled | Should -BeFalse
         # the reader's view: rain days per city, as the browser sends it

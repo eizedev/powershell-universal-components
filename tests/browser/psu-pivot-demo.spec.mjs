@@ -3,7 +3,7 @@
 // PSU_PIVOT_DEMO_URL=https://psu.example.com/pivot-showcase npx playwright test psu-pivot-demo); skipped in CI.
 // The page "Report as a file" needs pivotkit's command line on the PSU server (or the app started with
 // -PivotkitPath). PSU_PIVOT_DEMO_SERVER_URL (optional) points at a second app started with -ServerUri and
-// -ServerSource but without sign-in: its page "Rows from a server" asks the reader to sign in.
+// -ServerSource but without sign-in: its page "Rows from a server" says that it needs a sign-in.
 import { test, expect } from "@playwright/test";
 import { strFromU8, unzipSync } from "fflate";
 import { expectChartType, openViews } from "./pivot-menus.mjs";
@@ -79,7 +79,7 @@ test.describe("pivot demo showcase on PSU", () => {
         await page.goto(`${base}/report-file`);
         const report = page.locator(REPORT);
         await expect(report.locator(".pk-result td").first()).toBeVisible({ timeout: 30000 });
-        const excel = page.getByRole("button", { name: "Excel workbook" });
+        const excel = page.getByRole("button", { name: "Download Excel workbook" });
         await expect(excel).toBeEnabled();
         let download = page.waitForEvent("download", { timeout: 60000 });
         await excel.click();
@@ -95,7 +95,7 @@ test.describe("pivot demo showcase on PSU", () => {
         // the server reads the view the report reported (Get-UDElement)
         await page.waitForTimeout(1500);
         download = page.waitForEvent("download", { timeout: 60000 });
-        await page.getByRole("button", { name: "HTML report" }).click();
+        await page.getByRole("button", { name: "Download HTML report" }).click();
         const html = (await bytesOf(await download)).toString("utf8");
         expect(html).toMatch(/^<!doctype html>/i);
         const body = html.slice(html.indexOf("<tbody"));
@@ -111,14 +111,14 @@ test.describe("pivot demo showcase on PSU", () => {
         await expect(page.locator(".ud-pivot-report")).toHaveCount(0);
     });
 
-    test("Rows from a server: a page without a sign-in asks the reader to sign in and shows no address", async ({ page }) => {
+    test("Rows from a server: an app without sign-in says the page needs one, and shows no address", async ({ page }) => {
         test.skip(!serverApp, "PSU_PIVOT_DEMO_SERVER_URL is not set");
         await page.goto(`${serverApp}/server-rows`);
-        const box = page.locator(".ud-pivot-problem[role=alert]");
-        await expect(box).toBeVisible({ timeout: 30000 });
-        await expect(box).toContainText(/sign in/i);
-        const text = await box.innerText();
-        expect(text).not.toMatch(/https?:\/\//);
+        await expect(page.getByText("This page needs a sign-in")).toBeVisible({ timeout: 30000 });
+        await expect(page.getByText(/Authentication__OIDC__SaveTokens/)).toBeVisible();
+        await expect(page.locator(".ud-pivot-report")).toHaveCount(0);
+        // the code shown names the configured server; the page text does not
+        const text = await page.locator("main, body").first().innerText();
         expect(text).not.toMatch(/Bearer|eyJ/);
     });
 

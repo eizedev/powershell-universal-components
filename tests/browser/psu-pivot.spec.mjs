@@ -291,9 +291,13 @@ test.describe("pivot showcase on PSU", () => {
                     }
                 }
                 if (xs.length < 100) return null;
-                const mid = (v) => v.sort((p, q) => p - q)[v.length >> 1];
+                // the slice's own pixel nearest to the middle of its pixels (the middle of a ring can be its hole)
+                const mid = (v) => [...v].sort((p, q) => p - q)[v.length >> 1];
+                const [mx, my] = [mid(xs), mid(ys)];
+                let best = 0;
+                for (let i = 1; i < xs.length; i++) if ((xs[i] - mx) ** 2 + (ys[i] - my) ** 2 < (xs[best] - mx) ** 2 + (ys[best] - my) ** 2) best = i;
                 const scale = c.width / c.getBoundingClientRect().width;
-                return { x: mid(xs) / scale, y: mid(ys) / scale };
+                return { x: xs[best] / scale, y: ys[best] / scale };
             });
             expect(spot).not.toBeNull();
             const box = await donutCanvas.boundingBox();

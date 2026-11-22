@@ -34,7 +34,9 @@ company that uses the demo internally keeps the snapshot or uses an Open-Meteo A
 Report as a file needs Node 24 or later and pivotkit's command line on the PSU server
 (`npm install --global pivotkit-cli`; `-PivotkitPath` names the program when it is not on the PATH).
 Rows from a server needs `-ServerUri` and `-ServerSource`, PSU's OpenID Connect sign-in with saved
-tokens and pivotkit-server 0.4.0 or later. Without them, each page says what it needs.
+tokens and pivotkit-server 0.4.0 or later. Without them, each page says what it needs. Each click on
+Report as a file runs Node on the PSU server, and the app has no sign-in: protect it before people
+outside your network can reach it.
 
 Your data reads the reader's file in the browser (`New-UDPivotReport -AllowImport`): it is never
 uploaded, the server does not see it, and after a reload it is gone. Views of a file are kept in the

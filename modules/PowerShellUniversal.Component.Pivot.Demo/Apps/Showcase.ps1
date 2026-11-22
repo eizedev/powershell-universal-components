@@ -189,7 +189,8 @@ $monthly = @{
     values  = @(@{ field = "Mean $($degree)C"; agg = 'average'; format = 'number:1'; conditional = @{ type = 'colorScale'; colors = @('#2a78d6', '#f2f2f2', '#eb6834') } })
     display = 'both'; chart = @{ type = 'line'; referenceLines = @{ extremes = $true } }
 }
-New-UDPivotReport -Id 'weather' -Data $weather -Label 'Weather of six cities' -SourceName 'Weather' -Locale $locale -View $monthly -FieldDefaults $fields -Templates @(
+# -FieldList Collapsed: the table and the chart get the room; the rail opens the field list
+New-UDPivotReport -Id 'weather' -Data $weather -Label 'Weather of six cities' -SourceName 'Weather' -Locale $locale -View $monthly -FieldDefaults $fields -FieldList Collapsed -Templates @(
     @{ Name = 'How warm is each city, month by month?'; View = $monthly }
     @{ Name = 'Which city is the warmest in July?'; View = @{
             # the cities sorted by one column of the table: July (a month's item is its number)
@@ -224,7 +225,7 @@ New-UDPivotReport -Id 'weather' -Data $weather -Label 'Weather of six cities' -S
 )
 '@
 $weatherPage = New-ShowcasePage -Name 'Weather' -Url '/weather' -Title 'Weather of six cities, 2024 and 2025' -PublicData `
-    -Text 'Daily weather from the Open-Meteo archive: one row per city and day. The start view shows the mean temperature per month as a table and a chart, with the warmest and coldest month of each city marked. The Views menu has more questions to ask the data.' `
+    -Text 'Daily weather from the Open-Meteo archive: one row per city and day. The start view shows the mean temperature per month as a table and a chart, with the warmest and coldest month of each city marked. On a phone, the tab Chart shows the chart. The Views menu has more questions to ask the data.' `
     -Code $weatherCode -Source $attribution.weather -ShowCode $weatherCode
 #endregion
 
@@ -278,16 +279,17 @@ catch {
 }
 '@
 # the template filled in for one format; the page shows it with the rows and the view left out
-function Get-FileClickCode([hashtable]$Kind, [string]$Rows, [string]$View) {
+# (-CliPath: the page shows '' instead of the server's own path)
+function Get-FileClickCode([hashtable]$Kind, [string]$Rows, [string]$View, [string]$CliPath) {
     $fileClickTemplate.Replace('<<ROWS>>', $Rows).Replace('<<VIEW>>', $View).Replace('<<FORMAT>>', $Kind.Format).Replace('<<TYPE>>', $Kind.Type).
-    Replace('<<CLIPATH>>', (ConvertTo-Quoted $PivotkitPath)).Replace('<<LOCALE>>', (ConvertTo-Quoted $Locale)).Replace('<<LIVEDEFAULT>>', [string][bool]$LiveData)
+    Replace('<<CLIPATH>>', (ConvertTo-Quoted $CliPath)).Replace('<<LOCALE>>', (ConvertTo-Quoted $Locale)).Replace('<<LIVEDEFAULT>>', [string][bool]$LiveData)
 }
 $fileKinds = @(
-    @{ Format = 'xlsx'; Text = 'Excel workbook'; Type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
-    @{ Format = 'html'; Text = 'HTML report'; Type = 'text/html' }
+    @{ Format = 'xlsx'; Text = 'Download Excel workbook'; Type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
+    @{ Format = 'html'; Text = 'Download HTML report'; Type = 'text/html' }
 )
 $fileButtons = foreach ($kind in $fileKinds) {
-    "New-UDButton -Id 'weather-file-$($kind.Format)' -Text $(ConvertTo-Quoted $kind.Text) -Variant outlined -ShowLoading -Disabled:(-not `$cliFound) -OnClick {`n$(Get-FileClickCode $kind $weatherRowsCode $fileViewCode)`n}"
+    "New-UDButton -Id 'weather-file-$($kind.Format)' -Text $(ConvertTo-Quoted $kind.Text) -Variant outlined -ShowLoading -Disabled:(-not `$cliFound) -OnClick {`n$(Get-FileClickCode $kind $weatherRowsCode $fileViewCode $PivotkitPath)`n}"
 }
 # pivotkit's command line on the PSU server: without it the page says what to install
 $fileAbove = @"
@@ -301,7 +303,7 @@ $($fileButtons -join "`n")
 "@.Replace('<<CLIPATH>>', (ConvertTo-Quoted $PivotkitPath))
 $filePage = New-ShowcasePage -Name 'Report as a file' -Url '/report-file' -Title 'The report as a file' -PublicData `
     -Text 'Build the view you want in the report, then download it as an Excel workbook or an HTML report with its chart. The PSU server makes the file with Invoke-UDPivotReport and pivotkit''s command line. A schedule can make the same file every Monday and mail it: the button''s code works there too.' `
-    -Code $fileCode -Above $fileAbove -Source $attribution.weather -ShowCode ($fileCode + "`n# the button Excel workbook (New-UDButton -OnClick)`n" + (Get-FileClickCode $fileKinds[0] '# $weather and $fields as above' '# $perSeason as above'))
+    -Code $fileCode -Above $fileAbove -Source $attribution.weather -ShowCode ($fileCode + "`n# the button Download Excel workbook (New-UDButton -OnClick)`n" + (Get-FileClickCode $fileKinds[0] '# $weather and $fields as above' '# $perSeason as above' ''))
 #endregion
 
 #region Rows from a server (New-UDPivotReport -Uri -Source, for the signed-in person)
@@ -309,7 +311,15 @@ $serverExample = @'
 New-UDPivotReport -Id 'server-rows' -Uri 'https://reports.example.com/api/v1' -Source 'orders' -Token $AccessToken -Query $Query -Locale $locale
 '@
 $serverCode = if ($ServerUri -and $ServerSource) {
-    "New-UDPivotReport -Id 'server-rows' -Uri $(ConvertTo-Quoted $ServerUri.AbsoluteUri) -Source $(ConvertTo-Quoted $ServerSource) -Token `$AccessToken -Query `$Query -Locale `$locale"
+    @"
+if (`$AccessToken) {
+    New-UDPivotReport -Id 'server-rows' -Uri $(ConvertTo-Quoted $ServerUri.AbsoluteUri) -Source $(ConvertTo-Quoted $ServerSource) -Token `$AccessToken -Query `$Query -Locale `$locale
+}
+else {
+    # no token: an app without OpenID Connect sign-in, or without saved tokens; nothing goes to the server
+    New-UDAlert -Severity info -Title 'This page needs a sign-in' -Text 'The rows are fetched with your own sign-in. This app has no sign-in with saved tokens: the operator turns on PSU''s OpenID Connect sign-in with Authentication__OIDC__SaveTokens=true.'
+}
+"@
 }
 else {
     # no server set up: the page explains what it needs, and the app still works
@@ -318,8 +328,8 @@ New-UDAlert -Severity info -Title 'No pivotkit-server is set up for this page' -
 '@
 }
 $serverPage = New-ShowcasePage -Name 'Rows from a server' -Url '/server-rows' -Title 'Rows from a pivotkit-server' `
-    -Text 'The report shows a pivotkit-server source for the signed-in person. PowerShell asks the server for the rows with the person''s token ($AccessToken) and hands them to the report; the browser never talks to the server, and the token never reaches it. Links from pivotkit''s create_link open here with their parameters.' `
-    -Above ("New-UDElement -Tag 'div' -Attributes @{{ style = @{{ marginBottom = '12px' }} }} -Content {{ New-UDLink -Text 'How to set it up: Rows from a server' -Url '{0}/pivot/server-rows/' }}" -f $docsUri) -Code $serverCode -ShowCode $serverExample
+    -Text 'The report shows rows from a pivotkit-server, only those you may see. PowerShell fetches them with your sign-in. The browser never calls the server and never gets your token.' `
+    -Above ("New-UDElement -Tag 'div' -Attributes @{{ style = @{{ marginBottom = '12px' }} }} -Content {{ New-UDLink -Text 'How to set it up: Rows from a server' -Url '{0}/pivot/server-rows/' -Underline always -OpenInNewWindow }}" -f $docsUri) -Code $serverCode -ShowCode $serverExample
 #endregion
 
 #region Your data (a file read in the browser with -AllowImport)

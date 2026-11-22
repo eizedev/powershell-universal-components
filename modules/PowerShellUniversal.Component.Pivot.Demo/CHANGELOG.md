@@ -9,13 +9,13 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ### Added
 
-- The page "Report as a file": the buttons **Excel workbook** and **HTML report** make a file of the
+- The page "Report as a file": the buttons **Download Excel workbook** and **Download HTML report** make a file of the
   reader's view on the PSU server with `Invoke-UDPivotReport -Engine Node`. They need pivotkit's command
   line on the server; `New-UDPivotShowcase -PivotkitPath` names it when it is not on the PATH. Without
   it the page says what to install, and its report still works.
 - The page "Rows from a server": `New-UDPivotReport -Uri -Source -Token $AccessToken` for the signed-in
-  person, set up with `New-UDPivotShowcase -ServerUri -ServerSource`. Without them the page says what it
-  needs and shows no report.
+  person, set up with `New-UDPivotShowcase -ServerUri -ServerSource`. Without them, or without a token,
+  the page says what it needs and shows no report.
 - The ticket showcase has the page Charts: the menu on a bar (Show the rows, Only, Without), a
   treemap, and a donut that puts its smallest slices into one slice "Other". Its views folder carries
   the view file "Hours to close per group (table and chart)".
@@ -27,7 +27,7 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 - Requires PowerShellUniversal.Component.Pivot 0.9.0 or later (pivotkit 0.9.0): the pages use
   `display = 'both'`, `combo`, `treemap`, the high and low points, `fieldLabels`, a sort by one column
   and `New-UDPivotReport -Uri`.
-- Weather is the first page. Its start view shows the table and the chart side by side: the mean
+- Weather is the first page, with the field list folded. Its start view shows the table and the chart side by side: the mean
   temperature per month as a colour scale from blue to orange and as lines, with each city's warmest and
   coldest month marked.
 

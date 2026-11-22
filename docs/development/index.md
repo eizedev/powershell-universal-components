@@ -68,8 +68,8 @@ $env:PSU_PIVOT_DEMO_URL = '<app url>'; npm run test:browser -- tests/browser/psu
 
 The demo tests download the files of the page "Report as a file", so that app needs pivotkit's command
 line on the PSU server (`-PivotkitPath`). `PSU_PIVOT_DEMO_SERVER_URL` names a second app started with
-`-ServerUri` and `-ServerSource` and without sign-in; its page "Rows from a server" must ask the reader
-to sign in.
+`-ServerUri` and `-ServerSource` and without sign-in; its page "Rows from a server" must say that it
+needs a sign-in.
 
 The pivot tests (`examples/showcase.ps1` of the pivot module deployed as an app) drag a field, export a
 workbook, run `-OnCellClick` and `-OnViewChange` on the server, save, refuse and delete a template of

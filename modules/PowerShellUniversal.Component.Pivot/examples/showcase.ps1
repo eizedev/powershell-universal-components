@@ -142,8 +142,8 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
 
     # 640 pixels each: three charts on one page
     New-UDPage -Name 'Charts' -Url '/charts' -Content {
-        New-UDTypography -Variant h5 -Text 'Charts: a menu on each bar, tiles and small slices'
-        New-UDTypography -Variant body2 -Text 'Click a bar: its menu shows the tickets behind it, or keeps only that item or leaves it out (a filter Undo takes back). The treemap draws a tile per customer and category. The donut has no legend, so it puts slices too small for a label into one slice "Other".' -Style @{ marginBottom = '12px' }
+        New-UDTypography -Variant h5 -Text 'Charts: bars, a treemap and a donut'
+        New-UDTypography -Variant body2 -Text 'Click a bar to see the tickets behind it, or to keep or leave out its item. Undo takes a filter back. The treemap draws a tile per customer and category. The donut has no legend, so it puts slices too small for a label into one slice "Other".' -Style @{ marginBottom = '12px' }
         New-UDPivotReport -Id 'charts-bars' -Data $tickets -FieldDefaults $fieldDefaults -Height 640px -Label 'Tickets per team and priority' -View @{
             rows = @('Team'); cols = @('Priority'); values = @(@{ field = 'Ticket'; agg = 'count' })
             display = 'chart'; chart = @{ type = 'bar' }
@@ -151,19 +151,14 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
             # runs at "Show the rows" in a bar's menu, or at a double click
             Show-UDToast -Message ('{0} tickets' -f $EventData.count) -Duration 4000
         }
-        New-UDElement -Tag 'div' -Attributes @{ style = @{ display = 'flex'; flexWrap = 'wrap'; gap = '16px'; marginTop = '16px' } } -Content {
-            New-UDElement -Tag 'div' -Attributes @{ style = @{ flex = '1 1 420px'; minWidth = 0 } } -Content {
-                New-UDPivotReport -Id 'charts-treemap' -Data $tickets -FieldDefaults $fieldDefaults -Height 640px -Label 'Cost per customer and category' -View @{
-                    rows = @('Customer', 'Category'); values = @(@{ field = 'Cost'; agg = 'sum'; format = 'currency:EUR' })
-                    display = 'chart'; chart = @{ type = 'treemap' }
-                }
-            }
-            New-UDElement -Tag 'div' -Attributes @{ style = @{ flex = '1 1 420px'; minWidth = 0 } } -Content {
-                New-UDPivotReport -Id 'charts-donut' -Data $tickets -FieldDefaults $fieldDefaults -Height 640px -Label 'Tickets per team and category' -View @{
-                    rows = @('Team', 'Category'); values = @(@{ field = 'Ticket'; agg = 'count' })
-                    display = 'chart'; chart = @{ type = 'donut'; legend = 'off' }
-                }
-            }
+        New-UDPivotReport -Id 'charts-treemap' -Data $tickets -FieldDefaults $fieldDefaults -Height 640px -Label 'Cost per customer and category' -Style @{ marginTop = '16px' } -View @{
+            rows = @('Customer', 'Category'); values = @(@{ field = 'Cost'; agg = 'sum'; format = 'currency:EUR' })
+            display = 'chart'; chart = @{ type = 'treemap' }
+        }
+        New-UDPivotReport -Id 'charts-donut' -Data $tickets -FieldDefaults $fieldDefaults -Height 640px -Label 'Tickets per agent and category' -Style @{ marginTop = '16px' } -View @{
+            # 36 slices: more than the labels have room for, even across the whole page
+            rows = @('Agent', 'Category'); values = @(@{ field = 'Ticket'; agg = 'count' })
+            display = 'chart'; chart = @{ type = 'donut'; legend = 'off' }
         }
     }
 
