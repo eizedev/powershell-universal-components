@@ -418,107 +418,28 @@ function New-UDPivotReport {
     $errorMark = Get-UDPivotErrorMark -Cmdlet $PSCmdlet
     trap { Reset-UDPivotErrorVariable -Mark $errorMark; throw $_ }
 
-    if (-not $Script:AssetId) { throw $Script:MissingAssetMessage }
-    if ($OnDataLoad -and -not $AllowImport) { throw '-OnDataLoad needs -AllowImport: without it the data shown never changes.' }
-    if ($PSBoundParameters.ContainsKey('ImportLimit') -and -not $AllowImport) { throw '-ImportLimit needs -AllowImport: without it no file is loaded.' }
-    if ($DrillDownExport -and $NoDrillDown) { throw '-DrillDownExport needs the drill-down: -NoDrillDown leaves no panel to copy or download from.' }
-    if ($ExportDataColumn -and -not $ExportData) { throw '-ExportDataColumn needs -ExportData: naming columns never turns an export on by itself.' }
+    Assert-UDPivotReportParameter -Bound $PSBoundParameters
     $timer = [System.Diagnostics.Stopwatch]::StartNew()
 
     $fromServer = $PSCmdlet.ParameterSetName -eq 'Server'
     # with -Uri, a -View that is a name goes to the server; it is no view of its own
     $viewName = if ($fromServer -and $View -is [string] -and $View -match $Script:ViewNamePattern) { $View }
     $rows = $null
-    $records = $null
-    $problem = $null
-    if ($fromServer) {
-        $auth = Resolve-UDPivotRestSignIn -Bound @{ Uri = $Uri; Token = $Token } -TimeoutSec $TimeoutSec
-        try {
-            # no token: a visitor who is not signed in, or PSU's sign-in without SaveTokens. The reader is
-            # asked to sign in; nothing is sent
-            $empty = $null -eq $Token -or ($Token -is [string] -and $Token -eq '') -or ($Token -is [securestring] -and $Token.Length -eq 0)
-            if ($empty) {
-                throw (New-UDPivotError -Id PivotTokenRefused -Category AuthenticationError -Message '-Token is empty: no access token of the signed-in person. Pass $AccessToken on a page of an app with sign-in, and turn on Authentication__OIDC__SaveTokens in PSU, so PSU keeps the token.')
-            }
-            # a token of another type or with whitespace in it is the app's mistake: a plain error
-            $null = ConvertTo-UDPivotPlainText -Secret $Token -Name '-Token'
-            $sent = if ($PSBoundParameters.ContainsKey('Parameter')) { $Parameter } else {
-                # $Query of the page, as $User below; a script block defined in the app script has none
-                $pageQuery = if ($PSBoundParameters.ContainsKey('Query')) { $Query } else { $PSCmdlet.SessionState.PSVariable.GetValue('Query') }
-                if ($pageQuery -is [System.Collections.IDictionary] -and $pageQuery.Count) { Get-UDPivotLinkParameter -Uri $Uri -Source $Source -Query $pageQuery -Auth $auth -TimeoutSec $TimeoutSec }
-            }
-            $records = Get-UDPivotRecordText -Uri $Uri -Source $Source -Parameter $sent -ViewName $viewName -Auth $auth -MaxBytes $MaxBytes -TimeoutSec $TimeoutSec
-        }
-        catch {
-            if ($_.FullyQualifiedErrorId -notmatch '^Pivot[A-Za-z]+$') { throw }
-            # the page still gets a report that tells the reader what happened. The operator's message
-            # (the server's address and answer) goes to the warning stream, the app's log: PSU shows an
-            # error of a page to the reader as a toast (measured on 2026.2.5 and 2026.3.4). A caller that
-            # asks for the error (-ErrorAction, -ErrorVariable) gets it with its id; with Stop it throws
-            # (the module's own preference is Stop, so the caller's choice decides here)
-            $problem = ConvertTo-UDPivotReaderProblem -ErrorRecord $_
-            Write-Warning ('{0}: {1}' -f ($_.FullyQualifiedErrorId -split ',')[0], $_.Exception.Message)
-            if ($PSBoundParameters.ContainsKey('ErrorAction') -or $PSBoundParameters.ContainsKey('ErrorVariable')) {
-                # -ErrorVariable holds this error once, not the module's steps on the way (#153)
-                Reset-UDPivotErrorVariable -Mark $errorMark
-                if ([string]$PSBoundParameters['ErrorAction'] -eq 'Stop') { throw $_ }
-                if (-not $PSBoundParameters.ContainsKey('ErrorAction')) { $ErrorActionPreference = 'Continue' }
-                $PSCmdlet.WriteError($_)
-            }
-        }
-    }
+    $server = $null
+    if ($fromServer) { $server = Resolve-UDPivotReportRecord -Bound $PSBoundParameters -Cmdlet $PSCmdlet -ErrorMark $errorMark -ViewName $viewName -MaxBytes $MaxBytes -TimeoutSec $TimeoutSec }
     else {
         # one array (ConvertTo-PSUComponentData returns it as a single object; @() would nest it)
         $rows = ConvertTo-PSUComponentData -InputObject $Data
     }
+    $records = $server.Records
     $convertMs = $timer.Elapsed.TotalMilliseconds
     $columnNames = if ($fromServer) { @(if ($records) { $records.Columns }) } else { @($rows | Select-Object -First 1 | ForEach-Object { $_.PSObject.Properties.Name }) }
-    # the key the browser keeps the reader's view under: -Id, or without it (a new GUID per build) the
-    # place of this call in the app script and the columns, hashed (no server path reaches the browser)
-    $storageKey = if ($PSBoundParameters.ContainsKey('Id')) { $Id } else {
-        $site = '{0}|{1}|{2}|{3}' -f $MyInvocation.ScriptName, $MyInvocation.ScriptLineNumber, $MyInvocation.OffsetInLine, ($columnNames -join [char]1)
-        $sha = [System.Security.Cryptography.SHA256]::Create()
-        try { $hash = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($site)) } finally { $sha.Dispose() }
-        'auto-' + (-join ($hash[0..7] | ForEach-Object { $_.ToString('x2') }))
-    }
-    $props = @{
-        assetId     = $Script:AssetId
-        isPlugin    = $true
-        type        = 'ud-pivot-report'
-        id          = $Id
-        storageKey  = $storageKey
-        # PSU camelCases the keys of the rows on their way to the browser; the report shows the field
-        # names as they are, so the original ones travel along as values (which PSU leaves alone)
-        columnNames = $columnNames
-        locale      = $Locale
-        timeZone    = $TimeZone
-        theme       = $Theme.ToLowerInvariant()
-        fileName    = $FileName
-        drillDown   = -not $NoDrillDown
-        addressBar  = -not $NoAddressBar
-    }
-    if ($records) {
-        # the server's answer as it came: PSU passes a string on as it is, and the report parses it
-        $props['records'] = $records.Text
-    }
-    elseif ($problem) { $props['problem'] = $problem }
-    else { $props['data'] = $rows }
-    if ($DrillDownExport) { $props['drillDownExport'] = $true }
-    if ($ExportData) { $props['exportData'] = ConvertTo-UDPivotExportData -Column $ExportDataColumn -ColumnName $columnNames }
-    if ($AllowImport) { $props['allowImport'] = $true }
-    if ($PSBoundParameters.ContainsKey('ImportLimit') -and $null -ne $ImportLimit) {
-        $limits = ConvertTo-UDPivotImportLimit -ImportLimit $ImportLimit
-        if (@($limits.PSObject.Properties).Count) { $props['importLimits'] = $limits }
-    }
-    if ($PSBoundParameters.ContainsKey('View') -and $null -ne $View -and -not $viewName) {
-        try { $props['view'] = ConvertFrom-UDPivotView -InputObject $View }
-        catch { throw ('-View: {0}' -f $_.Exception.Message) }
-    }
-    if ($PSBoundParameters.ContainsKey('SavedView') -and $null -ne $SavedView) {
-        # the reader's stored view is user data: a broken one must not break the page
-        try { $props['savedView'] = ConvertFrom-UDPivotView -InputObject $SavedView }
-        catch { Write-Warning ('-SavedView left out: {0}' -f $_.Exception.Message) }
-    }
+    # the key the browser keeps the reader's view under: -Id, or without it (a new GUID per build) one
+    # from the place of this call and the columns
+    $storageKey = if ($PSBoundParameters.ContainsKey('Id')) { $Id } else { Get-UDPivotStorageKey -Invocation $MyInvocation -ColumnName $columnNames }
+    $props = New-UDPivotReportProp -Id $Id -StorageKey $storageKey -ColumnName $columnNames -Rows $rows -Server $server -Locale $Locale -TimeZone $TimeZone -Theme $Theme -FileName $FileName -NoDrillDown:$NoDrillDown -NoAddressBar:$NoAddressBar
+    $props += Get-UDPivotExportProp -Bound $PSBoundParameters -ColumnName $columnNames
+    $props += Get-UDPivotViewProp -Bound $PSBoundParameters -ViewName $viewName
     # the data the view files and links name; a view made for another id asks before it is loaded
     $dataSource = [ordered]@{ id = if ($SourceId) { $SourceId } elseif ($fromServer) { $Source } else { $storageKey } }
     if ($SourceName) { $dataSource['name'] = $SourceName } elseif ($Label) { $dataSource['name'] = $Label }
@@ -526,138 +447,14 @@ function New-UDPivotReport {
     # -SchemaUrl, else the module-wide default; a path goes as it is, the browser adds its origin
     $schemaAddress = Get-UDPivotSchemaUrl -SchemaUrl $SchemaUrl -Given:$PSBoundParameters.ContainsKey('SchemaUrl')
     if ($null -ne $schemaAddress) { $props['schemaUrl'] = $schemaAddress }
-
-    #region Templates, the store and who may change shared views
-    $store = if (Test-UDPivotTemplateStore -Store $TemplateStore) { $TemplateStore }
-    $customEvents = @('OnSaveTemplate', 'OnDeleteTemplate', 'OnPublishTemplate') | Where-Object { $PSBoundParameters[$_] }
-    if ($store -and $customEvents) { throw ('-TemplateStore with a store does the saving itself; leave out {0}, or use them without a store.' -f (($customEvents | ForEach-Object { "-$_" }) -join ', ')) }
-    if ($OnPublishTemplate -and -not $AdminRole) { throw '-OnPublishTemplate needs -AdminRole: only readers with one of its roles may publish.' }
-    $isAdmin = $false
-    $user = $null
-    if ($store -or $AdminRole) {
-        # $User and $Roles of the page that calls this; a script block defined in the app script has
-        # neither (measured), so -UserName and -Roles can be passed
-        $user = if ($PSBoundParameters.ContainsKey('UserName')) { $UserName } else { [string]$PSCmdlet.SessionState.PSVariable.GetValue('User') }
-        $userRoles = if ($PSBoundParameters.ContainsKey('Roles')) { $Roles } else { @($PSCmdlet.SessionState.PSVariable.GetValue('Roles')) }
-        $isAdmin = Test-UDPivotRole -Roles $userRoles -AdminRole $AdminRole
-    }
-    $templateList = [System.Collections.Generic.List[object]]::new()
-    $storeViews = @{ shared = @(); user = @() }
-    if ($store) {
-        # the store's views: a broken store must not break the page
-        foreach ($scope in 'shared', 'user') {
-            if ($scope -eq 'user' -and -not $user) { continue }
-            try {
-                $storeViews[$scope] = @(foreach ($t in @(Invoke-UDPivotTemplateStore -Store $store -Action List -Scope $scope -UserName $user -SourceId $dataSource.id)) {
-                        [pscustomobject]@{ name = $t.Name; view = $t.View; scope = $scope; deletable = ($scope -eq 'user' -or $isAdmin) }
-                    })
-            }
-            catch { Write-Warning ('Pivot template store ({0} views) left out: {1}' -f $scope, $_.Exception.Message) }
-        }
-    }
-    # the views the app ships: -Templates, then the -TemplatePath files made for this report's data or
-    # for no data (as the store and pivotkit's browser store list them, ids compared with case)
-    $shipped = [System.Collections.Generic.List[object]]::new()
-    if ($PSBoundParameters.ContainsKey('Templates')) { foreach ($t in @(ConvertTo-UDPivotTemplate -Template $Templates)) { $shipped.Add($t) } }
-    if ($TemplatePath) {
-        foreach ($t in @(Get-UDPivotTemplateFile -Path $TemplatePath)) {
-            if ($t.SourceId -and $t.SourceId -cne $dataSource.id) { continue }
-            $shipped.Add([pscustomobject]@{ name = $t.Name; view = $t.View; scope = 'shared'; deletable = $false })
-        }
-    }
-    # a shared view of the store takes the place of a shipped shared view of its name: Publish and Save
-    # write a name the app ships into the store, and the Views menu must show that change. Names match
-    # as in pivotkit's Views menu and the store's upsert (same characters, same case).
-    $replaced = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-    foreach ($t in $shipped) {
-        $fromStore = if ($t.scope -eq 'shared') { @($storeViews['shared'] | Where-Object { $_.name -ceq $t.name }) } else { @() }
-        if (-not $fromStore.Count) { $templateList.Add($t) }
-        elseif ($replaced.Add($t.name)) { $templateList.AddRange([object[]]$fromStore) }
-    }
-    foreach ($t in @($storeViews['shared'] | Where-Object { -not $replaced.Contains($_.name) }) + @($storeViews['user'])) { $templateList.Add($t) }
-    if ($store) {
-        $settings = @{
-            App        = [string]$PSCmdlet.SessionState.PSVariable.GetValue('DashboardName')
-            Report     = $storageKey
-            Store      = $store
-            AdminRole  = @($AdminRole)
-            SourceId   = $dataSource.id
-            SourceName = [string]$dataSource['name']
-            SchemaUrl  = $schemaAddress
-        }
-        $key = Register-UDPivotTemplateStore -Settings $settings
-        # without a signed-in user the server cannot tell readers apart: their own views stay in the browser
-        if ($user) {
-            $OnSaveTemplate = New-UDPivotTemplateEndpoint -Key $key -Action Save
-            $OnDeleteTemplate = New-UDPivotTemplateEndpoint -Key $key -Action Delete
-        }
-        else {
-            $props['templateStore'] = 'browser'
-            if ($isAdmin) { $OnDeleteTemplate = New-UDPivotTemplateEndpoint -Key $key -Action Delete }
-        }
-        if ($isAdmin) { $OnPublishTemplate = New-UDPivotTemplateEndpoint -Key $key -Action Publish }
-    }
-    elseif ($TemplateStore -eq 'Browser') {
-        $props['templateStore'] = 'browser'
-    }
-    if ($templateList.Count -gt $Script:MaxTemplates) {
-        Write-Warning ('Pivot templates: {0}, more than the {1} the report takes; the rest is left out.' -f $templateList.Count, $Script:MaxTemplates)
-        $templateList.RemoveRange($Script:MaxTemplates, $templateList.Count - $Script:MaxTemplates)
-    }
-    if ($PSBoundParameters.ContainsKey('Templates') -or $TemplatePath -or $store) { $props['templates'] = $templateList.ToArray() }
-    if ($isAdmin -and ($OnPublishTemplate)) { $props['canPublish'] = $true }
-    #endregion
-    if ($FieldDefaults -or $FieldDescriptions) {
-        $defaults = ConvertTo-UDPivotFieldDefault -FieldDefaults $FieldDefaults -FieldDescriptions $FieldDescriptions
-        # as JSON text: PSU would camelCase the field names of an object prop
-        if ($defaults.Count) {
-            $props['fieldDefaults'] = ConvertTo-UDPivotJsonText -InputObject $defaults -Name '-FieldDefaults' -MaxLength $Script:MaxSchemaLength -MaxDepth 4
-        }
-    }
-    if ($PSBoundParameters.ContainsKey('Schema') -and $null -ne $Schema) {
-        $props['schema'] = Get-UDPivotSchemaText -Schema $Schema
-        if ($SchemaName) { $props['schemaName'] = $SchemaName }
-    }
-    elseif ($SchemaName) { throw '-SchemaName needs -Schema.' }
-    if ($PSBoundParameters.ContainsKey('ChartOptions') -and $null -ne $ChartOptions) {
-        $props['chartOptions'] = ConvertTo-UDPivotJsonText -InputObject $ChartOptions -Name '-ChartOptions' -MaxLength $Script:MaxChartOptionsLength -MaxDepth $Script:MaxChartOptionsDepth
-    }
-    if ($Tips) {
-        if ($Tips.Count -gt 1 -and ($Tips -contains 'On' -or $Tips -contains 'Off')) { throw '-Tips: On or Off alone, or a list of tip ids.' }
-        # each id in pivotkit's spelling, whatever case it was given in
-        $props['tips'] = if ($Tips.Count -eq 1 -and $Tips[0] -in 'On', 'Off') { $Tips[0].ToLowerInvariant() } else { @(foreach ($tip in $Tips) { $Script:TipIds | Where-Object { $_ -eq $tip } }) }
-    }
-    if ($FieldInfo) { $props['fieldInfo'] = $FieldInfo.ToLowerInvariant() }
-    if ($ZoneInfo) { $props['zoneInfo'] = $ZoneInfo.ToLowerInvariant() }
-    if ($SettingInfo) { $props['settingInfo'] = $SettingInfo.ToLowerInvariant() }
-    if ($FieldList) { $props['fieldList'] = $FieldList.ToLowerInvariant() }
-    if ($Zones) { $props['zones'] = $Zones.ToLowerInvariant() }
-    if ($Grow) { $props['grow'] = $Grow.ToLowerInvariant() }
-    if ($Label) { $props['label'] = $Label }
-    if ($Height) { $props['height'] = ConvertTo-UDPivotHeight -Height $Height }
-    if ($Labels) { $props['labels'] = $Labels }
-    if ($ClassName) { $props['className'] = $ClassName }
-    if ($Style) { $props['style'] = $Style }
-    $events = [ordered]@{ OnViewChange = 'onViewChange'; OnCellClick = 'onCellClick'; OnSaveTemplate = 'onSaveTemplate'; OnDeleteTemplate = 'onDeleteTemplate'; OnPublishTemplate = 'onPublishTemplate'; OnDataLoad = 'onDataLoad' }
-    foreach ($name in $events.Keys) {
-        # a parameter, or a handler of the template store above
-        $endpoint = Get-Variable -Name $name -ValueOnly -Scope 0
-        if ($endpoint) {
-            # one registration per event: endpoints registered under the same id replace each other
-            $endpoint.Register(('{0}-{1}' -f $Id, $events[$name]), $PSCmdlet)
-            $props[$events[$name]] = $endpoint
-        }
-    }
-    if ($isAdmin) {
-        # the admin panel under the report: how long the server took for this report, and the size
-        $props['admin'] = [pscustomobject]@{
-            rows      = if ($fromServer) { if ($records) { $records.RowCount } else { 0 } } else { @($rows).Count }
-            columns   = $columnNames.Count
-            convertMs = [math]::Round($convertMs, 1)
-            serverMs  = [math]::Round($timer.Elapsed.TotalMilliseconds, 1)
-            templates = $templateList.Count
-            store     = if ($store) { $store.Kind } elseif ($props['templateStore']) { 'Browser' } else { $null }
-        }
+    $templateInfo = Get-UDPivotReportTemplate -Bound $PSBoundParameters -Cmdlet $PSCmdlet -Source $dataSource -SchemaUrl $schemaAddress -StorageKey $storageKey
+    $props += $templateInfo.Props
+    $props += Get-UDPivotFieldProp -Bound $PSBoundParameters
+    $props += Get-UDPivotDisplayProp -Bound $PSBoundParameters
+    $props += Register-UDPivotReportEvent -Id $Id -Bound $PSBoundParameters -StoreHandler $templateInfo.Handlers -Cmdlet $PSCmdlet
+    if ($templateInfo.IsAdmin) {
+        $rowCount = if ($fromServer) { if ($records) { $records.RowCount } else { 0 } } else { @($rows).Count }
+        $props['admin'] = Get-UDPivotAdminInfo -RowCount $rowCount -ColumnCount $columnNames.Count -ConvertMs $convertMs -Timer $timer -Template $templateInfo
     }
     $props
 }
