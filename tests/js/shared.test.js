@@ -131,3 +131,64 @@ test("textOn: the text colour with the higher WCAG contrast to the fill", async 
     // as ECharts' lift(): half way to white, rounded down
     assert.equal(lighten("#003452", 0.5), "#7f99a8");
 });
+
+// Get-UDElement (#158, #159): PSU's hub takes the state only from a synchronous callback on the
+// "requestState" message; it returns "null" when nobody answered in the same call
+function fakePubsub() {
+    const subs = new Map();
+    let next = 0;
+    return {
+        subscribe(topic, fn) {
+            const token = `uid_${++next}`;
+            subs.set(token, { topic, fn });
+            return token;
+        },
+        unsubscribe(token) {
+            subs.delete(token);
+        },
+        publish(topic, data) {
+            for (const { topic: t, fn } of [...subs.values()]) if (t === topic) fn(topic, data);
+        },
+        get count() {
+            return subs.size;
+        }
+    };
+}
+function requestState(pubsub, id) {
+    let state = "null";
+    pubsub.publish(id, { type: "requestState", requestId: "r1", callback: (s) => { state = s; } });
+    return JSON.stringify(state);
+}
+
+test("answerStateRequests answers Get-UDElement in the same call with the current state", async () => {
+    const { answerStateRequests } = await import("../../shared/js/elementState.js");
+    const pubsub = fakePubsub();
+    let zoom;
+    answerStateRequests(pubsub, "chart", () => ({ id: "chart", zoom }));
+    assert.equal(requestState(pubsub, "chart"), '{"id":"chart"}');
+    zoom = { start: 10, end: 60 };
+    assert.equal(requestState(pubsub, "chart"), '{"id":"chart","zoom":{"start":10,"end":60}}');
+    // another element's request is not answered
+    assert.equal(requestState(pubsub, "other"), '"null"');
+});
+
+test("answerStateRequests ignores other messages; its result ends the subscription; no id or pubsub does nothing", async () => {
+    const { answerStateRequests } = await import("../../shared/js/elementState.js");
+    const pubsub = fakePubsub();
+    let reads = 0;
+    const stop = answerStateRequests(pubsub, "chart", () => { reads += 1; return {}; });
+    pubsub.publish("chart", { type: "setState", state: {} });
+    pubsub.publish("chart", { type: "requestState", requestId: "r1" });
+    pubsub.publish("chart", undefined);
+    assert.equal(reads, 0);
+    assert.equal(pubsub.count, 1);
+    stop();
+    assert.equal(pubsub.count, 0);
+    assert.equal(requestState(pubsub, "chart"), '"null"');
+    for (const [p, id] of [[pubsub, ""], [pubsub, undefined], [undefined, "chart"], [{}, "chart"]]) {
+        const none = answerStateRequests(p, id, () => ({}));
+        assert.equal(typeof none, "function");
+        none();
+    }
+    assert.equal(pubsub.count, 0);
+});

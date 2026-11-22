@@ -65,3 +65,44 @@ test.describe("linked charts on PSU", () => {
         expect(errors).toEqual([]);
     });
 });
+
+// Get-UDElement reads the last click and zoom from the browser (#159): the showcase's Basics page has
+// a chart with -Id 'state-chart' and a button that writes what Get-UDElement returned
+test.describe("Get-UDElement on PSU", () => {
+    test.skip(!base, "set PSU_URL to the showcase app to run these");
+    test("returns the last click and the zoom of a chart", async ({ page }) => {
+        const errors = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+        await page.goto(`${base.replace(/\/$/, "")}/basics`);
+        const chart = page.locator("#state-chart");
+        await chart.scrollIntoViewIfNeeded();
+        await expect.poll(() => chart.evaluate((el) => [...el.querySelectorAll("div")].some((d) => d.echarts)), { timeout: 30000 }).toBe(true);
+        const read = page.getByRole("button", { name: "Read the state (Get-UDElement)" });
+        const log = page.locator("#state-log");
+        // the middle of the bar "Mar", clicked with the mouse
+        const p = await chart.evaluate((el) => {
+            const d = [...el.querySelectorAll("div")].find((x) => x.echarts);
+            const c = d.echarts;
+            const v = c.getOption().series[0].data[2];
+            const value = v && typeof v === "object" ? (Array.isArray(v) ? v[1] : v.value) : v;
+            const [x, y] = c.convertToPixel({ seriesIndex: 0 }, ["Mar", value / 2]);
+            const box = d.getBoundingClientRect();
+            return { x: box.left + x, y: box.top + y };
+        });
+        await page.mouse.click(p.x, p.y);
+        await read.click();
+        await expect(log).toContainText('"name":"Mar"', { timeout: 15000 });
+        await expect(log).toContainText('"zoom":null');
+        // the mouse wheel zooms in (-Zoom Inside)
+        await page.mouse.move(p.x, p.y);
+        await page.mouse.wheel(0, -400);
+        await expect.poll(() => chart.evaluate((el) => {
+            const dz = [...el.querySelectorAll("div")].find((x) => x.echarts).echarts.getOption().dataZoom[0];
+            return dz.end - dz.start;
+        })).toBeLessThan(100);
+        await read.click();
+        await expect(log).toContainText('"zoom":{"from":', { timeout: 15000 });
+        await expect(log).toContainText('"name":"Mar"');
+        expect(errors).toEqual([]);
+    });
+});

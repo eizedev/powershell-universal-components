@@ -29,8 +29,9 @@ shows the `$EventData` it would send instead.
 | `-OnLegendChange` | `name`, `selected` |
 
 `-EventColumns Name, Id` limits the rows in `$EventData` to the columns the script block needs, which
-keeps messages small with wide rows. The last click, range and zoom are also in the component's state
-(`Get-UDElement`).
+keeps messages small with wide rows. The last click, range and zoom are also in the component's state:
+`(Get-UDElement -Id <id>).selected`, `.range` and `.zoom` (`$null` until the reader did it).
+`Get-UDElement` returns only these and the id, not the data.
 
 ### Click and range selection
 

@@ -10,6 +10,7 @@ import { usePsuTheme, effectiveMode } from "../../../shared/js/psuTheme";
 import { defaultLocale } from "../../../shared/js/formatters";
 import { toCsv, toXlsxBytes, download, safeFileName } from "../../../shared/js/exporter";
 import { pickColumns } from "../../../shared/js/columns";
+import { answerStateRequests } from "../../../shared/js/elementState";
 
 // components replaced (not merged) on every update, so a live update that changes the shape of the
 // chart leaves no stale axes or coordinate systems behind; zoom and legend state are kept
@@ -70,6 +71,21 @@ export default function EChart(props) {
     // the latest props for event handlers registered once
     const latest = useRef(props);
     latest.current = props;
+    // Get-UDElement: the last click, range and zoom, kept here because PSU asks for them synchronously
+    // (shared/js/elementState.js); the component's state holds them as well
+    const elementState = useRef({});
+    const remember = (part) => {
+        elementState.current = { ...elementState.current, ...part };
+        if (typeof latest.current.setState === "function") latest.current.setState(part);
+    };
+    useEffect(() => {
+        const pubsub = typeof window !== "undefined" ? window.UniversalDashboard : undefined;
+        // only these, never the props: they hold every row
+        return answerStateRequests(pubsub, props.id, () => {
+            const { selected, range, zoom } = elementState.current;
+            return { id: props.id, selected, range, zoom };
+        });
+    }, [props.id]);
     // -TooltipMode Auto: the element under the pointer, read by the tooltip formatter
     const tipState = useRef(null);
     if (tipState.current === null) {
@@ -229,7 +245,7 @@ export default function EChart(props) {
                 value: Array.isArray(p.value) ? p.value.map((v, i) => (i === 0 ? axisValue(chart, 0, v) : v)) : p.value,
                 row: pickColumns(rowOf(data, p), latest.current.eventColumns)
             };
-            latest.current.setState({ selected: payload });
+            remember({ selected: payload });
             call("onClick", payload);
         };
         const onBrush = (e) => {
@@ -240,7 +256,7 @@ export default function EChart(props) {
             }
             const [a, b] = area.coordRange;
             const payload = { from: axisValue(chart, 0, a), to: axisValue(chart, 0, b) };
-            latest.current.setState({ range: payload });
+            remember({ range: payload });
             call("onSelect", payload);
         };
         const onZoom = () => {
@@ -249,7 +265,7 @@ export default function EChart(props) {
                 return;
             }
             const payload = { from: axisValue(chart, 0, dz.startValue), to: axisValue(chart, 0, dz.endValue), start: dz.start, end: dz.end };
-            latest.current.setState({ zoom: payload });
+            remember({ zoom: payload });
             call("onZoom", payload);
         };
         const onLegend = (e) => {
@@ -275,7 +291,7 @@ export default function EChart(props) {
                 });
                 // rows: the selected data rows (all rows when nothing is selected); at most 1000
                 const payload = { filtered, count: rows.length, rows: rows.slice(0, 1000) };
-                latest.current.setState({ range: { filtered, count: rows.length } });
+                remember({ range: { filtered, count: rows.length } });
                 call("onSelect", payload);
             }, 250);
         };

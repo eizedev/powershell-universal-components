@@ -90,6 +90,17 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                     New-UDEChart -Type scatter -X ResponseMinutes -Y LeadHours -GroupBy Priority -XAxisType Value -Height 300px -Data ($Cache:EChartsTickets | Select-Object -First 600)
                 }
             }
+            New-UDGrid -Item -ExtraSmallSize 12 -Content {
+                New-UDCard -Title 'Read the last click and zoom on the server (Get-UDElement): click a bar, zoom with the mouse wheel' -Content {
+                    New-UDEChart -Id 'state-chart' -Data $sales -Type bar -X Month -Y Online -Zoom Inside -Height 300px
+                    New-UDButton -Id 'read-state' -Text 'Read the state (Get-UDElement)' -Style @{ marginTop = '12px' } -OnClick {
+                        $state = Get-UDElement -Id 'state-chart'
+                        $text = [ordered]@{ selected = $state.selected; zoom = $state.zoom } | ConvertTo-Json -Depth 5 -Compress
+                        Set-UDElement -Id 'state-log' -Properties @{ text = 'Get-UDElement: ' + $text }
+                    }
+                    New-UDTypography -Id 'state-log' -Variant body2 -Text 'Not read yet.' -Style @{ marginTop = '12px'; fontFamily = 'monospace'; overflowWrap = 'anywhere' }
+                }
+            }
         }
     }
     #endregion
