@@ -239,6 +239,74 @@ test.describe("pivot showcase on PSU", () => {
         await expect(page.getByTestId("drill-panel")).toBeVisible();
     });
 
+    // the page Charts: a bar's menu filters the report (Only, Without), a treemap and a donut whose
+    // smallest slices go into one slice "Other (n)"
+    test("Charts: a bar's menu keeps only its item; the treemap and the donut with its Other slice draw", async ({ page }) => {
+        const errors = await open(page, "charts");
+        const bars = page.locator("#charts-bars .pk-root");
+        const canvas = bars.locator(".pk-chart canvas").first();
+        await expect(canvas).toBeVisible();
+        // the bar's team (its row item) and its priority (its column item) each have Only and Without
+        const only = page.getByTestId("point-only-row");
+        await expect(async () => {
+            const box = await canvas.boundingBox();
+            for (const y of [0.8, 0.7]) {
+                for (let x = 0.15; x < 0.9; x += 0.05) {
+                    await page.mouse.click(box.x + box.width * x, box.y + box.height * y);
+                    if (await only.waitFor({ state: "visible", timeout: 700 }).then(() => true, () => false)) return;
+                }
+            }
+            throw new Error("no bar hit");
+        }).toPass({ timeout: 20000 });
+        await expect(page.getByTestId("point-rows")).toBeVisible();
+        await expect(page.getByTestId("point-without-row")).toBeVisible();
+        await expect(page.getByTestId("point-only-col")).toBeVisible();
+        await only.click();
+        // the filter on Team keeps one team: the chart's description names one category
+        const described = (report) => report.locator("[data-testid=pivot-chart]").evaluate((c) => document.getElementById(c.getAttribute("aria-describedby"))?.textContent || "");
+        await expect.poll(() => described(bars)).toMatch(/\b1 categor/);
+        // the treemap: a tile per customer and category
+        await expect.poll(() => described(page.locator("#charts-treemap .pk-root"))).toMatch(/^Treemap: .*24 categories/);
+        // the donut without a legend: its smallest slices in one grey slice "Other (n)". ECharts draws on
+        // a canvas, so the test finds the grey slice's pixels and hovers them: the tooltip names it
+        const donut = page.locator("#charts-donut .pk-root");
+        await expect.poll(() => described(donut)).toMatch(/^Donut: /);
+        const donutCanvas = donut.locator("[data-testid=pivot-chart] canvas");
+        await donutCanvas.scrollIntoViewIfNeeded();
+        await expect(async () => {
+            const spot = await donutCanvas.evaluate((c) => {
+                // the slice's colour, --pk-chart-other as the browser resolves it (translucent in the light theme)
+                const probe = document.createElement("span");
+                probe.style.color = getComputedStyle(c).getPropertyValue("--pk-chart-other");
+                c.parentElement.appendChild(probe);
+                const [r0, g0, b0, a0 = 1] = getComputedStyle(probe).color.match(/[\d.]+/g).map(Number);
+                probe.remove();
+                const { data, width, height } = c.getContext("2d").getImageData(0, 0, c.width, c.height);
+                const near = (v, w) => Math.abs(v - w) <= 3;
+                const xs = [], ys = [];
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width; x++) {
+                        const i = (y * width + x) * 4;
+                        if (near(data[i], r0) && near(data[i + 1], g0) && near(data[i + 2], b0) && near(data[i + 3], Math.round(a0 * 255))) { xs.push(x); ys.push(y); }
+                    }
+                }
+                if (xs.length < 100) return null;
+                // the slice's own pixel nearest to the middle of its pixels (the middle of a ring can be its hole)
+                const mid = (v) => [...v].sort((p, q) => p - q)[v.length >> 1];
+                const [mx, my] = [mid(xs), mid(ys)];
+                let best = 0;
+                for (let i = 1; i < xs.length; i++) if ((xs[i] - mx) ** 2 + (ys[i] - my) ** 2 < (xs[best] - mx) ** 2 + (ys[best] - my) ** 2) best = i;
+                const scale = c.width / c.getBoundingClientRect().width;
+                return { x: xs[best] / scale, y: ys[best] / scale };
+            });
+            expect(spot).not.toBeNull();
+            const box = await donutCanvas.boundingBox();
+            await page.mouse.move(box.x + spot.x, box.y + spot.y);
+            await expect(donut.locator("[data-testid=pivot-chart]")).toContainText(/Other \(\d+\)/, { timeout: 2000 });
+        }).toPass({ timeout: 20000 });
+        expect(errors).toEqual([]);
+    });
+
     test("a view change runs -OnViewChange with the view as JSON", async ({ page }) => {
         await open(page, "events");
         await page.locator(`${REPORT} [data-testid=swap]`).click();

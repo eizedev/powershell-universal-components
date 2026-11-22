@@ -29,17 +29,20 @@ public class Endpoint {
     function global:New-UDApp { param($Title, $Pages) @{ Title = $Title; Pages = @($Pages) } }
     function global:New-UDPage { param($Name, $Url, $Content) @{ Name = $Name; Url = $Url; Content = $Content } }
     function global:New-UDDynamic { param($Id, $Content, $LoadingComponent) & $Content }
-    function global:New-UDAlert { param($Severity, $Text) throw "Alert on the page: $Text" }
+    # an error on the page fails the test; the info notes of the pages that need a server or a program are expected
+    $global:PivotDemoAlerts = [System.Collections.Generic.List[string]]::new()
+    function global:New-UDAlert { param($Severity, $Title, $Text) if ($Severity -eq 'error') { throw "Alert on the page: $Text" }; $global:PivotDemoAlerts.Add("$Title") }
+    function global:New-UDButton { param($Id, $Text, $Variant, $OnClick, [switch]$ShowLoading, [switch]$Disabled) @{ type = 'button'; id = $Id; text = $Text; disabled = [bool]$Disabled; onClick = $OnClick } }
     # the pages answer public API calls from the snapshots: a call to the network fails the test
     function global:Invoke-RestMethod { throw "Network call: $args" }
     function global:New-UDElement { param($Tag, $Attributes, $Content) if ($Content) { & $Content } }
-    foreach ($name in 'New-UDTypography', 'New-UDSelect', 'New-UDSelectOption', 'New-UDSwitch', 'New-UDMarkdown', 'New-UDExpansionPanelGroup', 'New-UDExpansionPanel', 'Sync-UDElement', 'Show-UDToast') {
+    foreach ($name in 'New-UDTypography', 'New-UDLink', 'New-UDSelect', 'New-UDSelectOption', 'New-UDSwitch', 'New-UDMarkdown', 'New-UDExpansionPanelGroup', 'New-UDExpansionPanel', 'Sync-UDElement', 'Show-UDToast') {
         Set-Item -Path "function:global:$name" -Value { }
     }
 }
 
 AfterAll {
-    foreach ($name in 'Invoke-RestMethod', 'New-UDApp', 'New-UDPage', 'New-UDDynamic', 'New-UDAlert', 'New-UDElement', 'New-UDTypography', 'New-UDSelect', 'New-UDSelectOption', 'New-UDSwitch', 'New-UDMarkdown', 'New-UDExpansionPanelGroup', 'New-UDExpansionPanel', 'Sync-UDElement', 'Show-UDToast') {
+    foreach ($name in 'Invoke-RestMethod', 'New-UDApp', 'New-UDPage', 'New-UDDynamic', 'New-UDAlert', 'New-UDButton', 'New-UDElement', 'New-UDTypography', 'New-UDLink', 'New-UDSelect', 'New-UDSelectOption', 'New-UDSwitch', 'New-UDMarkdown', 'New-UDExpansionPanelGroup', 'New-UDExpansionPanel', 'Sync-UDElement', 'Show-UDToast') {
         Remove-Item -Path "function:$name" -ErrorAction Ignore
     }
     Remove-PSDrive -Name Session -ErrorAction Ignore
@@ -61,7 +64,7 @@ Describe 'Pivot demo module' {
 
     It 'is built with the examples, the data and the ticket showcase, and links that work outside the repository' {
         $built = & (Join-Path $script:repo 'build' 'Build-Module.ps1') -Module 'PowerShellUniversal.Component.Pivot.Demo' -OutputPath (Join-Path $TestDrive 'out')
-        foreach ($file in 'Apps/Showcase.ps1', 'Apps/Docs/examples.ps1', 'Apps/Tickets/showcase.ps1', 'Apps/Tickets/views', 'Data/SOURCES.md', 'Data/Addresses.psd1', 'Data/endoflife.date/api/python.json', 'Data/archive-api.open-meteo.com/v1/archive.json') {
+        foreach ($file in 'Apps/Showcase.ps1', 'Apps/Docs/examples.ps1', 'Apps/Tickets/showcase.ps1', 'Apps/Tickets/views', 'Apps/Tickets/views/hours-to-close-per-group.pivotkit.json', 'Data/SOURCES.md', 'Data/Addresses.psd1', 'Data/endoflife.date/api/python.json', 'Data/archive-api.open-meteo.com/v1/archive.json') {
             Join-Path $built.FullName $file | Should -Exist
         }
         Join-Path $built.FullName 'Build.psd1' | Should -Not -Exist
@@ -73,7 +76,7 @@ Describe 'Pivot demo module' {
     It 'has the documentation''s three endoflife examples, weather, your data and the ticket pages' {
         $app = New-UDPivotShowcase
         $names = $app.Pages.Name
-        foreach ($name in 'Python releases', 'End of life', 'Release cycles', 'Weather', 'Your data', 'Tickets', 'Templates', 'Events', 'Fields', 'Layouts') {
+        foreach ($name in 'Python releases', 'End of life', 'Release cycles', 'Weather', 'Your data', 'Report as a file', 'Rows from a server', 'Tickets', 'Templates', 'Charts', 'Events', 'Fields', 'Layouts') {
             $names | Should -Contain $name
         }
         # the URLs are unique (PSU would serve only one of two pages with the same URL)
@@ -131,5 +134,129 @@ Describe 'Pivot demo: your data' {
         @($report[0].data).Count | Should -Be 0
         # no server upload is left on the page (its code is text in Showcase.ps1)
         Get-Content -Raw -LiteralPath (Join-Path $script:demoDir 'Apps' 'Showcase.ps1') | Should -Not -Match 'New-UDUpload'
+    }
+}
+
+Describe 'Pivot demo: the first page and pivotkit 0.9' {
+    BeforeAll {
+        $Session:PivotShowcaseLocale = 'en-GB'
+        $Session:PivotShowcaseLive = $false
+        $script:app = New-UDPivotShowcase
+        $script:weather = & ($script:app.Pages | Where-Object Name -EQ 'Weather').Content | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }
+    }
+
+    It 'opens with the Weather page: the table and a line chart with the high and low points side by side' {
+        $script:app.Pages[0].Name | Should -Be 'Weather'
+        $view = $script:weather.view
+        $view.display | Should -Be 'both'
+        $view.chart.type | Should -Be 'line'
+        $view.chart.referenceLines.extremes | Should -BeTrue
+        $view.values[0].conditional.colors | Should -Be @('#2a78d6', '#f2f2f2', '#eb6834')
+    }
+
+    It 'has views with bars and lines, field names of its own and the rows sorted by one column' {
+        $templates = @($script:weather.templates)
+        $combo = ($templates | Where-Object { $_.view.chart.type -eq 'combo' }).view
+        $combo | Should -Not -BeNullOrEmpty
+        @($combo.values).Count | Should -Be 2
+        $combo.fieldLabels.'Rain mm' | Should -Be 'Rain (mm a day)'
+        $sorted = ($templates | Where-Object { $_.view.sort -and $_.view.sort[0].column }).view
+        $sorted.sort[0].column | Should -Be @(7)
+    }
+}
+
+Describe 'Pivot demo: rows from a server' {
+    BeforeEach { $global:PivotDemoAlerts.Clear() }
+
+    It 'explains what it needs when no server is set up, and draws no report' {
+        $app = New-UDPivotShowcase
+        $page = $app.Pages | Where-Object Name -EQ 'Rows from a server'
+        $page.Url | Should -Be '/server-rows'
+        @(& $page.Content | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }).Count | Should -Be 0
+        $global:PivotDemoAlerts | Should -Contain 'No pivotkit-server is set up for this page'
+    }
+
+    It 'shows the server''s source with the person''s token; without a token it says the page needs a sign-in and sends nothing' {
+        $app = New-UDPivotShowcase -ServerUri 'https://reports.example.com/api/v1' -ServerSource 'orders'
+        $page = $app.Pages | Where-Object Name -EQ 'Rows from a server'
+        # no $AccessToken: no report, so no request to the server either
+        @(& $page.Content | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }).Count | Should -Be 0
+        $global:PivotDemoAlerts | Should -Contain 'This page needs a sign-in'
+        # the page's code names the configured server and source, never another
+        $page.Content.ToString() | Should -Match ([regex]::Escape("-Uri 'https://reports.example.com/api/v1' -Source 'orders' -Token `$AccessToken -Query `$Query"))
+        $page.Content.ToString() | Should -Match ([regex]::Escape('if ($AccessToken) {'))
+    }
+
+    It 'asks the server with the person''s token when there is one' {
+        # a closed port on this machine: the request fails, and the report says so instead of the rows
+        $app = New-UDPivotShowcase -ServerUri 'http://127.0.0.1:9/api/v1' -ServerSource 'orders'
+        $page = $app.Pages | Where-Object Name -EQ 'Rows from a server'
+        Set-Variable -Name AccessToken -Value 'token-under-test'
+        try { $report = @(& $page.Content 3>$null | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }) }
+        finally { Remove-Variable -Name AccessToken }
+        $report.Count | Should -Be 1
+        $report[0].id | Should -Be 'server-rows'
+        $global:PivotDemoAlerts | Should -BeNullOrEmpty
+        ($report[0] | ConvertTo-Json -Depth 8 -Compress) | Should -Not -Match 'token-under-test'
+    }
+
+    It 'takes -ServerUri and -ServerSource only together, and only an http(s) address without a query' {
+        { New-UDPivotShowcase -ServerUri 'https://reports.example.com/api/v1' } | Should -Throw '*go together*'
+        { New-UDPivotShowcase -ServerUri 'https://reports.example.com/api/v1?x=1' -ServerSource 'orders' } | Should -Throw '*without a query string*'
+        { New-UDPivotShowcase -ServerUri 'file:///etc/passwd' -ServerSource 'orders' } | Should -Throw '*absolute http(s) address*'
+    }
+}
+
+Describe 'Pivot demo: report as a file' {
+    BeforeEach { $global:PivotDemoAlerts.Clear() }
+
+    It 'says what to install and disables the buttons when pivotkit''s command line is missing; the report still works' {
+        $path = Join-Path $TestDrive 'no-such-pivotkit'
+        $app = New-UDPivotShowcase -PivotkitPath $path
+        $page = $app.Pages | Where-Object Name -EQ 'Report as a file'
+        $out = @(& $page.Content)
+        # the code the page shows never names the server's own path of the program; the code that runs does
+        $text = $page.Content.ToString()
+        $shown = [regex]::Match($text, '(?s)New-UDExpansionPanel .*').Value
+        $shown | Should -Match 'Invoke-UDPivotReport'
+        $shown | Should -Not -Match ([regex]::Escape($path))
+        $text.Replace($shown, '') | Should -Match ([regex]::Escape($path))
+        $global:PivotDemoAlerts | Should -Contain 'pivotkit''s command line is not installed on this PSU server'
+        $buttons = @($out | Where-Object { $_ -is [hashtable] -and $_.type -eq 'button' })
+        $buttons.text | Should -Be @('Download Excel workbook', 'Download HTML report')
+        $buttons.disabled | Should -Be @($true, $true)
+        @($out | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }).Count | Should -Be 1
+    }
+
+    It 'makes a real <Format> file of the view the reader has, with pivotkit''s command line' -Skip:(-not (Get-Command -Name 'pivotkit' -CommandType Application -ErrorAction Ignore)) -ForEach @(
+        @{ Format = 'xlsx'; Magic = 'PK' }
+        @{ Format = 'html'; Magic = '<!' }
+    ) {
+        $cli = (Get-Command -Name 'pivotkit' -CommandType Application | Select-Object -First 1).Source
+        $app = New-UDPivotShowcase -PivotkitPath $cli
+        $out = @(& ($app.Pages | Where-Object Name -EQ 'Report as a file').Content)
+        $global:PivotDemoAlerts | Should -BeNullOrEmpty
+        $button = $out | Where-Object { $_ -is [hashtable] -and $_.type -eq 'button' -and $_.id -eq "weather-file-$Format" }
+        $button.disabled | Should -BeFalse
+        # the reader's view: rain days per city, as the browser sends it
+        # the reader's view, as -OnViewChange keeps it: rain days per season only
+        $Session:PivotShowcaseFileView = ConvertFrom-UDPivotView -InputObject '{"rows":["Season"],"values":[{"field":"Rain day","agg":"sum"}]}'
+        $global:PivotDemoDownload = $null
+        # PSU 2026.3's -Bytes; 2026.2 has only -Path (the browser tests on both instances cover that one)
+        function global:Start-UDDownload {
+            param([byte[]]$Bytes, $FileName, $ContentType)
+            $global:PivotDemoDownload = @{ Bytes = $Bytes; FileName = $FileName; ContentType = $ContentType }
+        }
+        try { & $button.onClick 3>$null }
+        finally { Remove-Item -Path function:Start-UDDownload -ErrorAction Ignore; $Session:PivotShowcaseFileView = $null }
+        $global:PivotDemoDownload | Should -Not -BeNullOrEmpty
+        $global:PivotDemoDownload.FileName | Should -Match "^weather-report-\d{4}-\d{2}-\d{2}\.$Format$"
+        [System.Text.Encoding]::ASCII.GetString($global:PivotDemoDownload.Bytes, 0, 2) | Should -Be $Magic
+        if ($Format -eq 'html') {
+            # the reader's view, not the start view: seasons in the rows, no city
+            $html = [System.Text.Encoding]::UTF8.GetString($global:PivotDemoDownload.Bytes)
+            $html | Should -Match 'Spring'
+            $html | Should -Not -Match 'Sydney'
+        }
     }
 }

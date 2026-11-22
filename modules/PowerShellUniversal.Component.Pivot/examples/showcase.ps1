@@ -140,6 +140,28 @@ New-UDApp -Title 'Pivot reports for PowerShell Universal' -Pages @(
             -Templates $builtInTemplates -TemplatePath $viewFolder -TemplateStore $templateStore -AdminRole 'Administrator' -SourceId 'tickets' -SourceName 'Tickets'
     }
 
+    # 640 pixels each: three charts on one page
+    New-UDPage -Name 'Charts' -Url '/charts' -Content {
+        New-UDTypography -Variant h5 -Text 'Charts: bars, a treemap and a donut'
+        New-UDTypography -Variant body2 -Text 'Click a bar to see the tickets behind it, or to keep or leave out its item. Undo takes a filter back. The treemap draws a tile per customer and category. The donut has no legend, so it puts slices too small for a label into one slice "Other".' -Style @{ marginBottom = '12px' }
+        New-UDPivotReport -Id 'charts-bars' -Data $tickets -FieldDefaults $fieldDefaults -Height 640px -Label 'Tickets per team and priority' -View @{
+            rows = @('Team'); cols = @('Priority'); values = @(@{ field = 'Ticket'; agg = 'count' })
+            display = 'chart'; chart = @{ type = 'bar' }
+        } -OnCellClick {
+            # runs at "Show the rows" in a bar's menu, or at a double click
+            Show-UDToast -Message ('{0} tickets' -f $EventData.count) -Duration 4000
+        }
+        New-UDPivotReport -Id 'charts-treemap' -Data $tickets -FieldDefaults $fieldDefaults -Height 640px -Label 'Cost per customer and category' -Style @{ marginTop = '16px' } -View @{
+            rows = @('Customer', 'Category'); values = @(@{ field = 'Cost'; agg = 'sum'; format = 'currency:EUR' })
+            display = 'chart'; chart = @{ type = 'treemap' }
+        }
+        New-UDPivotReport -Id 'charts-donut' -Data $tickets -FieldDefaults $fieldDefaults -Height 640px -Label 'Tickets per agent and category' -Style @{ marginTop = '16px' } -View @{
+            # 36 slices: more than the labels have room for, even across the whole page
+            rows = @('Agent', 'Category'); values = @(@{ field = 'Ticket'; agg = 'count' })
+            display = 'chart'; chart = @{ type = 'donut'; legend = 'off' }
+        }
+    }
+
     New-UDPage -Name 'Events' -Url '/events' -Content {
         New-UDTypography -Variant h5 -Text 'What the events send to the server ($EventData)'
         New-UDTypography -Variant body2 -Text 'Change the view or click a value: the last event appears below the report.' -Style @{ marginBottom = '12px' }

@@ -1,15 +1,136 @@
 // Optional: the Pivot demo module's showcase (PowerShellUniversal.Component.Pivot.Demo, New-UDPivotShowcase)
 // on a PSU instance. Runs only when PSU_PIVOT_DEMO_URL points at the app (e.g.
 // PSU_PIVOT_DEMO_URL=https://psu.example.com/pivot-showcase npx playwright test psu-pivot-demo); skipped in CI.
+// The page "Report as a file" needs pivotkit's command line on the PSU server (or the app started with
+// -PivotkitPath). PSU_PIVOT_DEMO_SERVER_URL (optional) points at a second app started with -ServerUri and
+// -ServerSource but without sign-in and without pivotkit's command line: its page "Rows from a server"
+// says that it needs a sign-in, and "Report as a file" says what to install.
 import { test, expect } from "@playwright/test";
+import { strFromU8, unzipSync } from "fflate";
+import { expectChartType, openViews } from "./pivot-menus.mjs";
 import { assetsXlsx, CSV, dropFiles, fieldNames, fileOf, openDataMenu, pickFile, preview, TICKETS_CSV, XLSX } from "./pivot-import.mjs";
 
 const base = (process.env.PSU_PIVOT_DEMO_URL || "").replace(/\/$/, "");
+const serverApp = (process.env.PSU_PIVOT_DEMO_SERVER_URL || "").replace(/\/$/, "");
+const REPORT = ".ud-pivot-report:not(.ud-pivot-placeholder) .pk-root";
+// the bytes of a download
+async function bytesOf(download) {
+    const chunks = [];
+    for await (const chunk of await download.createReadStream()) chunks.push(chunk);
+    return Buffer.concat(chunks);
+}
 // the fields on a zone (rows, cols, values, filters), by their chips
 const chipsOf = (report, zone) => report.locator(`[data-zone=${zone}] [data-testid^=chip-menu-]`).evaluateAll((els) => els.map((e) => e.dataset.testid.replace(/^chip-menu-/, "")));
 
 test.describe("pivot demo showcase on PSU", () => {
     test.skip(!base, "PSU_PIVOT_DEMO_URL is not set");
+
+    test("the first page opens with the table and the chart side by side, the high and low points marked", async ({ page }) => {
+        const errors = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+        await page.goto(`${base}/`);
+        const report = page.locator(REPORT);
+        await expect(report.locator(".pk-result td").first()).toBeVisible({ timeout: 30000 });
+        await expect(report.locator("[data-testid=show-both]")).toHaveAttribute("aria-selected", "true");
+        const table = await report.getByTestId("pivot-table").boundingBox();
+        const chart = await report.locator("[data-testid=pivot-chart] canvas").boundingBox();
+        // side by side: the chart right of the table, at about the same height
+        expect(chart.x).toBeGreaterThanOrEqual(table.x + table.width - 2);
+        expect(Math.abs(chart.y - table.y)).toBeLessThan(150);
+        await expect(report.locator("[data-testid=chart-summary]")).toContainText("Lines:");
+        await expect(report.locator("[data-testid=chart-summary]")).toContainText(/Highest .* lowest/);
+        await expect(report.getByText("could not be used")).toHaveCount(0);
+        // the colour scale's own colours paint the table
+        expect(await report.locator("td.pk-has-scale").count()).toBeGreaterThan(60);
+        expect(errors).toEqual([]);
+    });
+
+    test("Weather: a view sorts the cities by July only; another draws bars and lines with the report's own field names", async ({ page }) => {
+        await page.goto(`${base}/weather`);
+        const report = page.locator(REPORT);
+        await expect(report.locator(".pk-result td").first()).toBeVisible({ timeout: 30000 });
+        let menu = await openViews(report);
+        await menu.getByText("Which city is the warmest in July?").click();
+        const table = report.locator(".pk-result table").first();
+        await expect(table).toContainText("Sydney");
+        // the July column's values, top to bottom, without the grand total
+        const july = await table.evaluate((t) => {
+            // the cells below the column header "Jul", by their position on screen
+            const head = [...t.querySelectorAll("thead th, thead td")].find((h) => h.textContent.trim().replace(/^\W+/, "") === "Jul");
+            const mid = (el) => { const r = el.getBoundingClientRect(); return r.left + r.width / 2; };
+            const x = mid(head);
+            const rows = [...t.querySelectorAll("tbody tr")].slice(0, -1);
+            return rows.map((r) => Number([...r.children].find((c) => Math.abs(mid(c) - x) < 4).textContent.replace(/[^\d.-]/g, "")));
+        });
+        expect(july.length).toBe(6);
+        expect(july).toEqual([...july].sort((a, b) => b - a));
+        // and not sorted by the grand total: Sydney's year is warm, its July is not
+        expect(await table.locator("tbody tr").first().innerText()).not.toContain("Sydney");
+        menu = await openViews(report);
+        await menu.getByText("Rain and sunshine per month (bars and lines)").click();
+        await expectChartType(report, "combo");
+        await expect(report.locator("[data-testid=chart-summary]")).toContainText("Bars and lines:");
+        await expect(report.locator("[data-zone=values]")).toContainText("Rain (mm a day)");
+        await expect(report.locator("[data-zone=values]")).toContainText("Sunshine (hours a day)");
+    });
+
+    test("Report as a file: the buttons download the reader's view as an Excel workbook and an HTML report", async ({ page }) => {
+        const errors = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+        await page.goto(`${base}/report-file`);
+        const report = page.locator(REPORT);
+        await expect(report.locator(".pk-result td").first()).toBeVisible({ timeout: 30000 });
+        const excel = page.getByRole("button", { name: "Download Excel workbook" });
+        await expect(excel).toBeEnabled();
+        let download = page.waitForEvent("download", { timeout: 60000 });
+        await excel.click();
+        const workbook = await bytesOf(await download);
+        expect(workbook.subarray(0, 2).toString()).toBe("PK");
+        const files = unzipSync(new Uint8Array(workbook));
+        const strings = strFromU8(files["xl/sharedStrings.xml"] || new Uint8Array()) + Object.keys(files).filter((n) => /^xl\/worksheets\//.test(n)).map((n) => strFromU8(files[n])).join("");
+        expect(strings).toContain("Sydney");
+        expect(strings).toContain("Autumn");
+        // the reader swaps rows and columns: the file follows the view on the page, not the start view
+        await report.locator("[data-testid=swap]").click();
+        await expect(report.locator("[data-zone=rows]")).toContainText("Season");
+        // the server reads the view the report reported (Get-UDElement)
+        await page.waitForTimeout(1500);
+        download = page.waitForEvent("download", { timeout: 60000 });
+        await page.getByRole("button", { name: "Download HTML report" }).click();
+        const html = (await bytesOf(await download)).toString("utf8");
+        expect(html).toMatch(/^<!doctype html>/i);
+        const body = html.slice(html.indexOf("<tbody"));
+        expect(body).toContain("Spring");
+        expect(body).not.toContain(">Berlin<");
+        expect(errors).toEqual([]);
+    });
+
+    test("Rows from a server: without a server the page says what it needs and draws no report", async ({ page }) => {
+        await page.goto(`${base}/server-rows`);
+        await expect(page.getByText("No pivotkit-server is set up for this page")).toBeVisible({ timeout: 30000 });
+        await expect(page.getByText("New-UDPivotShowcase -ServerUri")).toBeVisible();
+        await expect(page.locator(".ud-pivot-report")).toHaveCount(0);
+    });
+
+    test("Report as a file: without pivotkit's command line the page says what to install, the buttons are off, the report works", async ({ page }) => {
+        test.skip(!serverApp, "PSU_PIVOT_DEMO_SERVER_URL is not set");
+        await page.goto(`${serverApp}/report-file`);
+        await expect(page.locator(REPORT).locator(".pk-result td").first()).toBeVisible({ timeout: 30000 });
+        await expect(page.getByText("pivotkit's command line is not installed on this PSU server")).toBeVisible();
+        await expect(page.getByRole("button", { name: "Download Excel workbook" })).toBeDisabled();
+        await expect(page.getByRole("button", { name: "Download HTML report" })).toBeDisabled();
+    });
+
+    test("Rows from a server: an app without sign-in says the page needs one, and shows no address", async ({ page }) => {
+        test.skip(!serverApp, "PSU_PIVOT_DEMO_SERVER_URL is not set");
+        await page.goto(`${serverApp}/server-rows`);
+        await expect(page.getByText("This page needs a sign-in")).toBeVisible({ timeout: 30000 });
+        await expect(page.getByText(/Authentication__OIDC__SaveTokens/)).toBeVisible();
+        await expect(page.locator(".ud-pivot-report")).toHaveCount(0);
+        // the code shown names the configured server; the page text does not
+        const text = await page.locator("main, body").first().innerText();
+        expect(text).not.toMatch(/Bearer|eyJ/);
+    });
 
     test("only the Live data switch and its label toggle it, not the free space beside them", async ({ page }) => {
         await page.goto(`${base}/release-cycles`);

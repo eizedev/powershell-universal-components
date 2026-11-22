@@ -29,7 +29,8 @@ hashtable PSU renders; see [README.md](README.md).
   WebKit; `psu.spec.mjs` runs the showcase app on a PSU instance when `PSU_URL` is set, `psu-pivot.spec.mjs`
   the pivot module's showcase when `PSU_PIVOT_URL` is set, and its template roles against `examples/templates.ps1`
   with two identities when `PSU_PIVOT_AUTH_URL` is set, `psu-pivot-demo.spec.mjs` the Pivot demo module's
-  showcase when `PSU_PIVOT_DEMO_URL` is set, `psu-pivot-rows.spec.mjs` a report with `-Uri -Source` and a
+  showcase when `PSU_PIVOT_DEMO_URL` is set (and a second app with `-ServerUri` and no sign-in when
+  `PSU_PIVOT_DEMO_SERVER_URL` is set), `psu-pivot-rows.spec.mjs` a report with `-Uri -Source` and a
   pivotkit-server behind it when `PSU_PIVOT_ROWS_URL` is set; `pivot-menus.mjs` drives pivotkit's menus in levels for both
   pivot specs, `pivot-import.mjs` drops and picks real CSV and Excel files for `-AllowImport`, `pivot-colors.mjs` reads
   the colours of a colour scale on screen and in an exported workbook),

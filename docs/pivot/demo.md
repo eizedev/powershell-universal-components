@@ -1,6 +1,6 @@
 ---
 title: Pivot showcase app
-description: "PowerShellUniversal.Component.Pivot.Demo - the showcase app of the pivot module as a module: the documentation's examples on endoflife.date, weather from Open-Meteo, your own CSV, JSON and Excel files and a 5,000-row ticket report, in English and German."
+description: "PowerShellUniversal.Component.Pivot.Demo - the showcase app of the pivot module as a module: weather from Open-Meteo, the documentation's examples on endoflife.date, your own CSV, JSON and Excel files, the report as an Excel or HTML file, rows from a pivotkit-server and a 5,000-row ticket report, in English and German."
 ---
 
 # Pivot showcase app
@@ -22,13 +22,15 @@ New-UDPivotShowcase
 
 | Page | Data | What it shows |
 | --- | --- | --- |
+| Weather (the first page) | [Open-Meteo](https://open-meteo.com/) | Daily weather of six cities in 2024 and 2025. The start view shows the table and the chart side by side (**Both**): the mean temperature per month as a colour scale and as lines, with each city's warmest and coldest month marked. The Views menu has more questions: the warmest city in July (sorted by one column), the sunniest city, rain and sunshine as bars and lines with field names of the report's own, rain days per season, rain per month. |
 | Python releases, End of life, Release cycles | [endoflife.date](https://endoflife.date/) | The three examples of the [overview](index.md): one line; a start view, field names and templates; an app with a loading placeholder, views per reader on the server, roles and `-OnCellClick`. Each page shows its code. |
-| Weather | [Open-Meteo](https://open-meteo.com/) | Daily weather of six cities in 2024 and 2025: the mean temperature per month as a colour scale, and questions in the Views menu (the sunniest city, rain days per season, rain per month). |
 | Your data | the reader's own file | A CSV, TSV, JSON or Excel file of the reader's own as a pivot report, read in the browser (`-AllowImport`). |
-| Tickets, Templates, Events, Fields, Layouts, Without Id | generated | The pivot module's ticket showcase: 5,000 tickets from a DataTable, shared and own views with a file template store, what the events send, field descriptions from an OpenAPI document, the report in page layouts. |
+| Report as a file | Open-Meteo | The reader's view as an Excel workbook or an HTML report, made on the server with `Invoke-UDPivotReport` ([Report as a file](#report-as-a-file)). |
+| Rows from a server | a pivotkit-server | A pivotkit-server source for the signed-in person (`New-UDPivotReport -Uri -Source -Token`). Without a server, the page says what it needs ([Rows from a server](#rows-from-a-server)). |
+| Tickets, Templates, Charts, Events, Fields, Layouts, Without Id | generated | The pivot module's ticket showcase: 5,000 tickets from a DataTable, shared and own views with a file template store, charts (the menu on a bar, a treemap, a donut with its slice "Other"), what the events send, field descriptions from an OpenAPI document, the report in page layouts. |
 
-![Weather page of the showcase app in the light theme: mean temperature per city and month as a colour scale](../assets/pivot-showcase-weather-light.png#only-light)
-![Weather page of the showcase app in the dark theme: mean temperature per city and month as a colour scale](../assets/pivot-showcase-weather-dark.png#only-dark)
+![Weather page of the showcase app in the light theme: mean temperature per month and city as a colour scale, next to a line chart with the warmest and coldest month marked](../assets/pivot-showcase-weather-light.png#only-light)
+![Weather page of the showcase app in the dark theme: mean temperature per month and city as a colour scale, next to a line chart with the warmest and coldest month marked](../assets/pivot-showcase-weather-dark.png#only-dark)
 
 <small>Weather data by [Open-Meteo.com](https://open-meteo.com/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); contains modified Copernicus Climate Change Service information 2026; neither the European Commission nor ECMWF is responsible for any use that may be made of the Copernicus information or data it contains ([sources and licences](https://github.com/eizedev/powershell-universal-components/blob/HEAD/docs/site/data/SOURCES.md)).</small>
 
@@ -54,6 +56,44 @@ the preview with a type per column (and the sheet of a workbook) and loads it. T
 browser and never uploaded; after a reload it is gone. Readers save their views in their browser
 (`-TemplateStore Browser`), per file: the same file loaded again offers them, another file does not.
 See [Readers' own files](import.md).
+
+## Report as a file
+
+![Report as a file in the light theme: the buttons Excel workbook and HTML report above a report of rain days per city and season](../assets/pivot-showcase-report-file-light.png#only-light)
+![Report as a file in the dark theme: the buttons Excel workbook and HTML report above a report of rain days per city and season](../assets/pivot-showcase-report-file-dark.png#only-dark)
+
+The page "Report as a file" has a report of the weather rows and two buttons, **Download Excel
+workbook** and **Download HTML report**. A button makes the file of the view the reader has on the page, on the PSU server,
+with `Invoke-UDPivotReport -Engine Node`, and the browser downloads it. A schedule can make the same file
+every Monday and mail it ([Reports without a browser](reports.md)).
+
+- The page keeps the reader's view with `-OnViewChange` in `$Session`; the button reads it from there.
+  The report keeps its view out of the address bar (`-NoAddressBar`), so a link never shows a view
+  the server does not know.
+- The buttons need pivotkit's command line on the PSU server: Node 24 or later and
+  `npm install --global pivotkit-cli`. `New-UDPivotShowcase -PivotkitPath` names the program when it
+  is not on the PATH.
+- Without it, the page says what to install, and the buttons are off. The report still works.
+- Each click runs Node on the PSU server. The app has no sign-in: protect it before people outside
+  your network can reach it.
+- PSU 2026.2 has no `Start-UDDownload -Bytes`. There the file waits in the folder
+  `pivot-showcase-downloads` of the server's temporary folder; a later click removes files older than
+  10 minutes.
+
+## Rows from a server
+
+The page "Rows from a server" shows a pivotkit-server source for the signed-in person
+([Rows from a server](server-rows.md)). It needs the server's address and the source:
+
+```powershell
+New-UDPivotShowcase -ServerUri 'https://reports.example.com/api/v1' -ServerSource 'orders'
+```
+
+- PSU's OpenID Connect sign-in with `Authentication__OIDC__SaveTokens=true`, so the page has the
+  person's token (`$AccessToken`).
+- pivotkit-server 0.4.0 or later. The person's profile names the source under `records`.
+- Without `-ServerUri`, the page says what it needs and shows no report. Without a token (no sign-in,
+  or tokens not saved), it says that the page needs a sign-in and sends nothing to the server.
 
 ## Views stored on the server
 
