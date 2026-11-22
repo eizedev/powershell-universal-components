@@ -308,6 +308,10 @@ catch {
 Wrong or missing parameters (an engine's parameter given to the other, `-Uri` without https) are
 plain errors before anything runs.
 
+`-ErrorVariable` holds the error record once, the same one `catch` gets. With `-ErrorVariable +name`
+the entries you had before stay in front of it. These errors stop the call with every `-ErrorAction`,
+also `SilentlyContinue`: handle them with `try` and `catch`.
+
 ```powershell
 try { Invoke-UDPivotReport -Engine Rest -Uri $uri -Token $Secret:PivotkitToken -Data $rows -View $view -OutFile $file }
 catch {

@@ -62,7 +62,10 @@ $Script:SchemaCacheMinutes = 10
 $Script:SchemaCache = @{}
 $Script:MaxChartOptionsLength = 64KB
 $Script:MaxChartOptionsDepth = 16
-$Script:TipPattern = '^[A-Za-z][A-Za-z0-9-]{0,39}$'
+# the tips pivotkit-react can show (its TIP_IDS, in its spelling: it compares them case-sensitively). The
+# notices filterEmpty, top and chartCapped always show and are no tips. tests/powershell/Build-Module.Tests.ps1
+# compares this list with the installed pivotkit-react.
+$Script:TipIds = @('showAs', 'colSubtotals', 'chartOverTime', 'pieSlices', 'pieColumns', 'chartDates', 'chartTrend', 'chartSeries', 'textValue', 'dateUngrouped', 'manyColumns', 'afterDrag', 'values', 'saveTemplate', 'menus', 'cells')
 # the descriptions of a table's columns: sys.extended_properties class 1 (object or column), major_id the
 # object_id, minor_id the column_id (sys.extended_properties and sys.columns on Microsoft Learn)
 $Script:SqlColumnDescriptionQuery = @'
@@ -142,6 +145,9 @@ function ConvertFrom-UDPivotView {
         [switch]$AsJson
     )
     process {
+        # -ErrorVariable gets the error itself, not each step it took through the module
+        $errorMark = Get-UDPivotErrorMark -Cmdlet $PSCmdlet
+        trap { Reset-UDPivotErrorVariable -Mark $errorMark; throw $_ }
         if ($null -eq $InputObject) { throw 'Pivot view: no view (null).' }
         if ($InputObject -is [string]) {
             $json = $InputObject.Trim()
@@ -957,6 +963,9 @@ function ConvertFrom-UDPivotViewFile {
         [string]$Name
     )
     process {
+        # -ErrorVariable gets the error itself, not each step it took through the module
+        $errorMark = Get-UDPivotErrorMark -Cmdlet $PSCmdlet
+        trap { Reset-UDPivotErrorVariable -Mark $errorMark; throw $_ }
         if ($null -eq $InputObject) { throw 'View file: no content (null).' }
         $json = if ($InputObject -is [string]) { $InputObject.Trim() } else {
             ConvertTo-Json -InputObject $InputObject -Depth ($Script:MaxViewFileDepth + 1) -Compress -WarningAction SilentlyContinue
@@ -1064,6 +1073,9 @@ function ConvertTo-UDPivotViewFile {
         [AllowEmptyString()][string]$SchemaUrl,
         [Nullable[datetime]]$CreatedAt
     )
+    # -ErrorVariable gets the error itself, not each step it took through the module
+    $errorMark = Get-UDPivotErrorMark -Cmdlet $PSCmdlet
+    trap { Reset-UDPivotErrorVariable -Mark $errorMark; throw $_ }
     $checked = ConvertFrom-UDPivotView -InputObject $View
     $viewVersion = $checked.PSObject.Properties['version'].Value
     if ($null -ne $viewVersion -and ($viewVersion -ne [math]::Truncate($viewVersion) -or $viewVersion -lt 1 -or $viewVersion -gt $Script:KnownViewVersion)) {
@@ -1186,6 +1198,9 @@ function New-UDPivotFileTemplateStore {
         [ValidateRange(1, 500)][int]$MaxUserViews = $Script:DefaultMaxUserViews,
         [ValidateRange(1, 500)][int]$MaxSharedViews = $Script:DefaultMaxSharedViews
     )
+    # -ErrorVariable gets the error itself, not each step it took through the module
+    $errorMark = Get-UDPivotErrorMark -Cmdlet $PSCmdlet
+    trap { Reset-UDPivotErrorVariable -Mark $errorMark; throw $_ }
     if (-not $Path) {
         # $Repository of the app script that calls this (PSU's documented global variable)
         $repository = $PSCmdlet.SessionState.PSVariable.GetValue('Repository')
@@ -1269,6 +1284,9 @@ function New-UDPivotTemplateStore {
         [ValidateRange(1, 500)][int]$MaxUserViews = $Script:DefaultMaxUserViews,
         [ValidateRange(1, 500)][int]$MaxSharedViews = $Script:DefaultMaxSharedViews
     )
+    # -ErrorVariable gets the error itself, not each step it took through the module
+    $errorMark = Get-UDPivotErrorMark -Cmdlet $PSCmdlet
+    trap { Reset-UDPivotErrorVariable -Mark $errorMark; throw $_ }
     [pscustomobject]@{
         PSTypeName     = 'UDPivotTemplateStore'
         Kind           = 'Custom'
@@ -1685,6 +1703,9 @@ function Invoke-UDPivotTemplateRequest {
         [AllowNull()][AllowEmptyString()][string]$UserName,
         [AllowNull()][AllowEmptyCollection()][string[]]$Roles
     )
+    # -ErrorVariable gets the error itself, not each step it took through the module
+    $errorMark = Get-UDPivotErrorMark -Cmdlet $PSCmdlet
+    trap { Reset-UDPivotErrorVariable -Mark $errorMark; throw $_ }
     $entry = $null
     if (-not (Get-UDPivotStoreRegistry).TryGetValue($Key, [ref]$entry)) {
         return @{ error = 'This page is out of date (the app was restarted); reload it.' }
@@ -2077,7 +2098,7 @@ function New-UDPivotReport {
         [object]$Schema,
         [ValidateLength(1, 200)][string]$SchemaName,
         [object]$ChartOptions,
-        [ValidateScript({ $_ -match $Script:TipPattern }, ErrorMessage = 'Tips "{0}": expected On, Off or tip ids such as values or chartSeries.')][string[]]$Tips,
+        [ValidateScript({ ($_ -in (@('On', 'Off') + $Script:TipIds)) -or $(throw ('Tips "{0}": expected On, Off or tip ids ({1}).' -f $_, ($Script:TipIds -join ', '))) })][string[]]$Tips,
         [ValidateSet('On', 'Off')][string]$FieldInfo,
         [ValidateSet('On', 'Off')][string]$ZoneInfo,
         [ValidateSet('On', 'Off')][string]$SettingInfo,
@@ -2107,6 +2128,9 @@ function New-UDPivotReport {
         [Endpoint]$OnPublishTemplate,
         [Endpoint]$OnDataLoad
     )
+    # -ErrorVariable gets the error itself, not each step it took through the module
+    $errorMark = Get-UDPivotErrorMark -Cmdlet $PSCmdlet
+    trap { Reset-UDPivotErrorVariable -Mark $errorMark; throw $_ }
 
     if (-not $Script:AssetId) { throw $Script:MissingAssetMessage }
     if ($OnDataLoad -and -not $AllowImport) { throw '-OnDataLoad needs -AllowImport: without it the data shown never changes.' }
@@ -2265,7 +2289,8 @@ function New-UDPivotReport {
     }
     if ($Tips) {
         if ($Tips.Count -gt 1 -and ($Tips -contains 'On' -or $Tips -contains 'Off')) { throw '-Tips: On or Off alone, or a list of tip ids.' }
-        $props['tips'] = if ($Tips.Count -eq 1 -and $Tips[0] -in 'On', 'Off') { $Tips[0].ToLowerInvariant() } else { @($Tips) }
+        # each id in pivotkit's spelling, whatever case it was given in
+        $props['tips'] = if ($Tips.Count -eq 1 -and $Tips[0] -in 'On', 'Off') { $Tips[0].ToLowerInvariant() } else { @(foreach ($tip in $Tips) { $Script:TipIds | Where-Object { $_ -eq $tip } }) }
     }
     if ($FieldInfo) { $props['fieldInfo'] = $FieldInfo.ToLowerInvariant() }
     if ($ZoneInfo) { $props['zoneInfo'] = $ZoneInfo.ToLowerInvariant() }
@@ -2367,6 +2392,9 @@ function New-UDPivotReportPlaceholder {
         [string]$ClassName,
         [hashtable]$Style
     )
+    # -ErrorVariable gets the error itself, not each step it took through the module
+    $errorMark = Get-UDPivotErrorMark -Cmdlet $PSCmdlet
+    trap { Reset-UDPivotErrorVariable -Mark $errorMark; throw $_ }
 
     if (-not $Script:AssetId) { throw $Script:MissingAssetMessage }
     $props = @{
@@ -2435,6 +2463,9 @@ function Get-UDPivotSqlColumnDescription {
         [ValidateLength(1, 128)][string]$PropertyName = 'MS_Description',
         [ValidateRange(1, 3600)][int]$TimeoutSec = 30
     )
+    # -ErrorVariable gets the error itself, not each step it took through the module
+    $errorMark = Get-UDPivotErrorMark -Cmdlet $PSCmdlet
+    trap { Reset-UDPivotErrorVariable -Mark $errorMark; throw $_ }
 
     $own = $PSCmdlet.ParameterSetName -eq 'ConnectionString'
     if ($own) {
@@ -2836,6 +2867,56 @@ function New-UDPivotError {
     $exception = [System.InvalidOperationException]::new($Message)
     if ($Data) { foreach ($k in $Data.Keys) { if ($null -ne $Data[$k]) { $exception.Data[$k] = $Data[$k] } } }
     [System.Management.Automation.ErrorRecord]::new($exception, $Id, $Category, $TargetObject)
+}
+
+function Get-UDPivotErrorMark {
+    <#
+    .SYNOPSIS
+        Where the caller's -ErrorVariable stands when a public function starts, so
+        Reset-UDPivotErrorVariable can take the module's own steps out of it again.
+    .DESCRIPTION
+        PowerShell adds every error that passes a statement of the function to the caller's
+        -ErrorVariable: an error thrown three calls deep arrives there five times or more, mixed with
+        the .NET exception it came from. Each public function marks the list when it starts and, in its
+        trap, cuts the list back to the mark before it throws the error again; the throw then adds that
+        one record. Entries the caller had before (-ErrorVariable +name) stay.
+    .PARAMETER Cmdlet
+        The public function's $PSCmdlet. Its SessionState finds the variable in the caller's scope.
+    .EXAMPLE
+        $errorMark = Get-UDPivotErrorMark -Cmdlet $PSCmdlet
+        trap { Reset-UDPivotErrorVariable -Mark $errorMark; throw $_ }
+    .OUTPUTS
+        PSCustomObject with List and Count, or nothing without -ErrorVariable.
+    #>
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param([Parameter(Mandatory)][System.Management.Automation.PSCmdlet]$Cmdlet)
+    $name = [string]$Cmdlet.MyInvocation.BoundParameters['ErrorVariable']
+    if (-not $name) { return }
+    $variable = $Cmdlet.SessionState.PSVariable.Get($name.TrimStart('+'))
+    if ($variable -and $variable.Value -is [System.Collections.IList] -and -not $variable.Value.IsFixedSize) {
+        [pscustomobject]@{ List = $variable.Value; Count = $variable.Value.Count }
+    }
+}
+
+function Reset-UDPivotErrorVariable {
+    <#
+    .SYNOPSIS
+        Cuts the caller's -ErrorVariable back to the mark Get-UDPivotErrorMark took.
+    .DESCRIPTION
+        Called in a public function's trap, right before it throws the error again: the variable then
+        holds what the caller had, followed by the error itself. Never throws.
+    .PARAMETER Mark
+        The result of Get-UDPivotErrorMark; nothing when the caller gave no -ErrorVariable.
+    .EXAMPLE
+        trap { Reset-UDPivotErrorVariable -Mark $errorMark; throw $_ }
+    #>
+    # Changes only the caller's list of errors, which the caller asked for with -ErrorVariable
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [CmdletBinding()]
+    param([AllowNull()][object]$Mark)
+    if (-not $Mark) { return }
+    while ($Mark.List.Count -gt $Mark.Count) { $Mark.List.RemoveAt($Mark.List.Count - 1) }
 }
 
 function Test-UDPivotLoopbackUri {
@@ -4163,6 +4244,9 @@ function Invoke-UDPivotReport {
         [switch]$AsLink,
         [ValidateRange(1, 3600)][int]$TimeoutSec = $Script:ReportTimeoutSec
     )
+    # -ErrorVariable gets the error itself, not each step it took through the module
+    $errorMark = Get-UDPivotErrorMark -Cmdlet $PSCmdlet
+    trap { Reset-UDPivotErrorVariable -Mark $errorMark; throw $_ }
 
     #region What goes with which engine
     # the parameters given of a list, as "-Name" (the function's own bound parameters, not the script block's)
@@ -4361,6 +4445,9 @@ function Get-UDPivotSource {
         [ValidateSet('Post', 'Basic')][string]$ClientAuthentication = 'Post',
         [ValidateRange(1, 3600)][int]$TimeoutSec = $Script:ReportTimeoutSec
     )
+    # -ErrorVariable gets the error itself, not each step it took through the module
+    $errorMark = Get-UDPivotErrorMark -Cmdlet $PSCmdlet
+    trap { Reset-UDPivotErrorVariable -Mark $errorMark; throw $_ }
     $auth = Resolve-UDPivotRestSignIn -Bound $PSBoundParameters -TimeoutSec $TimeoutSec
     $response = Invoke-UDPivotRestCall -Uri $Uri -Route '/sources' -Auth $auth -TimeoutSec $TimeoutSec
     try { $answer = ConvertFrom-Json -InputObject ([System.Text.Encoding]::UTF8.GetString($response.Content)) -Depth 16 }
