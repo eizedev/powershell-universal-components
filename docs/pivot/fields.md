@@ -19,6 +19,8 @@ format when it is put into Values. Three parameters say it, from the most specif
 Where they say something about the same field, `-FieldDefaults` wins over `-FieldDescriptions`, and
 both win over `-Schema`, key by key. Field names match without regard to case. Views and templates
 always keep the field's own name: a label changes what the reader sees, not what is stored.
+A view's own names for fields win over these labels while that view is shown: a reader sets one
+with **Name** in a field's menu, and the view keeps it as `fieldLabels` ([Views](views.md#the-start-view-view)).
 
 --8<-- "examples/field-names-and-descriptions.md"
 

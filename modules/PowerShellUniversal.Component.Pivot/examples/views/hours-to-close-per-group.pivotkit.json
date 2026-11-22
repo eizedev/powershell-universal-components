@@ -1,0 +1,59 @@
+{
+  "$schema": "https://pivotkit.eize.dev/schema/view-file-2.json",
+  "format": "pivotkit-view",
+  "formatVersion": 2,
+  "name": "Hours to close per group (table and chart)",
+  "description": "Average lead hours per team and priority, slowest teams in P1 first, with the table and the chart side by side.",
+  "generator": {
+    "name": "PowerShellUniversal.Component.Pivot",
+    "version": "0.8.0"
+  },
+  "source": {
+    "id": "tickets",
+    "name": "Tickets"
+  },
+  "extensions": {},
+  "view": {
+    "version": 2,
+    "rows": [
+      "Team"
+    ],
+    "cols": [
+      "Priority"
+    ],
+    "values": [
+      {
+        "field": "Lead hours",
+        "agg": "average",
+        "format": "number:1",
+        "conditional": {
+          "type": "colorScale",
+          "colors": [
+            "#2a78d6",
+            "#f2f2f2",
+            "#eb6834"
+          ]
+        }
+      }
+    ],
+    "sort": [
+      {
+        "field": "Team",
+        "by": "value",
+        "order": "desc",
+        "value": {
+          "field": "Lead hours",
+          "agg": "average"
+        },
+        "column": [
+          "P1"
+        ]
+      }
+    ],
+    "display": "both",
+    "fieldLabels": {
+      "Team": "Group",
+      "Lead hours": "Hours to close"
+    }
+  }
+}

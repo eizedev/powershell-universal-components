@@ -32,10 +32,11 @@ file's bytes, for an endpoint's answer or a mail attachment.
 | | `-Engine Node` | `-Engine Rest` |
 | --- | --- | --- |
 | Runs | pivotkit's command line on the PSU server | a pivotkit-server somewhere else |
-| Needs | Node 22 or later and `npm install --global pivotkit-cli` (0.2.1 or later; tested with 0.4.0) on the PSU server | a pivotkit-server, its address and a token or OAuth client; for `-Data` and `-Parameter` pivotkit-server 0.2.0 or later ([which server](#rest-a-pivotkit-server)) |
+| Needs | Node and `npm install --global pivotkit-cli` (0.2.1 or later; tested with 0.4.0 and 0.5.0) on the PSU server: Node 22 or later, Node 24 or later for pivotkit-cli 0.5.0 and later | a pivotkit-server, its address and a token or OAuth client; for `-Data` and `-Parameter` pivotkit-server 0.2.0 or later ([which server](#rest-a-pivotkit-server)) |
 | Data | `-Data`, written to a temporary folder of its own (mode 0700 on Linux and macOS; on Windows it inherits the ACL of the user's TEMP folder), removed afterwards | `-Data`, sent in the request; or `-Source`, a source the server's operator configured |
 | Language, time zone | `-Locale`, `-TimeZone` | the server's |
 | HTML print template | `-Template` | the server's source decides |
+| Numbers and header of CSV and JSON | `-Numbers Shown` rounds to the decimals the view shows, `-FlatHeader` writes one CSV header row (pivotkit-cli 0.5.0 or later) | the server's |
 | Result | the file | the file, or a link that expires (`-AsLink`) |
 
 Both take `-View` (a hashtable, JSON text or a view file) or `-Layout` (the view by field names), and
@@ -54,7 +55,7 @@ Invoke-UDPivotReport -Engine Node -Data $tickets -Format html -Title 'Lead time 
 `-Layout` takes the keys of pivotkit's layout: `rows`, `cols` (field names), `values`
 (`@{ field; agg }`), `groups` (`@{ field; by }`, `by` one of year, yearQuarter, yearMonth, yearWeek,
 day, quarter, month, week, weekday, hour, or bin with `size`), `filters` (as a view writes them),
-`chart` (auto, bar, line, area, pie, donut, heatmap) and `map` (`@{ Revenue = 'Turnover' }` for a
+`chart` (auto, bar, line, area, pie, donut, heatmap, combo, treemap) and `map` (`@{ Revenue = 'Turnover' }` for a
 column renamed since the view was made). pivotkit's
 [view file reference](https://pivotkit.eize.dev/reference/view-file/) and
 [command line](https://pivotkit.eize.dev/reference/cli/#layout-flags) have the details.
@@ -75,6 +76,15 @@ stream. `-TimeoutSec` (default 120) stops a run that takes longer. A job that is
 `finally` runs (PSU stopping the job, the server restarting) leaves the folder with the rows behind:
 `pivotkit-<32 hex characters>` in the temporary folder of the account PSU runs as; remove such folders
 now and then.
+
+A CSV or JSON file holds every number with full precision. `-Numbers Shown` rounds each number to the
+decimals the view shows, as pivotkit-server writes them; `-Numbers Full` is the default. `-FlatHeader`
+gives a CSV file one header row instead of one per column field; each column names its labels joined
+with " / ". Both need pivotkit-cli 0.5.0 or later, and the function refuses them for another format.
+
+```powershell
+Invoke-UDPivotReport -Engine Node -Data $tickets -View $view -OutFile ./tickets.csv -Numbers Shown -FlatHeader
+```
 
 An HTML report takes a print template of your own with `-Template`, for your company's look and
 metadata. It goes with `-Format html` only (or an `-OutFile` that ends in `.html`):
@@ -148,11 +158,15 @@ Each source is an object with these properties:
 | `Schedulable` | Whether the server drafts schedules for it |
 | `Parameters` | The values the source takes, as the server describes them (`name`, `type`, `required`, `description`, `example`) |
 | `DataMaxBytes` | The largest request this caller may send with `-Data`. Empty when it may send none. The same on every source |
+| `Records` | Whether the caller may read the source's rows ([rows from a server](server-rows.md)) |
+| `LinkParams` | The parameters a link may carry in the page's query string |
+| `Views` | The views the operator publishes for the source: `name`, `title`, `description` |
+| `Rows`, `DataAsOf` | The row count and the data's date, where the server read the data and shows them to the caller |
 | `RequestId` | The id of the answer, for the operator |
 
-pivotkit-server 0.3.1 lists no row count and no data date per source. When the server lists no
-source, the function returns nothing and writes the server's reason to the warning stream: the
-sign-in lacks the sources' scopes.
+A pivotkit-server older than 0.4.0 leaves `Records`, `LinkParams`, `Views`, `Rows` and `DataAsOf`
+empty. When the server lists no source, the function returns nothing and writes the server's reason to
+the warning stream: the sign-in lacks the sources' scopes.
 
 ### A report as a link
 
@@ -247,8 +261,9 @@ render with `-Source`. `-Data` is for what a script has at hand, a few megabytes
 
 ## Errors
 
-Every failure of `Invoke-UDPivotReport` and `Get-UDPivotSource` is an ErrorRecord with a fixed error
-id (`$_.FullyQualifiedErrorId`, or `catch` and `Should -Throw -ErrorId` in a test).
+Every failure of `Invoke-UDPivotReport` and `Get-UDPivotSource`, and every answer the server refuses
+to `New-UDPivotReport -Uri` ([rows from a server](server-rows.md#when-the-server-gives-no-rows)), is an
+ErrorRecord with a fixed error id (`$_.FullyQualifiedErrorId`, or `catch` and `Should -Throw -ErrorId` in a test).
 
 For an answer of pivotkit-server, `$_.TargetObject` is the server's
 [problem document](https://pivotkit.eize.dev/reference/rest/) as a `PivotServerProblem`. It has these
@@ -261,6 +276,7 @@ properties:
 - `RequestId`: the id the operator finds the log lines by.
 - `Retryable`, `RetryAfter`: whether trying again may work, and when.
 - `Type`, `Findings`: the address that names the code, and the findings of a view with errors.
+- `NotShown`: the fields of a `NOT_ALLOWED` answer of the rows route.
 
 A field the answer lacks is empty. An error that is no answer of the server (no connection, a missing
 command line) has no `TargetObject`. A page uses the code to tell the reader why a report failed:
@@ -297,11 +313,14 @@ catch {
 | --- | --- |
 | `PivotServerUnreachable` | pivotkit-server or the token endpoint did not answer (no connection, a time-out) |
 | `PivotRedirectRefused` | the server or the token endpoint answered with a redirect, which is not followed |
-| `PivotTokenRefused` | the server answered 401, or 403 `INSUFFICIENT_SCOPE` (the token lacks the REST scope: ask for it with `-Scope`), or the token endpoint refused the client credentials or gave no usable token |
+| `PivotTokenRefused` | the server answered 401, or 403 `INSUFFICIENT_SCOPE` (the token lacks the REST scope: with client credentials ask for it with `-Scope`; for `New-UDPivotReport -Uri` see [rows from a server](server-rows.md#when-the-server-gives-no-rows)), or the token endpoint refused the client credentials or gave no usable token, or `New-UDPivotReport -Uri` got no token |
 | `PivotDataTooLarge` | `-Data` passed `-MaxBytes`, or the server answered 413: `BODY_TOO_LARGE` (the request is over the server's cap: send fewer rows or columns, or use `-Source`) or `LIMIT_EXCEEDED` (the report is over a limit of the server, rows, cells or memory: make the view smaller or filter) |
 | `PivotViewHasErrors` | the view has errors: the server's 422 (with `-AsLink` its 200 with `ok: false`) or the command line's findings (exit 1) |
 | `PivotNoLink` | `-AsLink`: the server saved the report without a download link, or it has no output directory (409 `NO_OUTPUT`) |
-| `PivotServerError` | any other answer of the server that is no report (400, 403, 404, 429, 500, 502, 503 and so on) |
+| `PivotRowsNotAllowed` | `New-UDPivotReport -Uri`: the rows route answered 403 `NOT_ALLOWED` |
+| `PivotNoData` | `New-UDPivotReport -Uri`: the rows route answered 404 `SOURCE_NOT_FOUND` or `DATA_NOT_AVAILABLE` |
+| `PivotServerBusy` | `New-UDPivotReport -Uri`: the rows route answered 429 `RATE_LIMITED` or 503 `BUSY` |
+| `PivotServerError` | any other answer of the server that is no report (400, 403, 404, 429, 500, 502, 503 and so on). The three ids above apply to the rows route only; on the other routes these answers stay `PivotServerError` |
 | `PivotCliNotFound` | `pivotkit` (or `node` for a .js) was not found, or `-CliPath` is no file |
 | `PivotCliFailed` | the command line did not start, took longer than `-TimeoutSec`, gave no `--json` answer or failed otherwise (exit 2) |
 

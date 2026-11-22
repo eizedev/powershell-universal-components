@@ -72,6 +72,7 @@ console.log(JSON.stringify({ ok: true, exitCode: 0, command: "render", findings:
             Token  = [System.Collections.Concurrent.ConcurrentQueue[hashtable]]::new()
             Link   = [System.Collections.Concurrent.ConcurrentQueue[hashtable]]::new()
             Sources = [System.Collections.Concurrent.ConcurrentQueue[hashtable]]::new()
+            Records = [System.Collections.Concurrent.ConcurrentQueue[hashtable]]::new()
             Log    = [System.Collections.Concurrent.ConcurrentQueue[pscustomobject]]::new()
             Issued = 0
             Valid  = [System.Collections.Concurrent.ConcurrentDictionary[string, bool]]::new()
@@ -114,9 +115,17 @@ console.log(JSON.stringify({ ok: true, exitCode: 0, command: "render", findings:
                 }
             }
             elseif ($request.Url.AbsolutePath -eq '/api/v1/sources' -and $request.HttpMethod -eq 'GET') {
-                # pivotkit-server 0.3.1's answer for a caller that may send data (measured)
+                # pivotkit-server's answer for a caller that may send data and read the rows of vms
+                # (0.3.1's measured answer, with records, linkParams, views, rows and dataAsOf of 0.4)
                 if (-not $Mock.Sources.TryDequeue([ref]$answer)) {
-                    $answer = if ($signedIn) { @{ Status = 200; Body = '{"sources":[{"id":"sales","title":"Sales","kind":"source","link":false,"schedulable":true},{"id":"vms","title":"VMs","description":"Virtual machines per customer","kind":"source","link":true,"schedulable":false,"params":[{"name":"customer","type":"string","required":true,"example":"acme"}]}],"data":{"maxBytes":10485760},"requestId":"src-1"}' } } else { $refused }
+                    $answer = if ($signedIn) { @{ Status = 200; Body = '{"sources":[{"id":"sales","title":"Sales","kind":"source","link":false,"schedulable":true,"rows":2000,"dataAsOf":"2026-11-18T08:00:00Z","views":[{"name":"by-region","title":"Sales by region","description":"Revenue per region"}]},{"id":"vms","title":"VMs","description":"Virtual machines per customer","kind":"source","link":true,"schedulable":false,"records":true,"linkParams":["customer"],"params":[{"name":"customer","type":"string","required":true,"example":"acme"},{"name":"region","type":"string"}]}],"data":{"maxBytes":10485760},"requestId":"src-1"}' } } else { $refused }
+                }
+            }
+            elseif ($request.Url.AbsolutePath -eq '/api/v1/sources/records') {
+                # the rows route answers in pieces without Content-Length (Chunked); Cut ends the
+                # connection before the answer is complete, as a reader cut off by writeMs sees it
+                if (-not $Mock.Records.TryDequeue([ref]$answer)) {
+                    $answer = if ($signedIn) { @{ Status = 200; Chunked = $true; Headers = @{ 'Content-Type' = 'application/json; charset=utf-8'; 'Cache-Control' = 'no-store' }; Body = '{"columns":["Name","Cpu","Created"],"types":["string","number","date"],"rowCount":3,"dataAsOf":"2026-11-18T08:00:00Z","withheld":["Owner"],"requestId":"rec-1","data":[["vm-1","vm-2","vm-\u00e4"],[2,4,8],["2026-11-01","2026-11-02T08:30:00",null]]}' } } else { $refused }
                 }
             }
             elseif ($request.Url.AbsolutePath -eq '/api/v1/views/render') {
@@ -130,8 +139,20 @@ console.log(JSON.stringify({ ok: true, exitCode: 0, command: "render", findings:
             $response.StatusCode = $answer.Status
             if ($answer.Headers) { foreach ($k in $answer.Headers.Keys) { $response.Headers[$k] = $answer.Headers[$k] } }
             $bytes = [System.Text.Encoding]::UTF8.GetBytes([string]$answer.Body)
-            $response.ContentLength64 = $bytes.Length
-            $response.OutputStream.Write($bytes, 0, $bytes.Length)
+            if ($answer.Cut) {
+                $response.SendChunked = $true
+                $response.OutputStream.Write($bytes, 0, [math]::Min($bytes.Length, [int]$answer.Cut))
+                $response.OutputStream.Flush()
+                $response.Abort()
+                continue
+            }
+            if ($answer.Chunked) { $response.SendChunked = $true } else { $response.ContentLength64 = $bytes.Length }
+            # Piece: the body in pieces of this many bytes, each flushed on its own
+            $step = if ($answer.Piece) { [int]$answer.Piece } else { [math]::Max($bytes.Length, 1) }
+            for ($at = 0; $at -lt $bytes.Length; $at += $step) {
+                $response.OutputStream.Write($bytes, $at, [math]::Min($step, $bytes.Length - $at))
+                $response.OutputStream.Flush()
+            }
             $response.Close()
         }
     }
@@ -395,10 +416,34 @@ Describe 'Invoke-UDPivotReport: the data sent' {
         # a field that starts with a dash stays a value
         & $module { Get-UDPivotLayoutArgument -Layout ([ordered]@{ rows = @('-x'); values = @(@{ field = '-y'; agg = 'sum' }) }) } | Should -Be @('--rows=-x', '--values=sum:-y')
     }
+
+    It 'a layout takes every chart type of pivotkit 0.9, bars and lines and a treemap among them' {
+        foreach ($type in 'auto', 'bar', 'line', 'area', 'pie', 'donut', 'heatmap', 'combo', 'treemap') {
+            (& $module { param($t) ConvertTo-UDPivotReportLayout -Layout @{ rows = 'Team'; chart = $t } } $type)['chart'] | Should -Be $type
+        }
+        { & $module { ConvertTo-UDPivotReportLayout -Layout @{ rows = 'Team'; chart = 'radar' } } } | Should -Throw '*chart "radar"*combo*treemap*'
+    }
 }
 
 Describe 'Invoke-UDPivotReport -Engine Node (a stand-in command line)' {
     BeforeEach { $env:FAKE_PIVOTKIT_MODE = 'ok' }
+
+    It '-Numbers and -FlatHeader pass as --numbers and --flat-header, for the formats that take them (#153)' {
+        $null = Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -Format csv -Numbers Shown -FlatHeader -WarningAction SilentlyContinue
+        $r = Get-Record
+        $r.args | Should -Contain '--numbers=shown'
+        $r.args | Should -Contain '--flat-header'
+        $null = Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -Format json -Numbers Full -WarningAction SilentlyContinue
+        $r = Get-Record
+        $r.args | Should -Contain '--numbers=full'
+        $r.args | Should -Not -Contain '--flat-header'
+        # without them nothing is passed: the command line's defaults, and older command lines still work
+        $null = Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -Format csv -WarningAction SilentlyContinue
+        @((Get-Record).args | Where-Object { $_ -like '--numbers*' -or $_ -eq '--flat-header' }).Count | Should -Be 0
+        { Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -Format xlsx -Numbers Shown } | Should -Throw '*-Numbers*csv*json*'
+        { Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -Format json -FlatHeader } | Should -Throw '*-FlatHeader*csv*'
+        { Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Token 't' -Data $rows -View $view -Format csv -Numbers Shown } | Should -Throw '*-Numbers*-Engine Node*'
+    }
 
     It 'runs render with the view file, the data and the options; returns the bytes; removes its folder' {
         $bytes = Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -Format csv -Title 'Hours per team' -Locale de-DE -TimeZone 'Europe/Berlin' -WarningVariable warned -WarningAction SilentlyContinue
@@ -977,6 +1022,16 @@ Describe 'Get-UDPivotSource (a stand-in pivotkit-server)' {
         # what the caller may send with -Data: the same on every source of the answer
         $sources.DataMaxBytes | Should -Be @(10485760, 10485760)
         $sources[0].RequestId | Should -Be 'src-1'
+        # what pivotkit-server 0.4 adds per source: rows, links with parameters, named views
+        $sources[0].Rows | Should -Be 2000
+        $sources[0].DataAsOf | Should -Be ([datetimeoffset]::new(2026, 11, 18, 8, 0, 0, [timespan]::Zero))
+        $sources[0].Views[0].name | Should -Be 'by-region'
+        $sources[0].Views[0].title | Should -Be 'Sales by region'
+        $sources[0].Records | Should -BeFalse
+        $sources[0].LinkParams | Should -BeNullOrEmpty
+        $sources[1].Records | Should -BeTrue
+        $sources[1].LinkParams | Should -Be @('customer')
+        $sources[1].Rows | Should -BeNullOrEmpty
         $log = @(Get-Log)
         $log.Count | Should -Be 1
         $log[0].Method | Should -Be 'GET'
@@ -1041,6 +1096,198 @@ Describe 'Get-UDPivotSource (a stand-in pivotkit-server)' {
         $caught.TargetObject.Detail | Should -Be 'unknown token; check the token the operator gave you'
         $caught.TargetObject.RequestId | Should -Be 'r401'
         $caught.Exception.Message | Should -Not -BeLike '*WRONG*'
+    }
+}
+
+Describe 'New-UDPivotReport -Uri -Source: the rows of a pivotkit-server for the signed-in person' {
+    BeforeAll {
+        $script:server = @{ Uri = $base + '/api/v1'; Source = 'vms'; Token = 'static-token-0123456789' }
+        # the error of a call with -ErrorAction Stop, or $null
+        function Get-RowsError {
+            param([hashtable]$Extra = @{})
+            try { $null = New-UDPivotReport @server @Extra -ErrorAction Stop -WarningAction SilentlyContinue; $null } catch { $_ }
+        }
+    }
+    BeforeEach { $null = Get-Log }
+
+    It 'passes the answer on as the text the server sent, never as objects' {
+        $props = New-UDPivotReport @server -Parameter @{ customer = 'acme' }
+        $props['records'] | Should -BeOfType [string]
+        $props['records'] | Should -BeExactly '{"columns":["Name","Cpu","Created"],"types":["string","number","date"],"rowCount":3,"dataAsOf":"2026-11-18T08:00:00Z","withheld":["Owner"],"requestId":"rec-1","data":[["vm-1","vm-2","vm-\u00e4"],[2,4,8],["2026-11-01","2026-11-02T08:30:00",null]]}'
+        $props.ContainsKey('data') | Should -BeFalse
+        # the field names as the server wrote them, for the storage key and the checks of the page
+        $props['columnNames'] | Should -Be @('Name', 'Cpu', 'Created')
+        # links and view files name the server's source
+        $props['source'].id | Should -Be 'vms'
+        $log = @(Get-Log)
+        $log.Count | Should -Be 1
+        $log[0].Method | Should -Be 'POST'
+        $log[0].Path | Should -Be '/api/v1/sources/records'
+        $log[0].Authorization | Should -Be 'Bearer static-token-0123456789'
+        $log[0].Body | Should -Be '{"source":"vms","params":{"customer":"acme"}}'
+    }
+
+    It 'reads a long answer in pieces, characters split between pieces included' {
+        $ae = [string][char]0xE4
+        $names = (1..20000 | ForEach-Object { '"' + $ae + $_ + '"' }) -join ','
+        $body = '{"columns":["Name"],"types":["string"],"rowCount":20000,"data":[[' + $names + ']]}'
+        # pieces of an odd size: many of the two-byte characters straddle two pieces
+        $mock.Records.Enqueue(@{ Status = 200; Chunked = $true; Piece = 1001; Body = $body })
+        (New-UDPivotReport @server)['records'] | Should -BeExactly $body
+    }
+
+    It 'takes the link''s parameters from the query string, only those the server lists in linkParams' {
+        # PSU's $Query holds the page's own query too (the key "query", measured on 2026.2.5 and 2026.3.4)
+        $query = @{ customer = 'acme'; region = 'north'; query = '?customer=acme&region=north&tab=2'; tab = '2' }
+        $null = New-UDPivotReport @server -Query $query
+        $log = @(Get-Log)
+        $log.Path | Should -Be @('/api/v1/sources', '/api/v1/sources/records')
+        $log[1].Body | Should -Be '{"source":"vms","params":{"customer":"acme"}}'
+    }
+
+    It 'reads $Query of the page when -Query is left out' {
+        # as PSU sets it for the page (Set-Variable: the analyzer sees no use of a plain assignment)
+        Set-Variable -Name Query -Value @{ customer = 'globex' }
+        $null = New-UDPivotReport @server
+        (@(Get-Log) | Where-Object Path -EQ '/api/v1/sources/records').Body | Should -Be '{"source":"vms","params":{"customer":"globex"}}'
+    }
+
+    It 'sends -Parameter as the app gives it and asks for no list then; a query without parameters asks nothing' {
+        $null = New-UDPivotReport @server -Parameter @{ customer = 'acme'; region = 'north' } -Query @{ customer = 'other' }
+        $log = @(Get-Log)
+        $log.Path | Should -Be @('/api/v1/sources/records')
+        $log[0].Body | Should -Be '{"source":"vms","params":{"customer":"acme","region":"north"}}'
+        $null = New-UDPivotReport @server -Query @{}
+        @(Get-Log).Path | Should -Be @('/api/v1/sources/records')
+    }
+
+    It 'a source the list does not name gets no parameters from the query' {
+        $mock.Sources.Enqueue(@{ Status = 200; Body = '{"sources":[{"id":"vms","title":"VMs","kind":"source","records":true}],"requestId":"src-9"}' })
+        $null = New-UDPivotReport @server -Query @{ customer = 'acme' }
+        (@(Get-Log) | Where-Object Path -EQ '/api/v1/sources/records').Body | Should -Be '{"source":"vms"}'
+    }
+
+    It 'sends a view name to the server; a view object stays the start view and goes nowhere' {
+        $null = New-UDPivotReport @server -View 'by-region'
+        (@(Get-Log))[0].Body | Should -Be '{"source":"vms","view":"by-region"}'
+        $props = New-UDPivotReport @server -View @{ rows = @('Name'); values = @(@{ field = 'Cpu'; agg = 'sum' }) }
+        (@(Get-Log))[0].Body | Should -Be '{"source":"vms"}'
+        $props['view'].rows | Should -Be @('Name')
+    }
+
+    It 'a server error is a typed error: <Id> for <Status> <Code>' -ForEach @(
+        @{ Status = 401; Code = 'INVALID_TOKEN'; Id = 'PivotTokenRefused'; Problem = 'signIn' }
+        @{ Status = 403; Code = 'INSUFFICIENT_SCOPE'; Id = 'PivotTokenRefused'; Problem = 'notSetUp' }
+        @{ Status = 403; Code = 'NOT_ALLOWED'; Id = 'PivotRowsNotAllowed'; Problem = 'notAllowed'; Extra = ',"notShown":["Team","Owner"]' }
+        @{ Status = 404; Code = 'SOURCE_NOT_FOUND'; Id = 'PivotNoData'; Problem = 'noData' }
+        @{ Status = 404; Code = 'DATA_NOT_AVAILABLE'; Id = 'PivotNoData'; Problem = 'noData' }
+        @{ Status = 413; Code = 'LIMIT_EXCEEDED'; Id = 'PivotDataTooLarge'; Problem = 'tooLarge' }
+        @{ Status = 429; Code = 'RATE_LIMITED'; Id = 'PivotServerBusy'; Problem = 'busy'; RetryAfter = '7' }
+        @{ Status = 503; Code = 'BUSY'; Id = 'PivotServerBusy'; Problem = 'busy'; RetryAfter = '3' }
+        @{ Status = 503; Code = 'SOURCE_UNAVAILABLE'; Id = 'PivotServerError'; Problem = 'serverError' }
+        @{ Status = 500; Code = 'INTERNAL'; Id = 'PivotServerError'; Problem = 'serverError' }
+        @{ Status = 502; Code = $null; Id = 'PivotServerError'; Problem = 'serverError' }
+        @{ Status = 400; Code = 'INVALID_INPUT'; Id = 'PivotServerError'; Problem = 'badLink' }
+    ) {
+        $codeJson = if ($Code) { ',"code":"{0}"' -f $Code } else { '' }
+        $body = '{{"type":"x","title":"t","status":{0}{1},"detail":"what the server says","requestId":"req-{0}"{2}}}' -f $Status, $codeJson, $Extra
+        $headers = if ($RetryAfter) { @{ 'Retry-After' = $RetryAfter } } else { @{} }
+        $mock.Records.Enqueue(@{ Status = $Status; Body = $body; Headers = $headers })
+        $caught = Get-RowsError
+        # thrown by -ErrorAction Stop with its own id, as every command of the module throws (#153)
+        $caught.FullyQualifiedErrorId | Should -Be $Id
+        $caught.TargetObject.Status | Should -Be $Status
+        $caught.Exception.Message | Should -BeLike '*what the server says*'
+        if ($Extra) { $caught.TargetObject.NotShown | Should -Be @('Team', 'Owner') }
+        if ($RetryAfter) { $caught.TargetObject.RetryAfter | Should -Be $RetryAfter; $caught.Exception.Message | Should -BeLike "*Try again in $RetryAfter seconds*" }
+        # without -ErrorAction Stop the page still gets a report that tells the reader what happened
+        $mock.Records.Enqueue(@{ Status = $Status; Body = $body; Headers = $headers })
+        $props = New-UDPivotReport @server -ErrorVariable failed -ErrorAction SilentlyContinue -WarningVariable warned -WarningAction SilentlyContinue
+        # -ErrorVariable holds the error written, once, not the module's steps on the way (#153)
+        $failed.Count | Should -Be 1
+        $failed[0].FullyQualifiedErrorId | Should -Be ('{0},New-UDPivotReport' -f $Id)
+        # the operator's message goes to the warning stream in every case, also with -ErrorAction
+        "$warned" | Should -BeLike "$Id*what the server says*"
+        $props['problem'].kind | Should -Be $Problem
+        $props.ContainsKey('records') | Should -BeFalse
+        if ($Extra) { $props['problem'].fields | Should -Be @('Team', 'Owner') }
+        if ($RetryAfter) { $props['problem'].retryAfter | Should -Be ([int]$RetryAfter) }
+        if ($Problem -eq 'tooLarge') { $props['problem'].detail | Should -Be 'what the server says' }
+        $props['problem'].requestId | Should -Be ('req-{0}' -f $Status)
+    }
+
+    It 'by default writes the operator''s message to the warning stream, never an error PSU shows the reader as a toast' {
+        $mock.Records.Enqueue(@{ Status = 401; Body = '{"status":401,"code":"INVALID_TOKEN","detail":"expired","requestId":"r-w"}' })
+        $props = New-UDPivotReport @server -WarningVariable warned -WarningAction SilentlyContinue 2>&1
+        @($props | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }).Count | Should -Be 0
+        @($props)[-1]['problem'].kind | Should -Be 'signIn'
+        "$warned" | Should -BeLike 'PivotTokenRefused: pivotkit-server *expired*r-w*'
+        "$warned" | Should -Not -BeLike '*static-token-0123456789*'
+    }
+
+    It 'stops past -MaxBytes before the text is handed on' {
+        $caught = Get-RowsError -Extra @{ MaxBytes = 64 }
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotDataTooLarge'
+        $caught.Exception.Message | Should -BeLike '*more than 64 bytes*-MaxBytes*'
+    }
+
+    It 'an answer cut off on the way is an error, never a part of the rows' {
+        $mock.Records.Enqueue(@{ Status = 200; Cut = 60; Body = '{"columns":["Name","Cpu"],"types":["string","number"],"rowCount":2,"data":[["a","b"],[1,2]]}' })
+        $caught = Get-RowsError
+        $caught.FullyQualifiedErrorId | Should -Be 'PivotServerError'
+        $mock.Records.Enqueue(@{ Status = 200; Body = '{"columns":["Name"],"types":["string"],"rowCount":1,"data":[["a"]' })
+        (Get-RowsError).Exception.Message | Should -BeLike '*cut off*Ask again*'
+        $mock.Records.Enqueue(@{ Status = 200; Body = '{"rows":[]}' })
+        (Get-RowsError).Exception.Message | Should -BeLike '*no columnar rows*'
+    }
+
+    It 'without a token the reader is asked to sign in and nothing is sent; the log names SaveTokens' {
+        foreach ($empty in '', $null) {
+            $props = New-UDPivotReport -Uri ($base + '/api/v1') -Source 'vms' -Token $empty -WarningVariable warned -WarningAction SilentlyContinue
+            $props['problem'].kind | Should -Be 'signIn'
+            "$warned" | Should -BeLike 'PivotTokenRefused: -Token is empty*SaveTokens*'
+        }
+        @(Get-Log).Count | Should -Be 0
+    }
+
+    It 'leaves out a parameter without a value, as $Query.customer of a page opened without it' {
+        $null = New-UDPivotReport @server -Parameter @{ customer = $null; region = 'north' }
+        (@(Get-Log))[0].Body | Should -Be '{"source":"vms","params":{"region":"north"}}'
+        $null = New-UDPivotReport @server -Parameter @{ customer = $null }
+        (@(Get-Log))[0].Body | Should -Be '{"source":"vms"}'
+        # the issue's name for it binds too
+        $null = New-UDPivotReport @server -Params @{ customer = 'acme' }
+        (@(Get-Log))[0].Body | Should -Be '{"source":"vms","params":{"customer":"acme"}}'
+    }
+
+    It 'an answer that is no JSON at all says so' {
+        $mock.Records.Enqueue(@{ Status = 200; Body = '<html>proxy login</html>' })
+        (Get-RowsError).Exception.Message | Should -BeLike '*no JSON at all*Check -Uri*'
+    }
+
+    It 'never puts the token into the props or an error' {
+        $mock.Records.Enqueue(@{ Status = 401; Body = '{"status":401,"code":"INVALID_TOKEN"}' })
+        $props = New-UDPivotReport @server -ErrorVariable failed -ErrorAction SilentlyContinue -WarningVariable warned -WarningAction SilentlyContinue
+        $text = "$warned" + ($props | ConvertTo-Json -Depth 8) + ($failed[-1].TargetObject | ConvertTo-Json -Depth 8) + $failed[-1].Exception.Message
+        $text | Should -Not -BeLike '*static-token-0123456789*'
+        $props = New-UDPivotReport @server
+        ($props | ConvertTo-Json -Depth 8) | Should -Not -BeLike '*static-token-0123456789*'
+    }
+
+    It 'checks what does not fit before anything is sent' {
+        { New-UDPivotReport -Data @() @server } | Should -Throw -ErrorId 'AmbiguousParameterSet,New-UDPivotReport'
+        { New-UDPivotReport -Uri 'http://reports.example.com/api/v1' -Source 'vms' -Token 't' } | Should -Throw '*an https address*'
+        { New-UDPivotReport @server -MaxBytes 65MB } | Should -Throw '*from 1 to 64 MB*'
+        @(Get-Log).Count | Should -Be 0
+        # the columns are known once the server answered
+        { New-UDPivotReport @server -ExportData -ExportDataColumn 'Nope' } | Should -Throw '*Nope*'
+    }
+
+    It 'the storage key without -Id follows the server''s columns, and admins see the row count' {
+        $a = New-UDPivotReport @server -AdminRole 'Admin' -UserName 'kim' -Roles 'Admin'
+        $a['admin'].rows | Should -Be 3
+        $a['admin'].columns | Should -Be 3
+        $a['storageKey'] | Should -Match '^auto-[0-9a-f]{16}$'
     }
 }
 
