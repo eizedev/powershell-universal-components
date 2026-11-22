@@ -428,6 +428,23 @@ Describe 'Invoke-UDPivotReport: the data sent' {
 Describe 'Invoke-UDPivotReport -Engine Node (a stand-in command line)' {
     BeforeEach { $env:FAKE_PIVOTKIT_MODE = 'ok' }
 
+    It '-Numbers and -FlatHeader pass as --numbers and --flat-header, for the formats that take them (#153)' {
+        $null = Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -Format csv -Numbers Shown -FlatHeader -WarningAction SilentlyContinue
+        $r = Get-Record
+        $r.args | Should -Contain '--numbers=shown'
+        $r.args | Should -Contain '--flat-header'
+        $null = Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -Format json -Numbers Full -WarningAction SilentlyContinue
+        $r = Get-Record
+        $r.args | Should -Contain '--numbers=full'
+        $r.args | Should -Not -Contain '--flat-header'
+        # without them nothing is passed: the command line's defaults, and older command lines still work
+        $null = Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -Format csv -WarningAction SilentlyContinue
+        @((Get-Record).args | Where-Object { $_ -like '--numbers*' -or $_ -eq '--flat-header' }).Count | Should -Be 0
+        { Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -Format xlsx -Numbers Shown } | Should -Throw '*-Numbers*csv*json*'
+        { Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -Format json -FlatHeader } | Should -Throw '*-FlatHeader*csv*'
+        { Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Token 't' -Data $rows -View $view -Format csv -Numbers Shown } | Should -Throw '*-Numbers*-Engine Node*'
+    }
+
     It 'runs render with the view file, the data and the options; returns the bytes; removes its folder' {
         $bytes = Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -Format csv -Title 'Hours per team' -Locale de-DE -TimeZone 'Europe/Berlin' -WarningVariable warned -WarningAction SilentlyContinue
         , $bytes | Should -BeOfType [byte[]]

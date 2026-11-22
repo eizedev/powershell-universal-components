@@ -4615,6 +4615,13 @@ function Invoke-UDPivotReport {
         {{placeholders}}, at most 262,144 characters). The function copies it into the run's own folder and passes it
         as --template. pivotkit trusts a template like code: give a file of your own, never one from a
         reader. With -Engine Rest the server's source decides the template, so it is refused there.
+    .PARAMETER Numbers
+        -Engine Node with -Format csv or json: Full writes every number with full precision (the command
+        line's default), Shown rounds it to the decimals the view shows, as pivotkit-server writes them.
+        Needs pivotkit-cli 0.5.0 or later.
+    .PARAMETER FlatHeader
+        -Engine Node with -Format csv: one header row instead of one per column field; each column
+        names its labels joined with " / ". Needs pivotkit-cli 0.5.0 or later.
     .PARAMETER AsLink
         -Engine Rest: the server saves the report and the function returns its download link instead of
         the file (POST /views/render with save: true): a PivotReportLink with Url, ExpiresAt (UTC; empty
@@ -4686,6 +4693,8 @@ function Invoke-UDPivotReport {
         [Nullable[datetime]]$DataAsOf,
         [ValidateRange(1KB, 64MB)][long]$MaxBytes = 10MB,
         [ValidateNotNullOrEmpty()][string]$Template,
+        [ValidateSet('Full', 'Shown')][string]$Numbers,
+        [switch]$FlatHeader,
         [switch]$AsLink,
         [ValidateRange(1, 3600)][int]$TimeoutSec = $Script:ReportTimeoutSec
     )
@@ -4704,7 +4713,7 @@ function Invoke-UDPivotReport {
         if (-not $hasData) { throw '-Engine Node needs -Data: the command line runs over the rows you give.' }
     }
     else {
-        $wrong = & $given 'CliPath', 'Locale', 'TimeZone'
+        $wrong = & $given 'CliPath', 'Locale', 'TimeZone', 'Numbers', 'FlatHeader'
         if ($wrong.Count) { throw ('{0}: only with -Engine Node (pivotkit-server uses its own).' -f ($wrong -join ', ')) }
         if ($Template) { throw '-Template: only with -Engine Node. With -Engine Rest the server''s source decides the template (sources.<id>.template in its configuration).' }
         $auth = Resolve-UDPivotRestSignIn -Bound $PSBoundParameters -TimeoutSec $TimeoutSec
@@ -4720,6 +4729,10 @@ function Invoke-UDPivotReport {
     $named = if ($target) { $Script:ReportExtensions[[System.IO.Path]::GetExtension($target).ToLowerInvariant()] }
     if ($Format -and $named -and $named -ne $Format) { throw ('-OutFile names a {0} file, -Format {1}: give one or make them agree.' -f $named, $Format) }
     $kind = if ($Format) { $Format } elseif ($named) { $named } else { 'xlsx' }
+    # pivotkit-cli's render options and the formats they work in (its option table: numbers csv, json;
+    # flat-header csv); the command line only warns about one that does nothing, so refuse it here
+    if ($Numbers -and $kind -notin 'csv', 'json') { throw ('-Numbers goes with -Format csv or json, not {0}.' -f $kind) }
+    if ($FlatHeader -and $kind -ne 'csv') { throw ('-FlatHeader goes with -Format csv, not {0}.' -f $kind) }
     $templatePath = $null
     if ($Template) {
         if ($kind -ne 'html') { throw ('-Template goes with -Format html (a print template for the HTML report), not {0}.' -f $kind) }
@@ -4789,6 +4802,8 @@ function Invoke-UDPivotReport {
             if ($reportTitle) { $arguments.Add('--title=' + $reportTitle) }
             if ($Locale) { $arguments.Add('--locale=' + $Locale) }
             if ($TimeZone) { $arguments.Add('--time-zone=' + $TimeZone) }
+            if ($Numbers) { $arguments.Add('--numbers=' + $Numbers.ToLowerInvariant()) }
+            if ($FlatHeader) { $arguments.Add('--flat-header') }
             if ($templatePath) {
                 # a copy inside the folder: the command line reads only there (--allow-dir)
                 $templateCopy = Join-Path $work 'print.template.html'

@@ -36,6 +36,7 @@ file's bytes, for an endpoint's answer or a mail attachment.
 | Data | `-Data`, written to a temporary folder of its own (mode 0700 on Linux and macOS; on Windows it inherits the ACL of the user's TEMP folder), removed afterwards | `-Data`, sent in the request; or `-Source`, a source the server's operator configured |
 | Language, time zone | `-Locale`, `-TimeZone` | the server's |
 | HTML print template | `-Template` | the server's source decides |
+| Numbers and header of CSV and JSON | `-Numbers Shown` rounds to the decimals the view shows, `-FlatHeader` writes one CSV header row (pivotkit-cli 0.5.0 or later) | the server's |
 | Result | the file | the file, or a link that expires (`-AsLink`) |
 
 Both take `-View` (a hashtable, JSON text or a view file) or `-Layout` (the view by field names), and
@@ -75,6 +76,15 @@ stream. `-TimeoutSec` (default 120) stops a run that takes longer. A job that is
 `finally` runs (PSU stopping the job, the server restarting) leaves the folder with the rows behind:
 `pivotkit-<32 hex characters>` in the temporary folder of the account PSU runs as; remove such folders
 now and then.
+
+A CSV or JSON file holds every number with full precision. `-Numbers Shown` rounds each number to the
+decimals the view shows, as pivotkit-server writes them; `-Numbers Full` is the default. `-FlatHeader`
+gives a CSV file one header row instead of one per column field; each column names its labels joined
+with " / ". Both need pivotkit-cli 0.5.0 or later, and the function refuses them for another format.
+
+```powershell
+Invoke-UDPivotReport -Engine Node -Data $tickets -View $view -OutFile ./tickets.csv -Numbers Shown -FlatHeader
+```
 
 An HTML report takes a print template of your own with `-Template`, for your company's look and
 metadata. It goes with `-Format html` only (or an `-OutFile` that ends in `.html`):

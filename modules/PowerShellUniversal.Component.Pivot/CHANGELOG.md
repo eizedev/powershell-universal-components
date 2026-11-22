@@ -9,6 +9,10 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Added
 
+- `Invoke-UDPivotReport -Engine Node -Numbers Full|Shown` and `-FlatHeader`: pivotkit-cli 0.5.0's
+  `--numbers` and `--flat-header`. CSV and JSON numbers rounded to the decimals the view shows, and a
+  CSV file with one header row
+  ([#153](https://github.com/eizedev/powershell-universal-components/issues/153)).
 - `New-UDPivotReport -Uri -Source -Token` shows the rows of a pivotkit-server source for the signed-in
   person, also when a link from pivotkit's `create_link` opens the page
   ([#144](https://github.com/eizedev/powershell-universal-components/issues/144),
