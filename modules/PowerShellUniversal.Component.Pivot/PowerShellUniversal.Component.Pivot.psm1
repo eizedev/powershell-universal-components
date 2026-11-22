@@ -1866,7 +1866,8 @@ function New-UDPivotReport {
         stream, the app's log (PSU would show an error to the reader as a toast). With -ErrorAction or
         -ErrorVariable the error itself goes to the error stream; -ErrorAction Stop throws it. https://powershell-universal-components.eize.dev/pivot/server-rows/
     .PARAMETER Id
-        Component id. Default: a new GUID. Get-UDElement -Id returns the current view as .view;
+        Component id. Default: a new GUID. Get-UDElement -Id returns the current view as .view (and
+        the id, not the rows);
         Set-UDElement -Id -Properties @{ view = ... } shows another view (one undo step). The browser
         tab keeps the reader's view under this id; without -Id the report is identified by its page,
         its place in the app script (line and column of the call) and its column names. Set -Id when
