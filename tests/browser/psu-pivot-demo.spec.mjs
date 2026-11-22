@@ -3,7 +3,8 @@
 // PSU_PIVOT_DEMO_URL=https://psu.example.com/pivot-showcase npx playwright test psu-pivot-demo); skipped in CI.
 // The page "Report as a file" needs pivotkit's command line on the PSU server (or the app started with
 // -PivotkitPath). PSU_PIVOT_DEMO_SERVER_URL (optional) points at a second app started with -ServerUri and
-// -ServerSource but without sign-in: its page "Rows from a server" says that it needs a sign-in.
+// -ServerSource but without sign-in and without pivotkit's command line: its page "Rows from a server"
+// says that it needs a sign-in, and "Report as a file" says what to install.
 import { test, expect } from "@playwright/test";
 import { strFromU8, unzipSync } from "fflate";
 import { expectChartType, openViews } from "./pivot-menus.mjs";
@@ -109,6 +110,15 @@ test.describe("pivot demo showcase on PSU", () => {
         await expect(page.getByText("No pivotkit-server is set up for this page")).toBeVisible({ timeout: 30000 });
         await expect(page.getByText("New-UDPivotShowcase -ServerUri")).toBeVisible();
         await expect(page.locator(".ud-pivot-report")).toHaveCount(0);
+    });
+
+    test("Report as a file: without pivotkit's command line the page says what to install, the buttons are off, the report works", async ({ page }) => {
+        test.skip(!serverApp, "PSU_PIVOT_DEMO_SERVER_URL is not set");
+        await page.goto(`${serverApp}/report-file`);
+        await expect(page.locator(REPORT).locator(".pk-result td").first()).toBeVisible({ timeout: 30000 });
+        await expect(page.getByText("pivotkit's command line is not installed on this PSU server")).toBeVisible();
+        await expect(page.getByRole("button", { name: "Download Excel workbook" })).toBeDisabled();
+        await expect(page.getByRole("button", { name: "Download HTML report" })).toBeDisabled();
     });
 
     test("Rows from a server: an app without sign-in says the page needs one, and shows no address", async ({ page }) => {

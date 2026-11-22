@@ -237,9 +237,10 @@ $perSeason = @{
 }
 '@
 $fileCode = $weatherRowsCode + "`n" + $fileViewCode + "`n" + @'
-# the reader's view, for the buttons; a new tab starts with it (-SavedView), the tab keeps its own
+# the reader's view, for the buttons; a new tab starts with it (-SavedView). -NoAddressBar: a view
+# from a link would not reach the server's session, so the file could differ from the screen
 New-UDPivotReport -Id 'weather-file' -Data $weather -Label 'Rain days per city and season' -SourceName 'Weather' -Locale $locale -View $perSeason -FieldDefaults $fields `
-    -SavedView $Session:PivotShowcaseFileView -OnViewChange {
+    -NoAddressBar -SavedView $Session:PivotShowcaseFileView -OnViewChange {
     $Session:PivotShowcaseFileView = ConvertFrom-UDPivotView -InputObject $EventData.json
 }
 '@

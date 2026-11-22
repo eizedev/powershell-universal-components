@@ -68,6 +68,8 @@ with `Invoke-UDPivotReport -Engine Node`, and the browser downloads it. A schedu
 every Monday and mail it ([Reports without a browser](reports.md)).
 
 - The page keeps the reader's view with `-OnViewChange` in `$Session`; the button reads it from there.
+  The report keeps its view out of the address bar (`-NoAddressBar`), so a link never shows a view
+  the server does not know.
 - The buttons need pivotkit's command line on the PSU server: Node 24 or later and
   `npm install --global pivotkit-cli`. `New-UDPivotShowcase -PivotkitPath` names the program when it
   is not on the PATH.

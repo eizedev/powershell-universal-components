@@ -187,6 +187,19 @@ Describe 'Pivot demo: rows from a server' {
         $page.Content.ToString() | Should -Match ([regex]::Escape('if ($AccessToken) {'))
     }
 
+    It 'asks the server with the person''s token when there is one' {
+        # a closed port on this machine: the request fails, and the report says so instead of the rows
+        $app = New-UDPivotShowcase -ServerUri 'http://127.0.0.1:9/api/v1' -ServerSource 'orders'
+        $page = $app.Pages | Where-Object Name -EQ 'Rows from a server'
+        Set-Variable -Name AccessToken -Value 'token-under-test'
+        try { $report = @(& $page.Content 3>$null | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }) }
+        finally { Remove-Variable -Name AccessToken }
+        $report.Count | Should -Be 1
+        $report[0].id | Should -Be 'server-rows'
+        $global:PivotDemoAlerts | Should -BeNullOrEmpty
+        ($report[0] | ConvertTo-Json -Depth 8 -Compress) | Should -Not -Match 'token-under-test'
+    }
+
     It 'takes -ServerUri and -ServerSource only together, and only an http(s) address without a query' {
         { New-UDPivotShowcase -ServerUri 'https://reports.example.com/api/v1' } | Should -Throw '*go together*'
         { New-UDPivotShowcase -ServerUri 'https://reports.example.com/api/v1?x=1' -ServerSource 'orders' } | Should -Throw '*without a query string*'
@@ -198,8 +211,16 @@ Describe 'Pivot demo: report as a file' {
     BeforeEach { $global:PivotDemoAlerts.Clear() }
 
     It 'says what to install and disables the buttons when pivotkit''s command line is missing; the report still works' {
-        $app = New-UDPivotShowcase -PivotkitPath (Join-Path $TestDrive 'no-such-pivotkit')
-        $out = @(& ($app.Pages | Where-Object Name -EQ 'Report as a file').Content)
+        $path = Join-Path $TestDrive 'no-such-pivotkit'
+        $app = New-UDPivotShowcase -PivotkitPath $path
+        $page = $app.Pages | Where-Object Name -EQ 'Report as a file'
+        $out = @(& $page.Content)
+        # the code the page shows never names the server's own path of the program; the code that runs does
+        $text = $page.Content.ToString()
+        $shown = [regex]::Match($text, '(?s)New-UDExpansionPanel .*').Value
+        $shown | Should -Match 'Invoke-UDPivotReport'
+        $shown | Should -Not -Match ([regex]::Escape($path))
+        $text.Replace($shown, '') | Should -Match ([regex]::Escape($path))
         $global:PivotDemoAlerts | Should -Contain 'pivotkit''s command line is not installed on this PSU server'
         $buttons = @($out | Where-Object { $_ -is [hashtable] -and $_.type -eq 'button' })
         $buttons.text | Should -Be @('Download Excel workbook', 'Download HTML report')
@@ -215,11 +236,6 @@ Describe 'Pivot demo: report as a file' {
         $app = New-UDPivotShowcase -PivotkitPath $cli
         $out = @(& ($app.Pages | Where-Object Name -EQ 'Report as a file').Content)
         $global:PivotDemoAlerts | Should -BeNullOrEmpty
-        # the code the page shows never names the server's own path of the program
-        $page = $app.Pages | Where-Object Name -EQ 'Report as a file'
-        $shown = [regex]::Match($page.Content.ToString(), '(?s)New-UDExpansionPanel .*').Value
-        $shown | Should -Match 'Invoke-UDPivotReport'
-        $shown | Should -Not -Match ([regex]::Escape($cli))
         $button = $out | Where-Object { $_ -is [hashtable] -and $_.type -eq 'button' -and $_.id -eq "weather-file-$Format" }
         $button.disabled | Should -BeFalse
         # the reader's view: rain days per city, as the browser sends it
