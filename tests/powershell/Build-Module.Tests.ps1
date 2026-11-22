@@ -84,6 +84,11 @@ Describe 'Build-Module.ps1 with the pivot module' {
             Join-Path $built.FullName ([System.IO.Path]::GetRelativePath($source, $file.FullName)) | Should -Exist
         }
         Join-Path $built.FullName 'Private' 'SHARED.txt' | Should -Exist
+        # the built folder loads on its own and exports the manifest's commands (a process of its own:
+        # this session has the source module loaded)
+        $manifest = Import-PowerShellDataFile -LiteralPath (Join-Path $source "$script:pivot.psd1")
+        $exported = & (Join-Path $PSHOME 'pwsh') -NoProfile -NonInteractive -Command "Add-Type -TypeDefinition 'public class Endpoint { }'; (Import-Module '$(Join-Path $built.FullName "$script:pivot.psd1")' -PassThru).ExportedFunctions.Keys | Sort-Object"
+        $exported | Should -Be ($manifest.FunctionsToExport | Sort-Object)
     }
 
     It 'the built module carries pivotkit-core''s view-file and view schemas of the version the bundle uses (#138)' -Skip:(-not (Test-Path -LiteralPath (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..' '..')) 'modules' 'PowerShellUniversal.Component.Pivot' 'node_modules' 'webpack'))) {

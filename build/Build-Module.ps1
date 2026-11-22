@@ -94,7 +94,8 @@ foreach ($folder in 'Public', 'Private') {
     if (-not (Test-Path -LiteralPath $from -PathType Container)) { continue }
     foreach ($file in Get-ChildItem -LiteralPath $from -Include '*.ps1', '*.cs' -File -Recurse) {
         $to = Join-Path $out ([System.IO.Path]::GetRelativePath($source, $file.FullName))
-        if (Test-Path -LiteralPath (Join-Path $repo 'shared' 'powershell' $file.Name)) { throw ('{0}: shared/powershell has a file of the same name, which the build copies into Private/ too.' -f $to) }
+        # shared/powershell/*.ps1 lands in the same Private/ (Copy-SharedCode.ps1) and would replace it
+        if ($folder -eq 'Private' -and $file.DirectoryName -eq $from -and (Test-Path -LiteralPath (Join-Path $repo 'shared' 'powershell' $file.Name))) { throw ('{0}: shared/powershell has a file of the same name, which the build copies into Private/ too.' -f $to) }
         New-Item -ItemType Directory -Path (Split-Path -Parent $to) -Force | Out-Null
         Copy-Item -LiteralPath $file.FullName -Destination $to
     }

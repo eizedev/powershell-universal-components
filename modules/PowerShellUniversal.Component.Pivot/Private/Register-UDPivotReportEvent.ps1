@@ -11,7 +11,7 @@ function Register-UDPivotReportEvent {
         New-UDPivotReport's $PSBoundParameters: the Endpoints of OnViewChange, OnCellClick,
         OnSaveTemplate, OnDeleteTemplate, OnPublishTemplate and OnDataLoad.
     .PARAMETER StoreHandler
-        The handlers of the template store (Get-UDPivotReportTemplate), in place of the parameters.
+        The handlers of the template store (Resolve-UDPivotReportTemplate), in place of the parameters.
     .PARAMETER Cmdlet
         New-UDPivotReport's $PSCmdlet, which PSU's Endpoint.Register takes.
     .EXAMPLE

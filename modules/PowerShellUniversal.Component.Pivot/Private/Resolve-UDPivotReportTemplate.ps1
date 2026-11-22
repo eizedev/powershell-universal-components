@@ -1,4 +1,4 @@
-function Get-UDPivotReportTemplate {
+function Resolve-UDPivotReportTemplate {
     <#
     .SYNOPSIS
         The templates of New-UDPivotReport, its template store and who may change shared views.
@@ -19,7 +19,7 @@ function Get-UDPivotReportTemplate {
     .PARAMETER StorageKey
         The key of the report.
     .EXAMPLE
-        $templates = Get-UDPivotReportTemplate -Bound $PSBoundParameters -Cmdlet $PSCmdlet -Source $dataSource -SchemaUrl $schemaAddress -StorageKey $storageKey
+        $templates = Resolve-UDPivotReportTemplate -Bound $PSBoundParameters -Cmdlet $PSCmdlet -Source $dataSource -SchemaUrl $schemaAddress -StorageKey $storageKey
     .OUTPUTS
         PSCustomObject with Props (hashtable), Handlers (event parameter name to Endpoint), IsAdmin,
         Count (templates) and StoreKind.

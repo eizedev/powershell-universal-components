@@ -447,7 +447,7 @@ function New-UDPivotReport {
     # -SchemaUrl, else the module-wide default; a path goes as it is, the browser adds its origin
     $schemaAddress = Get-UDPivotSchemaUrl -SchemaUrl $SchemaUrl -Given:$PSBoundParameters.ContainsKey('SchemaUrl')
     if ($null -ne $schemaAddress) { $props['schemaUrl'] = $schemaAddress }
-    $templateInfo = Get-UDPivotReportTemplate -Bound $PSBoundParameters -Cmdlet $PSCmdlet -Source $dataSource -SchemaUrl $schemaAddress -StorageKey $storageKey
+    $templateInfo = Resolve-UDPivotReportTemplate -Bound $PSBoundParameters -Cmdlet $PSCmdlet -Source $dataSource -SchemaUrl $schemaAddress -StorageKey $storageKey
     $props += $templateInfo.Props
     $props += Get-UDPivotFieldProp -Bound $PSBoundParameters
     $props += Get-UDPivotDisplayProp -Bound $PSBoundParameters

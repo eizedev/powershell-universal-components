@@ -11,7 +11,7 @@ function Get-UDPivotAdminInfo {
     .PARAMETER Timer
         Started when New-UDPivotReport began.
     .PARAMETER Template
-        The result of Get-UDPivotReportTemplate.
+        The result of Resolve-UDPivotReportTemplate.
     .EXAMPLE
         $props['admin'] = Get-UDPivotAdminInfo -RowCount 10 -ColumnCount 3 -ConvertMs 1.2 -Timer $timer -Template $templateInfo
     .OUTPUTS
