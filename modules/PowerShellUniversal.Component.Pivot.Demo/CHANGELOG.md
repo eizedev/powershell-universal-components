@@ -5,6 +5,32 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-22
+
+### Added
+
+- The page "Report as a file": the buttons **Excel workbook** and **HTML report** make a file of the
+  reader's view on the PSU server with `Invoke-UDPivotReport -Engine Node`. They need pivotkit's command
+  line on the server; `New-UDPivotShowcase -PivotkitPath` names it when it is not on the PATH. Without
+  it the page says what to install, and its report still works.
+- The page "Rows from a server": `New-UDPivotReport -Uri -Source -Token $AccessToken` for the signed-in
+  person, set up with `New-UDPivotShowcase -ServerUri -ServerSource`. Without them the page says what it
+  needs and shows no report.
+- The ticket showcase has the page Charts: the menu on a bar (Show the rows, Only, Without), a
+  treemap, and a donut that puts its smallest slices into one slice "Other". Its views folder carries
+  the view file "Hours to close per group (table and chart)".
+- Weather has the views "Which city is the warmest in July?" (rows sorted by one column) and "Rain and
+  sunshine per month (bars and lines)" (a combo chart with field names of the report's own).
+
+### Changed
+
+- Requires PowerShellUniversal.Component.Pivot 0.9.0 or later (pivotkit 0.9.0): the pages use
+  `display = 'both'`, `combo`, `treemap`, the high and low points, `fieldLabels`, a sort by one column
+  and `New-UDPivotReport -Uri`.
+- Weather is the first page. Its start view shows the table and the chart side by side: the mean
+  temperature per month as a colour scale from blue to orange and as lines, with each city's warmest and
+  coldest month marked.
+
 ## [0.5.0] - 2026-11-18
 
 ### Added
@@ -98,7 +124,8 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 - `Get-UDPivotShowcaseData`: answers the app's public API calls from the snapshots shipped in `Data/`
   (with their sources and licences, `Data/SOURCES.md`), or live.
 
-[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.5.0...HEAD
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.6.0...HEAD
+[0.6.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.5.0...PowerShellUniversal.Component.Pivot.Demo-v0.6.0
 [0.5.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.4.0...PowerShellUniversal.Component.Pivot.Demo-v0.5.0
 [0.4.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.3.0...PowerShellUniversal.Component.Pivot.Demo-v0.4.0
 [0.3.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.2.0...PowerShellUniversal.Component.Pivot.Demo-v0.3.0

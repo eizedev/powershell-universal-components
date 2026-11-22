@@ -84,7 +84,7 @@ In the PowerShell Gallery: [PowerShellUniversal.Component.Pivot](https://www.pow
 
 [Pivot overview](pivot/index.md){ .md-button .md-button--primary }
 [Templates, view files and roles](pivot/templates.md){ .md-button }
-[Showcase app (demo)](pivot/demo.md){ .md-button title="PowerShellUniversal.Component.Pivot.Demo: the examples, weather, your own files and a ticket report" }
+[Showcase app (demo)](pivot/demo.md){ .md-button title="PowerShellUniversal.Component.Pivot.Demo: weather, the examples, your own files, reports as files, rows from a server and a ticket report" }
 
 ## Requirements
 

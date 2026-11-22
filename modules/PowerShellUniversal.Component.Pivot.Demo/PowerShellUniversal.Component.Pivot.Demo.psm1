@@ -86,11 +86,14 @@ function New-UDPivotShowcase {
     .SYNOPSIS
         Returns the showcase app of PowerShellUniversal.Component.Pivot.
     .DESCRIPTION
-        The app shows New-UDPivotReport on public data and on generated data: the three pivot examples
-        of the documentation on software release cycles from endoflife.date (one line; start view,
-        field names and templates; an app with loading, views per reader and roles), daily weather of
-        six cities from Open-Meteo, a page for the reader's own CSV, JSON and Excel files (read in the browser), and the ticket showcase of the
-        pivot module (5,000 generated tickets, templates, events, field descriptions, page layouts).
+        The app shows New-UDPivotReport on public data and on generated data: daily weather of six
+        cities from Open-Meteo (the first page, a table and a chart side by side), the three pivot
+        examples of the documentation on software release cycles from endoflife.date (one line; start
+        view, field names and templates; an app with loading, views per reader and roles), a page for
+        the reader's own CSV, JSON and Excel files (read in the browser), the report as an Excel
+        workbook or HTML report made on the server (Invoke-UDPivotReport), the rows of a pivotkit-server
+        for the signed-in person (New-UDPivotReport -Uri), and the ticket showcase of the pivot module
+        (5,000 generated tickets, templates, events, charts, field descriptions, page layouts).
         Public data comes from snapshots shipped with the module, so the app works without internet
         access; a switch on each page (or -LiveData) fetches it from the APIs instead. A language switch
         shows the report in English or German.
@@ -102,8 +105,19 @@ function New-UDPivotShowcase {
         access from the PSU server).
     .PARAMETER Locale
         The language the report starts in: en-GB (default) or de-DE.
+    .PARAMETER ServerUri
+        The page "Rows from a server": the REST address of a pivotkit-server (0.4.0 or later),
+        https://reports.example.com/api/v1. Needs -ServerSource and PSU's OpenID Connect sign-in with
+        saved tokens ($AccessToken). Without it the page says what it needs.
+    .PARAMETER ServerSource
+        The page "Rows from a server": the id of the server's source to show.
+    .PARAMETER PivotkitPath
+        The page "Report as a file": the pivotkit program (pivotkit-cli) on the PSU server, when it is
+        not on the PATH. Without the program the page says what to install; its report still works.
     .EXAMPLE
         New-PSUApp -Name 'PivotShowcase' -BaseUrl '/pivot-showcase' -Content { New-UDPivotShowcase }
+    .EXAMPLE
+        New-UDPivotShowcase -ServerUri 'https://reports.example.com/api/v1' -ServerSource 'orders'
     .OUTPUTS
         The app PSU renders (New-UDApp).
     #>
@@ -112,10 +126,14 @@ function New-UDPivotShowcase {
     [CmdletBinding()]
     param(
         [switch]$LiveData,
-        [ValidateSet('en-GB', 'de-DE')][string]$Locale = 'en-GB'
+        [ValidateSet('en-GB', 'de-DE')][string]$Locale = 'en-GB',
+        [ValidateScript({ $_.IsAbsoluteUri -and $_.Scheme -in 'https', 'http' -and -not $_.Query -and -not $_.Fragment }, ErrorMessage = '-ServerUri {0}: an absolute http(s) address without a query string, e.g. https://reports.example.com/api/v1.')][uri]$ServerUri,
+        [ValidateLength(1, 256)][string]$ServerSource,
+        [ValidateNotNullOrEmpty()][string]$PivotkitPath
     )
 
-    & (Join-Path $PSScriptRoot 'Apps' 'Showcase.ps1') -LiveData:$LiveData -Locale $Locale
+    if ([bool]$ServerUri -ne [bool]$ServerSource) { throw '-ServerUri and -ServerSource go together: the server''s REST address and the id of its source.' }
+    & (Join-Path $PSScriptRoot 'Apps' 'Showcase.ps1') -LiveData:$LiveData -Locale $Locale -ServerUri $ServerUri -ServerSource $ServerSource -PivotkitPath $PivotkitPath
 }
 
 Export-ModuleMember -Function New-UDPivotShowcase, Get-UDPivotShowcaseData

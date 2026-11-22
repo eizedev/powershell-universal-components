@@ -93,6 +93,16 @@ async function demoShots(browser) {
             await page.screenshot({ path: `${out}pivot-showcase-weather-${mode}.png`, animations: "disabled" });
             console.log(`pivot-showcase-weather-${mode}.png`);
 
+            // the page "Report as a file": its buttons above the report of rain days per city and season
+            await page.goto(`${demo}/report-file`);
+            const file = page.locator(".ud-pivot-report .pk-root");
+            await expect(file.locator(".pk-result td").first()).toBeVisible({ timeout: 30000 });
+            await setTheme(page, mode);
+            await expect(file).toHaveAttribute("data-pk-theme", mode);
+            await page.waitForTimeout(800);
+            await page.screenshot({ path: `${out}pivot-showcase-report-file-${mode}.png`, animations: "disabled" });
+            console.log(`pivot-showcase-report-file-${mode}.png`);
+
             await page.goto(`${demo}/upload`);
             const report = page.locator(".ud-pivot-report .pk-root");
             await expect(report).toContainText("Load data to start", { timeout: 30000 });

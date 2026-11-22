@@ -63,7 +63,13 @@ of these sections; `tests/js/llms-sections.test.js` fails otherwise.
 ```powershell
 $env:PSU_URL = '<app url>'; npm run test:browser -- tests/browser/psu.spec   # the chart showcase app, all three browsers
 $env:PSU_PIVOT_URL = '<app url>'; npm run test:browser -- tests/browser/psu-pivot.spec   # the pivot showcase app
+$env:PSU_PIVOT_DEMO_URL = '<app url>'; npm run test:browser -- tests/browser/psu-pivot-demo.spec   # New-UDPivotShowcase
 ```
+
+The demo tests download the files of the page "Report as a file", so that app needs pivotkit's command
+line on the PSU server (`-PivotkitPath`). `PSU_PIVOT_DEMO_SERVER_URL` names a second app started with
+`-ServerUri` and `-ServerSource` and without sign-in; its page "Rows from a server" must ask the reader
+to sign in.
 
 The pivot tests (`examples/showcase.ps1` of the pivot module deployed as an app) drag a field, export a
 workbook, run `-OnCellClick` and `-OnViewChange` on the server, save, refuse and delete a template of
