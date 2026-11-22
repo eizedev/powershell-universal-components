@@ -34,6 +34,7 @@ The modules form one product. Judge code, tests, docs and these rules as a whole
   copied into each built module's `Private/` by `build/Copy-SharedCode.ps1`, which also writes
   `Private/SHARED.txt`: the content hashes of `shared/` the module was built from.
 - `build/` - `Build-Module.ps1`, the shared webpack configuration and the growth guards in `growth.js`.
+  Webpack writes a module's bundle to `modules/<Module>/dist/`; `Build-Module.ps1` copies it into `output/`.
 - `docs/` - the documentation site (Zensical, `zensical.toml`, shared design of eizedev/brand): the pages
   as Markdown, the complete documentation of every module. `docs/site/` builds its live parts:
   `examples.ps1` (code and chart from one source, run with the real `New-UDEChart`/`New-UDPerspective`/`New-UDPivotReport`
@@ -58,7 +59,7 @@ pwsh ./docs/site/Build-Site.ps1                      # examples, reference, char
 uv run --with-requirements <eizedev/brand>/docs-site/requirements.txt zensical build   # site/ (copy site.css from there into docs/assets/ first)
 pwsh ./build/Publish-Module.ps1 -Module <Module> -Version x.y.z   # release check and zip (CI publishes)
 pwsh -c 'Invoke-Pester -Path tests/powershell'       # Pester 5 or 6
-pwsh -c 'foreach ($f in "modules", "shared", "build", "tests") { Invoke-ScriptAnalyzer -Path $f -Recurse -Severity Warning, Error | Where-Object ScriptPath -NotMatch "node_modules|public|output" }'   # as CI
+pwsh -c 'foreach ($f in "modules", "shared", "build", "tests") { Invoke-ScriptAnalyzer -Path $f -Recurse -Severity Warning, Error | Where-Object ScriptPath -NotMatch "node_modules|dist|output" }'   # as CI
 ```
 
 `npm run growth` runs `build/growth.js`. It keeps code, tests, and docs from growing by appending.
@@ -118,6 +119,6 @@ rendering.
 
 ## Do not
 
-- Commit `node_modules/`, `public/` or `output/`.
+- Commit `node_modules/`, `dist/` or `output/`.
 - Add a module without the `PowerShellUniversal` tag in its manifest, a README and an example app.
 - Put secrets, host names or anything about a particular installation into code, examples or tests.

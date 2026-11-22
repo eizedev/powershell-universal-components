@@ -49,13 +49,12 @@ Describe 'Measure-PowerShellSize.ps1' {
     }
 
     It 'skips installed packages and build output, measures Public/, and names files with "/"' {
-        foreach ($folder in 'node_modules/x', 'output/M', 'site', 'docs/site', 'modules/M/Public') {
+        foreach ($folder in 'node_modules/x', 'modules/M/dist', 'output/M', 'site', 'docs/site', 'modules/M/Public') {
             $path = Join-Path $script:dir $folder
             New-Item -ItemType Directory -Path $path -Force | Out-Null
             Set-Content -LiteralPath (Join-Path $path 'c.ps1') -Value '1'
         }
         $result = & $script:measure -Path $script:dir | ConvertFrom-Json
-        # public/ (a module's bundle) is not created here: on macOS and Windows it is the folder Public/
         @($result.files.path) | Should -Be @('docs/site/c.ps1', 'modules/M/Public/c.ps1')
     }
 

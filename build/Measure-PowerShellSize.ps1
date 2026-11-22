@@ -15,9 +15,9 @@
     a guard that reads nothing must not report nothing.
 
 .PARAMETER Path
-    The folder to measure. Default: the repository. Folders named node_modules, public, output and
-    .git, and site/ at the top are skipped: they hold installed packages and build output. The names
-    are compared case-sensitively: public/ is a module's bundle, Public/ its exported functions.
+    The folder to measure. Default: the repository. Folders named node_modules, dist (a module's
+    webpack bundle), output and .git, and site/ at the top are skipped: they hold installed packages
+    and build output. The names compare case-sensitively, so only these exact folders are skipped.
 
 .EXAMPLE
     ./build/Measure-PowerShellSize.ps1 | ConvertFrom-Json
@@ -34,7 +34,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $root = (Resolve-Path -LiteralPath $Path).Path
-$skipped = '(^|[\\/])(node_modules|public|output|\.git)[\\/]|^site[\\/]'
+$skipped = '(^|[\\/])(node_modules|dist|output|\.git)[\\/]|^site[\\/]'
 $notCode = [System.Management.Automation.Language.TokenKind[]]@('Comment', 'NewLine', 'LineContinuation', 'EndOfInput')
 
 $files = [System.Collections.Generic.List[object]]::new()
