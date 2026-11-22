@@ -6,7 +6,7 @@ import xlsxReader from "pivotkit-xlsx";
 import { bundleScriptOf, importWorkerOf, workerUrlOf } from "./importWorker";
 import "pivotkit-react/styles.css";
 import "./psu.css";
-import { answerStateRequests } from "./elementState";
+import { answerStateRequests } from "../../../shared/js/elementState.js";
 import { useNarrowWindow } from "./hooks";
 import AdminPanel from "./AdminPanel";
 import { callEndpoint, cellEvent, problemOf, problemText, recordsOf, withheldFieldsOf, withheldText, dataLoadEvent, exportDataLabels, exportDataOf, fieldListOf, heightOf, importLimitsOf, MAX_OPTIONS_LENGTH, MAX_SCHEMA_LENGTH, mergeFieldDefaults, mergeTemplates, parseJsonObject, parseView, readStoredView, readTemplates, restoreRows, schemaUrlOf, sourceOf, startViewOf, switchOf, templateKey, themeOf, tipsOf, VIEW_EVENT_DELAY_MS, viewStoreKey, withoutBareLink, writeLinkView, writeStoredView, zonesOf } from "./prepare";
