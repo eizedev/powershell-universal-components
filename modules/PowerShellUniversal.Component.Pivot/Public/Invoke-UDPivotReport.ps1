@@ -198,135 +198,26 @@ function Invoke-UDPivotReport {
     $errorMark = Get-UDPivotErrorMark -Cmdlet $PSCmdlet
     trap { Reset-UDPivotErrorVariable -Mark $errorMark; throw $_ }
 
-    #region What goes with which engine
-    # the parameters given of a list, as "-Name" (the function's own bound parameters, not the script block's)
-    $bound = $PSBoundParameters
-    $given = { param($Names) @($Names | Where-Object { $bound.ContainsKey($_) } | ForEach-Object { "-$_" }) }
-    $hasData = $PSBoundParameters.ContainsKey('Data')
-    if ($Engine -eq 'Node') {
-        $wrong = & $given 'Source', 'Parameter', 'Uri', 'Token', 'Credential', 'TokenUri', 'Scope', 'Audience', 'Resource', 'ClientAuthentication', 'DataName', 'DataAsOf', 'MaxBytes', 'AsLink'
-        if ($wrong.Count) { throw ('{0}: only with -Engine Rest.' -f ($wrong -join ', ')) }
-        if (-not $hasData) { throw '-Engine Node needs -Data: the command line runs over the rows you give.' }
-    }
-    else {
-        $wrong = & $given 'CliPath', 'Locale', 'TimeZone', 'Numbers', 'FlatHeader'
-        if ($wrong.Count) { throw ('{0}: only with -Engine Node (pivotkit-server uses its own).' -f ($wrong -join ', ')) }
-        if ($Template) { throw '-Template: only with -Engine Node. With -Engine Rest the server''s source decides the template (sources.<id>.template in its configuration).' }
+    Assert-UDPivotReportEngine -Bound $PSBoundParameters -Engine $Engine
+    if ($Engine -eq 'Rest') {
         $auth = Resolve-UDPivotRestSignIn -Bound $PSBoundParameters -TimeoutSec $TimeoutSec
-        if ($hasData -eq [bool]$Source) { throw '-Engine Rest needs either -Data (rows sent with the request) or -Source (a source the operator configured).' }
-        if ($Parameter -and -not $Source) { throw '-Parameter goes with -Source.' }
-        if (($DataName -or $DataAsOf -or $PSBoundParameters.ContainsKey('MaxBytes')) -and -not $hasData) { throw '-DataName, -DataAsOf and -MaxBytes go with -Data.' }
-        if ($AsLink -and $OutFile) { throw '-AsLink returns a link to the report the server keeps; it writes no file, so it does not go with -OutFile.' }
+        Assert-UDPivotRestInput -Bound $PSBoundParameters
     }
-    #endregion
-
-    #region The format, the view and the data
-    $target = if ($OutFile) { $PSCmdlet.GetUnresolvedProviderPathFromPSPath($OutFile) }
-    $named = if ($target) { $Script:ReportExtensions[[System.IO.Path]::GetExtension($target).ToLowerInvariant()] }
-    if ($Format -and $named -and $named -ne $Format) { throw ('-OutFile names a {0} file, -Format {1}: give one or make them agree.' -f $named, $Format) }
-    $kind = if ($Format) { $Format } elseif ($named) { $named } else { 'xlsx' }
-    # pivotkit-cli's render options and the formats they work in (its option table: numbers csv, json;
-    # flat-header csv); the command line only warns about one that does nothing, so refuse it here
-    if ($Numbers -and $kind -notin 'csv', 'json') { throw ('-Numbers goes with -Format csv or json, not {0}.' -f $kind) }
-    if ($FlatHeader -and $kind -ne 'csv') { throw ('-FlatHeader goes with -Format csv, not {0}.' -f $kind) }
-    $templatePath = $null
-    if ($Template) {
-        if ($kind -ne 'html') { throw ('-Template goes with -Format html (a print template for the HTML report), not {0}.' -f $kind) }
-        $templatePath = $PSCmdlet.GetUnresolvedProviderPathFromPSPath($Template)
-        if (-not (Test-Path -LiteralPath $templatePath -PathType Leaf)) { throw ('-Template "{0}": no such file.' -f $Template) }
-    }
-    $viewFile = $null
-    $layoutIn = $null
-    if ($PSCmdlet.ParameterSetName -eq 'View') {
-        try { $viewFile = ConvertFrom-UDPivotViewFile -InputObject $View -Name 'Pivot report' }
-        catch { throw ('-View: {0}' -f $_.Exception.Message) }
-    }
-    else {
-        $layoutIn = ConvertTo-UDPivotReportLayout -Layout $Layout
-    }
-    $reportTitle = if ($Title) { $Title } elseif ($viewFile -and $viewFile.Name -ne 'Pivot report') { $viewFile.Name }
-    #endregion
-
-    if ($target -and -not $PSCmdlet.ShouldProcess($target, ('Write a pivot report ({0})' -f $kind))) { return }
+    $output = Resolve-UDPivotReportOutput -Bound $PSBoundParameters -Cmdlet $PSCmdlet
+    $report = Get-UDPivotReportInput -Bound $PSBoundParameters -ParameterSetName $PSCmdlet.ParameterSetName
+    if ($output.Target -and -not $PSCmdlet.ShouldProcess($output.Target, ('Write a pivot report ({0})' -f $output.Kind))) { return }
 
     if ($Engine -eq 'Rest') {
-        # splatted: a $(...) around -Data would enumerate a DataTable into its rows
-        $bodyArgs = @{ Source = $Source; Parameter = $Parameter; Layout = $layoutIn; Format = $kind; Title = $reportTitle; DataName = $DataName; DataAsOf = $DataAsOf }
-        if ($hasData) { $bodyArgs['Data'] = $Data; $bodyArgs['MaxBytes'] = $MaxBytes }
-        if ($viewFile) { $bodyArgs['View'] = $viewFile.View }
-        if ($AsLink) {
-            $body = New-UDPivotRenderBody @bodyArgs -Save
-            return Get-UDPivotReportLink -Uri $Uri -Body $body -Auth $auth -TimeoutSec $TimeoutSec
-        }
-        $body = New-UDPivotRenderBody @bodyArgs
-        $bytes = Invoke-UDPivotRestRender -Uri $Uri -Body $body -Auth $auth -TimeoutSec $TimeoutSec
+        $rest = @{ Bound = $PSBoundParameters; Report = $report; Kind = $output.Kind; Auth = $auth; MaxBytes = $MaxBytes; TimeoutSec = $TimeoutSec }
+        # -AsLink: the link to the report the server keeps
+        if ($AsLink) { return Invoke-UDPivotRestReport @rest -AsLink }
+        $bytes = Invoke-UDPivotRestReport @rest
     }
-    else {
-        $command = Get-UDPivotCliCommand -CliPath $CliPath
-        # a folder of its own that only this user may read: the rows are the app's data
-        $work = Join-Path ([System.IO.Path]::GetTempPath()) ('pivotkit-' + [guid]::NewGuid().ToString('N'))
-        if ($IsWindows) { [void][System.IO.Directory]::CreateDirectory($work) }
-        else { [void][System.IO.Directory]::CreateDirectory($work, [System.IO.UnixFileMode]'UserRead, UserWrite, UserExecute') }
-        try {
-            $dataPath = Join-Path $work 'data.json'
-            $outPath = Join-Path $work ('report.{0}' -f $kind)
-            # the rows straight into the file, { columns, rows }, as pivotkit's JSON reader takes them
-            $file = [System.IO.File]::Create($dataPath)
-            try {
-                $writer = New-UDPivotJsonWriter -Stream $file
-                $writer.WriteStartObject()
-                Write-UDPivotReportTable -Writer $writer -Data $Data
-                $writer.WriteEndObject()
-                $writer.Flush()
-                $writer.Dispose()
-            }
-            finally { $file.Dispose() }
-            $arguments = [System.Collections.Generic.List[string]]::new()
-            $arguments.Add('render')
-            if ($viewFile) {
-                $viewPath = Join-Path $work 'view.pivotkit.json'
-                $viewJson = ConvertTo-UDPivotViewFile -View $viewFile.View -Name $viewFile.Name -SourceId ([string]$viewFile.Source.id)
-                [System.IO.File]::WriteAllText($viewPath, $viewJson, [System.Text.UTF8Encoding]::new($false))
-                $arguments.AddRange([string[]]@($viewPath, ('--data=' + $dataPath)))
-            }
-            else {
-                $arguments.Add($dataPath)
-                $arguments.AddRange([string[]]@(Get-UDPivotLayoutArgument -Layout $layoutIn))
-            }
-            # every value as --option=value: a value may start with a dash
-            $arguments.AddRange([string[]]@(('--format=' + $kind), ('--output=' + $outPath), '--json', '--quiet', ('--allow-dir=' + $work)))
-            if ($reportTitle) { $arguments.Add('--title=' + $reportTitle) }
-            if ($Locale) { $arguments.Add('--locale=' + $Locale) }
-            if ($TimeZone) { $arguments.Add('--time-zone=' + $TimeZone) }
-            if ($Numbers) { $arguments.Add('--numbers=' + $Numbers.ToLowerInvariant()) }
-            if ($FlatHeader) { $arguments.Add('--flat-header') }
-            if ($templatePath) {
-                # a copy inside the folder: the command line reads only there (--allow-dir)
-                $templateCopy = Join-Path $work 'print.template.html'
-                Copy-Item -LiteralPath $templatePath -Destination $templateCopy
-                $arguments.Add('--template=' + $templateCopy)
-            }
-            $answer = Invoke-UDPivotCli -Command $command -Argument $arguments.ToArray() -TimeoutSec $TimeoutSec
-            $findings = @($answer.findings | Where-Object { $_ -and $_.severity -ne 'info' })
-            if (-not $answer.ok) {
-                $lines = @(Get-UDPivotFindingText -Finding @($findings | Where-Object severity -EQ 'error'))
-                if ($answer.error) { $lines += '{0} {1}: {2}' -f $answer.error.kind, $answer.error.code, $answer.error.message }
-                $id = if ($answer.exitCode -eq 1) { 'PivotViewHasErrors' } else { 'PivotCliFailed' }
-                throw (New-UDPivotError -Id $id -Category InvalidData -Data @{ Code = if ($answer.error) { [string]$answer.error.code } } -Message ('pivotkit''s command line wrote no report (exit {0}):{1}{2}' -f $answer.exitCode, [Environment]::NewLine, ($lines -join [Environment]::NewLine)))
-            }
-            foreach ($line in @(Get-UDPivotFindingText -Finding @($findings | Where-Object severity -EQ 'warning'))) { Write-Warning ('pivotkit: {0}' -f $line) }
-            if (-not (Test-Path -LiteralPath $outPath -PathType Leaf)) { throw (New-UDPivotError -Id PivotCliFailed -Message 'pivotkit''s command line said it wrote the report, but the file is not there.') }
-            $bytes = [System.IO.File]::ReadAllBytes($outPath)
-        }
-        finally {
-            # a file the command line still holds open (Windows) must not hide the report's own error
-            Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
+    else { $bytes = Invoke-UDPivotNodeReport -Bound $PSBoundParameters -Report $report -Output $output -TimeoutSec $TimeoutSec }
 
-    if ($target) {
-        [System.IO.File]::WriteAllBytes($target, $bytes)
-        return Get-Item -LiteralPath $target
+    if ($output.Target) {
+        [System.IO.File]::WriteAllBytes($output.Target, $bytes)
+        return Get-Item -LiteralPath $output.Target
     }
     , $bytes
 }
