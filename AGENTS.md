@@ -4,6 +4,23 @@ Custom components for PowerShell Universal (PSU) apps, one PowerShell module per
 from one repository. Each module is a React bundle plus a PowerShell module that returns the
 hashtable PSU renders; see [README.md](README.md).
 
+## How we build
+
+The modules form one product. Judge code, tests, docs and these rules as a whole.
+
+- **Look at the whole.** Before and after a change, read the whole files, pages and flows it touches,
+  as the people who use, run, and build on the modules. A change is done when the product is better.
+- **Shape what exists.** Edit, merge, move or delete until the result reads as if written today.
+  Adding is the last option.
+- **One place per fact.** A rule, a fact or a piece of logic lives in one place. Others link or import it.
+- **Small units.** A module's exported functions live one per file in `Public/`, helpers in `Private/`.
+  The `.psm1` only loads them. A function does one job. C# goes into `.cs` files, never into here-strings.
+  When a second place needs something, build the shared piece first.
+- **Common practice first.** Write PowerShell, React and JavaScript the way their communities do.
+  A deviation names its reason.
+- **Say what does not fit.** Duplication, a growing function or a page nobody can read: name it in the
+  pull request and propose the fix.
+
 ## Layout
 
 - `modules/<Module>/` - one component module: `Components/` (React/JavaScript), `<Module>.psm1`,
@@ -22,29 +39,19 @@ hashtable PSU renders; see [README.md](README.md).
   `examples.ps1` (code and chart from one source, run with the real `New-UDEChart`/`New-UDPerspective`/`New-UDPivotReport`
   by `Build-Site.ps1`, which writes the snippets the pages include with `--8<-- "examples/<id>.md"`),
   `src/charts.jsx` (draws the modules' own components into the pages) and its own `package.json`. A new
-  parameter or chart type gets its description on the matching page and an example there. Zensical's
+  parameter or chart type belongs on the page that owns its topic, with an example there. Zensical's
   `llmstxt` plugin writes `llms.txt`, `llms-full.txt` and a Markdown file per page from the pages in the
   sections of `[project.plugins.llmstxt.sections]` (every page in exactly one, `tests/js/llms-sections.test.js`).
-- `tests/js/` (node --test), `tests/browser/` (Playwright: the documentation site in Chromium, Firefox and
-  WebKit; `psu.spec.mjs` runs the showcase app on a PSU instance when `PSU_URL` is set, `psu-pivot.spec.mjs`
-  the pivot module's showcase when `PSU_PIVOT_URL` is set, and its template roles against `examples/templates.ps1`
-  with two identities when `PSU_PIVOT_AUTH_URL` is set, `psu-pivot-demo.spec.mjs` the Pivot demo module's
-  showcase when `PSU_PIVOT_DEMO_URL` is set (and a second app with `-ServerUri` and no sign-in when
-  `PSU_PIVOT_DEMO_SERVER_URL` is set), `psu-pivot-rows.spec.mjs` a report with `-Uri -Source` and a
-  pivotkit-server behind it when `PSU_PIVOT_ROWS_URL` is set; `pivot-menus.mjs` drives pivotkit's menus in levels for both
-  pivot specs, `pivot-import.mjs` drops and picks real CSV and Excel files for `-AllowImport`, `pivot-colors.mjs` reads
-  the colours of a colour scale on screen and in an exported workbook),
-  `tests/powershell/` (Pester).
+- `tests/js/` (node --test), `tests/browser/` (Playwright: the documentation site in three browsers, and
+  the showcase apps on a PSU instance when their address is set; which spec needs which variable:
+  [docs/development](docs/development/index.md#browser-tests-on-psu)), `tests/powershell/` (Pester).
 
 ## Commands
 
 ```bash
 npm ci && npm test                                   # JavaScript unit tests (repository root)
 npx playwright install chromium firefox webkit && npm run test:browser   # after building the site
-PSU_URL=<app url> npm run test:browser -- tests/browser/psu.spec   # the showcase app on a PSU instance, all browsers
-PSU_PIVOT_URL=<app url> npm run test:browser -- tests/browser/psu-pivot.spec   # the pivot module's showcase
-PSU_PIVOT_DEMO_URL=<app url> npm run test:browser -- tests/browser/psu-pivot-demo.spec   # the Pivot demo module's showcase
-# plus PSU_PIVOT_AUTH_URL=<templates.ps1 app with sign-in> PSU_PIVOT_READER_USER/_PASSWORD PSU_PIVOT_ADMIN_USER/_PASSWORD for the role tests
+# browser tests against showcase apps on a PSU instance: docs/development/index.md#browser-tests-on-psu
 pwsh ./build/Build-Module.ps1 -Module PowerShellUniversal.Component.ECharts   # output/<Module>/<Version>
 pwsh ./docs/site/Build-Site.ps1                      # examples, reference, charts script for the site
 uv run --with-requirements <eizedev/brand>/docs-site/requirements.txt zensical build   # site/ (copy site.css from there into docs/assets/ first)

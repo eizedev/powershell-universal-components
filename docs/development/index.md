@@ -64,7 +64,14 @@ of these sections; `tests/js/llms-sections.test.js` fails otherwise.
 $env:PSU_URL = '<app url>'; npm run test:browser -- tests/browser/psu.spec   # the chart showcase app, all three browsers
 $env:PSU_PIVOT_URL = '<app url>'; npm run test:browser -- tests/browser/psu-pivot.spec   # the pivot showcase app
 $env:PSU_PIVOT_DEMO_URL = '<app url>'; npm run test:browser -- tests/browser/psu-pivot-demo.spec   # New-UDPivotShowcase
+$env:PSU_PIVOT_ROWS_URL = '<app url>'; npm run test:browser -- tests/browser/psu-pivot-rows.spec   # a report with -Uri -Source and a pivotkit-server behind it
 ```
+
+The role tests of the pivot spec run against `examples/templates.ps1` in an app with sign-in:
+`PSU_PIVOT_AUTH_URL`, plus `PSU_PIVOT_READER_USER`, `PSU_PIVOT_READER_PASSWORD`, `PSU_PIVOT_ADMIN_USER` and
+`PSU_PIVOT_ADMIN_PASSWORD`. Shared helpers: `pivot-menus.mjs` drives pivotkit's menus, `pivot-import.mjs`
+drops and picks real CSV and Excel files, `pivot-colors.mjs` reads the colours of a colour scale on screen
+and in an exported workbook.
 
 The demo tests download the files of the page "Report as a file", so that app needs pivotkit's command
 line on the PSU server (`-PivotkitPath`). `PSU_PIVOT_DEMO_SERVER_URL` names a second app started with
