@@ -5,6 +5,12 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+### Changed
+
+- The module's code is one function per file in `Public/` and `Private/`; the `.psm1` only loads them.
+  Commands, parameters, help and output are unchanged
+  ([#163](https://github.com/eizedev/powershell-universal-components/issues/163)).
+
 ## [0.9.1] - 2026-11-22
 
 ### Added

@@ -38,10 +38,7 @@
             "tests/powershell/PivotTemplates.Tests.ps1": [728]
         },
         "functions": {
-            "Invoke-UDPivotReport": [150],
-            "Invoke-UDPivotTemplateStore": [158],
-            "New-UDEChart": [193],
-            "New-UDPivotReport": [267]
+            "New-UDEChart": [193]
         }
     }
 }
