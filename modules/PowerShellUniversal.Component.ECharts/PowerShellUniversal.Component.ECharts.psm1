@@ -61,6 +61,7 @@ function New-UDEChart {
 
     .PARAMETER Id
         Component id for Get-UDElement, Set-UDElement, Sync-UDElement and Set-UDEChartData.
+        Get-UDElement -Id returns the last click (.selected), range (.range) and zoom (.zoom), not the chart's data.
     .PARAMETER Data
         Rows: a DataTable or DataView, objects, hashtables, or a script block returning them.
     .PARAMETER Type

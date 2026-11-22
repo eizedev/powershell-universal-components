@@ -8,7 +8,7 @@
     Description       = 'Showcase app for PowerShellUniversal.Component.ECharts: ticket report, finance, managed services, operations, a data platform combining many source systems, layouts and live data, all with generated data.'
     PowerShellVersion = '7.4'
     # the charts themselves; PSU loads it from its Modules folder or the gallery
-    RequiredModules   = @(@{ ModuleName = 'PowerShellUniversal.Component.ECharts'; ModuleVersion = '0.3.0' })
+    RequiredModules   = @(@{ ModuleName = 'PowerShellUniversal.Component.ECharts'; ModuleVersion = '0.3.1' })
     FunctionsToExport = @('New-UDEChartShowcase')
     CmdletsToExport   = @()
     VariablesToExport = @()
