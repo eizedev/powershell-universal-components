@@ -119,7 +119,7 @@ The report shows a message instead, in its language. The message for the operato
 the server's address and its answer, goes to the warning stream, the app's log. It is no error on
 purpose: PSU shows an error of a page to the reader as a toast. With `-ErrorAction` or
 `-ErrorVariable` the error goes to the error stream as well, and `-ErrorAction Stop` throws it, for a
-page that handles it itself. `-ErrorVariable` holds the error once.
+page that handles it itself. `-ErrorVariable` holds the error once (with `-ErrorAction Ignore`, nothing).
 
 | Server answer | Error id | The reader reads |
 | --- | --- | --- |
