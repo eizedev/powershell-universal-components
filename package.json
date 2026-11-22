@@ -5,10 +5,13 @@
   "description": "Repository root: shared JavaScript is ESM; unit tests run with node --test, browser tests with Playwright against the built documentation site. fflate is here so the tests resolve it the way each module's bundle does.",
   "scripts": {
     "test": "node --test \"tests/js/*.test.js\"",
+    "growth": "node build/growth.js",
     "test:browser": "playwright test"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
-    "fflate": "0.8.3"
+    "eslint": "10.15.0",
+    "fflate": "0.8.3",
+    "jscpd": "5.4.3"
   }
 }

@@ -1,0 +1,48 @@
+{
+    "docs": {
+        "pages": {
+            "README.md": [105],
+            "docs/pivot/index.md": [264],
+            "docs/pivot/reports.md": [416],
+            "docs/pivot/server-rows.md": [208],
+            "docs/pivot/templates.md": [548],
+            "docs/pivot/views.md": [238]
+        },
+        "totalLines": 4134
+    },
+    "javascript": {
+        "complexity": {
+            "Function 'PsuPivotReport'": [39],
+            "Function 'cartesian'": [46],
+            "Function 'formatter'": [26],
+            "Function 'histogram'": [27],
+            "Function 'responsive'": [38],
+            "modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js Arrow function": [35]
+        },
+        "lines": {
+            "Function 'EChart'": [277],
+            "Function 'Perspective'": [139],
+            "Function 'PsuPivotReport'": [260],
+            "Function 'cartesian'": [337],
+            "modules/PowerShellUniversal.Component.ECharts/Components/EChart.jsx Arrow function": [127]
+        }
+    },
+    "powershell": {
+        "files": {
+            "docs/site/examples.ps1": [510],
+            "modules/PowerShellUniversal.Component.ECharts.Demo/Apps/Showcase.ps1": [1331],
+            "modules/PowerShellUniversal.Component.ECharts/PowerShellUniversal.Component.ECharts.psm1": [329],
+            "modules/PowerShellUniversal.Component.Pivot.Demo/Apps/Showcase.ps1": [305],
+            "modules/PowerShellUniversal.Component.Pivot/PowerShellUniversal.Component.Pivot.psm1": [2731],
+            "tests/powershell/Pivot.Tests.ps1": [530],
+            "tests/powershell/PivotReport.Tests.ps1": [1409],
+            "tests/powershell/PivotTemplates.Tests.ps1": [728]
+        },
+        "functions": {
+            "Invoke-UDPivotReport": [150],
+            "Invoke-UDPivotTemplateStore": [158],
+            "New-UDEChart": [193],
+            "New-UDPivotReport": [267]
+        }
+    }
+}
