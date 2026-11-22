@@ -16,8 +16,8 @@
 
 .PARAMETER Path
     The folder to measure. Default: the repository. Folders named node_modules, dist (a module's
-    bundle), output and .git, and site/ at the top are skipped: they hold installed packages and
-    build output.
+    webpack bundle), output and .git, and site/ at the top are skipped: they hold installed packages
+    and build output. The names compare case-sensitively, so only these exact folders are skipped.
 
 .EXAMPLE
     ./build/Measure-PowerShellSize.ps1 | ConvertFrom-Json
