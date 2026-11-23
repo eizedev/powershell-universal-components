@@ -1,12 +1,14 @@
 # PowerShellUniversal.Component.Pivot
 
-A pivot report builder for PowerShell Universal apps, on [pivotkit](https://www.npmjs.com/package/pivotkit-react):
-readers drag fields from a searchable list into Rows, Columns, Values and Filters and get a table with
-totals or a chart. Dates are grouped by month, quarter or year, a click on a value opens the source
-rows behind it, readers keep their layouts as views (in the browser, in files or a database of your
-choice; roles decide who publishes shared views), undo every step and export to Excel, CSV, PNG, SVG and an HTML report or print; `-ExportData` adds the source rows as a CSV or JSON download. A link made by pivotkit (`create_link`) opens its view in the report. Fields get display names and descriptions from your script, SQL Server column descriptions or an
-OpenAPI schema. With `-AllowImport` readers pivot a CSV, JSON or Excel file of their own, read in the
-browser and never uploaded. `Invoke-UDPivotReport` renders the same views into files from endpoints and schedules, without a browser. Light and dark theme in PSU's colours, English and German, from a phone to a wide screen.
+A pivot report builder for PowerShell Universal apps, on [pivotkit](https://github.com/eizedev/pivotkit).
+Readers drag fields into Rows, Columns, Values and Filters and get a table with totals or a chart.
+
+- Dates grouped by month, quarter or year; a click on a value shows the rows behind it.
+- Views kept in the browser, in files or your own store; roles decide who publishes shared views.
+- Export to Excel, CSV, PNG, SVG and HTML, and print. `-ExportData` adds the source rows as a download.
+- `-AllowImport`: readers pivot a CSV, JSON or Excel file of their own, read in the browser, never uploaded.
+- `Invoke-UDPivotReport` renders the same views into files from endpoints and schedules.
+- Light and dark theme in PSU's colours, English and German, from a phone to a wide screen.
 
 ```powershell
 New-UDPivotReport -Id 'python' -Data (Invoke-RestMethod 'https://endoflife.date/api/python.json')
@@ -41,17 +43,15 @@ is a showcase app in one line (`New-UDPivotShowcase`).
 
 ## Where to read on
 
-| Topic | Page |
-| --- | --- |
-| Three examples on public data (one line; start view, field names and templates; an app with loading, views per reader and roles), what readers can do, data, dates and time zones, language, theme and height, the placeholder while the data loads, performance | [Overview](https://powershell-universal-components.eize.dev/pivot/) |
-| Corporate design from the app's stylesheet, shared with the ECharts module | [Themes and corporate design](https://powershell-universal-components.eize.dev/pivot/themes/) |
-| `-FieldDefaults`, `-FieldDescriptions`, SQL Server column descriptions (`Get-UDPivotSqlColumnDescription`), `-Schema` (JSON Schema, OpenAPI) | [Field names and descriptions](https://powershell-universal-components.eize.dev/pivot/fields/) |
-| `-View`, `-SavedView`, filters, several tabs, the address bar, links from pivotkit (`create_link`) | [Views](https://powershell-universal-components.eize.dev/pivot/views/) |
-| `-Templates`, `-TemplatePath`, view files and their `$schema` (`-SchemaUrl`, the schema files in the module), `-TemplateStore` (browser, files, your own storage), `-AdminRole` and the admin panel | [Templates, view files and roles](https://powershell-universal-components.eize.dev/pivot/templates/) |
-| `-AllowImport`: readers' own CSV, JSON and Excel files, views per file, `-OnDataLoad`, `-ImportLimit` | [Readers' own files](https://powershell-universal-components.eize.dev/pivot/import/) |
-| `-OnViewChange`, `-OnCellClick`, `-OnSaveTemplate`, `-OnDeleteTemplate`, `-OnPublishTemplate`, security | [Events, security and limits](https://powershell-universal-components.eize.dev/pivot/events/) |
-| `Invoke-UDPivotReport`: a view as an Excel workbook, HTML report, CSV, JSON or SVG from endpoints and schedules, with pivotkit's command line or a pivotkit-server (token or OAuth), or as a link that expires; `Get-UDPivotSource`: the server's sources | [Reports without a browser](https://powershell-universal-components.eize.dev/pivot/reports/) |
-| Parameters | [Reference](https://powershell-universal-components.eize.dev/pivot/reference/) |
+- [Overview](https://powershell-universal-components.eize.dev/pivot/): three examples on public data, what readers can do, data, dates, language, theme and height
+- [Field names and descriptions](https://powershell-universal-components.eize.dev/pivot/fields/): `-FieldDefaults`, `-FieldDescriptions`, SQL Server column descriptions, `-Schema`
+- [Views](https://powershell-universal-components.eize.dev/pivot/views/): `-View`, `-SavedView`, filters, tabs, the address bar, links from pivotkit
+- [Templates, view files and roles](https://powershell-universal-components.eize.dev/pivot/templates/): `-Templates`, `-TemplateStore`, `-AdminRole`
+- [Readers' own files](https://powershell-universal-components.eize.dev/pivot/import/): `-AllowImport`, `-OnDataLoad`, `-ImportLimit`
+- [Events, security and limits](https://powershell-universal-components.eize.dev/pivot/events/): the `-On...` events
+- [Reports without a browser](https://powershell-universal-components.eize.dev/pivot/reports/): `Invoke-UDPivotReport`, `Get-UDPivotSource`
+- [Themes and corporate design](https://powershell-universal-components.eize.dev/pivot/themes/), shared with the ECharts module
+- [Reference](https://powershell-universal-components.eize.dev/pivot/reference/): every parameter
 
 ## Security notes
 
@@ -62,6 +62,7 @@ reader loads with `-AllowImport` stays in the browser; only `-OnDataLoad` sends 
 
 ## License
 
-MIT. Includes pivotkit-core, pivotkit-react and pivotkit-xlsx (MIT), read-excel-file (MIT), dnd-kit (MIT), the parts of Apache ECharts the
-chart uses (Apache-2.0) with ZRender (BSD-3-Clause), fflate (MIT) and tslib (0BSD); their licence texts
-are in `THIRD-PARTY-NOTICES.txt` of the built module.
+MIT. The bundle includes libraries under their own licences: pivotkit-core, pivotkit-react, pivotkit-report
+and pivotkit-xlsx (MIT), read-excel-file (MIT), dnd-kit (MIT), the parts of Apache ECharts the chart uses
+(Apache-2.0) with ZRender (BSD-3-Clause), fflate (MIT), tslib (0BSD) and PSU's universal-dashboard helper
+(ISC). Their licence texts are in `THIRD-PARTY-NOTICES.txt` of the built module.

@@ -8,8 +8,8 @@ function Invoke-UDPivotReport {
         For endpoints, scheduled scripts and jobs: the same view a reader builds in New-UDPivotReport
         (Views, Download view, or Get-UDElement's .view) runs over the rows and becomes a file.
 
-        -Engine Node runs pivotkit's command line on the PSU server (npm install --global pivotkit-cli,
-        Node 22 or later, pivotkit-cli 0.2.1 or later): the rows go into a temporary JSON file in a folder of its own that only this
+        -Engine Node runs pivotkit's command line on the PSU server (npm install --global pivotkit-cli
+        0.2.1 or later; Node 24 or later, Node 22 for pivotkit-cli 0.4 and older): the rows go into a temporary JSON file in a folder of its own that only this
         user can read, pivotkit reads and writes only there (--allow-dir), and the folder is removed
         afterwards, also on an error.
 

@@ -5,6 +5,16 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+### Fixed
+
+- `Invoke-UDPivotReport -Engine Node` renders when `PSU_COMPONENT_PIVOT_SCHEMA_URL` is a path. The
+  temporary view file leaves `$schema` out; before, the path stopped every render from a schedule.
+- A time without an offset in a pivotkit-server answer is read as UTC, as documented, not as the
+  server's local time.
+- `ConvertTo-UDPivotViewFile` ends the file with a newline, as its help says.
+- A field or column name with `$` shows as written in the notices above the report; `$&` and similar
+  patterns were replaced.
+
 ### Changed
 
 - The module's code is one function per file in `Public/` and `Private/`; the `.psm1` only loads them.

@@ -78,5 +78,5 @@ function ConvertTo-UDPivotViewFile {
     $file['source'] = $source
     $file['extensions'] = [ordered]@{}
     $file['view'] = $checked
-    (ConvertTo-Json -InputObject $file -Depth ($Script:MaxViewDepth + 2)) -replace "`r`n", "`n"
+    ((ConvertTo-Json -InputObject $file -Depth ($Script:MaxViewDepth + 2)) -replace "`r`n", "`n") + "`n"
 }

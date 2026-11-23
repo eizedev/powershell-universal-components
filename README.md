@@ -27,7 +27,7 @@ and 2026.3.4 in Chromium, Firefox and WebKit (the engine of Safari; the Safari a
 
 ### ECharts
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="assets/screenshot-data-platform-dark.png"><img src="assets/screenshot-service-review-light.png" alt="ECharts: a dashboard of charts and a KPI matrix" width="100%"></picture>
+<img src="assets/screenshot-service-review-light.png" alt="ECharts: a service review page with a KPI matrix of sparklines and bar charts" width="100%">
 
 `New-UDEChart` draws 29 [Apache ECharts](https://echarts.apache.org/) chart types, from bars and lines to gantt
 charts, network graphs, and KPI matrices. Clicks filter other elements. Readers zoom, export, and go full screen.

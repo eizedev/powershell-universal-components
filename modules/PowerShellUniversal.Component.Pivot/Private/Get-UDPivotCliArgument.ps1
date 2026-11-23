@@ -34,7 +34,9 @@ function Get-UDPivotCliArgument {
     $viewFile = $Report.ViewFile
     if ($viewFile) {
         $viewPath = Join-Path $Work 'view.pivotkit.json'
-        $viewJson = ConvertTo-UDPivotViewFile -View $viewFile.View -Name $viewFile.Name -SourceId ([string]$viewFile.Source.id)
+        # the temporary view file needs no $schema: without one, a path in PSU_COMPONENT_PIVOT_SCHEMA_URL
+        # (which needs a request's origin) cannot stop a render from a schedule
+        $viewJson = ConvertTo-UDPivotViewFile -View $viewFile.View -Name $viewFile.Name -SourceId ([string]$viewFile.Source.id) -SchemaUrl ''
         [System.IO.File]::WriteAllText($viewPath, $viewJson, [System.Text.UTF8Encoding]::new($false))
         $arguments.AddRange([string[]]@($viewPath, ('--data=' + $dataPath)))
     }

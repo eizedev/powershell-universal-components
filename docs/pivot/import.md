@@ -116,7 +116,7 @@ reader's files must not reach the server.
 ## Large files and the import worker
 
 CSV, TSV, text and JSON files are read in a Web Worker, so the page stays responsive: the module's
-build makes pivotkit's worker a file of its own (`import-worker.<hash>.js`, about 26 KB), which PSU
+build makes pivotkit's worker a file of its own (`import-worker.<hash>.js`, about 28 KB), which PSU
 serves next to the bundle. Where a worker cannot start - a Content-Security-Policy without
 `worker-src 'self'`, a browser without workers - pivotkit reads the file on the page, with progress
 and Cancel. Excel workbooks are always read on the page (the plugin is code of the page, never of the

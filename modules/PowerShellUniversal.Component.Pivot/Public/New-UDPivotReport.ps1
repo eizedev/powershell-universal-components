@@ -35,7 +35,9 @@ function New-UDPivotReport {
         Set-UDElement -Id -Properties @{ view = ... } shows another view (one undo step). The browser
         tab keeps the reader's view under this id; without -Id the report is identified by its page,
         its place in the app script (line and column of the call) and its column names. Set -Id when
-        one call builds several reports (a loop) or reports are added or removed at run time.
+        one call builds several reports (a loop) or reports are added or removed at run time, and
+        whenever readers save views: without -Id, a line added above the call changes the key and
+        -SourceId with it, so the saved views no longer show for this report.
     .PARAMETER Data
         Rows: a DataTable (Invoke-Sqlcmd, SqlClient, ODBC), DataRows, PSCustomObjects, hashtables or a
         script block returning them. DBNull becomes an empty value, dates stay dates, TimeSpans become

@@ -803,6 +803,9 @@ test("problemOf and problemText: what the reader reads when the server gave no r
     assert.match(mod.problemText(mod.problemOf({ kind: "signIn" }), "de-DE").text, /erneut an/);
     assert.match(mod.problemText(mod.problemOf({ kind: "busy", retryAfter: 7 }), "en-US").text, /7 seconds/);
     assert.match(mod.problemText(mod.problemOf({ kind: "busy" }), "en-US").text, /in a moment/);
+    // a name with "$" stays as written: a text replacement would read "$&" as a pattern
+    assert.match(mod.problemText(mod.problemOf({ kind: "notAllowed", fields: ["Cost $&", "A$'B"] }), "en-US").text, /Cost \$&, A\$'B/);
+    assert.match(mod.withheldText(["Price $$"], "en-US"), /needs Price \$\$,/);
     // the server's "too many rows" message as it is, the module's own words without one
     assert.match(mod.problemText(mod.problemOf({ kind: "tooLarge", detail: "this source has too many rows to open here (60,000, the limit is 50,000)" }), "en-US").text, /60,000, the limit is 50,000/);
     assert.match(mod.problemText(mod.problemOf({ kind: "tooLarge" }), "de-DE").text, /zu viele Zeilen/);

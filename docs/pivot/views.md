@@ -43,13 +43,13 @@ The simplest way to a view is to build it in the report and copy it: **Views, Sh
 [view file](templates.md#view-files); `-View` takes its `view`), or `$EventData.json` of `-OnViewChange`.
 `-View` takes that JSON as it is.
 
-`Reset` in the toolbar goes back to `-View`. `Set-UDElement -Id <id> -Properties @{ view = $view }`
+**Start over** in the toolbar goes back to `-View`. `Set-UDElement -Id <id> -Properties @{ view = $view }`
 shows another view (the reader can undo it), and `(Get-UDElement -Id <id>).view` is the view the reader
 has now. `Get-UDElement` returns only `id` and `view`, not the rows.
 
 The browser tab keeps the reader's view: PSU builds the report anew when the app switches between
 light and dark, and the report comes back with the same fields, table or chart, chart type and
-collapsed groups. Undo and redo start over then; `Reset` still goes back to `-View`, and from then on
+collapsed groups. Undo and redo start over then; **Start over** still goes back to `-View`, and from then on
 the tab keeps `-View`. The view is kept in two places of the tab:
 
 - **The address bar.** Every change writes the view into the URL fragment, one entry per report:
@@ -208,7 +208,7 @@ New-UDPivotReport -Id 'tickets' -Data $tickets -View $startView -SavedView $Sess
 ```
 
 `-SavedView` starts a tab that has no view of its own yet; a tab that already shows a view keeps it,
-and `Reset` goes back to `-View`. The difference matters because PSU's scopes are not per tab
+and **Start over** goes back to `-View`. The difference matters because PSU's scopes are not per tab
 (measured on PSU 2026.3.4):
 
 | Scope | Shared by | Lifetime |
