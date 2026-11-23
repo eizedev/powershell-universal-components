@@ -42,7 +42,7 @@ function Get-UDPivotReportLink {
         throw
     }
     try { $answer = ConvertFrom-Json -InputObject ([System.Text.Encoding]::UTF8.GetString($response.Content)) -Depth 16 }
-    catch { throw (New-UDPivotError -Id PivotServerError -Data @{ Status = $response.StatusCode } -Message ('pivotkit-server {0} answered {1} without JSON.' -f $where, $response.StatusCode)) }
+    catch { Remove-UDPivotErrorRecord -ErrorRecord $_; throw (New-UDPivotError -Id PivotServerError -Data @{ Status = $response.StatusCode } -Message ('pivotkit-server {0} answered {1} without JSON.' -f $where, $response.StatusCode)) }
     $p = ConvertTo-UDPivotServerProblem -Response $response -Answer $answer
     $data = @{ Status = $p.Status; Detail = $p.Detail; RequestId = $p.RequestId }
     $idText = & $idTextOf $p.RequestId

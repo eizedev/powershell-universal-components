@@ -34,7 +34,7 @@ function Get-UDPivotLinkParameter {
     $out = [ordered]@{}
     if (-not $Query.Count) { return $out }
     $response = Invoke-UDPivotRestCall -Uri $Uri -Route '/sources' -Auth $Auth -TimeoutSec $TimeoutSec
-    try { $answer = ConvertFrom-Json -InputObject ([System.Text.Encoding]::UTF8.GetString($response.Content)) -Depth 16 } catch { $answer = $null }
+    try { $answer = ConvertFrom-Json -InputObject ([System.Text.Encoding]::UTF8.GetString($response.Content)) -Depth 16 } catch { Remove-UDPivotErrorRecord -ErrorRecord $_; $answer = $null }
     $entry = if ($answer -is [System.Management.Automation.PSCustomObject] -and $answer.sources) { @($answer.sources | Where-Object { $_ -and $_.id -ceq $Source }) | Select-Object -First 1 }
     $allowed = if ($entry -and $entry.linkParams) { @($entry.linkParams | Where-Object { $_ -is [string] }) } else { @() }
     foreach ($name in $allowed | Sort-Object) {

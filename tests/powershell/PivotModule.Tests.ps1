@@ -72,5 +72,16 @@ Describe 'Remove-UDPivotErrorRecord: what a failed request leaves in $Error' {
         $global:Error.Count | Should -Be 3
         @($global:Error[0..1].FullyQualifiedErrorId) | Should -Be @('PivotServerUnreachable', 'PivotServerUnreachable')
         [object]::ReferenceEquals($global:Error[2], $own) | Should -BeTrue
+        ($global:Error | ForEach-Object { $_ | Format-List * -Force | Out-String }) -join '' | Should -Not -BeLike '*static-token-0123456789*'
+    }
+
+    It 'removes the newest record only when it is the error caught' {
+        $global:Error.Clear()
+        try { throw 'the error caught' } catch { $caught = $_ }
+        Write-Error 'an error that came after it' -ErrorAction SilentlyContinue
+        & $script:module { param($Record) Remove-UDPivotErrorRecord -ErrorRecord $Record } $caught
+        $global:Error.Count | Should -Be 2 -Because 'the newest record is another error'
+        try { throw 'the error caught' } catch { & $script:module { param($Record) Remove-UDPivotErrorRecord -ErrorRecord $Record } $_ }
+        $global:Error.Count | Should -Be 2 -Because 'the newest record was the error caught'
     }
 }

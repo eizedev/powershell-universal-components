@@ -24,7 +24,7 @@ function ConvertTo-UDPivotServerProblem {
     param([Parameter(Mandatory)][pscustomobject]$Response, [AllowNull()][object]$Answer)
     $problem = $Answer
     if ($null -eq $problem) {
-        try { $problem = ConvertFrom-Json -InputObject ([System.Text.Encoding]::UTF8.GetString($Response.Content)) -Depth 16 } catch { $problem = $null }
+        try { $problem = ConvertFrom-Json -InputObject ([System.Text.Encoding]::UTF8.GetString($Response.Content)) -Depth 16 } catch { Remove-UDPivotErrorRecord -ErrorRecord $_; $problem = $null }
     }
     # a problem document (RFC 9457) is an object; anything else (an empty body, a proxy's page) has no members to read
     if ($problem -isnot [System.Management.Automation.PSCustomObject]) { $problem = $null }

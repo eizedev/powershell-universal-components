@@ -9,7 +9,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 - The module's code is one function per file in `Public/` and `Private/`; the `.psm1` only loads them.
   Commands, parameters, help and output are unchanged
-  ([#163](https://github.com/eizedev/powershell-universal-components/issues/163)).
+  ([#163](https://github.com/eizedev/powershell-universal-components/issues/163)). The settings files in
+  `Private/Settings/` load in the order of their names on every file system.
 
 ## [0.9.1] - 2026-11-22
 
