@@ -96,14 +96,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           Install-PSResource -Name Pester -Version 6.2.0 -TrustRepository -Quiet
           Install-PSResource -Name PSScriptAnalyzer -Version 1.25.0 -TrustRepository -Quiet
-          # one call per folder: a call per file once failed with "more than one dynamic module in each
-          # dynamic assembly" and hung the job (#39). Findings in node_modules or build output do not count.
-          $findings = foreach ($folder in 'modules', 'shared', 'build', 'tests') {
-              Invoke-ScriptAnalyzer -Path $folder -Recurse -Severity Warning, Error |
-                  Where-Object ScriptPath -NotMatch '[\\/](node_modules|dist|output)[\\/]'
-          }
-          $findings | Format-Table RuleName, ScriptName, Line, Message -AutoSize -Wrap
-          if ($findings) { throw ('PSScriptAnalyzer: {0} finding(s)' -f @($findings).Count) }
+          ./build/Invoke-ScriptAnalysis.ps1
           Import-Module Pester -RequiredVersion 6.2.0
           $config = New-PesterConfiguration
           $config.Run.Path = 'tests/powershell'
