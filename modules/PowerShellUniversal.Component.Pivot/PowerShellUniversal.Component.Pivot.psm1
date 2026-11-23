@@ -12,8 +12,9 @@ if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'Private' 'SHARED.txt'
 foreach ($file in $public + $private) { . $file.FullName }
 
 # The module's limits, patterns and state ($Script: variables), one file per topic. They load after
-# the functions: the report engine's settings call one.
-foreach ($file in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'Private' 'Settings') -Filter '*.ps1' -File) { . $file.FullName }
+# the functions (the report engine's settings call one), in the order of their names on every file
+# system: Get-ChildItem returns the order the file system keeps.
+foreach ($file in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'Private' 'Settings') -Filter '*.ps1' -File | Sort-Object Name) { . $file.FullName }
 
 # the bundle's asset id for the hashtable New-UDPivotReport returns (shared/powershell/Register-PSUComponentAsset.ps1)
 $Script:AssetId = Register-PSUComponentAsset -Path $PSScriptRoot

@@ -25,7 +25,8 @@ Install-PSResource -Name PowerShellUniversal.Component.Perspective
 In the PowerShell Gallery: [PowerShellUniversal.Component.Perspective](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Perspective).
 
 or copy the built module folder into `Modules/PowerShellUniversal.Component.Perspective/<version>/` of
-your PSU repository.
+your PSU repository. To update, see
+[Update](https://powershell-universal-components.eize.dev/getting-started/#update).
 
 ## Where to read on
 

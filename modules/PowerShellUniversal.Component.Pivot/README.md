@@ -29,7 +29,10 @@ Install-PSResource -Name PowerShellUniversal.Component.Pivot
 In the PowerShell Gallery: [PowerShellUniversal.Component.Pivot](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot).
 
 or copy the built module folder into `Modules/PowerShellUniversal.Component.Pivot/<version>/` of your
-PSU repository. [examples/showcase.ps1](examples/showcase.ps1) is an app with a 5,000-row DataTable,
+PSU repository. To update, see
+[Update](https://powershell-universal-components.eize.dev/getting-started/#update).
+
+[examples/showcase.ps1](examples/showcase.ps1) is an app with a 5,000-row DataTable,
 shipped views and a template store, a language switch, the events and the report in page layouts;
 [examples/templates.ps1](examples/templates.ps1) an app with sign-in where readers keep their views on
 the server and admins publish shared ones. The module

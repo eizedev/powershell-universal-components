@@ -54,7 +54,7 @@ function Get-UDPivotRecordText {
     $document = $null
     try { $document = [System.Text.Json.JsonDocument]::Parse($text) }
     catch {
-        if ($global:Error.Count -and [object]::ReferenceEquals($global:Error[0].Exception, $_.Exception)) { $global:Error.RemoveAt(0) }
+        Remove-UDPivotErrorRecord -ErrorRecord $_
         $why = if ($text.TrimStart().StartsWith('{')) { 'it was cut off on the way (a slow or idle reader, the server''s time limit). Ask again.' } else { 'it is no JSON at all (a proxy''s page, another service at this address). Check -Uri.' }
         throw (New-UDPivotError -Id PivotServerError -Data @{ Status = $response.StatusCode } -Message ('pivotkit-server {0}: the answer is no whole JSON text; {1}' -f $where, $why))
     }

@@ -81,7 +81,7 @@ function Invoke-UDPivotHttp {
                 $errorText = try { Read-UDPivotAnswerText -Content $response.Content -MaxBytes $Script:ErrorBodyMaxBytes -TimeoutSec $(if ($Request['TimeoutSec']) { [int]$Request['TimeoutSec'] } else { 100 }) -What $What }
                 catch {
                     # the status says enough; keep no record of the cut body in $Error
-                    if ($global:Error.Count -and [object]::ReferenceEquals($global:Error[0].Exception, $_.Exception)) { $global:Error.RemoveAt(0) }
+                    Remove-UDPivotErrorRecord -ErrorRecord $_
                     ''
                 }
                 [System.Text.Encoding]::UTF8.GetBytes([string]$errorText)
@@ -101,8 +101,8 @@ function Invoke-UDPivotHttp {
             while ($e -is [System.Management.Automation.MethodInvocationException] -and $e.InnerException) { $e = $e.InnerException }
             $failure = $e.Message
             if ($e.InnerException -and $e.InnerException.Message -and $e.InnerException.Message -ne $failure) { $failure = '{0} ({1})' -f $failure, $e.InnerException.Message }
-            # keep no record of the call in $Error (catch hands over a copy of the record: it is found by its exception)
-            if ($global:Error.Count -and [object]::ReferenceEquals($global:Error[0].Exception, $_.Exception)) { $global:Error.RemoveAt(0) }
+            # keep no record of the call (with its request and headers) in $Error
+            Remove-UDPivotErrorRecord -ErrorRecord $_
         }
     }
     finally {

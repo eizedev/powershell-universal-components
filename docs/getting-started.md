@@ -16,6 +16,38 @@ Or copy a built module folder into `Modules/<Module>/<version>/` of your PSU rep
 zip on GitHub has that layout). Then use the module's command in any app; PSU loads the component
 when a page uses it.
 
+## Update
+
+1. Install the new version of each module you use, on the PSU server:
+
+    ```powershell
+    Update-PSResource -Name PowerShellUniversal.Component.Pivot
+    ```
+
+    It installs the new version and its dependencies in a folder of their own, next to the old one.
+    From a release zip, copy the new `<version>` folder next to the old one in `Modules/<Module>/`.
+2. Restart the apps that use the module, or PSU. PowerShell imports the newest version in the
+    folder, but a running app keeps the version it has imported. Event handlers run in runspaces of
+    their own and import the module there, so without a restart a page of the old version can meet a
+    handler of the new one.
+3. Readers reload their open pages. The bundle's file name holds a hash of its content, so the browser
+    fetches the new code.
+4. Remove the old version folder once nothing uses it: `Update-PSResource` keeps it.
+
+What the update keeps and what to check:
+
+- **Each module carries its own copy of the code the modules share.** A fix in that code reaches a
+  module only with that module's own release. Update every module you use, and read each module's
+  `CHANGELOG.md`.
+- **Readers' views (Pivot) stay.** Views in the browser (`-TemplateStore Browser`) stay there.
+  `New-UDPivotFileTemplateStore` keeps its files in `pivot-views` next to the repository, outside the
+  module folder. A store of `New-UDPivotTemplateStore` keeps them in your own storage. A release reads
+  the view files older releases wrote.
+- **Going back to an older release:** it refuses view files of a newer format than it knows. A
+  module's `CHANGELOG.md` says when a release writes a newer format.
+- **A published folder for the pivot schema** names the old version folder:
+  [point it at the new one](pivot/templates.md#your-own-copy-of-the-schema).
+
 ## A first chart
 
 An app that runs on any PSU server, without a database or an API: the PowerShell commands of the
