@@ -29,7 +29,7 @@ Describe 'New-UDPivotReport: the admin panel' {
         }
     }
 
-    It 'takes an empty -Id, as before the split' {
+    It 'takes an empty -Id' {
         $c = New-UDPivotReport -Id '' -Data @([pscustomobject]@{ A = 1 })
         $c.id | Should -Be ''
     }

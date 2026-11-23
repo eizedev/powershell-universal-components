@@ -240,18 +240,10 @@ the operator set on the server (at most 64 MiB).
 The module needs PowerShell's full language mode: it does not load in constrained language mode
 (checked with PowerShell 7.6), and the JSON writer the engines use is a .NET type that mode blocks.
 
+The rows are written row by row, so the request costs little memory beyond the data itself.
 Measured with 100,000 rows of 3 columns (text, number, date; a 4.3 MB request) against a stand-in
-server on the same machine, PowerShell 7.6 on macOS, the compiled class already loaded (approximate:
-your server differs):
-
-| Data | All rows as objects, then one JSON text (earlier builds) | Written row by row |
-| --- | --- | --- |
-| DataTable | 3.2 s, about 800 MB more memory at the peak | 0.1 s, about 30 MB |
-| PSCustomObjects | 5.0 s, about 1.3 GB more | 0.8 s, about 180 MB |
-
-On the PSU test instance (PSU 2026.2.5 in a container), a build before this one took 16.8 seconds and
-about 700 MB more for 100,000 rows of 3 columns in an endpoint, and 260,000 rows ended in an
-OutOfMemoryException in a 2 GiB container, before the server's 413 could answer.
+server on the same machine, PowerShell 7.6 on macOS (approximate: your server differs): a DataTable
+took 0.1 s and about 30 MB more memory, PSCustomObjects 0.8 s and about 180 MB.
 
 An endpoint or a script in PSU's **Integrated** environment runs inside the PSU server process: the
 memory it takes is the server's, shared with every app and endpoint. Run large reports in a
