@@ -31,8 +31,7 @@ the questions before a delete, a publish or a Save over a shared view open level
 ‹ Back. **Share** (under its own heading, Share this view) has **Copy link**, **Copy view as JSON**,
 **Download view** (a [view file](#view-files)) and **Load view…** (a view file, JSON or a link). **More** is
 always at the end of the toolbar, with Help first. Toolbar buttons that do not fit move into it
-below Help: Data first, then Start over, and Views last, so Views moves only when the report is
-narrow.
+below Help: Data first, then Start over, and Views last, only when the report is narrow.
 
 | What you want | Parameters |
 | --- | --- |
@@ -514,7 +513,8 @@ is an app with sign-in, own views on the server, publishing for two roles and th
 ## How ids and names are built { #ids }
 
 The ids and names the report and the stores build, where they appear and why. Every rule is the
-module's or pivotkit's code; nothing here needs to be set by hand.
+module's or pivotkit's code. Set `-Id` when readers save views: without it the key and `-SourceId`
+follow the call's line in the app script, and a line added above the call hides the saved views.
 
 | What | Rule | Example | Why |
 | --- | --- | --- | --- |

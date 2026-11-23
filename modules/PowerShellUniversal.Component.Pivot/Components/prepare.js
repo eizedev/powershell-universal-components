@@ -13,7 +13,7 @@ export const ENDPOINT_TIMEOUT_MS = 30000;
 // changes of the view within this time are sent to -OnViewChange once
 export const VIEW_EVENT_DELAY_MS = 600;
 // the height when -Height is not set: one screen. The window's height (svh: the browser's bars shown)
-// minus 160 pixels for what a page shows above the report (PSU's app bar of 64 pixels, the page's
+// minus 180 pixels for what a page shows above the report (PSU's app bar of 64 pixels, the page's
 // padding, a title line), so the whole report is on screen when the page loads and the result shows
 // rows enough below the toolbar, the zones and a tip. At least 600 pixels: below that pivotkit folds
 // the zones into one line, and the open zones take about 300. At most 1400 on a tall screen.
@@ -374,7 +374,7 @@ export function exportDataLabels(labels, exportData, locale) {
     const own = base && base.settingInfo && typeof base.settingInfo === "object" ? base.settingInfo : undefined;
     if (own && Object.hasOwn(own, "exportDataCsv")) return base;
     const shown = columns.slice(0, MAX_INFO_COLUMNS).join(", ") + (columns.length > MAX_INFO_COLUMNS ? ", \u2026" : "");
-    const text = (/^de(-|$)/i.test(String(locale || "")) ? SOURCE_DATA_INFO.de : SOURCE_DATA_INFO.en).replace("{columns}", shown);
+    const text = (/^de(-|$)/i.test(String(locale || "")) ? SOURCE_DATA_INFO.de : SOURCE_DATA_INFO.en).replace("{columns}", () => shown);
     return { ...(base || {}), settingInfo: { ...(own || {}), exportDataCsv: text } };
 }
 
@@ -758,10 +758,10 @@ export function problemText(problem, locale) {
     const p = problem || { kind: "serverError", fields: [] };
     const [title, template] = words[p.kind] || words.serverError;
     let text = template
-        .replace("{fields}", p.fields && p.fields.length ? words.fields.replace("{list}", p.fields.join(", ")) : "")
-        .replace("{when}", p.retryAfter !== undefined ? words.seconds.replace("{n}", String(p.retryAfter)) : words.moment);
+        .replace("{fields}", () => (p.fields && p.fields.length ? words.fields.replace("{list}", () => p.fields.join(", ")) : ""))
+        .replace("{when}", () => (p.retryAfter !== undefined ? words.seconds.replace("{n}", String(p.retryAfter)) : words.moment));
     if (p.kind === "tooLarge" && p.detail) text = p.detail;
-    return { title, text, reference: p.requestId ? words.reference.replace("{id}", p.requestId) : undefined };
+    return { title, text, reference: p.requestId ? words.reference.replace("{id}", () => p.requestId) : undefined };
 }
 
 const WITHHELD_TEXTS = {
@@ -774,5 +774,5 @@ export function withheldText(fields, locale) {
     const lang = languageOf(locale);
     const it = lang === "de" ? (fields.length > 1 ? "sie" : "es") : fields.length > 1 ? "them" : "it";
     const rel = fields.length > 1 ? "die" : "das";
-    return WITHHELD_TEXTS[lang].replace("{list}", fields.join(", ")).replace("{it}", it).replace("{rel}", rel);
+    return WITHHELD_TEXTS[lang].replace("{list}", () => fields.join(", ")).replace("{it}", it).replace("{rel}", rel);
 }
