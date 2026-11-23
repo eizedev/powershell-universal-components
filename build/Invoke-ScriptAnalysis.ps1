@@ -14,9 +14,10 @@
     (https://github.com/PowerShell/PSScriptAnalyzer/issues/2229, open; this repository's #168 and #39).
     So neither runs in the main pass:
 
-    - PSProvideCommentHelp reports Information only, which this check does not count. It is left out.
-      The help of every function is checked by the Pester tests and by reading.
+    - PSProvideCommentHelp reports Information only, which this check never counted. It is left out.
     - PSReservedCmdletChar (a Warning) runs in a pass of its own, with no other rule beside it.
+
+    Run both in the main pass again once a PSScriptAnalyzer release fixes that issue.
 
     Findings in node_modules, dist (a module's webpack bundle) and output do not count. When the
     analyzer itself fails, the full exception with its stack trace is written before the script stops,
@@ -40,7 +41,7 @@ $isolated = 'PSReservedCmdletChar'
 $skipped = 'PSProvideCommentHelp'
 $analyze = @{ Recurse = $true; Severity = 'Warning', 'Error' }
 
-# one call per folder: a call per file once failed the same way and hung the job (#39)
+# two calls per folder: the main pass, then the isolated rule (see .DESCRIPTION)
 $findings = foreach ($folder in $Path) {
     $full = Join-Path $root $folder
     try {
