@@ -8,7 +8,10 @@ function Invoke-UDPivotTemplateRequest {
         $EventData of the report and the $User and $Roles PSU sets for the event. A reader saves and
         deletes their own views; publishing and deleting shared views needs a role of -AdminRole, checked
         here with the event's $Roles - never with anything the browser sends. Returns nothing on success,
-        @{ error = '...' } when it refuses (the report shows the text).
+        @{ error = '...' } when it refuses (the report shows the text). Only the module's own refusals
+        reach the browser (a name, a limit, a busy store, rights); any other error, such as a folder the
+        server cannot write, goes to the app's log as a warning, and the reader gets a general text, so
+        no server path or system message reaches the browser.
     .PARAMETER Key
         The key of the report's store (Register-UDPivotTemplateStore).
     .PARAMETER Action
@@ -66,6 +69,14 @@ function Invoke-UDPivotTemplateRequest {
         Invoke-UDPivotTemplateStore @arguments
     }
     catch {
-        @{ error = $_.Exception.Message }
+        # the module's refusals are plain `throw 'text'` (RuntimeException) or New-UDPivotError
+        # (InvalidOperationException); a .NET error (a MethodInvocationException around an IOException)
+        # holds paths and system words
+        $own = $_.Exception.GetType() -in [System.Management.Automation.RuntimeException], [System.InvalidOperationException]
+        if ($own) { @{ error = $_.Exception.Message } }
+        else {
+            Write-Warning ('Pivot template store: {0} failed: {1}' -f $Action, $_.Exception.Message)
+            @{ error = $Script:StoreFailedText }
+        }
     }
 }

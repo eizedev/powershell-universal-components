@@ -7,6 +7,10 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Fixed
 
+- A store error of the server, such as a folder it cannot write, no longer shows the server's path to
+  the reader. Only the module's own refusals (a name, a limit, a busy store, rights) and a text that
+  the app's store throws reach the browser. Any other error goes to the app's log as a warning, and
+  the reader reads "The server could not change the views."
 - `Invoke-UDPivotReport -Engine Node` renders when `PSU_COMPONENT_PIVOT_SCHEMA_URL` is a path. The
   temporary view file leaves `$schema` out; before, the path stopped every render from a schedule.
 - A time without an offset in a pivotkit-server answer is read as UTC, as documented, not as the
