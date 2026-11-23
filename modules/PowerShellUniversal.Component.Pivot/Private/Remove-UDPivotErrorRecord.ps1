@@ -6,9 +6,9 @@ function Remove-UDPivotErrorRecord {
         PowerShell adds every caught error to $global:Error. Where the module handles an error of an
         HTTP request or of reading its answer (a failed request, a cut-off answer, a text that is no
         JSON), the caught record would stay there with what it carries: a request with its headers, part
-        of an answer. Called first in such a catch block. It removes the newest record only when it is this error: catch hands
-        over a copy of the record, so it is found by its exception. Any other record (the caller's own,
-        or one that came in between) stays. Never throws.
+        of an answer. Called first in such a catch block. It removes the newest record only when it is
+        this error: catch hands over a copy of the record, so it is found by its exception. Any other
+        record (the caller's own, or one that came in between) stays. Never throws.
     .PARAMETER ErrorRecord
         $_ of the catch block.
     .EXAMPLE

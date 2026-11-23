@@ -81,7 +81,7 @@ Describe 'Remove-UDPivotErrorRecord: what a failed request leaves in $Error' {
         Write-Error 'an error that came after it' -ErrorAction SilentlyContinue
         & $script:module { param($Record) Remove-UDPivotErrorRecord -ErrorRecord $Record } $caught
         $global:Error.Count | Should -Be 2 -Because 'the newest record is another error'
-        try { throw 'the error caught' } catch { & $script:module { param($Record) Remove-UDPivotErrorRecord -ErrorRecord $Record } $_ }
+        try { throw 'a second error caught' } catch { & $script:module { param($Record) Remove-UDPivotErrorRecord -ErrorRecord $Record } $_ }
         $global:Error.Count | Should -Be 2 -Because 'the newest record was the error caught'
     }
 }
