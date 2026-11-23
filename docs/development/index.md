@@ -10,7 +10,7 @@ layout and the rules that keep modules working inside PSU.
 
 ## Build and test
 
-Requires Node.js 22.18 or newer (Babel 8; CI tests the latest 22.x) and PowerShell 7.4+.
+Requires Node.js 22.18 or newer 22.x, or 24.11 or newer (Babel 8; CI tests the latest 22.x), and PowerShell 7.4+.
 
 ```powershell
 npm ci; npm test                                   # JavaScript unit tests

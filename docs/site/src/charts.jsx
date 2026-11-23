@@ -37,6 +37,8 @@ function loadExamples() {
             }
             return r.json();
         });
+        // a failed fetch is not kept: the next example tries again
+        examples.catch(() => (examples = null));
     }
     return examples;
 }

@@ -14,7 +14,7 @@
   are configuration for the app author; do not build them from what a user typed.
 - A theme path is read on the PSU server on every render, and its content goes to every viewer.
 - Values from the data are HTML-escaped in tooltips.
-- In CSV export, text starting with `=`, `+`, `-` or `@` gets a leading `'` so spreadsheets do not run
+- In CSV export, text starting with `=`, `+`, `-`, `@`, a tab or a carriage return gets a leading `'` so spreadsheets do not run
   it as a formula; Excel export writes text cells, which are never evaluated.
 
 ## Limits
