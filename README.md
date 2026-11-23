@@ -32,10 +32,8 @@ and 2026.3.4 in Chromium, Firefox and WebKit (the engine of Safari; the Safari a
 `New-UDEChart` draws 29 [Apache ECharts](https://echarts.apache.org/) chart types, from bars and lines to gantt
 charts, network graphs, and KPI matrices. Clicks filter other elements. Readers zoom, export, and go full screen.
 
-- [Docs](https://powershell-universal-components.eize.dev/echarts/) ·
-  [`PowerShellUniversal.Component.ECharts`](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.ECharts)
-- Showcase app with 14 pages of examples: [Docs](https://powershell-universal-components.eize.dev/demo/) ·
-  [`PowerShellUniversal.Component.ECharts.Demo`](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.ECharts.Demo)
+- [Docs](https://powershell-universal-components.eize.dev/echarts/) · [PowerShell Gallery](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.ECharts)
+- Showcase app with 14 pages of examples: [Docs](https://powershell-universal-components.eize.dev/demo/) · [PowerShell Gallery](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.ECharts.Demo)
 
 ### Pivot
 
@@ -44,10 +42,8 @@ charts, network graphs, and KPI matrices. Clicks filter other elements. Readers 
 `New-UDPivotReport` is a pivot report builder on [pivotkit](https://github.com/eizedev/pivotkit). Readers drag
 fields into rows, columns, values and filters and get a table or a chart. They save views and export to Excel.
 
-- [Docs](https://powershell-universal-components.eize.dev/pivot/) ·
-  [`PowerShellUniversal.Component.Pivot`](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot)
-- Showcase app with weather data, your own files and a ticket report: [Docs](https://powershell-universal-components.eize.dev/pivot/demo/) ·
-  [`PowerShellUniversal.Component.Pivot.Demo`](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot.Demo)
+- [Docs](https://powershell-universal-components.eize.dev/pivot/) · [PowerShell Gallery](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot)
+- Showcase app with weather data, your own files and a ticket report: [Docs](https://powershell-universal-components.eize.dev/pivot/demo/) · [PowerShell Gallery](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot.Demo)
 
 ### Perspective
 
@@ -56,8 +52,7 @@ fields into rows, columns, values and filters and get a table or a chart. They s
 `New-UDPerspective` is the [Perspective](https://perspective-dev.github.io/) datagrid, pivot table, and WebGL
 charts in one. Readers group, split, filter, and sort. A WebAssembly engine handles large row counts.
 
-- [Docs](https://powershell-universal-components.eize.dev/perspective/) ·
-  [`PowerShellUniversal.Component.Perspective`](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Perspective)
+- [Docs](https://powershell-universal-components.eize.dev/perspective/) · [PowerShell Gallery](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Perspective)
 
 ## Quick start
 
