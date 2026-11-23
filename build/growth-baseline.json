@@ -31,14 +31,13 @@
         "files": {
             "docs/site/examples.ps1": [510],
             "modules/PowerShellUniversal.Component.ECharts.Demo/Apps/Showcase.ps1": [1331],
-            "modules/PowerShellUniversal.Component.ECharts/PowerShellUniversal.Component.ECharts.psm1": [329],
             "modules/PowerShellUniversal.Component.Pivot.Demo/Apps/Showcase.ps1": [305],
             "tests/powershell/Pivot.Tests.ps1": [530],
             "tests/powershell/PivotReport.Tests.ps1": [1409],
             "tests/powershell/PivotTemplates.Tests.ps1": [728]
         },
         "functions": {
-            "New-UDEChart": [193]
+            "New-UDEChart": [121]
         }
     }
 }

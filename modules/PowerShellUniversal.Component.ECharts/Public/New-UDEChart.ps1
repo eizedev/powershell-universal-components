@@ -452,86 +452,12 @@ function New-UDEChart {
     if (-not $Script:AssetId) {
         throw 'PowerShellUniversal.Component.ECharts: the JavaScript bundle (index.<hash>.bundle.js) was not found next to the module, or the module was imported outside PowerShell Universal.'
     }
-    foreach ($endpoint in $OnClick, $OnSelect, $OnZoom, $OnLegendChange) {
-        if ($endpoint) { $endpoint.Register($Id, $PSCmdlet) }
-    }
-
-    $props = @{
-        assetId   = $Script:AssetId
-        isPlugin  = $true
-        type      = 'ud-echart'
-        id        = $Id
-        data      = ConvertTo-PSUComponentData -InputObject $Data
-        chartType = $Type
-        height    = $Height
-        theme     = $Theme.ToLowerInvariant()
-        zoom      = $Zoom.ToLowerInvariant()
-        renderer  = $Renderer.ToLowerInvariant()
-        toolbox   = -not $NoToolbox
-        export    = -not $NoExport
-        fullscreen = -not $NoFullscreen
-        stacked   = [bool]$Stacked
-        horizontal = [bool]$Horizontal
-        normalize = [bool]$Normalize
-        zoomAxis  = $ZoomAxis.ToLowerInvariant()
-        smooth    = [bool]$Smooth
-        logScale  = [bool]$LogScale
-        brush     = [bool]$Brush
-        decal     = [bool]$Decal
-        sparkline = [bool]$Sparkline
-        rose      = [bool]$Rose
-        gaugeStyle = $GaugeStyle.ToLowerInvariant()
-        xAxisType = $XAxisType.ToLowerInvariant()
-    }
-    # DataLabels: unset means the chart type's default (pie shows labels, bars do not)
-    if ($PSBoundParameters.ContainsKey('DataLabels')) { $props['dataLabels'] = [bool]$DataLabels }
-    # only what was given; the browser side has a default for everything else
-    $map = [ordered]@{
-        X = 'x'; Y = 'y'; GroupBy = 'groupBy'; Value = 'value'; Path = 'path'; Source = 'source'; Target = 'target'
-        Open = 'open'; Close = 'close'; Low = 'low'; High = 'high'; Volume = 'volume'; Totals = 'totals'
-        Title = 'title'; Subtitle = 'subtitle'; Width = 'width'; ClassName = 'className'; Style = 'style'; Palette = 'palette'; Format = 'format'; LabelFormat = 'labelFormat'; XFormat = 'xFormat'
-        Locale = 'locale'; XTitle = 'xTitle'; YTitle = 'yTitle'; SecondaryY = 'secondaryY'; SecondaryTitle = 'secondaryTitle'
-        Min = 'min'; Max = 'max'; YMin = 'yMin'; YMax = 'yMax'; Bins = 'bins'; MarkLine = 'markLine'
-        NegativeColor = 'negativeColor'; PositiveColor = 'positiveColor'; ExportColumns = 'exportColumns'; EventColumns = 'eventColumns'
-        ExportFileName = 'exportFileName'; Group = 'group'; Options = 'options'
-        Breaks = 'breaks'; YBreaks = 'yBreaks'; Facet = 'facet'; FacetColumns = 'facetColumns'
-        Start = 'start'; End = 'end'; Size = 'size'; Band = 'band'; BandName = 'bandName'; MarkArea = 'markArea'; Thresholds = 'thresholds'; TargetGroup = 'targetGroup'
-        Orient = 'orient'; Depth = 'depth'; RootName = 'rootName'; EdgeLabel = 'edgeLabel'; MarkPoint = 'markPoint'; LabelColumn = 'labelColumn'; LabelTemplate = 'labelTemplate'; TooltipColumns = 'tooltipColumns'; TooltipTemplate = 'tooltipTemplate'; Forecast = 'forecast'; TrendTarget = 'trendTarget'; TrendName = 'trendName'
-    }
-    foreach ($name in $map.Keys) {
-        if ($PSBoundParameters.ContainsKey($name)) { $props[$map[$name]] = $PSBoundParameters[$name] }
-    }
-    if ($PSBoundParameters.ContainsKey('CellType')) { $props['cellType'] = $CellType.ToLowerInvariant() }
-    if ($Undirected) { $props['directed'] = $false }
-    foreach ($name in 'LightTheme', 'DarkTheme') {
-        if ($PSBoundParameters.ContainsKey($name)) { $props[$name.Substring(0, 1).ToLowerInvariant() + $name.Substring(1)] = ConvertTo-UDEChartTheme -Theme $PSBoundParameters[$name] }
-    }
-    if ($PSBoundParameters.ContainsKey('TooltipMode')) { $props['tooltipMode'] = ConvertTo-UDEChartTooltipMode -TooltipMode $TooltipMode }
-    if ($PSBoundParameters.ContainsKey('LegendType')) { $props['legendType'] = $LegendType.ToLowerInvariant() }
-    if ($PSBoundParameters.ContainsKey('Aggregate')) { $props['aggregate'] = $Aggregate.ToLowerInvariant() }
-    if ($PSBoundParameters.ContainsKey('EmptyText')) { $props['emptyText'] = $EmptyText }
-    if ($PSBoundParameters.ContainsKey('ColorMap')) {
-        $columns = @{ X = $X; GroupBy = $GroupBy; Path = $Path; Source = $Source; Target = $Target; TargetGroup = $TargetGroup }
-        $props['colorMap'] = ConvertTo-UDEChartColorMap -ColorMap $ColorMap -Data $props['data'] -Column $columns -SeriesName $Y
-    }
-    # parameters that only one family of chart types reads: say so instead of ignoring them silently
-    $onlyFor = @{
-        Source = 'sankey', 'graph', 'chord'; Target = 'sankey', 'graph', 'chord'; TargetGroup = 'graph'; Layout = 'graph'; EdgeLabel = 'graph'; Undirected = 'graph'
-        Path = 'treemap', 'sunburst', 'tree'; Orient = 'tree'; Depth = 'tree'; RootName = 'tree'
-        Open = 'candlestick'; Close = 'candlestick'; Low = 'candlestick'; High = 'candlestick'; Volume = 'candlestick'
-        Start = 'gantt'; End = 'gantt'; Bins = 'histogram'; GaugeStyle = 'gauge'; Rose = 'pie', 'donut'; Totals = 'waterfall'; CellType = 'matrix'
-    }
-    foreach ($name in $onlyFor.Keys) {
-        if ($PSBoundParameters.ContainsKey($name) -and $Type -notin $onlyFor[$name]) {
-            Write-Warning ('New-UDEChart: -{0} is used by -Type {1} only; -Type {2} ignores it.' -f $name, ($onlyFor[$name] -join ', '), $Type)
-        }
-    }
-    if ($PSBoundParameters.ContainsKey('Layout')) { $props['layout'] = $Layout.ToLowerInvariant() }
-    if ($PSBoundParameters.ContainsKey('Trend')) { $props['trend'] = $Trend.ToLowerInvariant() }
-    if ($PSBoundParameters.ContainsKey('Legend')) { $props['legend'] = $Legend.ToLowerInvariant() }
-    if ($OnClick) { $props['onClick'] = $OnClick }
-    if ($OnSelect) { $props['onSelect'] = $OnSelect }
-    if ($OnZoom) { $props['onZoom'] = $OnZoom }
-    if ($OnLegendChange) { $props['onLegendChange'] = $OnLegendChange }
+    # The steps: register the event handlers; the props every chart has, then those of the parameters
+    # given; a warning for each parameter the chart type ignores; the handlers' props last.
+    $events = Register-UDEChartEvent -Bound $PSBoundParameters -Id $Id -Cmdlet $PSCmdlet
+    $props = New-UDEChartProp -Bound $PSBoundParameters -Data $Data -Id $Id -Type $Type -Height $Height -Theme $Theme -Zoom $Zoom -ZoomAxis $ZoomAxis -Renderer $Renderer -GaugeStyle $GaugeStyle -XAxisType $XAxisType
+    $props += Get-UDEChartOptionalProp -Bound $PSBoundParameters -Data $props['data']
+    Write-UDEChartTypeWarning -Bound $PSBoundParameters -Type $Type
+    $props += $events
     $props
 }

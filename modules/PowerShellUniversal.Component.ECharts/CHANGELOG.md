@@ -5,6 +5,12 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
 
 ## [Unreleased]
 
+### Changed
+
+- The module's code is one function per file in `Public/` and `Private/`; the `.psm1` only loads them.
+  `New-UDEChart` runs its steps through helpers. Commands, parameters, help and output are unchanged
+  ([#169](https://github.com/eizedev/powershell-universal-components/issues/169)).
+
 ## [0.3.1] - 2026-11-22
 
 ### Fixed
