@@ -29,7 +29,7 @@ Describe 'Build-Module.ps1 with a split module: <Name>' -ForEach @(
     @{ Name = 'PowerShellUniversal.Component.ECharts' }
     @{ Name = 'PowerShellUniversal.Component.Pivot' }
 ) {
-    It 'the built module carries its Public/ and Private/ files (the pivot module also its settings and C# sources) and exports the manifest''s commands (#163, #169)' -Skip:(-not (Test-Path -LiteralPath (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..' '..')) 'modules' $Name 'node_modules' 'webpack'))) {
+    It '<Name>: the built module carries its Public/ and Private/ files (the pivot module also its settings and C# sources) and exports the manifest''s commands (#163, #169)' -Skip:(-not (Test-Path -LiteralPath (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..' '..')) 'modules' $Name 'node_modules' 'webpack'))) {
         $built = & (Join-Path $script:repo 'build' 'Build-Module.ps1') -Module $Name -OutputPath (Join-Path $TestDrive 'out') -SkipNpmInstall 6>$null
         $source = Join-Path $script:repo 'modules' $Name
         foreach ($file in Get-ChildItem -LiteralPath (Join-Path $source 'Public'), (Join-Path $source 'Private') -Include '*.ps1', '*.cs' -File -Recurse) {

@@ -455,6 +455,7 @@ function New-UDEChart {
     # The steps: register the event handlers; the props every chart has, then those of the parameters
     # given; a warning for each parameter the chart type ignores; the handlers' props last.
     $events = Register-UDEChartEvent -Bound $PSBoundParameters -Id $Id -Cmdlet $PSCmdlet
+    # the parameters with a default go on their own: $PSBoundParameters holds only those the caller gave
     $props = New-UDEChartProp -Bound $PSBoundParameters -Data $Data -Id $Id -Type $Type -Height $Height -Theme $Theme -Zoom $Zoom -ZoomAxis $ZoomAxis -Renderer $Renderer -GaugeStyle $GaugeStyle -XAxisType $XAxisType
     $props += Get-UDEChartOptionalProp -Bound $PSBoundParameters -Data $props['data']
     Write-UDEChartTypeWarning -Bound $PSBoundParameters -Type $Type

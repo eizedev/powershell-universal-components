@@ -27,7 +27,7 @@ public class Endpoint {
 Describe 'The files of <Name>' -ForEach $script:splitModules {
     BeforeAll {
         $folder = Join-Path $script:repo 'modules' $Name
-        $module = Import-Module (Join-Path $folder "$Name.psm1") -Force -PassThru
+        $script:module = Import-Module (Join-Path $folder "$Name.psm1") -Force -PassThru
     }
 
     It 'has one file in Public/ per exported command and no other' {
@@ -40,7 +40,7 @@ Describe 'The files of <Name>' -ForEach $script:splitModules {
         # the helpers get a public command's $PSBoundParameters as -Bound; a misspelled key would read $null.
         # Checked: literal keys of $Bound['X'], $Bound.ContainsKey('X') and $Bound.Keys -contains 'X', against
         # the parameters of all public commands (not only the caller's); keys in variables are not checked.
-        $names = foreach ($command in Get-Command -Module $module.Name) { $command.Parameters.Keys }
+        $names = foreach ($command in Get-Command -Module $script:module.Name) { $command.Parameters.Keys }
         foreach ($file in Get-ChildItem -LiteralPath (Join-Path $folder 'Private') -Filter '*.ps1' -File) {
             $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$null)
             $keys = @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.IndexExpressionAst] -and $n.Target.Extent.Text -eq '$Bound' -and $n.Index -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true) | ForEach-Object { $_.Index.Value })

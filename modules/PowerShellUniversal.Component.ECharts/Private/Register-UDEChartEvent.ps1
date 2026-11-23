@@ -20,7 +20,7 @@ function Register-UDEChartEvent {
     foreach ($name in 'OnClick', 'OnSelect', 'OnZoom', 'OnLegendChange') {
         $endpoint = $Bound[$name]
         if ($endpoint) {
-            $endpoint.Register($Id, $Cmdlet)
+            $null = $endpoint.Register($Id, $Cmdlet)
             $props['o' + $name.Substring(1)] = $endpoint
         }
     }
