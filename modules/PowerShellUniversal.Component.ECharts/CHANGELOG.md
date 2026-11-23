@@ -5,6 +5,14 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
 
 ## [Unreleased]
 
+### Fixed
+
+- A heatmap, faceted charts, a radar and a matrix of more than about 125,000 values no longer fail
+  with "Maximum call stack size exceeded": their scale is found with a loop, as `-Aggregate`
+  already did.
+- The CSV export builds its number format once per export, not once per cell; a large export was
+  about 60 times slower than needed.
+
 ### Changed
 
 - The module's code is one function per file in `Public/` and `Private/`; the `.psm1` only loads them.

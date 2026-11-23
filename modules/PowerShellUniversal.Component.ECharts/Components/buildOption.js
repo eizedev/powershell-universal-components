@@ -397,6 +397,8 @@ const AGGREGATES = {
     min: (v) => (v.length ? v.reduce((a, b) => (b < a ? b : a)) : null),
     max: (v) => (v.length ? v.reduce((a, b) => (b > a ? b : a)) : null)
 };
+const maxOf = AGGREGATES.max;
+const minOf = AGGREGATES.min;
 
 // values of the rows that share a key -> one value; without a mode the last row wins (as without -Aggregate)
 export function aggregate(values, mode) {
@@ -917,8 +919,8 @@ function facets(props, rows, keys, ctx) {
     const parts = values.map((v) => cartesian({ ...props, facet: undefined, title: undefined, toolbox: false, legend: "none", zoom: "none", brush: false }, rows.filter((r) => String(r[facetKey] ?? "") === v), keys, { ...ctx, tooltipMode: "axis" }));
     // one value scale for all: comparable at a glance
     const allValues = parts.flatMap((p) => p.series.flatMap((s) => s.data.map((d) => (d && typeof d === "object" && !Array.isArray(d) ? d.value : d)).map((v) => (Array.isArray(v) ? v[1] : v)))).filter((v) => typeof v === "number");
-    const max = props.yMax ?? (allValues.length ? Math.max(...allValues) : undefined);
-    const min = props.yMin ?? (allValues.length && Math.min(...allValues) < 0 ? Math.min(...allValues) : 0);
+    const max = props.yMax ?? (allValues.length ? maxOf(allValues) : undefined);
+    const min = props.yMin ?? (allValues.length && minOf(allValues) < 0 ? minOf(allValues) : 0);
     // layout in percent of the chart height (ECharts has no calc()); -Height in px gives the scale
     const heightPx = parseInt(String(props.height || "400"), 10) || 400;
     const pct = (px) => (px / heightPx) * 100;
@@ -1004,8 +1006,8 @@ function nameValue(props, rows, keys, ctx) {
 function visualMapOf(values, props, ctx, extra) {
     const nums = values.filter((v) => v !== null);
     return {
-        min: props.min ?? (nums.length ? Math.min(...nums) : 0),
-        max: props.max ?? (nums.length ? Math.max(...nums) : 1),
+        min: props.min ?? (nums.length ? minOf(nums) : 0),
+        max: props.max ?? (nums.length ? maxOf(nums) : 1),
         calculable: true,
         orient: "horizontal",
         left: "center",
@@ -1273,7 +1275,7 @@ function radar(props, rows, keys, ctx) {
         title: titleOf(props),
         legend: legendOf(props, true),
         tooltip: { trigger: "item", confine: true, valueFormatter: valueFormatter(props, ctx.locale) || undefined },
-        radar: { indicator: indicators.map((k) => ({ name: displayName(k, props.y), max: max ?? Math.max(...rows.map((r) => num(r[k]) || 0)) * 1.1 })), radius: "65%" },
+        radar: { indicator: indicators.map((k) => ({ name: displayName(k, props.y), max: max ?? (maxOf(rows.map((r) => num(r[k]) || 0)) ?? 0) * 1.1 })), radius: "65%" },
         series: [{ type: "radar", emphasis: { focus: "self" }, areaStyle: { opacity: 0.15 }, data: rows.map((r, rowIndex) => ({ name: String(r[nameKey] ?? ""), value: indicators.map((k) => num(r[k])), rowIndex })) }]
     };
 }
@@ -1467,7 +1469,7 @@ function matrixChart(props, rows, keys, ctx) {
             right: 8,
             bottom: 8,
             x: { data: colCats, levelSize: 30 },
-            y: { data: rowCats, levelSize: Math.min(220, 24 + 7 * Math.max(...rowCats.map((c) => c.length))) }
+            y: { data: rowCats, levelSize: Math.min(220, 24 + 7 * (maxOf(rowCats.map((c) => c.length)) ?? 0)) }
         },
         grid,
         xAxis,

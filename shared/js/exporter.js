@@ -13,6 +13,20 @@ import { formatter } from "./formatters.js";
  * quotes every text field and doubles quotes inside it, and starts with a BOM for Excel.
  */
 
+/** @type {Map<string, Intl.NumberFormat>} one per locale: a CSV of many cells builds it once, not per cell */
+const plainNumbers = new Map();
+
+/** Plain digits with the locale's decimal mark and no grouping, so Excel reads them as a number. */
+function plainNumber(locale) {
+    const key = String(locale ?? "");
+    let format = plainNumbers.get(key);
+    if (!format) {
+        format = new Intl.NumberFormat(locale, { useGrouping: false, maximumFractionDigits: 10 });
+        plainNumbers.set(key, format);
+    }
+    return format;
+}
+
 export function exportColumns(rows, definition) {
     const keys = columnsOf(rows);
     if (!Array.isArray(definition) || definition.length === 0) {
@@ -64,7 +78,7 @@ function csvValue(value, column, locale, separator) {
         const n = typeof value === "number" ? value : Number(value);
         if (!isNaN(n)) {
             // plain digits with the locale's decimal mark, no grouping: Excel reads it as a number
-            return new Intl.NumberFormat(locale, { useGrouping: false, maximumFractionDigits: 10 }).format(n);
+            return plainNumber(locale).format(n);
         }
     }
     const text = column.format ? formatter(column.format, locale)(value) : String(value);

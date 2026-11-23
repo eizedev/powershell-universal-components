@@ -1015,3 +1015,13 @@ test("sparklines and small multiples keep the values at the position", () => {
     const facet = buildOption({ chartType: "bar", data: weather, x: "Month", y: ["Temp"], facet: "City", tooltipMode: "Item" }, {});
     assert.equal(facet.tooltip.trigger, "axis");
 });
+
+test("a heatmap and faceted bars of 300,000 values build without overflowing the call stack", () => {
+    // Math.max(...values) throws RangeError above about 125,000 values; the scale comes from a loop
+    const n = 300_000;
+    const rows = Array.from({ length: n }, (_, i) => ({ x: `x${i % 600}`, y: `y${Math.floor(i / 600)}`, v: i % 97 }));
+    const heat = buildOption({ chartType: "heatmap", data: rows, x: "x", y: "y", value: "v" }, {});
+    assert.equal(heat.visualMap.max ?? heat.visualMap[0]?.max, 96);
+    const bars = buildOption({ chartType: "bar", data: rows.map((r) => ({ g: r.y.length % 2 ? "a" : "b", x: r.x, v: r.v })), x: "x", y: ["v"], facet: "g" }, {});
+    assert.ok(bars.series.length > 0);
+});
