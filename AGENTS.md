@@ -25,8 +25,9 @@ The modules form one product. Judge code, tests, docs and these rules as a whole
 
 - `modules/<Module>/` - one component module: `Components/` (React/JavaScript), `<Module>.psm1`,
   `<Module>.psd1`, `package.json` + `package-lock.json`, `examples/`, `README.md`, `CHANGELOG.md`.
-  A split module (Pivot so far) has `Public/` and `Private/` with one function per file, its
-  `$Script:` limits and state in `Private/Settings/` (loaded after the functions) and C# in `Private/*.cs`.
+  A split module (Pivot and ECharts) has `Public/` and `Private/` with one function per file; the pivot
+  module also keeps its `$Script:` limits and state in `Private/Settings/` (loaded after the functions)
+  and C# in `Private/*.cs`. Perspective and the demo modules have one or three functions, still in the `.psm1`.
   A module without `package.json` is PowerShell only (the demo modules with their app in `Apps/`).
   A module's `Build.psd1` names files from elsewhere in the repository the build copies into it (the
   pivot demo carries the site's examples and data snapshots and the pivot showcase), so each is defined once.
@@ -100,11 +101,10 @@ rendering.
   the page's `data-theme` (an export reads each theme from the report itself), and every visual value there is a token
   (literals only in the `--psu-default-*` blocks; `tests/js/pivot.test.js` checks both).
 - PowerShell: approved verbs, advanced functions with comment-based help, ASCII-only `.ps1`/`.psm1`.
-  In the pivot module:
-  - A helper that needs many of a public command's parameters gets its `$PSBoundParameters` as `-Bound`.
-    `tests/powershell/PivotModule.Tests.ps1` checks that every literal key a helper reads is a parameter
-    of a public command.
-  - A `catch` around an HTTP request or the reading of its answer calls
+  - In a split module, a helper that needs many of a public command's parameters gets its
+    `$PSBoundParameters` as `-Bound`. `tests/powershell/ModuleFiles.Tests.ps1` checks that every literal
+    key a helper reads is a parameter of a public command, and that `Public/` matches `FunctionsToExport`.
+  - In the pivot module, a `catch` around an HTTP request or the reading of its answer calls
     `Remove-UDPivotErrorRecord -ErrorRecord $_` first, so no request, header or token stays in `$Error`.
 - Behaviour is documented on the site pages in `docs/`; the root README and the module READMEs stay
   short (what it is, install, a quick example, links to the pages).

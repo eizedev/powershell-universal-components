@@ -36,6 +36,34 @@ Describe 'New-UDEChart' {
         (New-UDEChart -Data @() -DataLabels:$false).dataLabels | Should -BeFalse
         (New-UDEChart -Data @() -Legend Top).legend | Should -Be 'top'
     }
+    It 'sends each parameter given under its camelCase name: a choice in lower case, anything else as it is' {
+        # every parameter, read from the command: a value it accepts (a ValidateSet's first choice, a
+        # number in a ValidateRange, a format name), and the prop it must arrive as
+        $converted = 'Id', 'Data', 'Type', 'ColorMap', 'LightTheme', 'DarkTheme', 'TooltipMode', 'Undirected', 'NoToolbox', 'NoExport', 'NoFullscreen', 'OnClick', 'OnSelect', 'OnZoom', 'OnLegendChange'
+        $common = [System.Management.Automation.PSCmdlet]::CommonParameters
+        foreach ($p in (Get-Command New-UDEChart).Parameters.Values | Where-Object { $_.Name -notin $converted -and $_.Name -notin $common }) {
+            $set = $p.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }
+            $range = $p.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateRangeAttribute] }
+            $type = $p.ParameterType
+            $value = if ($set) { $set.ValidValues[0] }
+            elseif ($type -eq [switch]) { [switch]$true }
+            elseif ($range) { [int]$range.MinRange }
+            elseif ($type -eq [string] -and $p.Name -match 'Format$') { 'number' }
+            elseif ($type -eq [string] -and $p.Name -eq 'Locale') { 'de-DE' }
+            elseif ($type -eq [string]) { 'v' }
+            elseif ($type -eq [Nullable[double]]) { 1.5 }
+            elseif ($type -eq [int]) { 3 }
+            else { $null }
+            # lists and dictionaries: two values; a choice arrives in lower case, a switch as $true
+            if ($null -eq $value) { $value = if ($type -eq [hashtable] -or $type -eq [System.Collections.IDictionary]) { @{ k = 'v' } } else { 'v', 'w' } }
+            $expected = if ($set) { $value.ToLowerInvariant() } elseif ($type -eq [switch]) { $true } else { $value }
+            $splat = @{ Data = @(); $p.Name = $value }
+            $c = New-UDEChart @splat -WarningAction SilentlyContinue
+            $prop = $p.Name.Substring(0, 1).ToLowerInvariant() + $p.Name.Substring(1)
+            $c.ContainsKey($prop) | Should -BeTrue -Because "-$($p.Name) arrives as $prop"
+            ($c[$prop] | ConvertTo-Json -Compress) | Should -Be ($expected | ConvertTo-Json -Compress) -Because "-$($p.Name)"
+        }
+    }
     It 'converts a DataTable with DBNull and dates' {
         $t = [System.Data.DataTable]::new()
         [void]$t.Columns.Add('Name'); [void]$t.Columns.Add('When', [datetime]); [void]$t.Columns.Add('V', [int])
