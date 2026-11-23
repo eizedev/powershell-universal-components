@@ -30,7 +30,11 @@ function Write-UDPivotStoredView {
     )
     if ($Context.Store.Kind -eq 'File') {
         try { $null = New-Item -ItemType Directory -Path $Context.Folder -Force }
-        catch { throw ('The view store cannot create its folder ({0}).' -f $_.Exception.Message) }
+        catch {
+            # the folder's path stays in the log; the reader gets the general text
+            Write-Warning ('Pivot template store: the view store cannot create its folder: {0}' -f $_.Exception.Message)
+            throw $Script:StoreFailedText
+        }
         $target = Join-Path $Context.Folder $FileName
         $temp = Join-Path $Context.Folder ('.{0}.{1}.tmp' -f $FileName, [guid]::NewGuid().ToString('n'))
         try {

@@ -285,12 +285,11 @@ delete shared views; everyone else sees shared views read-only. The store keeps 
   twice (copied by hand) is left once.
 - **Several reports** can share one store: each lists the views made for its data (`-SourceId`) and
   those that name no data, as pivotkit's browser store does; the same name in two reports is two views.
-- **Writes**: to a new file that then replaces the old one, under a lock per folder, so two saves at the
-  same moment never leave half a file or a count over the limit.
+- **Writes**: a new file replaces the old one, under a lock per folder: no half file, no count over the limit.
 - **Limits**: `-MaxUserViews` (default 50) and `-MaxSharedViews` (default 200); a save over the limit
   says "At most 50 own views; delete one first." Every stored file is checked again when it is read.
-- **Several PSU nodes** (high availability): a local folder is per node. Use a folder all nodes share,
-  or a store on a database.
+- **Errors of the server** (a folder it cannot write) go to the app's log; the reader reads a general text.
+- **Several PSU nodes**: a local folder is per node. Use a folder all nodes share, or a database.
 
 ### On your own storage: `New-UDPivotTemplateStore`
 
@@ -325,7 +324,8 @@ nodes, two saves of a new name on two nodes at the same moment can both add it: 
 unique key on scope, user and `FileName` (the SQL Server example's primary key), so the second
 replaces the first instead of adding a row.
 
-Throw to refuse; the reader sees the message. Like the file store, a report lists only the views made
+Throw a text to refuse (`throw 'Not on weekends.'`); the reader sees it. An error of a .NET method
+(a database that is down) goes to the app's log instead, and the reader reads a general text. Like the file store, a report lists only the views made
 for its `-SourceId` and those that name no data, so one store serves several reports. The script blocks run in the runspace of the app script
 that defined them, for every reader: they do not see `$User` or `$Roles` (use `$Request`), and PSU
 runs the event handlers in runspaces of their own, so a script block imports the modules it uses

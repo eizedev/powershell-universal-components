@@ -32,6 +32,9 @@ $Script:MaxViewFileDescription = 2000
 $Script:KnownViewVersion = 2
 # a template's name in the Views menu (pivotkit-react's save field takes 120 characters)
 $Script:MaxTemplateNameLength = 120
+# what a reader reads when the store fails for a reason of the server (a folder it cannot write): the
+# reason itself goes to the app's log, since it holds paths (Invoke-UDPivotTemplateRequest)
+$Script:StoreFailedText = 'The server could not change the views. The app''s log says why; ask the app''s owner.'
 # templates the report gets in all (pivotkit-core's TEMPLATE_LIMITS.count)
 $Script:MaxTemplates = 500
 # the default caps of a template store
