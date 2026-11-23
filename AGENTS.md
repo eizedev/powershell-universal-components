@@ -101,11 +101,10 @@ rendering.
   the page's `data-theme` (an export reads each theme from the report itself), and every visual value there is a token
   (literals only in the `--psu-default-*` blocks; `tests/js/pivot.test.js` checks both).
 - PowerShell: approved verbs, advanced functions with comment-based help, ASCII-only `.ps1`/`.psm1`.
-  In the pivot module:
-  - A helper that needs many of a public command's parameters gets its `$PSBoundParameters` as `-Bound`.
-    `tests/powershell/PivotModule.Tests.ps1` checks that every literal key a helper reads is a parameter
-    of a public command.
-  - A `catch` around an HTTP request or the reading of its answer calls
+  - In a split module, a helper that needs many of a public command's parameters gets its
+    `$PSBoundParameters` as `-Bound`. `tests/powershell/ModuleFiles.Tests.ps1` checks that every literal
+    key a helper reads is a parameter of a public command, and that `Public/` matches `FunctionsToExport`.
+  - In the pivot module, a `catch` around an HTTP request or the reading of its answer calls
     `Remove-UDPivotErrorRecord -ErrorRecord $_` first, so no request, header or token stays in `$Error`.
 - Behaviour is documented on the site pages in `docs/`; the root README and the module READMEs stay
   short (what it is, install, a quick example, links to the pages).
