@@ -1,6 +1,7 @@
 #Requires -Version 7.4
-# Pester tests for the files of PowerShellUniversal.Component.Pivot: one file per exported command, and
-# the helpers that read a public command's parameters (#163). PSU's [Endpoint] type is a stub.
+# Pester tests for the files of PowerShellUniversal.Component.Pivot and the helpers its commands share:
+# one file per exported command, the helpers that read a public command's parameters (#163), and what a
+# failed request leaves in $Error. PSU's [Endpoint] type is a stub.
 
 BeforeAll {
     if (-not ('Endpoint' -as [type])) {
@@ -53,5 +54,34 @@ Describe 'New-UDPivotReport: the admin panel' {
     It 'takes an empty -Id, as before the split' {
         $c = New-UDPivotReport -Id '' -Data @([pscustomobject]@{ A = 1 })
         $c.id | Should -Be ''
+    }
+}
+
+Describe 'Remove-UDPivotErrorRecord: what a failed request leaves in $Error' {
+    It 'two failed calls in a row: $Error keeps the caller''s records and gains only the two errors thrown' {
+        # Remove-UDPivotErrorRecord removes the newest record only when it is the one caught; the
+        # caller's own record below it stays, also on the second call
+        $closed = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $closed.Start(); $deadPort = $closed.LocalEndpoint.Port; $closed.Stop()
+        $global:Error.Clear()
+        Write-Error 'the caller''s own error' -ErrorAction SilentlyContinue
+        $own = $global:Error[0]
+        foreach ($i in 1, 2) {
+            try { Invoke-UDPivotReport -Engine Rest -Uri ('http://127.0.0.1:{0}/api/v1' -f $deadPort) -Token 'static-token-0123456789' -Data @([pscustomobject]@{ A = 1 }) -View @{ rows = @('A') } } catch { $null = $_ }
+        }
+        $global:Error.Count | Should -Be 3
+        @($global:Error[0..1].FullyQualifiedErrorId) | Should -Be @('PivotServerUnreachable', 'PivotServerUnreachable')
+        [object]::ReferenceEquals($global:Error[2], $own) | Should -BeTrue
+        ($global:Error | ForEach-Object { $_ | Format-List * -Force | Out-String }) -join '' | Should -Not -BeLike '*static-token-0123456789*'
+    }
+
+    It 'removes the newest record only when it is the error caught' {
+        $global:Error.Clear()
+        try { throw 'the error caught' } catch { $caught = $_ }
+        Write-Error 'an error that came after it' -ErrorAction SilentlyContinue
+        & $script:module { param($Record) Remove-UDPivotErrorRecord -ErrorRecord $Record } $caught
+        $global:Error.Count | Should -Be 2 -Because 'the newest record is another error'
+        try { throw 'a second error caught' } catch { & $script:module { param($Record) Remove-UDPivotErrorRecord -ErrorRecord $Record } $_ }
+        $global:Error.Count | Should -Be 2 -Because 'the newest record was the error caught'
     }
 }

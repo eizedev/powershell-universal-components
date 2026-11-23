@@ -47,7 +47,7 @@ function Read-UDPivotAnswerText {
             catch {
                 $e = $_.Exception
                 while ($e -is [System.Management.Automation.MethodInvocationException] -and $e.InnerException) { $e = $e.InnerException }
-                if ($global:Error.Count -and [object]::ReferenceEquals($global:Error[0].Exception, $_.Exception)) { $global:Error.RemoveAt(0) }
+                Remove-UDPivotErrorRecord -ErrorRecord $_
                 $why = if ($cancel.IsCancellationRequested) { 'took longer than {0} seconds' -f $TimeoutSec } else { $e.Message }
                 throw (New-UDPivotError -Id PivotServerError -Message ('{0}: the answer was cut off after {1:N0} bytes ({2}). Ask again.' -f $What, $total, $why))
             }

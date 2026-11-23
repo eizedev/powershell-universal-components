@@ -414,6 +414,9 @@ function New-UDPivotReport {
         [Endpoint]$OnPublishTemplate,
         [Endpoint]$OnDataLoad
     )
+    # The steps: check the parameters; take the rows (-Data) or fetch them from the server (-Uri); build
+    # the props from the columns, then add export, view, source, schema, templates, fields, display and
+    # events, each from its helper; the admin panel comes last, as it shows how long the steps took.
     # -ErrorVariable gets the error itself, not each step it took through the module
     $errorMark = Get-UDPivotErrorMark -Cmdlet $PSCmdlet
     trap { Reset-UDPivotErrorVariable -Mark $errorMark; throw $_ }

@@ -87,7 +87,7 @@ function Get-UDPivotAccessToken {
     }
     if ([int]$response.StatusCode -ge 300 -and [int]$response.StatusCode -lt 400) { throw (New-UDPivotError -Id PivotRedirectRefused -Category SecurityError -Data @{ Status = [int]$response.StatusCode } -Message ('Token endpoint {0} answered with a redirect ({1}); it is not followed, so the client secret stays with this endpoint: use the address it names in -TokenUri.' -f $where, [int]$response.StatusCode)) }
     $json = $null
-    try { $json = ConvertFrom-Json -InputObject ([System.Text.Encoding]::UTF8.GetString($response.Content)) -Depth 8 } catch { $json = $null }
+    try { $json = ConvertFrom-Json -InputObject ([System.Text.Encoding]::UTF8.GetString($response.Content)) -Depth 8 } catch { Remove-UDPivotErrorRecord -ErrorRecord $_; $json = $null }
     if ($response.StatusCode -ne 200) {
         # RFC 6749 5.2: error and error_description; nothing of the request is repeated
         $reason = if ($json -and $json.error) { '{0}{1}' -f $json.error, $(if ($json.error_description) { ': ' + $json.error_description }) } else { 'no OAuth error in the answer' }

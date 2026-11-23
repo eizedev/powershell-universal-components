@@ -79,7 +79,7 @@ function Get-UDPivotSource {
     $auth = Resolve-UDPivotRestSignIn -Bound $PSBoundParameters -TimeoutSec $TimeoutSec
     $response = Invoke-UDPivotRestCall -Uri $Uri -Route '/sources' -Auth $auth -TimeoutSec $TimeoutSec
     try { $answer = ConvertFrom-Json -InputObject ([System.Text.Encoding]::UTF8.GetString($response.Content)) -Depth 16 }
-    catch { $answer = $null }
+    catch { Remove-UDPivotErrorRecord -ErrorRecord $_; $answer = $null }
     if ($answer -isnot [System.Management.Automation.PSCustomObject] -or $null -eq $answer.PSObject.Properties['sources']) {
         throw (New-UDPivotError -Id PivotServerError -Data @{ Status = $response.StatusCode } -Message ('pivotkit-server {0}: the answer to GET /sources holds no list of sources.' -f (Get-UDPivotSafeAddress -Uri $Uri)))
     }

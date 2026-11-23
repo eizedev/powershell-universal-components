@@ -8,6 +8,7 @@ Install-PSResource -Name PowerShellUniversal.Component.ECharts.Demo   # installs
 ```
 
 In the PowerShell Gallery: [PowerShellUniversal.Component.ECharts.Demo](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.ECharts.Demo).
+To update, see [Update](https://powershell-universal-components.eize.dev/getting-started/#update).
 
 App content (admin console > Apps > create, or a script):
 

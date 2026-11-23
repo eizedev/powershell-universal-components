@@ -8,6 +8,7 @@ Install-PSResource -Name PowerShellUniversal.Component.Pivot.Demo   # installs t
 ```
 
 In the PowerShell Gallery: [PowerShellUniversal.Component.Pivot.Demo](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot.Demo).
+To update, see [Update](https://powershell-universal-components.eize.dev/getting-started/#update).
 
 App content (admin console > Apps > create, or a script):
 
