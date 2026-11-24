@@ -2,7 +2,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { contrastRatio, parseColor } from "../../shared/js/contrast.js";
+// the WCAG contrast arithmetic of the ECharts module (labels on fills), used here on the theme tokens
+import { contrastRatio, parseColor } from "../../modules/PowerShellUniversal.Component.ECharts/Components/contrast.js";
 
 const mod = await import("../../modules/PowerShellUniversal.Component.Pivot/Components/prepare.js");
 

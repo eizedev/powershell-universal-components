@@ -1,5 +1,5 @@
 import { zipSync, strToU8 } from "fflate";
-import { columnsOf, resolveColumn } from "./columns.js";
+import { columnsOf, resolveColumn } from "../../../shared/js/columns.js";
 import { formatter } from "./formatters.js";
 
 /*

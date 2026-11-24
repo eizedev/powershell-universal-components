@@ -1,4 +1,4 @@
-import { html, joinHtml, trusted } from "../../../shared/js/html.js";
+import { html, joinHtml, trusted } from "./html.js";
 
 /*
  * -TooltipMode: which items the tooltip of a cartesian chart (line, area, step, bar) covers.

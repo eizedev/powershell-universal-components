@@ -49,7 +49,7 @@ module.exports = function config(moduleDir) {
         },
         resolve: {
             extensions: [".js", ".jsx", ".mjs"],
-            // shared/js imports packages (fflate) from the module's node_modules
+            // files outside the module folder (shared/js) resolve packages from the module's node_modules
             modules: [path.join(moduleDir, "node_modules"), "node_modules"]
         },
         resolveLoader: { modules: [path.join(moduleDir, "node_modules"), "node_modules"] },

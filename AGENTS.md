@@ -31,8 +31,10 @@ The modules form one product. Judge code, tests, docs and these rules as a whole
   A module without `package.json` is PowerShell only (the demo modules with their app in `Apps/`).
   A module's `Build.psd1` names files from elsewhere in the repository the build copies into it (the
   pivot demo carries the site's examples and data snapshots and the pivot showcase), so each is defined once.
-- `shared/js/` - JavaScript used by several modules (PSU theme bridge, column matching, formats,
-  CSV/XLSX export, text contrast on fills, the answer to `Get-UDElement` in `elementState.js`). Compiled into each module's bundle; never a runtime dependency between modules.
+- `shared/js/` - JavaScript used by several modules: the PSU theme bridge, column matching and the answer
+  to `Get-UDElement` in `elementState.js`. Compiled into each module's bundle; never a runtime dependency
+  between modules. Formats, the CSV/XLSX export and text contrast on fills serve only the ECharts module
+  and live in its `Components/`.
 - `shared/powershell/` - PowerShell used by several modules (data conversion with its C# converter in
   `RowConverter.cs`, asset registration, compiling a `.cs` file under a versioned type name), one
   function per file. `build/Copy-SharedCode.ps1` copies it with the `.cs` files into each built module's
@@ -93,8 +95,8 @@ rendering.
   case-insensitively (`shared/js/columns.js`), never by exact key.
 - Data goes through `ConvertTo-PSUComponentData` (DataTable, DBNull, dates). An `[ordered]` dictionary
   arrives in the browser as key/value pairs; return PSCustomObjects.
-- PowerShell sends no functions: formats are names resolved in `shared/js/formatters.js`. Never evaluate
-  a string from props as code.
+- PowerShell sends no functions: formats are names resolved in the ECharts module's
+  `Components/formatters.js`. Never evaluate a string from props as code.
 - Every package is pinned to an exact version with a lock file; chart libraries have been hijacked on npm
   (`echarts-for-react`, May 2026). Prefer a small own wrapper over a wrapper package.
 - Light and dark mode follow `<html data-theme>`; every visible colour must work on both.

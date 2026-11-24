@@ -1,4 +1,4 @@
-import { textOn, lighten } from "../../../shared/js/contrast.js";
+import { textOn, lighten } from "./contrast.js";
 
 /*
  * Room for title, toolbox and legend in charts without a cartesian grid. A grid keeps its plot clear

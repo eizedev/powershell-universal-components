@@ -1,7 +1,7 @@
 import { columnsOf, getter, resolveColumn, resolveColumns } from "../../../shared/js/columns.js";
-import { formatter, labelFormatSpec } from "../../../shared/js/formatters.js";
-import { html, joinHtml, trusted } from "../../../shared/js/html.js";
-import { compileTemplate, columnsTemplate } from "../../../shared/js/template.js";
+import { formatter, labelFormatSpec } from "./formatters.js";
+import { html, joinHtml, trusted } from "./html.js";
+import { compileTemplate, columnsTemplate } from "./template.js";
 import { applyColorMap } from "./colormap.js";
 import { timeAxisLabel } from "./timeaxis.js";
 import { cartesianTooltipFormatter, resolveTooltipMode } from "./tooltipMode.js";

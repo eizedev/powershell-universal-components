@@ -3,7 +3,7 @@
  * A placeholder is a column (matched case-insensitively, like everywhere else) and an optional
  * format from formatters.js. Nothing is evaluated: the template is split once, then only filled in.
  */
-import { resolveColumn } from "./columns.js";
+import { resolveColumn } from "../../../shared/js/columns.js";
 import { formatter } from "./formatters.js";
 import { escapeHtml } from "./html.js";
 
