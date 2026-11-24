@@ -29,8 +29,9 @@ function Invoke-UDPivotTemplateStore {
         The $schema of the view file, as ConvertTo-UDPivotViewFile -SchemaUrl takes it; without it that
         function's default.
     .PARAMETER Headers
-        The request's headers, for the origin of a path in -SchemaUrl: ConvertTo-UDPivotViewFile reads
-        $Headers of its caller, which is this parameter.
+        The request's headers, for the origin of a path in -SchemaUrl of an own view:
+        ConvertTo-UDPivotViewFile reads $Headers of its caller, which is this parameter. A shared view
+        takes no origin from them (Resolve-UDPivotSchemaUrl -WithoutRequest).
     .EXAMPLE
         Invoke-UDPivotTemplateStore -Store $store -Action List -Scope shared
     .OUTPUTS
@@ -79,6 +80,12 @@ function Invoke-UDPivotTemplateStore {
     # Save and Publish: the checked view as a view file; what is stored is never the input itself. A view
     # of the name replaces the stored one in place (an upsert: pivotkit's Save sends an existing name)
     $checkedView = ConvertFrom-UDPivotView -InputObject $View
+    # everyone reads a shared view: a path takes the origin of an https default, never one of the
+    # publisher's request, and without such a default names pivotkit's schema
+    if ($Scope -eq 'shared') {
+        $address = if ($schemaArgument.ContainsKey('SchemaUrl')) { $schemaArgument['SchemaUrl'] } else { Get-UDPivotSchemaUrl }
+        if ($address) { $schemaArgument['SchemaUrl'] = Resolve-UDPivotSchemaUrl -SchemaUrl $address -WithoutRequest }
+    }
     Invoke-UDPivotStoreLock -Name $lockName -ScriptBlock {
         $all = @(Get-UDPivotStoredView -Context $context)
         $found = @(Select-UDPivotNamedView -Entries $all -Name $checkedName -ReportData $reportData)

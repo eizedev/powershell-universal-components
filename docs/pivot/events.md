@@ -78,7 +78,8 @@ templates: [Templates, view files and roles](templates.md).
   labels and descriptions; a description's link must be `https://`.
 - A `-SchemaUrl` path gets its origin on the server from the request's `Origin`, page address or
   `Referer` header ([the `$schema` of a view file](schema.md#the-schema-of-a-view-file-schemaurl)).
-  A reader controls these headers. A view the reader saves can then name another host in `$schema`.
+  A reader controls these headers. A view the reader saves for themselves can then name another host
+  in `$schema`. A shared view never takes its origin from them.
   The module takes only a plain http or https origin, and nothing in pivotkit fetches it. To use no
   header at all, set the default to an https address.
 - `-Schema` with a URL is fetched by the server (https only, 15 seconds, at most 1 MB), never by the

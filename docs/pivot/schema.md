@@ -35,6 +35,8 @@ A path becomes an address when a view file is written:
   `Origin`, else the page address, else `Referer`. PSU passes them to pages, event handlers and API
   endpoints. A template store uses the request of the save, which carries `Origin`.
 - Without either, for example in a scheduled job, the command stops with an error.
+- A shared view never takes the origin from the request, since everyone reads it. Without an https
+  default it names pivotkit's address.
 
 The request must carry the address your users see. Behind a reverse proxy that rewrites these
 headers, set the module-wide default to the full https address. The server then uses its origin for
