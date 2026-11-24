@@ -17,6 +17,8 @@ All notable changes to PowerShellUniversal.Component.Perspective. Format:
 
 ### Changed
 
+- `ConvertTo-PSUComponentData`, the data conversion all modules share, keeps its C# converter in
+  `RowConverter.cs` and its helpers one function per file. The rows it returns are unchanged.
 - Data conversion is about ten times faster (a DataTable of 5000 rows and 12 columns: 2.4 to 2.9 s
   before, about 40 ms now, measured on a PSU test instance): no function call per cell, and large
   DataTables go through a small class compiled on first use (Add-Type, once per PSU process). The rows

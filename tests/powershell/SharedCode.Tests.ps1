@@ -6,10 +6,10 @@ BeforeAll {
     $script:shared = Join-Path $script:repo 'shared'
     $script:copy = Join-Path $script:repo 'build' 'Copy-SharedCode.ps1'
 
-    # Private/ of a built module must hold exactly shared/powershell/*.ps1, byte for byte, plus SHARED.txt
+    # Private/ of a built module must hold exactly shared/powershell/*.ps1 and *.cs, byte for byte, plus SHARED.txt
     function Assert-PrivateFolder {
         param([string]$Path)
-        $expected = @(Get-ChildItem -LiteralPath (Join-Path $script:shared 'powershell') -Filter '*.ps1' -File | ForEach-Object Name | Sort-Object)
+        $expected = @(Get-ChildItem -Path (Join-Path $script:shared 'powershell' '*') -Include '*.ps1', '*.cs' -File | ForEach-Object Name | Sort-Object)
         $actual = @(Get-ChildItem -LiteralPath $Path -File | ForEach-Object Name | Sort-Object)
         $actual | Should -Be (@($expected) + 'SHARED.txt' | Sort-Object)
         foreach ($name in $expected) {
@@ -20,7 +20,7 @@ BeforeAll {
 }
 
 Describe 'Copy-SharedCode' {
-    It 'copies exactly shared/powershell/*.ps1 and records every shared/ file with its SHA-256' {
+    It 'copies exactly shared/powershell/*.ps1 and *.cs and records every shared/ file with its SHA-256' {
         $private = Join-Path $TestDrive 'Private'
         $record = & $script:copy -Destination $private
         Assert-PrivateFolder -Path $private

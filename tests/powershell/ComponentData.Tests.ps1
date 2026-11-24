@@ -1,5 +1,6 @@
 #Requires -Version 7.4
-# Pester tests for shared/powershell/ConvertTo-PSUComponentData.ps1, which every component module uses.
+# Pester tests for shared/powershell/ConvertTo-PSUComponentData.ps1 (with its helpers and RowConverter.cs),
+# which every component module uses.
 # The output must stay exactly what the original per-cell implementation returned (kept in Reference/
 # as the oracle): the same rows, property names, value types, PSObject wrappers and JSON, for every kind
 # of input the modules promise.
@@ -8,8 +9,8 @@ BeforeAll {
     # the implementation and the oracle each in a module of their own, as in a built component module:
     # every call and every change of their state goes into the module (& $module { ... })
     $script:repo = Resolve-Path (Join-Path $PSScriptRoot '..' '..')
-    $load = { param($Path) [scriptblock]::Create(('. ''{0}''; Export-ModuleMember' -f $Path)) }
-    $script:subject = New-Module -Name ComponentDataSubject -ScriptBlock (& $load (Join-Path $script:repo 'shared' 'powershell' 'ConvertTo-PSUComponentData.ps1'))
+    $load = { param([string[]]$Path) [scriptblock]::Create((@($Path | ForEach-Object { ". '$_'" }) + 'Export-ModuleMember') -join '; ') }
+    $script:subject = New-Module -Name ComponentDataSubject -ScriptBlock (& $load (Get-ChildItem -LiteralPath (Join-Path $script:repo 'shared' 'powershell') -Filter '*.ps1' -File).FullName)
     $script:reference = New-Module -Name ComponentDataReference -ScriptBlock (& $load (Join-Path $PSScriptRoot 'Reference' 'ConvertTo-PSUComponentData.ps1'))
     $script:convert = { param($Data) , (ConvertTo-PSUComponentData -InputObject $Data) }
 

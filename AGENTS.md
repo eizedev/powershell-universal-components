@@ -33,9 +33,10 @@ The modules form one product. Judge code, tests, docs and these rules as a whole
   pivot demo carries the site's examples and data snapshots and the pivot showcase), so each is defined once.
 - `shared/js/` - JavaScript used by several modules (PSU theme bridge, column matching, formats,
   CSV/XLSX export, text contrast on fills, the answer to `Get-UDElement` in `elementState.js`). Compiled into each module's bundle; never a runtime dependency between modules.
-- `shared/powershell/` - PowerShell used by several modules (data conversion, asset registration);
-  copied into each built module's `Private/` by `build/Copy-SharedCode.ps1`, which also writes
-  `Private/SHARED.txt`: the content hashes of `shared/` the module was built from.
+- `shared/powershell/` - PowerShell used by several modules (data conversion with its C# converter in
+  `RowConverter.cs`, asset registration, compiling a `.cs` file under a versioned type name), one
+  function per file. `build/Copy-SharedCode.ps1` copies it with the `.cs` files into each built module's
+  `Private/` and writes `Private/SHARED.txt`: the content hashes of `shared/` the module was built from.
 - `build/` - `Build-Module.ps1`, the shared webpack configuration and the growth guards in `growth.js`.
   Webpack writes a module's bundle to `modules/<Module>/dist/`; `Build-Module.ps1` copies it into `output/`.
 - `docs/` - the documentation site (Zensical, `zensical.toml`, shared design of eizedev/brand): the pages

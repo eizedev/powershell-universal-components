@@ -8,7 +8,7 @@
     For modules/<Module>: installs the exact npm versions from package-lock.json (npm ci; npm install
     only when no lock file exists yet - commit it), runs webpack (shared/js is compiled into the
     bundle), and assembles a clean folder with the bundle, the manifest, the module, its Public/ and
-    Private/ functions (.ps1 and .cs), Private/ also with shared/powershell/*.ps1 and SHARED.txt (the
+    Private/ functions (.ps1 and .cs), Private/ also with shared/powershell/*.ps1, *.cs and SHARED.txt (the
     state of shared/ it was built from), Apps/ when the module has one, the files Build.psd1 names
     (Include: destination below the module = source below the repository, e.g. the documentation's
     examples and data a demo app shows), and THIRD-PARTY-NOTICES.txt. A module
@@ -94,7 +94,7 @@ foreach ($folder in 'Public', 'Private') {
     if (-not (Test-Path -LiteralPath $from -PathType Container)) { continue }
     foreach ($file in Get-ChildItem -LiteralPath $from -Include '*.ps1', '*.cs' -File -Recurse) {
         $to = Join-Path $out ([System.IO.Path]::GetRelativePath($source, $file.FullName))
-        # shared/powershell/*.ps1 lands in the same Private/ (Copy-SharedCode.ps1) and would replace it
+        # shared/powershell/*.ps1 and *.cs land in the same Private/ (Copy-SharedCode.ps1) and would replace it
         if ($folder -eq 'Private' -and $file.DirectoryName -eq $from -and (Test-Path -LiteralPath (Join-Path $repo 'shared' 'powershell' $file.Name))) { throw ('{0}: shared/powershell has a file of the same name, which the build copies into Private/ too.' -f $to) }
         New-Item -ItemType Directory -Path (Split-Path -Parent $to) -Force | Out-Null
         Copy-Item -LiteralPath $file.FullName -Destination $to

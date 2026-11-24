@@ -28,7 +28,7 @@ $Script:ReportDataWarnBytes = 10MB
 # $Script:ReportWriterMinRows rows arrives, as ConvertTo-PSUComponentData does; where Add-Type fails,
 # PowerShell writes the rows with the same result. The module needs full language mode (it does not load
 # in constrained language mode, and the JSON writer is a .NET type that mode blocks).
-$writer = Get-UDPivotTypeSource -Path (Join-Path $PSScriptRoot '..' 'ReportWriter.cs') -TypeName 'PivotReportTable.Writer'
+$writer = Get-PSUComponentTypeSource -Path (Join-Path $PSScriptRoot '..' 'ReportWriter.cs') -TypeName 'PivotReportTable.Writer'
 $Script:ReportWriterSource = $writer.Source
 $Script:ReportWriterType = $writer.Type
 $Script:ReportWriterMinRows = 1000
@@ -52,7 +52,7 @@ $Script:TokenCache = @{}
 # the requests go through a plain handler and an early answer is lost. Neither is meant for constrained language mode:
 # the module needs full language mode (see the row writer above; it does not load in constrained
 # language mode), and the REST engine builds HttpClient objects either way.
-$transport = Get-UDPivotTypeSource -Path (Join-Path $PSScriptRoot '..' 'HttpTransport.cs') -TypeName 'PivotReportHttp.Transport'
+$transport = Get-PSUComponentTypeSource -Path (Join-Path $PSScriptRoot '..' 'HttpTransport.cs') -TypeName 'PivotReportHttp.Transport'
 $Script:HttpTransportSource = $transport.Source
 $Script:HttpTransportType = $transport.Type
 Remove-Variable -Name writer, transport
