@@ -23,9 +23,9 @@ function ConvertTo-UDPivotImportLimit {
     param([Parameter(Mandatory)][System.Collections.IDictionary]$ImportLimit)
     $limits = [ordered]@{}
     foreach ($key in $ImportLimit.Keys) {
-        $name = $Script:ImportLimitDefaults.Keys | Where-Object { $_ -eq [string]$key } | Select-Object -First 1
+        $name = $Script:ImportLimitKeys | Where-Object { $_ -eq [string]$key } | Select-Object -First 1
         if (-not $name) {
-            throw ('-ImportLimit: unknown limit "{0}"; known are {1}.' -f $key, ($Script:ImportLimitDefaults.Keys -join ', '))
+            throw ('-ImportLimit: unknown limit "{0}"; known are {1}.' -f $key, ($Script:ImportLimitKeys -join ', '))
         }
         if ($limits.Contains($name)) { throw ('-ImportLimit: {0} is given twice.' -f $name) }
         $value = $ImportLimit[$key]
@@ -37,6 +37,6 @@ function ConvertTo-UDPivotImportLimit {
     }
     # in pivotkit's order, whatever order the hashtable had
     $ordered = [ordered]@{}
-    foreach ($name in $Script:ImportLimitDefaults.Keys) { if ($limits.Contains($name)) { $ordered[$name] = $limits[$name] } }
+    foreach ($name in $Script:ImportLimitKeys) { if ($limits.Contains($name)) { $ordered[$name] = $limits[$name] } }
     [pscustomobject]$ordered
 }

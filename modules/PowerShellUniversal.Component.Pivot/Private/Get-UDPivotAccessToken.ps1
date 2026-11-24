@@ -94,7 +94,7 @@ function Get-UDPivotAccessToken {
         throw (New-UDPivotError -Id PivotTokenRefused -Category AuthenticationError -Data @{ Status = [int]$response.StatusCode; Code = if ($json -and $json.error) { [string]$json.error } } -Message ('Token endpoint {0} refused the client credentials ({1}): {2}' -f $where, [int]$response.StatusCode, $reason))
     }
     if (-not $json -or -not ($json.access_token -is [string]) -or -not $json.access_token) { throw (New-UDPivotError -Id PivotTokenRefused -Category AuthenticationError -Message ('Token endpoint {0} answered without an access_token.' -f $where)) }
-    if ($json.token_type -and $json.token_type -ne 'Bearer' -and $json.token_type -ne 'bearer') { throw (New-UDPivotError -Id PivotTokenRefused -Category AuthenticationError -Message ('Token endpoint {0} gave a token of type "{1}"; pivotkit-server takes Bearer tokens.' -f $where, $json.token_type)) }
+    if ($json.token_type -and $json.token_type -ne 'Bearer') { throw (New-UDPivotError -Id PivotTokenRefused -Category AuthenticationError -Message ('Token endpoint {0} gave a token of type "{1}"; pivotkit-server takes Bearer tokens.' -f $where, $json.token_type)) }
     $token = [System.Net.NetworkCredential]::new('', [string]$json.access_token).SecurePassword
     $seconds = 0
     if ($null -ne $json.expires_in -and [int]::TryParse([string]$json.expires_in, [ref]$seconds) -and $seconds -gt $Script:TokenSkewSec) {

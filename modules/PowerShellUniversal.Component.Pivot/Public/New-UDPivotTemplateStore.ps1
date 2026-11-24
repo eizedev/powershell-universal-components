@@ -39,11 +39,21 @@ function New-UDPivotTemplateStore {
     .PARAMETER MaxSharedViews
         The most shared views. Default: 200.
     .EXAMPLE
-        # SQL Server: a table PivotViews (Scope, UserKey, FileName, Json)
+        # one file per view under a folder (the stores page has SQL Server, Valkey and S3)
         $store = New-UDPivotTemplateStore -Get {
             param($Request)
-            Invoke-Sqlcmd -ConnectionString $cs -Query 'SELECT Json FROM PivotViews WHERE Scope = @s AND UserKey = @u' -Variable ... | ForEach-Object Json
-        } -Save { param($Request) ... } -Delete { param($Request) ... }
+            $folder = if ($Request.Scope -eq 'shared') { 'shared' } else { 'users/' + $Request.UserKey }
+            Get-ChildItem -Path (Join-Path 'D:\PivotViews' $folder) -Filter '*.pivotkit.json' -ErrorAction Ignore |
+                ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }
+        } -Save {
+            param($Request)
+            $path = Join-Path 'D:\PivotViews' $Request.Key
+            $null = New-Item -ItemType Directory -Force -Path (Split-Path -Parent $path)
+            Set-Content -LiteralPath $path -Value $Request.Json
+        } -Delete {
+            param($Request)
+            Remove-Item -LiteralPath (Join-Path 'D:\PivotViews' $Request.Key) -ErrorAction Ignore
+        }
     .OUTPUTS
         System.Management.Automation.PSCustomObject (UDPivotTemplateStore)
     .LINK

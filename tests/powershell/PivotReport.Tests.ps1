@@ -1419,20 +1419,11 @@ Describe 'Errors of pivotkit-server as a record a page can read' {
     }
 
     It 'the documented page snippet tells the reader why, from the problem''s code' {
-        # docs/pivot/errors.md: the same code a page runs
-        $why = {
-            param([scriptblock]$Call)
-            try { & $Call }
-            catch {
-                $problem = $_.TargetObject
-                switch ([string]$problem.Code) {
-                    'INVALID_TOKEN' { 'The report service did not accept the sign-in.' }
-                    'INSUFFICIENT_SCOPE' { 'The sign-in lacks the scope for reports.' }
-                    'NOT_ALLOWED' { 'Your role may not use this report.' }
-                    default { 'The report failed. Request id: {0}' -f $problem.RequestId }
-                }
-            }
-        }
+        # the switch of docs/pivot/errors.md's snippet, around the calls below
+        $page = Get-Content -LiteralPath (Join-Path $script:repo 'docs' 'pivot' 'errors.md') -Raw
+        $switch = [regex]::Match($page, '(?ms)^\s*\$why = (switch \(\[string\]\$problem\.Code\) \{.*?^    \})').Groups[1].Value
+        $switch | Should -Not -BeNullOrEmpty -Because 'errors.md has the snippet'
+        $why = [scriptblock]::Create("param([scriptblock]`$Call)`ntry { & `$Call }`ncatch {`n`$problem = `$_.TargetObject`n$switch`n}")
         & $why { Get-UDPivotSource -Uri ($base + '/api/v1') -Token 'static-token-WRONG-0000' } | Should -Be 'The report service did not accept the sign-in.'
         $mock.Render.Enqueue(@{ Status = 403; Body = '{"type":"x","title":"Not allowed","status":403,"code":"NOT_ALLOWED","detail":"no downloads","requestId":"r403"}' })
         & $why { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view } | Should -Be 'Your role may not use this report.'

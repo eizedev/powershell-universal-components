@@ -5,17 +5,10 @@ $Script:HeightPattern = '^\s*(\d+(\.\d+)?(px|vh|svh|dvh|em|rem|%)?|(calc|clamp|m
 $Script:LocalePattern = '^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$'
 $Script:MissingAssetMessage = 'PowerShellUniversal.Component.Pivot: the JavaScript bundle (index.<hash>.bundle.js) was not found next to the module, or the module was imported outside PowerShell Universal.'
 
-# the keys of pivotkit-core's LIMITS for a loaded file -ImportLimit may set, with their defaults
-# (docs/concepts/limits.md of pivotkit); the report sends them as pivotkit-react's importLimits, merged
-# over its limits for a loaded file only. Components/prepare.js keeps the same list (IMPORT_LIMIT_KEYS)
-$Script:ImportLimitDefaults = [ordered]@{
-    fileBytes      = 104857600
-    rows           = 1000000
-    columns        = 1000
-    importCells    = 10000000
-    textLength     = 32767
-    archiveEntries = 10000
-    unpackedBytes  = 524288000
-}
+# the keys of pivotkit-core's LIMITS for a loaded file -ImportLimit may set. Their defaults are
+# pivotkit's (docs/concepts/limits.md of pivotkit; docs/pivot/import.md lists them). The report sends
+# them as pivotkit-react's importLimits, merged over its limits for a loaded file only.
+# Components/prepare.js keeps the same list (IMPORT_LIMIT_KEYS)
+$Script:ImportLimitKeys = @('fileBytes', 'rows', 'columns', 'importCells', 'textLength', 'archiveEntries', 'unpackedBytes')
 # pivotkit takes whole numbers from 1 up to JavaScript's Number.MAX_SAFE_INTEGER
 $Script:MaxImportLimit = 9007199254740991

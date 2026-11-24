@@ -9,9 +9,9 @@ function Invoke-UDPivotReport {
         (Views, Download view, or Get-UDElement's .view) runs over the rows and becomes a file.
 
         -Engine Node runs pivotkit's command line on the PSU server (npm install --global pivotkit-cli
-        0.2.1 or later; Node 24 or later, Node 22 for pivotkit-cli 0.4 and older): the rows go into a temporary JSON file in a folder of its own that only this
-        user can read, pivotkit reads and writes only there (--allow-dir), and the folder is removed
-        afterwards, also on an error.
+        0.2.1 or later; Node 24 or later; Node 22 for pivotkit-cli 0.4 and older): the rows go into a
+        temporary JSON file in a folder of its own that only this user can read, pivotkit reads and
+        writes only there (--allow-dir), and the folder is removed afterwards, also on an error.
 
         -Engine Rest calls a pivotkit-server (POST /api/v1/views/render/file, or /views/render with
         -AsLink). The rows go in the request
@@ -187,7 +187,7 @@ function Invoke-UDPivotReport {
         [ValidateSet('Post', 'Basic')][string]$ClientAuthentication = 'Post',
         [ValidateLength(1, 200)][string]$DataName,
         [Nullable[datetime]]$DataAsOf,
-        [ValidateRange(1KB, 64MB)][long]$MaxBytes = 10MB,
+        [ValidateRange(1KB, 64MB)][long]$MaxBytes = $Script:ReportDataWarnBytes,
         [ValidateNotNullOrEmpty()][string]$Template,
         [ValidateSet('Full', 'Shown')][string]$Numbers,
         [switch]$FlatHeader,

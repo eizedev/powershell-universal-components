@@ -23,7 +23,7 @@ function Get-UDPivotCliCommand {
     }
     else {
         $found = Get-Command -Name 'pivotkit' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-        if (-not $found) { throw (New-UDPivotError -Id PivotCliNotFound -Category ObjectNotFound -Message 'pivotkit''s command line was not found: install it with "npm install --global pivotkit-cli" (Node 24 or later; Node 22 for pivotkit-cli 0.4 and older) on the PSU server, or pass -CliPath.') }
+        if (-not $found) { throw (New-UDPivotError -Id PivotCliNotFound -Category ObjectNotFound -Message ('pivotkit''s command line was not found: install it with "npm install --global pivotkit-cli" ({0}) on the PSU server, or pass -CliPath.' -f $Script:CliNodeRequirement)) }
         $found.Source
     }
     if ($path -match '\.(cmd|bat|ps1)$') {
@@ -34,7 +34,7 @@ function Get-UDPivotCliCommand {
     }
     if ($path -match '\.(js|mjs)$') {
         $node = Get-Command -Name 'node' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-        if (-not $node) { throw (New-UDPivotError -Id PivotCliNotFound -Category ObjectNotFound -Message 'node was not found: pivotkit''s command line needs Node 24 or later (Node 22 for pivotkit-cli 0.4 and older) on the PSU server.') }
+        if (-not $node) { throw (New-UDPivotError -Id PivotCliNotFound -Category ObjectNotFound -Message ('node was not found: pivotkit''s command line needs {0} on the PSU server.' -f $Script:CliNodeRequirement)) }
         return [pscustomobject]@{ FileName = $node.Source; Arguments = @($path) }
     }
     [pscustomobject]@{ FileName = $path; Arguments = @() }

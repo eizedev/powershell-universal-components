@@ -1,6 +1,5 @@
 {
   "name": "powershelluniversal-component-pivot",
-  "version": "0.1.0",
   "private": true,
   "description": "Pivot report builder (pivotkit) for PowerShell Universal apps",
   "license": "MIT",

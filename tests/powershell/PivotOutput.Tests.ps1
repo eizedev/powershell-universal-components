@@ -44,3 +44,24 @@ Describe 'Pivot output: view files, server times and the files of -Engine Node' 
         }
     }
 }
+
+Describe 'Pivot output: texts cut to a limit' {
+    It 'never cuts a surrogate pair in half' {
+        & $script:module {
+            $emoji = [char]::ConvertFromUtf32(0x1F600)
+            # 'abc' + emoji: a cut after 4 characters would keep the emoji's first half only
+            $cut = Limit-UDPivotText -Text ('abc' + $emoji + 'defgh') -MaxLength 5
+            $cut | Should -Be ('abc' + [char]0x2026)
+            [char]::IsHighSurrogate($cut[-2]) | Should -BeFalse
+            Limit-UDPivotText -Text ('abcd' + $emoji) -MaxLength 6 | Should -Be ('abcd' + $emoji)
+        }
+    }
+}
+
+Describe 'Pivot output: what pivotkit''s command line needs' {
+    It 'names the same Node versions in the help of Invoke-UDPivotReport as in its errors' {
+        $requirement = & $script:module { $Script:CliNodeRequirement }
+        $help = (Get-Help Invoke-UDPivotReport -Full).description.Text -join ' ' -replace '\s+', ' '
+        $help | Should -BeLike ('*{0}*' -f $requirement)
+    }
+}
