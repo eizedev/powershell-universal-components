@@ -36,6 +36,17 @@ APIs from the PSU server.
 
 ![Service review page: KPI matrix of sparklines per customer](assets/images/screenshot-service-review-light.png)
 
+## Before you share the app
+
+The app has no sign-in, and two pages read the PSU server:
+
+- **Technical** shows the server's twelve largest processes with their names and process ids, and
+  the size of each folder of the PSU program folder. It reads both on every page view.
+- **Public data** calls five public web services from the server. The app keeps each answer for an hour. It
+  tries a failed call again on the next view, and each try can take up to 45 seconds.
+
+Protect the app before people outside your network can reach it, for example with a role in PSU.
+
 The source of the app is
 [Apps/Showcase.ps1](https://github.com/eizedev/powershell-universal-components/blob/HEAD/modules/PowerShellUniversal.Component.ECharts.Demo/Apps/Showcase.ps1);
 copy parts of it into your own apps.
