@@ -1,4 +1,5 @@
-# Smoke test: one chart of each family with generated data. Deploy with PSUTools Set-PSUTestApp.
+# Smoke test: one chart of each family with generated data. Use the file as the content of an app
+# (admin console > Apps > create).
 New-UDApp -Title 'ECharts smoke test' -Content {
     $days = 0..59 | ForEach-Object {
         $d = (Get-Date '2026-09-01').AddDays($_)

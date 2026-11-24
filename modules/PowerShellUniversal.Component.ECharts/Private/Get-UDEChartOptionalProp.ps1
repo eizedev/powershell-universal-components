@@ -21,28 +21,29 @@ function Get-UDEChartOptionalProp {
     $props = @{}
     # DataLabels: unset means the chart type's default (pie shows labels, bars do not)
     if ($Bound.ContainsKey('DataLabels')) { $props['dataLabels'] = [bool]$Bound['DataLabels'] }
-    $map = [ordered]@{
-        X = 'x'; Y = 'y'; GroupBy = 'groupBy'; Value = 'value'; Path = 'path'; Source = 'source'; Target = 'target'
-        Open = 'open'; Close = 'close'; Low = 'low'; High = 'high'; Volume = 'volume'; Totals = 'totals'
-        Title = 'title'; Subtitle = 'subtitle'; Width = 'width'; ClassName = 'className'; Style = 'style'; Palette = 'palette'; Format = 'format'; LabelFormat = 'labelFormat'; XFormat = 'xFormat'
-        Locale = 'locale'; XTitle = 'xTitle'; YTitle = 'yTitle'; SecondaryY = 'secondaryY'; SecondaryTitle = 'secondaryTitle'
-        Min = 'min'; Max = 'max'; YMin = 'yMin'; YMax = 'yMax'; Bins = 'bins'; MarkLine = 'markLine'
-        NegativeColor = 'negativeColor'; PositiveColor = 'positiveColor'; ExportColumns = 'exportColumns'; EventColumns = 'eventColumns'
-        ExportFileName = 'exportFileName'; Group = 'group'; Options = 'options'
-        Breaks = 'breaks'; YBreaks = 'yBreaks'; Facet = 'facet'; FacetColumns = 'facetColumns'
-        Start = 'start'; End = 'end'; Size = 'size'; Band = 'band'; BandName = 'bandName'; MarkArea = 'markArea'; Thresholds = 'thresholds'; TargetGroup = 'targetGroup'
-        Orient = 'orient'; Depth = 'depth'; RootName = 'rootName'; EdgeLabel = 'edgeLabel'; MarkPoint = 'markPoint'; LabelColumn = 'labelColumn'; LabelTemplate = 'labelTemplate'; TooltipColumns = 'tooltipColumns'; TooltipTemplate = 'tooltipTemplate'; Forecast = 'forecast'; TrendTarget = 'trendTarget'; TrendName = 'trendName'
-    }
-    foreach ($name in $map.Keys) {
-        if ($Bound.ContainsKey($name)) { $props[$map[$name]] = $Bound[$name] }
+    # the prop's name is the parameter's in camelCase, as PSU would send it
+    $camelCase = { param([string]$Name) $Name.Substring(0, 1).ToLowerInvariant() + $Name.Substring(1) }
+    # values that go as they are
+    $asGiven = @(
+        'X', 'Y', 'GroupBy', 'Value', 'Path', 'Source', 'Target', 'Open', 'Close', 'Low', 'High', 'Volume',
+        'Totals', 'Title', 'Subtitle', 'Width', 'ClassName', 'Style', 'Palette', 'Format', 'LabelFormat',
+        'XFormat', 'Locale', 'XTitle', 'YTitle', 'SecondaryY', 'SecondaryTitle', 'Min', 'Max', 'YMin',
+        'YMax', 'Bins', 'MarkLine', 'NegativeColor', 'PositiveColor', 'ExportColumns', 'EventColumns',
+        'ExportFileName', 'Group', 'Options', 'Breaks', 'YBreaks', 'Facet', 'FacetColumns', 'Start', 'End',
+        'Size', 'Band', 'BandName', 'MarkArea', 'Thresholds', 'TargetGroup', 'Orient', 'Depth', 'RootName',
+        'EdgeLabel', 'MarkPoint', 'LabelColumn', 'LabelTemplate', 'TooltipColumns', 'TooltipTemplate',
+        'Forecast', 'TrendTarget', 'TrendName'
+    )
+    foreach ($name in $asGiven) {
+        if ($Bound.ContainsKey($name)) { $props[(& $camelCase $name)] = $Bound[$name] }
     }
     # choices in lower case, as the browser side takes them
     foreach ($name in 'CellType', 'LegendType', 'Aggregate', 'Layout', 'Trend', 'Legend') {
-        if ($Bound.ContainsKey($name)) { $props[$name.Substring(0, 1).ToLowerInvariant() + $name.Substring(1)] = ([string]$Bound[$name]).ToLowerInvariant() }
+        if ($Bound.ContainsKey($name)) { $props[(& $camelCase $name)] = ([string]$Bound[$name]).ToLowerInvariant() }
     }
     if ($Bound['Undirected']) { $props['directed'] = $false }
     foreach ($name in 'LightTheme', 'DarkTheme') {
-        if ($Bound.ContainsKey($name)) { $props[$name.Substring(0, 1).ToLowerInvariant() + $name.Substring(1)] = ConvertTo-UDEChartTheme -Theme $Bound[$name] }
+        if ($Bound.ContainsKey($name)) { $props[(& $camelCase $name)] = ConvertTo-UDEChartTheme -Theme $Bound[$name] }
     }
     if ($Bound.ContainsKey('TooltipMode')) { $props['tooltipMode'] = ConvertTo-UDEChartTooltipMode -TooltipMode $Bound['TooltipMode'] }
     if ($Bound.ContainsKey('EmptyText')) { $props['emptyText'] = $Bound['EmptyText'] }

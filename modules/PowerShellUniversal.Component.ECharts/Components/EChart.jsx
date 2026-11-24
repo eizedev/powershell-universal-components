@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
-import { buildOption, responsive, optionForWidth, tooltipTracksHover, NARROW, TINY } from "./buildOption";
+import { buildOption, dataRows, responsive, optionForWidth, tooltipTracksHover, NARROW, TINY } from "./buildOption";
 import { tooltipState } from "./tooltipMode";
 import { ensureTheme, themeObject, pageFontSize } from "./themes";
 import { scaleFonts } from "./fonts";
@@ -223,7 +223,8 @@ export default function EChart(props) {
         } else {
             chart.group = "";
         }
-    }, [props.group]);
+        // a chart made again (another renderer or locale) joins its group again
+    }, [props.group, props.renderer, locale]);
 
     // events to PowerShell and the export buttons
     useEffect(() => {
@@ -238,7 +239,7 @@ export default function EChart(props) {
             }
         };
         const onClick = (p) => {
-            const data = latest.current.data || [];
+            const data = dataRows(latest.current.data);
             const payload = {
                 seriesName: p.seriesName,
                 seriesIndex: p.seriesIndex,
@@ -280,7 +281,7 @@ export default function EChart(props) {
         const onAxisArea = () => {
             clearTimeout(areaTimer);
             areaTimer = setTimeout(() => {
-                const data = latest.current.data || [];
+                const data = dataRows(latest.current.data);
                 const rows = [];
                 let filtered = false;
                 chart.getModel().eachSeriesByType("parallel", (series) => {
@@ -374,7 +375,7 @@ export default function EChart(props) {
             ref={outer}
             className={props.className}
             style={full
-                ? { width: "100vw", height: "100vh", boxSizing: "border-box", padding: 16, background: getComputedStyle(document.body).backgroundColor || (mode === "dark" ? "#121212" : "#fff") }
+                ? { width: "100vw", height: "100vh", boxSizing: "border-box", padding: 16, background: psuTheme.background || (mode === "dark" ? "#121212" : "#fff") }
                 : { ...(props.style || {}), width: props.width || (props.style && props.style.width) || "100%" }}
         >
             {option.error && <div role="alert" style={{ color: "#d32f2f", padding: 8 }}>EChart: {option.error}</div>}

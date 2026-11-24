@@ -12,6 +12,13 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
   already did.
 - The CSV export builds its number format once per export, not once per cell; a large export was
   about 60 times slower than needed.
+- `-Format currency:<code>` with a code the browser does not know, such as `currency:EURO`, shows
+  plain numbers, as an unknown format name does. Before, the chart showed an error, and the export of such a
+  column failed.
+- Full screen paints PSU's page background behind the chart. On a page whose body is transparent the
+  browser's black backdrop showed.
+- A chart with `-Group` stays linked to its group after the module draws it again for another
+  `-Renderer` or locale.
 
 ### Changed
 
@@ -28,6 +35,7 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
 - The module's code is one function per file in `Public/` and `Private/`; the `.psm1` only loads them.
   `New-UDEChart` runs its steps through helpers. Commands, parameters, help and output are unchanged
   ([#169](https://github.com/eizedev/powershell-universal-components/issues/169)).
+- The help of `-Value`, `-Path`, `-Source` and `-Target` names every chart type that reads them.
 
 ## [0.3.1] - 2026-11-22
 
@@ -135,3 +143,9 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
   treemap, sunburst or funnel. Boxplots start below the toolbox as the other cartesian charts do.
 - Labels inside funnel stages, pie slices, treemap tiles and sunburst rings take dark or white text,
   whichever contrasts more with the fill, so they stay readable on palettes with dark and light colours.
+
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.ECharts-v0.3.1...HEAD
+[0.3.1]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.ECharts-v0.3.0...PowerShellUniversal.Component.ECharts-v0.3.1
+[0.3.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.ECharts-v0.2.0...PowerShellUniversal.Component.ECharts-v0.3.0
+[0.2.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.ECharts-v0.1.0...PowerShellUniversal.Component.ECharts-v0.2.0
+[0.1.0]: https://github.com/eizedev/powershell-universal-components/releases/tag/PowerShellUniversal.Component.ECharts-v0.1.0

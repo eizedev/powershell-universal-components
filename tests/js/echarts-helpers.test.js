@@ -16,6 +16,9 @@ test("formats", () => {
     assert.equal(formatter("text", "en-US")(null), "");
     assert.equal(formatter("number", "en-US")("abc"), "abc");
     assert.equal(formatter(undefined, "en-US"), null);
+    // a currency code Intl does not know shows numbers, as an unknown format name does
+    assert.equal(formatter("currency:EURO", "de-DE")(1234.5), "1.234,5");
+    assert.equal(formatter("compactcurrency:XX", "en-US")(1234.5), "1,234.5");
 });
 
 test("durations and bytes", () => {

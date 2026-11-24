@@ -145,8 +145,13 @@ export const CHART_TYPES = [...CARTESIAN, ...Object.keys(BUILDERS)];
  * ctx: { locale, exportIcons, mode } - exportIcons { csv, xlsx (SVG paths), onCsv, onXlsx (handlers) }
  * turn on the CSV/Excel toolbox buttons; mode ("light" or "dark") picks the -ColorMap colours.
  */
+// the rows a chart draws: objects only; a row's rowIndex (the click and selection events) counts these
+export function dataRows(data) {
+    return Array.isArray(data) ? data.filter((r) => r && typeof r === "object") : [];
+}
+
 export function buildOption(props, ctx = {}) {
-    const rows = Array.isArray(props.data) ? props.data.filter((r) => r && typeof r === "object") : [];
+    const rows = dataRows(props.data);
     const keys = columnsOf(rows);
     checkColumns(props, rows, keys);
     const type = String(props.chartType || "line").toLowerCase();

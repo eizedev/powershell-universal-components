@@ -59,13 +59,15 @@ function New-UDEChart {
     .PARAMETER GroupBy
         Column whose values become separate series (long data, e.g. one row per day and team).
     .PARAMETER Value
-        Value column for heatmap, calendar and sankey.
+        Value column for heatmap, calendar, matrix, sankey, chord and graph (the weight of an edge).
+        For pie, donut, funnel, box plot, histogram, waterfall, treemap, sunburst and tree it is used
+        when -Y is not given. For gantt it is the text on each bar.
     .PARAMETER Path
-        Hierarchy columns for treemap and sunburst.
+        Hierarchy columns for treemap, sunburst and tree.
     .PARAMETER Source
-        Source column for sankey.
+        Source column for sankey, graph and chord.
     .PARAMETER Target
-        Target column for sankey.
+        Target column for sankey, graph and chord.
     .PARAMETER Open
         Opening price column for candlestick.
     .PARAMETER Close
@@ -337,7 +339,7 @@ function New-UDEChart {
     .OUTPUTS
         System.Collections.Hashtable
     #>
-    # describes a chart (or its axis breaks) for PSU to render; changes no state, so no ShouldProcess
+    # describes a chart for PSU to render; changes no state, so no ShouldProcess
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding()]
     [OutputType([hashtable])]

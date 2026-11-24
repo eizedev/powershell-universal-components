@@ -24,7 +24,7 @@ function New-UDEChartTimeBreak {
     .OUTPUTS
         System.Collections.Hashtable
     #>
-    # describes a chart (or its axis breaks) for PSU to render; changes no state, so no ShouldProcess
+    # describes axis breaks for New-UDEChart; changes no state, so no ShouldProcess
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding()]
     [OutputType([hashtable])]

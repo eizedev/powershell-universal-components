@@ -1,6 +1,5 @@
 {
   "name": "powershelluniversal-component-echarts",
-  "version": "0.1.0",
   "private": true,
   "description": "Apache ECharts component for PowerShell Universal apps",
   "license": "MIT",

@@ -120,6 +120,7 @@ Describe 'Set-UDEChartData' {
         $sent.Id | Should -Be 'live'
         $sent.Properties.data[0].T | Should -BeLike '2026-01-01T00:00:00*'
     }
+    AfterAll { & $script:module { Remove-Item -Path function:Set-UDElement, variable:lastSet -ErrorAction Ignore } }
 }
 
 Describe 'Corporate themes' {
