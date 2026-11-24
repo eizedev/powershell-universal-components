@@ -13,6 +13,8 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ### Changed
 
+- The README is short: install, the example, the pages and the two warnings, with a link to the
+  documentation page for the rest.
 - Requires PowerShellUniversal.Component.Pivot 0.9.1. The ticket showcase's Events page reads the
   report's view with `Get-UDElement`, which works from Pivot 0.9.1 on
   ([#158](https://github.com/eizedev/powershell-universal-components/issues/158)).

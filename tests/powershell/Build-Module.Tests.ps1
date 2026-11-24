@@ -32,6 +32,42 @@ Describe 'Build-Module.ps1 with a component module' {
     }
 }
 
+Describe 'Get-ThirdPartyNotice.ps1: the licences of the bundled packages' {
+    BeforeAll {
+        $script:notice = Join-Path $script:repo 'build' 'Get-ThirdPartyNotice.ps1'
+        # a module folder with a lock file and node_modules, without npm or a network
+        $script:packageFolder = {
+            param([hashtable]$Packages)
+            $folder = Join-Path $TestDrive ([guid]::NewGuid().ToString('n'))
+            $lock = [ordered]@{ name = 'probe'; lockfileVersion = 3; packages = [ordered]@{ '' = @{ name = 'probe' } } }
+            foreach ($name in $Packages.Keys) { $lock.packages["node_modules/$name"] = $Packages[$name] }
+            $null = New-Item -ItemType Directory -Path $folder
+            $lock | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $folder 'package-lock.json')
+            $folder
+        }
+    }
+
+    It 'writes each installed runtime package with its licence file, and leaves dev packages out' {
+        $folder = & $script:packageFolder @{ 'lib-a' = @{ version = '1.0.0'; license = 'MIT' }; 'tool-b' = @{ version = '2.0.0'; license = 'MIT'; dev = $true } }
+        $null = New-Item -ItemType Directory -Path (Join-Path $folder 'node_modules' 'lib-a')
+        Set-Content -LiteralPath (Join-Path $folder 'node_modules' 'lib-a' 'LICENSE') -Value 'MIT licence of lib-a'
+        $text = (& $script:notice -Path $folder) -join "`n"
+        $text | Should -Match 'lib-a 1\.0\.0 \(MIT\)'
+        $text | Should -Match 'MIT licence of lib-a'
+        $text | Should -Not -Match 'tool-b'
+    }
+
+    It 'skips an optional package that is not installed (one for another platform)' {
+        $folder = & $script:packageFolder @{ 'native-x' = @{ version = '1.0.0'; license = 'MIT'; optional = $true } }
+        @(& $script:notice -Path $folder) | Should -BeNullOrEmpty
+    }
+
+    It 'stops with what to do when a required package is not installed' {
+        $folder = & $script:packageFolder @{ 'lib-a' = @{ version = '1.0.0'; license = 'MIT' } }
+        { & $script:notice -Path $folder } | Should -Throw '*node_modules/lib-a is in package-lock.json but not installed; run npm ci*'
+    }
+}
+
 Describe 'Build-Module.ps1 with a split module: <Name>' -ForEach $splitModules {
     It '<Name>: the built module carries its Public/ and Private/ files (the pivot module also its settings and C# sources) and exports the manifest''s commands (#163, #169)' -Skip:(-not $HasPackages) {
         $built = & (Join-Path $script:repo 'build' 'Build-Module.ps1') -Module $Name -OutputPath (Join-Path $TestDrive 'out') -SkipNpmInstall 6>$null

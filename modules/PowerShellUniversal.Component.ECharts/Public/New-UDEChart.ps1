@@ -60,8 +60,8 @@ function New-UDEChart {
         Column whose values become separate series (long data, e.g. one row per day and team).
     .PARAMETER Value
         Value column for heatmap, calendar, matrix, sankey, chord and graph (the weight of an edge).
-        For pie, donut, funnel, box plot, histogram, waterfall, treemap, sunburst and tree it is used
-        when -Y is not given. For gantt it is the text on each bar.
+        For pie, donut, funnel, gauge, box plot, histogram, waterfall, treemap, sunburst and tree it is
+        used when -Y is not given. For gantt it is the text on each bar.
     .PARAMETER Path
         Hierarchy columns for treemap, sunburst and tree.
     .PARAMETER Source

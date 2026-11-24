@@ -43,6 +43,8 @@ The modules form one product. Judge code, tests, docs and these rules as a whole
   `Test-BuiltModule.ps1` (loads a built module in a new process and checks its commands) and the one
   `Endpoint` stub for tests and the site build (`Endpoint.cs`, added by `Add-EndpointType.ps1`).
   Webpack writes a module's bundle to `modules/<Module>/dist/`; `Build-Module.ps1` copies it into `output/`.
+  `Get-ThirdPartyNotice.ps1` writes `THIRD-PARTY-NOTICES.txt` from the lock file and stops when a
+  package that is not optional is not installed (run `npm ci` in the module first).
 - `docs/` - the documentation site (Zensical, `zensical.toml`, shared design of eizedev/brand): the pages
   as Markdown, the complete documentation of every module. `docs/site/` builds its live parts:
   `examples.ps1` (code and chart from one source, run with the real `New-UDEChart`/`New-UDPerspective`/`New-UDPivotReport`

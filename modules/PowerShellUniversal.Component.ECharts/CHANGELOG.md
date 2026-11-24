@@ -19,6 +19,10 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
   browser's black backdrop showed.
 - A chart with `-Group` stays linked to its group after the module draws it again for another
   `-Renderer` or locale.
+- `-OnClick` and `-OnSelect` hand back the row behind the clicked point also when the chart's data
+  holds entries that are no objects, such as `$null`. Before, the row came from the wrong place in the
+  data. `New-UDEChart` and `Set-UDEChartData` never send such entries. This affects only an app that
+  sets the data another way, such as `Set-UDElement -Properties @{ data = ... }`.
 
 ### Changed
 

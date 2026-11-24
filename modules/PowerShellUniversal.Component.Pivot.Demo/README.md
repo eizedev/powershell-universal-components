@@ -28,9 +28,13 @@ Pages:
   showcase with 5,000 generated tickets.
 
 The public data comes from snapshots shipped with the module, so the app works without internet
-access. Two pages need more on the PSU server: Report as a file needs pivotkit's command line, and
-Rows from a server needs a pivotkit-server and a sign-in. The app has no sign-in and stores views in a
-folder next to the PSU repository. Read the
+access. The Live data switch calls Open-Meteo's free API, whose terms allow non-commercial use only:
+inside a company, keep the snapshot or use an Open-Meteo API key.
+
+Two pages need more on the PSU server: Report as a file needs pivotkit's command line, and Rows from
+a server needs a pivotkit-server and a sign-in. Each download from Report as a file runs Node on the PSU
+server, and the app has no sign-in: protect it before people outside your network can reach it. The
+app stores views in a folder next to the PSU repository. Read the
 [documentation](https://powershell-universal-components.eize.dev/pivot/demo/) before you share the app.
 
 The source of the app is [Apps/Showcase.ps1](Apps/Showcase.ps1).

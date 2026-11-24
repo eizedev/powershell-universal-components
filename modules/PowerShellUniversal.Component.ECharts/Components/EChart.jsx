@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
-import { buildOption, dataRows, responsive, optionForWidth, tooltipTracksHover, NARROW, TINY } from "./buildOption";
+import { buildOption, dataRows, rowOf, responsive, optionForWidth, tooltipTracksHover, NARROW, TINY } from "./buildOption";
 import { tooltipState } from "./tooltipMode";
 import { ensureTheme, themeObject, pageFontSize } from "./themes";
 import { scaleFonts } from "./fonts";
@@ -48,12 +48,6 @@ function axisValue(chart, axisIndex, value) {
         return item && typeof item === "object" ? item.value : item;
     }
     return value;
-}
-
-function rowOf(rows, params) {
-    const data = params && params.data;
-    const index = data && typeof data === "object" && !Array.isArray(data) ? data.rowIndex : undefined;
-    return index === undefined ? undefined : rows[index];
 }
 
 export default function EChart(props) {

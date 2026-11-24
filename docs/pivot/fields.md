@@ -71,8 +71,10 @@ With `-ConnectionString` the function opens its own connection with Microsoft.Da
 is loaded (the SqlServer module loads it), else with System.Data.SqlClient, which PowerShell 7 ships; the
 module needs neither to load. `-Connection` takes a connection your app has open already (any ADO.NET
 provider for SQL Server) and leaves it open. `TrustServerCertificate=true` in the example turns the
-check of SQL Server's certificate off, for a server with a self-signed one. Leave it out where SQL
-Server has a certificate the PSU server trusts. Put the call where the data is read (the `New-UDDynamic`
+check of SQL Server's certificate off, for a server with a self-signed one. Without that check the PSU
+server cannot tell SQL Server from an impostor that receives the sign-in and the data. The better fix
+is to trust SQL Server's certificate, or the authority that issued it, on the PSU server, and to leave
+the option out. Put the call where the data is read (the `New-UDDynamic`
 of the report, or a cached variable), not into an event.
 
 It sends one query, with the table name as a parameter of `OBJECT_ID()`:

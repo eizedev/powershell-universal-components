@@ -108,7 +108,8 @@ What each part hands out:
   columns of `-ExportDataColumn`, or with `-DrillDownExport`, holding every column. The Export menu
   is off by default: turn it on with `-ExportData` or `-DrillDownExport`. `-NoDrillDown` turns the
   panel off.
-| Source data | every row and every column of `-Data` (or those of `-ExportDataColumn`), also the rows the filters leave out | without `-ExportData` (the default) |
+- **Source data**: every row and every column of `-Data`, or only the columns of `-ExportDataColumn`,
+  also the rows the filters leave out. Off without `-ExportData`, the default.
 
 All three are rows the browser holds already: its developer tools reach them. Turn Source data on only
 where readers may take every row home, and leave columns readers must not have out of `-Data`
