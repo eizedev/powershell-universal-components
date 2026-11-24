@@ -1,12 +1,9 @@
 {
     "docs": {
         "pages": {
-            "README.md": [99],
-            "docs/pivot/index.md": [264],
-            "docs/pivot/server-rows.md": [208],
-            "docs/pivot/views.md": [238]
+            "README.md": [99]
         },
-        "totalLines": 4157
+        "totalLines": 4342
     },
     "javascript": {
         "complexity": {

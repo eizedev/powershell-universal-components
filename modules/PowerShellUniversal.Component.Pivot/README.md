@@ -42,13 +42,15 @@ is a showcase app in one line (`New-UDPivotShowcase`).
 
 ## Where to read on
 
-- [Overview](https://powershell-universal-components.eize.dev/pivot/): three examples on public data, what readers can do, data, dates, language, theme and height
+- [Overview](https://powershell-universal-components.eize.dev/pivot/): three examples on public data
+- [What readers can do](https://powershell-universal-components.eize.dev/pivot/readers/): the parts of the report, Source data, theme and height
+- [Data and loading](https://powershell-universal-components.eize.dev/pivot/data/): `-Data`, dates, language, chart options, the placeholder
 - [Field names and descriptions](https://powershell-universal-components.eize.dev/pivot/fields/): `-FieldDefaults`, `-FieldDescriptions`, SQL Server column descriptions, `-Schema`
-- [Views](https://powershell-universal-components.eize.dev/pivot/views/): `-View`, `-SavedView`, filters, tabs, the address bar, links from pivotkit
-- [Templates, view files and roles](https://powershell-universal-components.eize.dev/pivot/templates/): `-Templates`, `-TemplateStore`, `-AdminRole`
+- [Views](https://powershell-universal-components.eize.dev/pivot/views/): `-View`, `-SavedView`, filters, tabs, the address bar; [links into a report](https://powershell-universal-components.eize.dev/pivot/links/)
+- [Templates, view files and roles](https://powershell-universal-components.eize.dev/pivot/templates/): `-Templates`, view files; [template stores](https://powershell-universal-components.eize.dev/pivot/stores/) (`-TemplateStore`); [roles](https://powershell-universal-components.eize.dev/pivot/roles/) (`-AdminRole`)
 - [Readers' own files](https://powershell-universal-components.eize.dev/pivot/import/): `-AllowImport`, `-OnDataLoad`, `-ImportLimit`
 - [Events, security and limits](https://powershell-universal-components.eize.dev/pivot/events/): the `-On...` events
-- [Reports without a browser](https://powershell-universal-components.eize.dev/pivot/reports/): `Invoke-UDPivotReport`, `Get-UDPivotSource`
+- [Reports without a browser](https://powershell-universal-components.eize.dev/pivot/reports/): `Invoke-UDPivotReport`; [from a pivotkit-server](https://powershell-universal-components.eize.dev/pivot/reports-server/) with `Get-UDPivotSource`
 - [Themes and corporate design](https://powershell-universal-components.eize.dev/pivot/themes/), shared with the ECharts module
 - [Reference](https://powershell-universal-components.eize.dev/pivot/reference/): every parameter
 

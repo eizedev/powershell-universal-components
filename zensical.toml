@@ -56,10 +56,13 @@ nav = [
   ] },
   { "Pivot" = [
     { "Overview" = "pivot/index.md" },
+    { "What readers can do" = "pivot/readers.md" },
+    { "Data and loading" = "pivot/data.md" },
     { "Showcase app (demo)" = "pivot/demo.md" },
     { "Themes and corporate design" = "pivot/themes.md" },
     { "Field names and descriptions" = "pivot/fields.md" },
     { "Views" = "pivot/views.md" },
+    { "Links into a report" = "pivot/links.md" },
     { "Templates, view files and roles" = "pivot/templates.md" },
     { "The $schema of a view file" = "pivot/schema.md" },
     { "Template stores" = "pivot/stores.md" },

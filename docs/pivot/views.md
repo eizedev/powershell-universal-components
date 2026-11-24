@@ -102,48 +102,9 @@ The keys of `chart`. From `valueLabels` on, they are the Display settings of **C
 | `colors` | `@(@{ name = 'North'; color = '#1f77b4' })`. |
 | `tooltipShare` | `$true`: each value's share in the tooltip. |
 
-### Links from pivotkit (create_link)
+### Links into the report
 
-pivotkit's MCP tool `create_link` and its REST route `POST /views/link` make a link that opens a view
-in a page; a model or a program that worked out a view with a pivotkit-server can hand a person that
-link, and the person sees the view over the app's data with their own rights. The report opens such
-a link when the pivotkit-server's source names the page and the report:
-
-```json
-{
-  "sources": {
-    "tickets": {
-      "file": "data/tickets.csv",
-      "link": "https://psu.example.com/tickets/report",
-      "linkKey": "tickets"
-    }
-  }
-}
-```
-
-```powershell
-New-UDPivotReport -Id 'tickets' -SourceId 'tickets' -Data $tickets
-```
-
-- `link` is the address of the PSU page, `linkKey` the report's `-Id`: the link then ends in
-  `#pivot-tickets=1.<view>` (pivotkit's share format). Without `linkKey` it ends in `#pivot=1.<view>`,
-  which the report whose data the link names takes, and removes from the address.
-- The link names the data it was made for (the source's id). The report opens it only when that is
-  its own `-SourceId` (default its `-Id`); a link for other data is left alone, the report starts as
-  without it, and the browser console says why. Give the PSU report the source's id as `-SourceId`.
-  A link that names no data (a view file without `source.id`, made by hand) is loaded without that
-  check: the report still checks its fields against the data, as for every view.
-- Once the report shows the link's view, it writes its own entry in place of pivotkit's, so a
-  reload, the light/dark switch and a copied address keep the view.
-- The link holds the layout only, never data; the report checks the view against the rows the
-  person may see, as for every link. `-NoAddressBar` ignores links, also these.
-
-pivotkit's side: [create_link](https://pivotkit.eize.dev/reference/mcp/) and
-[sources](https://pivotkit.eize.dev/reference/mcp/#configuration) (`sources.<id>.link`, `.linkKey`).
-
-A source only the server can reach opens with the person's own rows: `New-UDPivotReport -Uri -Source`
-fetches them on the PSU server, with the link's parameters from the page's query string
-([rows from a server](server-rows.md)).
+A link pivotkit made, or one with parameters of a server source, opens a view: [Links into a report](links.md).
 
 ## Filters
 

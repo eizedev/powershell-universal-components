@@ -17,7 +17,7 @@ export const VIEW_EVENT_DELAY_MS = 600;
 // padding, a title line), so the whole report is on screen when the page loads and the result shows
 // rows enough below the toolbar, the zones and a tip. At least 600 pixels: below that pivotkit folds
 // the zones into one line, and the open zones take about 300. At most 1400 on a tall screen.
-// docs/pivot/index.md and the help of -Height name these numbers (tests/js/pivot.test.js).
+// docs/pivot/readers.md and the help of -Height name these numbers (tests/js/pivot.test.js).
 export const DEFAULT_HEIGHT = "clamp(600px, calc(100svh - 180px), 1400px)";
 
 /*

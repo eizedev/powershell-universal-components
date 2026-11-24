@@ -278,8 +278,8 @@ test("the default height fills a desktop window below PSU's app bar and a page t
     // the help of -Height and the page that describes it give the same numbers
     const { min, offset, max } = defaultHeightAt(0);
     const command = readFileSync(new URL("../../modules/PowerShellUniversal.Component.Pivot/Public/New-UDPivotReport.ps1", import.meta.url), "utf8");
-    const page = readFileSync(new URL("../../docs/pivot/index.md", import.meta.url), "utf8");
-    for (const [name, text] of [["the help of -Height", command], ["docs/pivot/index.md", page]]) {
+    const page = readFileSync(new URL("../../docs/pivot/readers.md", import.meta.url), "utf8");
+    for (const [name, text] of [["the help of -Height", command], ["docs/pivot/readers.md", page]]) {
         assert.ok(text.includes(`minus ${offset} pixels`), `${name} names the ${offset} pixels`);
         assert.ok(text.includes(`between ${min} and ${max} pixels`), `${name} names ${min} and ${max}`);
     }
