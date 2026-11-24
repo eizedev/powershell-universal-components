@@ -1,7 +1,10 @@
 // Tests for the ECharts option builder. Run: node --test tests/js/
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { buildOption, mergeOptions, boxStats, quantile, displayName, linearFit, tooltipTracksHover, CHART_TYPES, LARGE } from "../../modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js";
+import { echartsLocale, LANGUAGES } from "../../modules/PowerShellUniversal.Component.ECharts/Components/language.js";
+import { textsFor, TEXT_LANGUAGES } from "../../modules/PowerShellUniversal.Component.ECharts/Components/texts.js";
 
 const days = [
     { day: "2026-11-01T00:00:00", team: "OPS", opened: 3 },
@@ -261,17 +264,38 @@ test("zoom auto: slider with preview on time axes and many categories", () => {
     assert.equal(none.dataZoom.length, 0);
 });
 
-test("ECharts locale from a language tag", async () => {
-    // locales.js imports ECharts' language files; only the tag mapping is tested here
-    const src = (await import("node:fs")).readFileSync(new URL("../../modules/PowerShellUniversal.Component.ECharts/Components/locales.js", import.meta.url), "utf8");
-    const body = src.slice(src.indexOf("export function echartsLocale"));
-    const LOCALES = { DE: 1, FR: 1, "PT-br": 1, "nb-NO": 1 };
-    const echartsLocale = new Function("LOCALES", body.replace("export ", "") + "; return echartsLocale;")(LOCALES);
+test("ECharts locale from a language tag", () => {
     assert.equal(echartsLocale("de-DE"), "DE");
     assert.equal(echartsLocale("pt-BR"), "PT-br");
     assert.equal(echartsLocale("nb"), "nb-NO");
     assert.equal(echartsLocale("xx-YY"), "EN");
     assert.equal(echartsLocale(undefined), "EN");
+});
+
+test("locales.js registers ECharts' language files under the names of language.js", () => {
+    // locales.js imports ECharts' language files, so its LOCALES are read from the source
+    const src = readFileSync(new URL("../../modules/PowerShellUniversal.Component.ECharts/Components/locales.js", import.meta.url), "utf8");
+    const body = /const LOCALES = \{([^}]*)\}/.exec(src)[1];
+    const names = body.split(",").map((entry) => entry.split(":")[0].trim().replace(/"/g, ""));
+    assert.deepEqual(names, LANGUAGES);
+});
+
+test("the module's chart texts follow -Locale: every language of locales.js, English otherwise", () => {
+    assert.deepEqual(TEXT_LANGUAGES, ["EN", ...LANGUAGES]);
+    for (const language of LANGUAGES) {
+        assert.deepEqual(Object.keys(textsFor(language)), Object.keys(textsFor("en")), language);
+    }
+    assert.equal(textsFor("xx-YY").total, "Total");
+    const rows = [{ g: "a", v: 1 }, { g: "a", v: 2 }, { g: "a", v: 3 }, { g: "a", v: 50 }];
+    const de = { locale: "de-DE", exportIcons: { csv: "M0", xlsx: "M0", fullscreen: "M0", onCsv() {}, onXlsx() {}, onFullscreen() {} } };
+    const box = buildOption({ chartType: "boxplot", data: rows, x: "g", y: ["v"] }, de);
+    assert.equal(box.series[1].name, "Ausreißer");
+    assert.ok(String(box.tooltip.formatter({ seriesType: "boxplot", name: "a", value: [0, 1, 1.5, 2, 3, 50] })).includes("Median: 2"));
+    assert.equal(box.toolbox.feature.myFullscreen.title, "Vollbild");
+    assert.equal(buildOption({ chartType: "histogram", data: rows, y: ["v"] }, de).yAxis.name, "Anzahl");
+    assert.equal(buildOption({ chartType: "bar", data: [], x: "g", y: ["v"] }, de).graphic.style.text, "Keine Daten");
+    // English stays as it was
+    assert.equal(buildOption({ chartType: "boxplot", data: rows, x: "g", y: ["v"] }, { locale: "en-US" }).series[1].name, "Outliers");
 });
 
 test("graph: nodes from links, groups, degree-based size", () => {

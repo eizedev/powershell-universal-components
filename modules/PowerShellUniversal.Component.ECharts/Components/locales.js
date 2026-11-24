@@ -21,6 +21,9 @@ import JA from "echarts/lib/i18n/langJA.js";
 import ZH from "echarts/lib/i18n/langZH.js";
 import KO from "echarts/lib/i18n/langKO.js";
 
+export { echartsLocale } from "./language.js";
+
+// the names of language.js (LANGUAGES); tests/js/echarts.test.js compares them
 const LOCALES = { DE, FR, ES, IT, NL, PL, CS, SV, FI, "nb-NO": NB, "PT-br": PTBR, RU, UK, TR, JA, ZH, KO };
 let registered = false;
 
@@ -32,18 +35,4 @@ export function registerLocales(echarts) {
         echarts.registerLocale(name, obj);
     }
     registered = true;
-}
-
-// "de-DE" -> "DE", "pt-BR" -> "PT-br", "nb"/"no" -> "nb-NO"; anything unknown -> "EN"
-export function echartsLocale(tag) {
-    const lower = String(tag || "en").toLowerCase();
-    const lang = lower.split("-")[0];
-    if (lang === "pt" && lower.includes("br")) {
-        return "PT-br";
-    }
-    if (lang === "nb" || lang === "no" || lang === "nn") {
-        return "nb-NO";
-    }
-    const upper = lang.toUpperCase();
-    return upper in LOCALES ? upper : "EN";
 }

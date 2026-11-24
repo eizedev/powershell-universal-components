@@ -31,8 +31,22 @@ warning naming the types that use it.
 
 ## Numbers and language
 
-Numbers on axes, labels and tooltips follow `-Locale` (e.g. `de-DE`) or, without it, the browser's
+Numbers on axes, labels and tooltips follow `-Locale` (for example `de-DE`) or, without it, the browser's
 language - two readers can see `1,200` and `1.200` for the same chart. Formats: [Formats](formats.md).
+
+The chart's own texts follow the same language:
+
+- the toolbox buttons
+- "Total" in the tooltip of a stack
+- the statistics of a box plot and its "Outliers" series
+- the "Count" axis of a histogram
+- the "Price" and "Volume" series of a candlestick chart
+- "No data" of an empty chart
+
+They exist in English and in the 17 languages the module loads for ECharts, among them German, French, Spanish, and
+Japanese. Another language shows English. A series name is also the name `-ColorMap` and a click event
+use. An app that colours "Outliers" or "Volume" names the series in the chart's language and sets
+`-Locale`: without it, each reader's browser picks the language.
 
 ## How much data
 

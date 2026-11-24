@@ -5,6 +5,7 @@ import { compileTemplate, columnsTemplate } from "./template.js";
 import { applyColorMap } from "./colormap.js";
 import { timeAxisLabel } from "./timeaxis.js";
 import { cartesianTooltipFormatter, resolveTooltipMode } from "./tooltipMode.js";
+import { textsFor } from "./texts.js";
 
 /*
  * Turns the simple parameters of New-UDEChart (chartType, x, y, groupBy, ...) and the rows into an
@@ -247,7 +248,8 @@ function dataZoomOf(props, horizontal, legendBottom = false) {
     return zooms;
 }
 
-export function toolboxOf(props, cartesian, exportIcons) {
+export function toolboxOf(props, cartesian, ctx = {}) {
+    const exportIcons = ctx.exportIcons;
     if (props.toolbox === false) {
         return undefined;
     }
@@ -267,7 +269,7 @@ export function toolboxOf(props, cartesian, exportIcons) {
         feature.myXlsx = { show: true, title: "Excel", icon: exportIcons.xlsx, onclick: exportIcons.onXlsx };
     }
     if (exportIcons && exportIcons.onFullscreen) {
-        feature.myFullscreen = { show: true, title: "Full screen", icon: exportIcons.fullscreen, onclick: exportIcons.onFullscreen };
+        feature.myFullscreen = { show: true, title: (ctx.texts ?? textsFor()).fullScreen, icon: exportIcons.fullscreen, onclick: exportIcons.onFullscreen };
     }
     return { show: true, right: 8, top: props.title ? 34 : 0, feature };
 }
@@ -816,7 +818,7 @@ function cartesian(props_, rows, keys, ctx) {
             // normalized: the share and the original value
             rowText: (p) => (rawOf(p) !== undefined ? `${pctF(p.value)} (${fmt ? fmt(rawOf(p)) : rawOf(p)})` : pointerFmt(pick(p.value))),
             // with -SecondaryY two stacks can show: name the second by its axis
-            totalLabel: (stack, several) => (several && stack === "secondary" ? "Total (secondary axis)" : "Total"),
+            totalLabel: (stack, several) => (several && stack === "secondary" ? ctx.texts.totalSecondary : ctx.texts.total),
             header: (items) => {
                 const p = items[0];
                 if (p.axisValueLabel !== undefined) return p.axisValueLabel;
@@ -842,7 +844,7 @@ function cartesian(props_, rows, keys, ctx) {
         yAxis: horizontal ? { ...categoryAxis, inverse: true } : yAxes,
         dataZoom: dataZoomOf(props, horizontal, legend.show && legend.bottom !== undefined),
         brush: props.brush ? { xAxisIndex: "all", brushLink: "all", brushType: "lineX", outOfBrush: { colorAlpha: 0.2 } } : undefined,
-        toolbox: toolboxOf(props, true, ctx.exportIcons),
+        toolbox: toolboxOf(props, true, ctx),
         series
     };
 }
@@ -953,7 +955,7 @@ function facets(props, rows, keys, ctx) {
         grid: grids,
         xAxis,
         yAxis,
-        toolbox: toolboxOf({ ...props, brush: false }, false, ctx.exportIcons),
+        toolbox: toolboxOf({ ...props, brush: false }, false, ctx),
         series
     };
 }
@@ -996,7 +998,7 @@ function nameValue(props, rows, keys, ctx) {
         title: titleOf(props),
         legend,
         tooltip: { trigger: "item", valueFormatter: fmt || undefined, confine: true },
-        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        toolbox: toolboxOf(props, false, ctx),
         series: [series]
     };
 }
@@ -1035,7 +1037,7 @@ function heatmap(props, rows, keys, ctx) {
         xAxis: { type: "category", data: xs, splitArea: { show: true }, axisLabel: xs.length <= 12 ? { interval: 0, hideOverlap: false, overflow: "break", width: Math.max(48, Math.floor(900 / Math.max(1, xs.length))) } : { hideOverlap: true } },
         yAxis: { type: "category", data: ys, splitArea: { show: true } },
         visualMap: visualMapOf(data.map((d) => d.value[2]), props, ctx),
-        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        toolbox: toolboxOf(props, false, ctx),
         series: [{ type: "heatmap", data, label: { show: Boolean(props.dataLabels), formatter: (p) => (fmt ? fmt(p.value[2]) : p.value[2]) }, emphasis: { itemStyle: { shadowBlur: 8 } } }]
     };
 }
@@ -1057,7 +1059,7 @@ function calendar(props, rows, keys, ctx) {
         tooltip: { confine: true, formatter: (p) => html`${p.value[0]}<br/><b>${fmt ? fmt(p.value[1]) : p.value[1]}</b>` },
         visualMap: visualMapOf(data.map((d) => d.value[1]), props, ctx, { top: undefined }),
         calendar: calendars.length ? calendars : [{ range: new Date().getFullYear() }],
-        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        toolbox: toolboxOf(props, false, ctx),
         series: years.map((y, i) => ({ type: "heatmap", coordinateSystem: "calendar", calendarIndex: i, data: data.filter((d) => d.value[0].startsWith(y)) }))
     };
 }
@@ -1070,6 +1072,7 @@ function boxplot(props, rows, keys, ctx) {
     const groups = groupKey ? unique(rows.map((r) => r[groupKey])).map(String).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })) : [vKey];
     const stats = groups.map((g) => boxStats(rows.filter((r) => !groupKey || String(r[groupKey] ?? "") === g).map((r) => num(r[vKey]))));
     const fmt = valueFormatter(props, ctx.locale);
+    const t = ctx.texts;
     const f = (v) => (v === null || v === undefined ? "" : fmt ? fmt(v) : v);
     const horizontal = Boolean(props.horizontal);
     const cat = { type: "category", data: groups };
@@ -1080,7 +1083,7 @@ function boxplot(props, rows, keys, ctx) {
             trigger: "item",
             confine: true,
             formatter: (p) => (p.seriesType === "boxplot"
-                ? html`<b>${p.name}</b><br/>Max: ${f(p.value[5])}<br/>Q3: ${f(p.value[4])}<br/>Median: ${f(p.value[3])}<br/>Q1: ${f(p.value[2])}<br/>Min: ${f(p.value[1])}`
+                ? html`<b>${p.name}</b><br/>${t.max}: ${f(p.value[5])}<br/>Q3: ${f(p.value[4])}<br/>${t.median}: ${f(p.value[3])}<br/>Q1: ${f(p.value[2])}<br/>${t.min}: ${f(p.value[1])}`
                 : html`${groups[p.value[horizontal ? 1 : 0]]}: ${f(p.value[horizontal ? 0 : 1])}`)
         },
         // below the toolbox (top right), as gridOf() places the cartesian charts
@@ -1088,10 +1091,10 @@ function boxplot(props, rows, keys, ctx) {
         xAxis: horizontal ? val : cat,
         yAxis: horizontal ? cat : val,
         dataZoom: dataZoomOf({ zoom: props.zoom ?? "none" }, horizontal),
-        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        toolbox: toolboxOf(props, false, ctx),
         series: [
             { type: "boxplot", name: vKey, data: stats.map((s) => s.box), emphasis: { focus: "self" } },
-            { type: "scatter", name: "Outliers", data: stats.flatMap((s, i) => s.outliers.map((o) => (horizontal ? [o, i] : [i, o]))), symbolSize: 6 }
+            { type: "scatter", name: t.outliers, data: stats.flatMap((s, i) => s.outliers.map((o) => (horizontal ? [o, i] : [i, o]))), symbolSize: 6 }
         ]
     };
 }
@@ -1130,8 +1133,8 @@ function histogram(props, rows, keys, ctx) {
         tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, confine: true },
         grid: { left: 12, right: 24, top: props.title ? 70 : 50, bottom: 20, containLabel: true },
         xAxis: { type: "category", data: counts.map((_, i) => label(i)), name: props.xTitle || displayName(vKey, props.y), nameLocation: "middle", nameGap: 28, axisLabel: { hideOverlap: true } },
-        yAxis: { type: "value", name: props.yTitle || "Count", minInterval: 1 },
-        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        yAxis: { type: "value", name: props.yTitle || ctx.texts.count, minInterval: 1 },
+        toolbox: toolboxOf(props, false, ctx),
         series: [{
             type: "bar",
             name: displayName(vKey, props.y),
@@ -1164,12 +1167,12 @@ function candlestick(props, rows, keys, ctx) {
     const yAxis = grids.map((_, i) => ({ type: "value", gridIndex: i, scale: true, axisLabel: i === 0 ? (fmt ? { formatter: (v) => fmt(v) } : {}) : { formatter: (v) => compact(v) }, splitNumber: i === 0 ? 5 : 2 }));
     const series = [{
         type: "candlestick",
-        name: props.title || "Price",
+        name: props.title || ctx.texts.price,
         data: rows.map((r, rowIndex) => ({ value: [num(open(r)), num(close(r)), num(low(r)), num(high(r))], rowIndex })),
         markLine: markLineOf(props, false, fmt)
     }];
     if (volumeKey) {
-        series.push({ type: "bar", name: "Volume", xAxisIndex: 1, yAxisIndex: 1, data: rows.map((r) => num(r[volumeKey])) });
+        series.push({ type: "bar", name: ctx.texts.volume, xAxisIndex: 1, yAxisIndex: 1, data: rows.map((r) => num(r[volumeKey])) });
     }
     return {
         title: titleOf(props),
@@ -1180,7 +1183,7 @@ function candlestick(props, rows, keys, ctx) {
         xAxis,
         yAxis,
         dataZoom: zoomMode(props).inside || zoomMode(props).slider ? [{ type: "inside", xAxisIndex: grids.map((_, i) => i) }, { type: "slider", xAxisIndex: grids.map((_, i) => i), bottom: 8, height: 20 }] : [],
-        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        toolbox: toolboxOf(props, false, ctx),
         series
     };
 }
@@ -1363,7 +1366,7 @@ function graph(props, rows, keys, ctx) {
         title: titleOf(props),
         legend,
         tooltip: { confine: true, formatter: (p) => (p.dataType === "edge" ? html`${p.data.source} → ${p.data.target}${p.data.value !== undefined ? ": " + p.data.value : ""}` : html`${p.name}${p.data.category !== undefined && categories[p.data.category] ? " (" + categories[p.data.category] + ")" : ""}`) },
-        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        toolbox: toolboxOf(props, false, ctx),
         series: [{
             type: "graph",
             layout: layered ? "none" : String(props.layout || "force").toLowerCase(),
@@ -1462,7 +1465,7 @@ function matrixChart(props, rows, keys, ctx) {
     return {
         title: titleOf(props),
         tooltip: { trigger: "axis", confine: true, axisPointer: { type: "line" } },
-        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        toolbox: toolboxOf(props, false, ctx),
         matrix: {
             top: props.title ? 60 : 40,
             left: 8,
@@ -1513,7 +1516,7 @@ function treeChart(props, rows, keys, ctx) {
     return {
         title: titleOf(props),
         tooltip: { confine: true, formatter: (p) => html`${(p.treePathInfo || []).slice(1).map((t) => t.name).join(" / ") || p.name}: <b>${fmt ? fmt(p.value) : p.value}</b>` },
-        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        toolbox: toolboxOf(props, false, ctx),
         series: [series]
     };
 }
@@ -1555,7 +1558,7 @@ function waterfall(props, rows, keys, ctx) {
         // every step is named: all labels, slanted when there are many
         xAxis: { type: "category", data: rows.map((r) => String(r[xKey] ?? "")), axisLabel: { interval: 0, rotate: rows.length > 6 ? 30 : 0 } },
         yAxis: { type: "value", axisLabel: { formatter: (v) => lfmt(v) } },
-        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        toolbox: toolboxOf(props, false, ctx),
         series: [
             { type: "bar", stack: "w", silent: true, itemStyle: { color: "transparent", borderColor: "transparent" }, emphasis: { disabled: true }, data: base, tooltip: { show: false } },
             { type: "bar", stack: "w", data: bars, labelLayout: { hideOverlap: true }, label: { show: props.dataLabels !== false, position: "top", formatter: (p) => lfmt(p.data.label) } }
@@ -1701,7 +1704,7 @@ function gantt(props, rows, keys, ctx) {
         xAxis: { type: "time", position: "top", splitLine: { show: true }, axisLabel: timeAxisLabel(ctx.locale) },
         yAxis: { type: "category", data: lanes, inverse: true, axisTick: { show: false }, splitLine: { show: true } },
         dataZoom: dataZoomOf({ ...props, zoomAuto: true }, false, legend.show && legend.bottom !== undefined),
-        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        toolbox: toolboxOf(props, false, ctx),
         series
     };
 }
@@ -1726,7 +1729,7 @@ function treeDiagram(props, rows, keys, ctx) {
     return {
         title: titleOf(props),
         tooltip: { trigger: "item", confine: true, formatter: (p) => html`${(p.treeAncestors || []).slice(1).map((t) => t.name).filter(Boolean).join(" / ") || p.name}${typeof p.value === "number" && vKey ? html`: <b>${fmt ? fmt(p.value) : p.value}</b>` : ""}` },
-        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        toolbox: toolboxOf(props, false, ctx),
         series: [{
             type: "tree",
             data,
@@ -1765,7 +1768,7 @@ function chord(props, rows, keys, ctx) {
         title: titleOf(props),
         legend: props.legend === "none" ? { show: false } : { show: true, type: "scroll", bottom: 0 },
         tooltip: { trigger: "item", confine: true, formatter: (p) => (p.dataType === "edge" ? html`${p.data.source} ↔ ${p.data.target}: <b>${fmt ? fmt(p.data.value) : p.data.value}</b>` : html`${p.name}: <b>${fmt ? fmt(p.value) : p.value}</b>`) },
-        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        toolbox: toolboxOf(props, false, ctx),
         series: [{
             type: "chord",
             center: ["50%", props.title ? "52%" : "48%"],
@@ -1816,7 +1819,7 @@ function parallel(props, rows, keys, ctx) {
         title: titleOf(props),
         legend,
         tooltip: { trigger: "item", confine: true, formatter: (p) => html`${p.name || p.seriesName || ""}<br/>${joinHtml(dims.map((k, i) => html`${displayName(k, props.y)}: <b>${p.value[i]}</b>`), "<br/>")}` },
-        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        toolbox: toolboxOf(props, false, ctx),
         parallel: { left: 40, right: 70, top: props.title ? 100 : 76, bottom: legend.show && legend.bottom !== undefined ? 50 : 30, parallelAxisDefault: { nameLocation: "end", nameGap: 16, axisLabel: { hideOverlap: true } } },
         parallelAxis: axes,
         series
@@ -1839,7 +1842,7 @@ function themeRiver(props, rows, keys, ctx) {
         title: titleOf(props),
         legend: { ...legend, data: names },
         tooltip: { trigger: "axis", confine: true, axisPointer: { type: "line" }, valueFormatter: fmt || undefined },
-        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        toolbox: toolboxOf(props, false, ctx),
         singleAxis: { type: riverTime ? "time" : "category", axisLabel: riverTime ? timeAxisLabel(ctx.locale) : undefined, top: props.title ? 70 : 40, bottom: legend.show && legend.bottom !== undefined ? 60 : 30, axisPointer: { animation: true, label: { show: true } }, splitLine: { show: true, lineStyle: { type: "dashed", opacity: 0.3 } } },
         series: [{
             type: "themeRiver",
@@ -2021,7 +2024,7 @@ function polarChart(props, rows, keys, ctx) {
         title: titleOf(props),
         legend,
         tooltip: { trigger: "item", confine: true, valueFormatter: fmt || undefined },
-        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        toolbox: toolboxOf(props, false, ctx),
         polar: { center, radius: type === "radialbar" ? ["18%", "72%"] : ["12%", "70%"] },
         // radialbar: categories are the rings, the value runs around; the full value (-Max) fills three
         // quarters of the circle, so the ring names fit into the free quarter next to where the rings start.
@@ -2082,7 +2085,7 @@ function bump(props, rows, keys, ctx) {
         legend,
         grid: { ...gridOf(props, legend), right: 24 + 7 * Math.min(24, Math.max(0, ...items.map((i) => i.length))) },
         tooltip: { trigger: "item", confine: true, formatter: (p) => html`${p.seriesName} · ${p.name}<br/>#${p.value}: <b>${fmt ? fmt(p.data.raw) : p.data.raw}</b>` },
-        toolbox: toolboxOf(props, false, ctx.exportIcons),
+        toolbox: toolboxOf(props, false, ctx),
         xAxis: { type: "category", data: periods, boundaryGap: false, axisLabel: { hideOverlap: true } },
         yAxis: { type: "value", inverse: true, min: 1, max: Math.max(1, items.length), interval: 1, axisLabel: { formatter: (v) => `#${v}` }, splitLine: { show: true } },
         series
@@ -2157,7 +2160,7 @@ export function buildOption(props, ctx = {}) {
     const type = String(props.chartType || "line").toLowerCase();
     // tooltipState: the hover state EChart.jsx keeps for -TooltipMode Auto (tooltipMode.js)
     const tooltipMode = resolveTooltipMode(props.tooltipMode, type);
-    const context = { locale: ctx.locale || "en-US", exportIcons: ctx.exportIcons, tooltipMode, tooltipState: ctx.tooltipState };
+    const context = { locale: ctx.locale || "en-US", texts: textsFor(ctx.locale || "en-US"), exportIcons: ctx.exportIcons, tooltipMode, tooltipState: ctx.tooltipState };
     let option;
     if (CARTESIAN.has(type) && props.sparkline) {
         option = sparkline({ ...props, chartType: type }, rows, keys, context);
@@ -2184,7 +2187,7 @@ export function buildOption(props, ctx = {}) {
     }
     if (rows.length === 0 && !option.graphic) {
         // an empty chart says so instead of showing bare axes
-        option.graphic = { type: "text", left: "center", top: "middle", silent: true, style: { text: props.emptyText || "No data", fontSize: 14, fill: "#8a8f98" } };
+        option.graphic = { type: "text", left: "center", top: "middle", silent: true, style: { text: props.emptyText || context.texts.noData, fontSize: 14, fill: "#8a8f98" } };
     }
     return mergeOptions(normalize(option), props.options);
 }
