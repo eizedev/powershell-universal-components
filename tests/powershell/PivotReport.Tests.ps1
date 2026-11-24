@@ -6,16 +6,7 @@
 # against a real pivotkit-server whose caller may send data (policy.data or a profile's data: true).
 
 BeforeAll {
-    if (-not ('Endpoint' -as [type])) {
-        Add-Type -TypeDefinition @'
-public class Endpoint {
-    public System.Management.Automation.ScriptBlock ScriptBlock;
-    public string RegisteredId;
-    public Endpoint(System.Management.Automation.ScriptBlock scriptBlock) { ScriptBlock = scriptBlock; }
-    public void Register(string id, object cmdlet) { RegisteredId = id; }
-}
-'@
-    }
+    . (Join-Path $PSScriptRoot '..' '..' 'build' 'Add-EndpointType.ps1')
     $script:repo = Resolve-Path (Join-Path $PSScriptRoot '..' '..')
     $script:module = Import-Module (Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.Pivot' 'PowerShellUniversal.Component.Pivot.psm1') -Force -PassThru
     & $script:module { $Script:AssetId = 'asset-under-test' }
@@ -1566,8 +1557,8 @@ Describe '-ErrorVariable holds the error itself, not the module''s steps on the 
         # terminating, and a script without one is where a throw under SilentlyContinue ran on
         $probe = Join-Path $TestDrive 'silently.ps1'
         Set-Content -LiteralPath $probe -Encoding utf8NoBOM -Value @'
-param($Module, $Action, $Case)
-Add-Type -TypeDefinition 'public class Endpoint { public System.Management.Automation.ScriptBlock ScriptBlock; public Endpoint(System.Management.Automation.ScriptBlock s) { ScriptBlock = s; } public void Register(string id, object c) { } }'
+param($Module, $Action, $Case, $EndpointType)
+. $EndpointType
 Import-Module $Module
 $collected = $null
 if ($Case -eq 'cli') {
@@ -1580,7 +1571,7 @@ else {
 '@
         $psm1 = Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.Pivot' 'PowerShellUniversal.Component.Pivot.psm1'
         foreach ($case in 'cli', 'pipeline') {
-            $output = & (Join-Path $PSHOME 'pwsh') -NoProfile -NonInteractive -File $probe -Module $psm1 -Action $Action -Case $case 2>&1 | Out-String
+            $output = & (Join-Path $PSHOME 'pwsh') -NoProfile -NonInteractive -File $probe -Module $psm1 -Action $Action -Case $case -EndpointType (Join-Path $script:repo 'build' 'Add-EndpointType.ps1') 2>&1 | Out-String
             $output | Should -Not -BeLike '*went on:*' -Because "the error stops the script ($case): $output"
             $output | Should -BeLike $(if ($case -eq 'cli') { '*no such file*' } else { '*Pivot view*' })
         }

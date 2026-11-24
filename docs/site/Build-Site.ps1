@@ -44,15 +44,7 @@ $modulesDir = Join-Path $repo 'modules'
 $moduleNames = 'PowerShellUniversal.Component.ECharts', 'PowerShellUniversal.Component.Perspective', 'PowerShellUniversal.Component.Pivot', 'PowerShellUniversal.Component.ECharts.Demo', 'PowerShellUniversal.Component.Pivot.Demo'
 
 # PSU's endpoint type, as in the Pester tests: event script blocks become a marker the page replaces
-if (-not ('Endpoint' -as [type])) {
-    Add-Type -TypeDefinition @'
-public class Endpoint {
-    public System.Management.Automation.ScriptBlock ScriptBlock;
-    public Endpoint(System.Management.Automation.ScriptBlock scriptBlock) { ScriptBlock = scriptBlock; }
-    public void Register(string id, object cmdlet) { }
-}
-'@
-}
+. (Join-Path $repo 'build' 'Add-EndpointType.ps1')
 # a public API in an example: the snapshot of that address in data/ (data/<host>/<path>), returned as
 # Invoke-RestMethod returns JSON (an array is one object in the pipeline, as there)
 function Invoke-RestMethod {

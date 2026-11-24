@@ -39,7 +39,7 @@ Describe 'Build-Module.ps1 with a split module: <Name>' -ForEach @(
         # the built folder loads on its own and exports the manifest's commands (a process of its own:
         # this session has the source module loaded)
         $manifest = Import-PowerShellDataFile -LiteralPath (Join-Path $source "$Name.psd1")
-        $exported = & (Join-Path $PSHOME 'pwsh') -NoProfile -NonInteractive -Command "Add-Type -TypeDefinition 'public class Endpoint { }'; (Import-Module '$(Join-Path $built.FullName "$Name.psd1")' -PassThru).ExportedFunctions.Keys | Sort-Object"
+        $exported = & (Join-Path $PSHOME 'pwsh') -NoProfile -NonInteractive -Command ". '$(Join-Path $script:repo 'build' 'Add-EndpointType.ps1')'; (Import-Module '$(Join-Path $built.FullName "$Name.psd1")' -PassThru).ExportedFunctions.Keys | Sort-Object"
         $exported | Should -Be ($manifest.FunctionsToExport | Sort-Object)
     }
 }
