@@ -8,8 +8,8 @@ $Script:LayoutKeys = @('rows', 'cols', 'values', 'groups', 'filters', 'chart', '
 # pivotkit-core's CHART_TYPES: the chart a layout may ask for
 $Script:ChartTypes = @('auto', 'bar', 'line', 'area', 'pie', 'donut', 'heatmap', 'combo', 'treemap')
 $Script:ReportTimeoutSec = 120
-# what pivotkit's command line needs, for the errors when it or node is missing (docs/pivot/reports.md
-# and the help of Invoke-UDPivotReport say the same)
+# what pivotkit's command line needs, for the errors when it or node is missing (the help of
+# Invoke-UDPivotReport names the same, tests/powershell/PivotOutput.Tests.ps1)
 $Script:CliNodeRequirement = 'Node 24 or later; Node 22 for pivotkit-cli 0.4 and older'
 # the rows of a server source (New-UDPivotReport -Uri -Source): the most bytes of the answer the module
 # reads and hands to the page. pivotkit-server's default limits (50,000 rows, 1,000,000 values) answer
@@ -22,8 +22,7 @@ $Script:RecordsMaxBytesLimit = 64MB
 $Script:ErrorBodyMaxBytes = 1MB
 # the name of a view the server publishes for a source (pivotkit-server's named views)
 $Script:ViewNamePattern = '^[A-Za-z0-9_-]{1,80}$'
-# pivotkit-server's default rest.data.maxBytes: the default of Invoke-UDPivotReport -MaxBytes, and a
-# request body above it gets a warning
+# a request body above this gets a warning: pivotkit-server's default rest.data.maxBytes
 $Script:ReportDataWarnBytes = 10MB
 # ReportWriter.cs writes rows into JSON without a PowerShell statement per cell: in PowerShell 100,000
 # rows x 3 columns allocated about 2 GB on the way and took the managed heap of the process up by about

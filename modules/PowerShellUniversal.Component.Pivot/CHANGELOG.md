@@ -29,8 +29,6 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   Commands, parameters, help and output are unchanged
   ([#163](https://github.com/eizedev/powershell-universal-components/issues/163)). The settings files in
   `Private/Settings/` load in the order of their names on every file system.
-- `Get-UDPivotSource -Uri` is mandatory, so `Get-Help` shows it as required. A call without it stopped
-  with an error before. Now PowerShell asks for it, or refuses the call in a script without a console.
 - The help of `New-UDPivotTemplateStore` shows a store you can run: one file per view in a folder.
 
 ## [0.9.1] - 2026-11-22

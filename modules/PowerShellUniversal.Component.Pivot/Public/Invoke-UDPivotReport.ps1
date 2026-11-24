@@ -187,7 +187,7 @@ function Invoke-UDPivotReport {
         [ValidateSet('Post', 'Basic')][string]$ClientAuthentication = 'Post',
         [ValidateLength(1, 200)][string]$DataName,
         [Nullable[datetime]]$DataAsOf,
-        [ValidateRange(1KB, 64MB)][long]$MaxBytes = $Script:ReportDataWarnBytes,
+        [ValidateRange(1KB, 64MB)][long]$MaxBytes = 10MB,
         [ValidateNotNullOrEmpty()][string]$Template,
         [ValidateSet('Full', 'Shown')][string]$Numbers,
         [switch]$FlatHeader,

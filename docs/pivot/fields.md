@@ -61,7 +61,7 @@ Management Studio shows as a column's Description). `Get-UDPivotSqlColumnDescrip
 table or view and returns the hashtable `-FieldDescriptions` takes:
 
 ```powershell
-$connectionString = 'Server=sql01;Database=ServiceDesk;Integrated Security=true'
+$connectionString = 'Server=sql01;Database=ServiceDesk;Integrated Security=true;TrustServerCertificate=true'
 $tickets = Invoke-Sqlcmd -ConnectionString $connectionString -Query 'SELECT Ticket, Created, Team, Priority, LeadHours FROM dbo.Tickets'
 $descriptions = Get-UDPivotSqlColumnDescription -ConnectionString $connectionString -Table 'dbo.Tickets'
 New-UDPivotReport -Id 'tickets' -Data $tickets -FieldDescriptions $descriptions
@@ -70,9 +70,9 @@ New-UDPivotReport -Id 'tickets' -Data $tickets -FieldDescriptions $descriptions
 With `-ConnectionString` the function opens its own connection with Microsoft.Data.SqlClient when that
 is loaded (the SqlServer module loads it), else with System.Data.SqlClient, which PowerShell 7 ships; the
 module needs neither to load. `-Connection` takes a connection your app has open already (any ADO.NET
-provider for SQL Server) and leaves it open. Microsoft.Data.SqlClient encrypts connections by
-default: give SQL Server a certificate the PSU server trusts. Adding `TrustServerCertificate=true`
-instead turns the certificate check off. Put the call where the data is read (the `New-UDDynamic`
+provider for SQL Server) and leaves it open. `TrustServerCertificate=true` in the example turns the
+check of SQL Server's certificate off, for a server with a self-signed one. Leave it out where SQL
+Server has a certificate the PSU server trusts. Put the call where the data is read (the `New-UDDynamic`
 of the report, or a cached variable), not into an event.
 
 It sends one query, with the table name as a parameter of `OBJECT_ID()`:

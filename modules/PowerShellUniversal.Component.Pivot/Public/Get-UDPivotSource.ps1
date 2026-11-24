@@ -63,7 +63,7 @@ function Get-UDPivotSource {
     [CmdletBinding()]
     [OutputType('PivotSource')]
     param(
-        [Parameter(Mandatory)][uri]$Uri,
+        [uri]$Uri,
         [AllowNull()][object]$Token,
         [pscredential]$Credential,
         [uri]$TokenUri,
