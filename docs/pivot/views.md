@@ -60,7 +60,7 @@ the tab keeps `-View`. The view is kept in two places of the tab:
   for it (more than 8000 characters) stays out. `-NoAddressBar` turns this off.
 - While a reader's own file is shown (`-AllowImport`), its view goes into neither the address bar
   nor sessionStorage ([Readers' own files](import.md#what-stays-in-the-browser)). The keys of both:
-  [how ids and names are built](templates.md#ids).
+  [how ids and names are built](ids.md#ids).
 - **sessionStorage** (per page and report), for a view that is not in the address bar. It returns
   after a reload as long as the page sends the same `-View`; a different `-View` from the server (the
   app chose another start view) wins. Closing the tab, or a browser that blocks storage, starts from
@@ -179,7 +179,7 @@ New-UDPivotReport -Id 'tickets' -Data $tickets -View @{
   too, `'only'` keeps only them. Write it on every filter, so the view says what it means.
 
 The whole catalogue with every key: pivotkit's [Filters, top N and sorting](https://pivotkit.eize.dev/concepts/filters/).
-A view of version 1 - without `version`, or one stored by an earlier release - still works: its
+A view of version 1 (without `version`) works too: its
 `include`, `exclude` and `label` filters and the operators `!=`, `notBetween`, `notEquals` and
 `notContains` are migrated to version 2 when the report reads them, with the same result
 ([pivotkit's table](https://pivotkit.eize.dev/concepts/views/#versions)). The report writes version 2,
@@ -221,7 +221,7 @@ and **Start over** goes back to `-View`. The difference matters because PSU's sc
 reload. `$Page:` is per tab but gone after a reload, which the address bar and the tab's storage
 already cover.
 For a view that follows the reader to other devices, store it per `$User` (as a
-[template store](templates.md#template-stores-templatestore) does), either on every change or with an
+[template store](stores.md#template-stores-templatestore) does), either on every change or with an
 explicit "save as my default", and pass it as `-SavedView`.
 
 Without `-Id` the report is identified by its page and its place in the app script (the line of the

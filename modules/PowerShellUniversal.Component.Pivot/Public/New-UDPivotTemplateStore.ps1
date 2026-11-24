@@ -47,7 +47,7 @@ function New-UDPivotTemplateStore {
     .OUTPUTS
         System.Management.Automation.PSCustomObject (UDPivotTemplateStore)
     .LINK
-        https://powershell-universal-components.eize.dev/pivot/templates/
+        https://powershell-universal-components.eize.dev/pivot/stores/
     #>
     # describes a store; changes nothing itself, so no ShouldProcess
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]

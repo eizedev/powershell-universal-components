@@ -65,7 +65,7 @@ app's data:
 pivotkit names a loaded file's data by its name and a hash of its name and column names in their
 order (`tickets.csv#0123456789abcdef`; the rule: pivotkit's
 [How a loaded file is named](https://pivotkit.eize.dev/reference/import/#how-a-loaded-file-is-named),
-the module's other ids: [how ids and names are built](templates.md#ids)). Views a reader saves while the file is shown carry that id and
+the module's other ids: [how ids and names are built](ids.md#ids)). Views a reader saves while the file is shown carry that id and
 are kept in the browser's store (`localStorage`, the store of `-TemplateStore Browser`, under the
 report's `-Id`): the Views menu offers them when the same file is loaded again (same name, same
 columns), not for another file and not for the app's data. A file with the same name and other or

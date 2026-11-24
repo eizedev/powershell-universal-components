@@ -666,9 +666,9 @@ Describe 'New-UDPivotReport: source, view files and switches' {
     }
 }
 
-Describe 'How ids and names are built (docs/pivot/templates.md#ids)' {
+Describe 'How ids and names are built (docs/pivot/ids.md)' {
     BeforeAll {
-        $script:idsDoc = Get-Content -Raw -LiteralPath (Join-Path $script:repo 'docs' 'pivot' 'templates.md')
+        $script:idsDoc = Get-Content -Raw -LiteralPath (Join-Path $script:repo 'docs' 'pivot' 'ids.md')
     }
 
     It 'the snippet that finds a reader''s folder names the folder the file store writes' {

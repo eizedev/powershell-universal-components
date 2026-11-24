@@ -42,7 +42,7 @@ What to check:
   (`New-UDPivotTemplateStore`). A release refuses view files of a newer format than it reads, so
   check before you go back to an older one: [View files](pivot/templates.md#view-files).
 - **A published folder for the pivot schema** names the old version folder:
-  [Your own copy of the schema](pivot/templates.md#your-own-copy-of-the-schema).
+  [Your own copy of the schema](pivot/schema.md#your-own-copy-of-the-schema).
 
 ## A first chart
 
