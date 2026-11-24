@@ -29,7 +29,9 @@ $docsUri = 'https://powershell-universal-components.eize.dev'
 $sourcesLink = '[sources and licences]({0}/blob/HEAD/docs/site/data/SOURCES.md)' -f $projectUri
 
 # text for a single-quoted PowerShell string
-function ConvertTo-Quoted([string]$Text) { "'" + ($Text -replace "'", "''") + "'" }
+# PowerShell's own escaping: it doubles every character the parser reads as a single quote (also the
+# typographic ones U+2018 to U+201B, which -replace "'" would miss)
+function ConvertTo-Quoted([string]$Text) { "'" + [System.Management.Automation.Language.CodeGeneration]::EscapeSingleQuotedStringContent($Text) + "'" }
 
 # the attribution each source asks for (SOURCES.md), under the data it belongs to
 $attribution = @{

@@ -7,7 +7,7 @@ function Invoke-UDPivotStoreLock {
     .PARAMETER ScriptBlock
         The work.
     .EXAMPLE
-        Invoke-UDPivotStoreLock -Name $folder -ScriptBlock { ... }
+        Invoke-UDPivotStoreLock -Name $folder -ScriptBlock { Set-Content -LiteralPath $path -Value $json }
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)][scriptblock]$ScriptBlock)

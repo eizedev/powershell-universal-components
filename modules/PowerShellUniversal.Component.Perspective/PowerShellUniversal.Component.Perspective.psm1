@@ -1,10 +1,10 @@
 $ErrorActionPreference = 'Stop'
 
 #region Shared code and asset registration
-# The build copies the repository's shared/powershell/*.ps1 into Private/; from a source checkout
-# they are loaded from there directly.
+# The build copies the repository's shared/powershell/*.ps1 into Private/ and writes SHARED.txt there
+# (the same test as in the other modules); from a source checkout they are loaded from shared/ directly.
 $private = Join-Path $PSScriptRoot 'Private'
-if (-not (Test-Path -LiteralPath $private)) { $private = Join-Path $PSScriptRoot '..' '..' 'shared' 'powershell' }
+if (-not (Test-Path -LiteralPath (Join-Path $private 'SHARED.txt'))) { $private = Join-Path $PSScriptRoot '..' '..' 'shared' 'powershell' }
 foreach ($file in Get-ChildItem -LiteralPath $private -Filter '*.ps1' -File) { . $file.FullName }
 $Script:AssetId = Register-PSUComponentAsset -Path $PSScriptRoot
 #endregion

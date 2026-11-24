@@ -8,6 +8,9 @@ $Script:LayoutKeys = @('rows', 'cols', 'values', 'groups', 'filters', 'chart', '
 # pivotkit-core's CHART_TYPES: the chart a layout may ask for
 $Script:ChartTypes = @('auto', 'bar', 'line', 'area', 'pie', 'donut', 'heatmap', 'combo', 'treemap')
 $Script:ReportTimeoutSec = 120
+# what pivotkit's command line needs, for the errors when it or node is missing (the help of
+# Invoke-UDPivotReport names the same, tests/powershell/PivotOutput.Tests.ps1)
+$Script:CliNodeRequirement = 'Node 24 or later; Node 22 for pivotkit-cli 0.4 and older'
 # the rows of a server source (New-UDPivotReport -Uri -Source): the most bytes of the answer the module
 # reads and hands to the page. pivotkit-server's default limits (50,000 rows, 1,000,000 values) answer
 # about 4 MiB for 8 columns; PSU passed a text prop of 64 MiB to the browser (measured on 2026.2.5 and

@@ -2,7 +2,7 @@
 
 `-Format` applies to axis, tooltip and labels; `-LabelFormat` to value labels only (default: the short
 form of `-Format` for numbers of 10,000 and more). `-XFormat` formats a value x axis. Numbers and dates use the browser's language or `-Locale`
-(e.g. `de-DE`).
+(for example `de-DE`).
 
 A time axis without `-XFormat` (line, area, bar over dates, gantt, themeriver) labels its ticks in the
 same locale: times between day boundaries, the date where a day starts ("23:00, 5. Nov., 01:00" with

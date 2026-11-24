@@ -27,6 +27,8 @@ All notable changes to PowerShellUniversal.Component.Perspective. Format:
 ### Fixed
 
 - In dark mode, the chart picker at the top of the editor no longer turns white under the mouse.
+- When new rows hold a value the table refuses, the viewer frees the half-built table in its worker.
+  Before, its memory stayed until the reader closed the page.
 
 ## [0.1.0] - 2026-11-06
 
@@ -39,3 +41,6 @@ All notable changes to PowerShellUniversal.Component.Perspective. Format:
   and typed columns (dates as dates).
 - `-OnClick` with the clicked row and its group/split filter; light and dark theme following the app;
   WebAssembly bundled, no internet access needed.
+
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Perspective-v0.1.0...HEAD
+[0.1.0]: https://github.com/eizedev/powershell-universal-components/releases/tag/PowerShellUniversal.Component.Perspective-v0.1.0

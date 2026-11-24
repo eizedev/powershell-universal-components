@@ -164,10 +164,21 @@ test("exportDataLabels: the Source data explanation names the columns of -Export
 
 test("importLimitsOf: the same keys as -ImportLimit in the module", () => {
     const settings = readFileSync(new URL("../../modules/PowerShellUniversal.Component.Pivot/Private/Settings/Parameters.ps1", import.meta.url), "utf8");
-    const block = settings.match(/\$Script:ImportLimitDefaults = \[ordered\]@\{([^}]*)\}/);
-    assert.ok(block, "$Script:ImportLimitDefaults in the module");
-    const keys = [...block[1].matchAll(/^\s*(\w+)\s*=/gm)].map((m) => m[1]);
+    const block = settings.match(/\$Script:ImportLimitKeys = @\(([^)]*)\)/);
+    assert.ok(block, "$Script:ImportLimitKeys in the module");
+    const keys = [...block[1].matchAll(/'(\w+)'/g)].map((m) => m[1]);
     assert.deepEqual(keys, [...mod.IMPORT_LIMIT_KEYS]);
+});
+
+const pivotCoreUrl = new URL("../../modules/PowerShellUniversal.Component.Pivot/node_modules/pivotkit-core/src/index.js", import.meta.url);
+test("docs/pivot/import.md: the defaults of -ImportLimit are pivotkit-core's LIMITS", { skip: existsSync(pivotCoreUrl) ? false : "the pivot module's packages are not installed" }, async () => {
+    const { LIMITS } = await import(pivotCoreUrl);
+    const page = readFileSync(new URL("../../docs/pivot/import.md", import.meta.url), "utf8");
+    for (const key of mod.IMPORT_LIMIT_KEYS) {
+        const row = page.match(new RegExp("^\\| `" + key + "` \\| ([\\d,]+)", "m"));
+        assert.ok(row, `import.md lists ${key}`);
+        assert.equal(Number(row[1].replaceAll(",", "")), LIMITS[key], `${key} in import.md`);
+    }
 });
 
 test("columnSummary and lastTimings: the admin panel's columns and timings", () => {
@@ -559,10 +570,10 @@ for (const mode of ["light", "dark"]) {
     });
 }
 
-// pivotkit-react 0.8.1's own values (styles.css) for the tokens the bridge maps without changing
-// them: the field types per mode, the tabs and buttons as pivotkit derives them. Where the module's
-// packages are installed, the test reads them from the installed styles.css instead, so a new
-// pivotkit version that changes one fails here.
+// pivotkit-react's own values (styles.css, the same in 0.8.1 and 0.9.0) for the tokens the bridge
+// maps without changing them: the field types per mode, the tabs and buttons as pivotkit derives
+// them. Where the module's packages are installed (CI's pivot step), the test reads them from the
+// installed styles.css instead, so a new pivotkit version that changes one fails there.
 const PK_ROOT = {
     "--pk-tab-bg": "transparent",
     "--pk-tab-text": "var(--pk-muted)",

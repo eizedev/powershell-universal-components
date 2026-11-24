@@ -50,9 +50,9 @@ token's `aud`. For this function:
 1. Set the provider's **Client Type** to **Confidential** and note its **Client ID** and **Client
    Secret**.
 2. In PSU, create a secret of type PSCredential with the client ID as user name and the client secret
-   as password, e.g. `PivotkitClient`.
+   as password, for example `PivotkitClient`.
 3. Call the function with `-TokenUri 'https://<authentik>/application/o/token/'` and `-Scope` with
-   the REST scope's name, e.g. `-Scope 'pivotkit:rest'`. Without it Authentik issues a token without
+   the REST scope's name, for example `-Scope 'pivotkit:rest'`. Without it Authentik issues a token without
    that scope, and the server answers 403 `INSUFFICIENT_SCOPE` (`PivotTokenRefused`).
 
 Authentik answers the client credentials grant with the provider's client ID and secret and creates a

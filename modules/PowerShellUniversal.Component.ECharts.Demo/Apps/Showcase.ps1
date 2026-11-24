@@ -137,8 +137,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                     $neg = $rng.Next(5, 35)
                     [pscustomobject]@{ Question = $q; 'Disagree' = - $neg; 'Rather disagree' = - $rng.Next(5, 20); 'Rather agree' = $rng.Next(15, 35); 'Agree' = $rng.Next(20, 50) }
                 }
-                New-UDEChart -Data $survey -Type bar -Horizontal -X Question -Y 'Disagree', 'Rather disagree', 'Rather agree', 'Agree' -Stacked -Height 340px -Palette '#c62828', '#ef9a9a', '#a5d6a7', '#2e7d32' `
-                    -Options @{ xAxis = @{ axisLabel = @{} } }
+                New-UDEChart -Data $survey -Type bar -Horizontal -X Question -Y 'Disagree', 'Rather disagree', 'Rather agree', 'Agree' -Stacked -Height 340px -Palette '#c62828', '#ef9a9a', '#a5d6a7', '#2e7d32'
             }
             Add-ChartCard 'Select columns with the brush (toolbox), the range comes back as a toast' 6 {
                 $daily = foreach ($d in 0..29) { [pscustomobject]@{ Day = (Get-Date).Date.AddDays(-29 + $d); Changes = $rng.Next(3, 40) } }
@@ -163,7 +162,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
             Add-ChartCard 'Rounded corners and a target line through -Options' 6 {
                 New-UDEChart -Data $statusRows -Type bar -X Team -Y Closed -Height 300px -MarkLine @{ value = 250; name = 'Target'; color = '#43a047' } -Options @{ series = @(@{ itemStyle = @{ borderRadius = @(6, 6, 0, 0) }; barWidth = '45%' }) }
             }
-            Add-ChartCard 'Monthly trend as stacked area of bars (step)' 6 {
+            Add-ChartCard 'Monthly trend as stacked bars, close together' 6 {
                 $trend = foreach ($m in $months) { [pscustomobject]@{ Month = $m; IaaS = $rng.Next(200, 400); PaaS = $rng.Next(80, 200); SaaS = $rng.Next(120, 260) } }
                 New-UDEChart -Data $trend -Type bar -X Month -Y IaaS, PaaS, SaaS -Stacked -Format compact -Height 300px -Options @{ series = @(@{ barCategoryGap = '10%' }) }
             }

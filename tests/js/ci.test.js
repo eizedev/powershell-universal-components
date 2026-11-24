@@ -10,9 +10,13 @@ test("the Playwright container image matches @playwright/test in package-lock.js
     const lock = JSON.parse(readFileSync(new URL("package-lock.json", root), "utf8"));
     const locked = lock.packages["node_modules/@playwright/test"].version;
     const ci = readFileSync(new URL(".github/workflows/ci.yml", root), "utf8");
-    const images = [...ci.matchAll(/mcr\.microsoft\.com\/playwright:v([0-9][^-@\s]*)/g)].map((m) => m[1]);
+    const images = [...ci.matchAll(/mcr\.microsoft\.com\/playwright:v([0-9][^-@\s]*)(\S*)/g)];
     assert.ok(images.length > 0, "no Playwright image in ci.yml");
-    for (const v of images) assert.equal(v, locked, `ci.yml uses the Playwright image v${v}, package-lock.json has @playwright/test ${locked}: raise both together`);
+    for (const [image, v, rest] of images) {
+        assert.equal(v, locked, `ci.yml uses the Playwright image v${v}, package-lock.json has @playwright/test ${locked}: raise both together`);
+        // the digest pins the image's content; a new tag needs its own digest
+        assert.match(rest, /@sha256:[0-9a-f]{64}$/, `${image}: pin the image's digest (@sha256:...) with its tag`);
+    }
 });
 
 test("the build job's matrix names every module in modules/", () => {

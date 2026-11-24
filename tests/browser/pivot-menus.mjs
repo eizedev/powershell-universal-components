@@ -1,4 +1,4 @@
-// pivotkit's menus in levels (pivotkit-react 0.3.0 and later), shared by the pivot specs: the documentation site
+// pivotkit's menus in levels, shared by the pivot specs: the documentation site
 // (site.spec.mjs) and the showcase on a PSU instance (psu-pivot.spec.mjs). A report is the locator of
 // its .pk-root; the menus are rendered next to it (on the site inside the example's shadow root), so
 // they are found from the page.
@@ -14,8 +14,8 @@ export async function openToolbarMenu(report, id) {
     }
 }
 
-// the chart type shown, from Chart settings next to the Chart tab (pivotkit 0.8: no chart type button in
-// the toolbar); the menu closes again
+// the chart type shown, from Chart settings next to the Chart tab (the toolbar has no chart type
+// button); the menu closes again
 export async function expectChartType(report, type) {
     const page = report.page();
     await expect(report.locator("[data-testid=show-chart]")).toHaveAttribute("aria-selected", "true");
@@ -48,7 +48,7 @@ export async function openSaveAs(menu) {
 }
 
 // the group "Share this view" of an open Views menu (Copy link, Copy view as JSON, Download view,
-// Open view file…): on its first level since pivotkit's Views menu was regrouped
+// Open view file…): on the menu's first level
 export async function openShare(menu) {
     await expect(menu.locator("[data-testid=topic-share]")).toBeVisible();
     await expect(menu.locator("[data-testid=copy-json]")).toBeVisible();

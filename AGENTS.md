@@ -43,6 +43,8 @@ The modules form one product. Judge code, tests, docs and these rules as a whole
   `Test-BuiltModule.ps1` (loads a built module in a new process and checks its commands) and the one
   `Endpoint` stub for tests and the site build (`Endpoint.cs`, added by `Add-EndpointType.ps1`).
   Webpack writes a module's bundle to `modules/<Module>/dist/`; `Build-Module.ps1` copies it into `output/`.
+  `Get-ThirdPartyNotice.ps1` writes `THIRD-PARTY-NOTICES.txt` from the lock file and stops when a
+  package that is not optional is not installed (run `npm ci` in the module first).
 - `docs/` - the documentation site (Zensical, `zensical.toml`, shared design of eizedev/brand): the pages
   as Markdown, the complete documentation of every module. `docs/site/` builds its live parts:
   `examples.ps1` (code and chart from one source, run with the real `New-UDEChart`/`New-UDPerspective`/`New-UDPivotReport`
@@ -120,13 +122,13 @@ rendering.
   each of them a CHANGELOG entry, and a patch release for a fix. Code moves into `shared/` only once a
   second module needs it; until then it stays in its module. No common runtime module: each module
   stays installable on its own.
-- The theme tokens (`--psu-chart-*`, read by `shared/js/psuTheme.js` and documented on
-  `docs/echarts/themes.md`) are the contract between the modules and an app's stylesheet: a token is
-  added to the page and the reader together, and renaming or removing one is a breaking change in
-  every module.
+- The theme tokens (`--psu-chart-*`, read by the ECharts module's `Components/themes.js` and the pivot
+  module's `psu.css`, and documented on `docs/echarts/themes.md`) are the contract between the modules
+  and an app's stylesheet: a token is added to the page and the reader together, and renaming or
+  removing one is a breaking change in every module.
 - CI runs the browser tests in Playwright's container image: a new `@playwright/test` version (also a
-  Dependabot pull request) raises the image tag and digest in `ci.yml` with it; `tests/js/ci.test.js` fails
-  until both match.
+  Dependabot pull request) raises the image tag and its digest in `ci.yml` with it; `tests/js/ci.test.js` fails
+  until the tag matches the locked version and a digest is pinned.
 - A demo module requires a minimum version of its component module: raise it when the showcase uses a
   new feature (a Pester test checks that the version exists).
 

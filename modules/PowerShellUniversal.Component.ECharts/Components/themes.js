@@ -1,3 +1,5 @@
+import { parseFontSize } from "./fonts.js";
+
 /*
  * ECharts themes that sit on PSU's page: transparent background, text and lines in the colours of
  * the current mode. ECharts' own "dark" theme paints a dark grey background box that does not match
@@ -14,8 +16,6 @@ const LIGHT = { text: "#303133", muted: "#6e7079", axis: "#c9cdd4", split: "#e8e
 const DARK = { text: "#e5e7eb", muted: "#a3a8b3", axis: "#4b5058", split: "#2a2d33", tooltip: "#2c2f35", tooltipBorder: "#3a3d44", accent: "#64b5f6", palette: ["#5070dd", "#b6d634", "#9aa0d0", "#ff994d", "#0ca8df", "#ffd10a", "#fb628b", "#a58be0", "#3fbe95"] };
 
 // CSS custom properties read from <html>; --psu-chart-1 ... --psu-chart-12 are the series colours
-import { parseFontSize } from "./fonts.js";
-
 const TOKENS = { text: "--psu-chart-text", muted: "--psu-chart-muted", axis: "--psu-chart-axis", split: "--psu-chart-grid", tooltip: "--psu-chart-tooltip", tooltipBorder: "--psu-chart-tooltip-border", accent: "--psu-chart-accent" };
 
 export function readCssTokens(read) {

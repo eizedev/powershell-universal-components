@@ -94,7 +94,7 @@ export function toCsv(rows, definition, locale) {
     const sep = csvSeparator(locale);
     const head = columns.map((c) => csvValue(c.title, { type: "text" }, locale, sep)).join(sep);
     const body = rows.map((row) => columns.map((c) => csvValue(row ? row[c.key] : null, c, locale, sep)).join(sep));
-    return "﻿" + [head, ...body].join("\r\n") + "\r\n";
+    return "\uFEFF" + [head, ...body].join("\r\n") + "\r\n";
 }
 
 // ---- XLSX (Office Open XML, the smallest workbook Excel, LibreOffice and Numbers open) ----

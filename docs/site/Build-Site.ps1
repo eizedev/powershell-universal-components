@@ -18,7 +18,8 @@
       comment-based help; included by the reference pages.
     - docs/assets/charts/: charts.js (webpack, the modules' own React components), its lazy
       Perspective and pivot chunks and examples.json (the props of every example).
-    - docs/assets/images/: the screenshots from assets/ that the pages show.
+    - docs/assets/images/: the screenshots from assets/ that the pages show, and the icon the site uses
+      as logo and favicon.
 
     Fails when an example is included by no page, so examples.ps1 and the pages stay in step.
 .PARAMETER SkipNpmInstall
@@ -224,10 +225,11 @@ finally {
     Remove-Item Env:SITE_OUT -ErrorAction Ignore
     Pop-Location
 }
-# the screenshots of the repository's README, for the pages (one copy in assets/, not committed here)
+# the screenshots of the repository's README and its icon, for the pages (one copy in assets/, not
+# committed here)
 $images = Join-Path $docs 'assets' 'images'
 New-Item -ItemType Directory -Path $images -Force | Out-Null
-Copy-Item -Path (Join-Path $repo 'assets' 'screenshot-*.png') -Destination $images -Force
+Copy-Item -Path (Join-Path $repo 'assets' 'screenshot-*.png'), (Join-Path $repo 'assets' 'icon.svg') -Destination $images -Force
 # after webpack, which empties its output folder
 Write-Generated (Join-Path $charts 'examples.json') ($examples | ConvertTo-Json -Depth 30 -Compress)
 Get-Item -LiteralPath $charts

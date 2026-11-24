@@ -39,7 +39,7 @@ Pass `-TimeZone UTC`, or the zone your readers are in, to fix it.
 - `-Locale`: The language of the report (German for `de-*`, English for everything else) and how
   numbers, dates and sorting look. The default is `en-US` for every reader: the report never takes the
   browser's or the server's language on its own, so a report and its exports look the same for everyone.
-- `-Labels`: Replaces single texts: the keys of pivotkit-react's `LABELS`, e.g. `@{ zones = @{ values =
+- `-Labels`: Replaces single texts: the keys of pivotkit-react's `LABELS`, for example `@{ zones = @{ values =
   'Kennzahlen' }; tips = @{ values = '...' }; sharedViews = 'Team-Ansichten' }`. pivotkit-react's
   `pivotkit-react/labels` entry lists every key, the texts of the menus included.
 

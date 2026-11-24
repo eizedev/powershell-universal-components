@@ -37,6 +37,7 @@ AfterAll {
         Remove-Item -Path "function:$name" -ErrorAction Ignore
     }
     Remove-PSDrive -Name Session -ErrorAction Ignore
+    Remove-Variable -Scope Global -Name Repository, PivotDemoAlerts, PivotDemoDownload -ErrorAction Ignore
 }
 
 Describe 'Pivot demo module' {
@@ -217,6 +218,18 @@ Describe 'Pivot demo: report as a file' {
         $buttons.text | Should -Be @('Download Excel workbook', 'Download HTML report')
         $buttons.disabled | Should -Be @($true, $true)
         @($out | Where-Object { $_ -is [hashtable] -and $_.type -eq 'ud-pivot-report' }).Count | Should -Be 1
+    }
+
+    It 'keeps a typographic apostrophe in -PivotkitPath as text, never as the end of a string in the page code' {
+        $quote = [char]0x2019
+        $path = Join-Path $TestDrive ('O{0}Neil{0}; Write-Output INJECTED; {0}x' -f $quote)
+        $app = New-UDPivotShowcase -PivotkitPath $path
+        $page = $app.Pages | Where-Object Name -EQ 'Report as a file'
+        $out = @(& $page.Content)
+        $out | Should -Not -Contain 'INJECTED'
+        # the page ran its check of the path as written: the program is not there
+        $global:PivotDemoAlerts | Should -Contain 'pivotkit''s command line is not installed on this PSU server'
+        $page.Content.ToString() | Should -Match ([regex]::Escape(($path -replace [string]$quote, ($quote + $quote))))
     }
 
     It 'makes a real <Format> file of the view the reader has, with pivotkit''s command line' -Skip:(-not (Get-Command -Name 'pivotkit' -CommandType Application -ErrorAction Ignore)) -ForEach @(

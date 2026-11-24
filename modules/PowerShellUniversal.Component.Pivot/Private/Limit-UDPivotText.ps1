@@ -17,5 +17,8 @@ function Limit-UDPivotText {
     $value = "$Text".Trim()
     if (-not $value) { return $null }
     if ($value.Length -le $MaxLength) { return $value }
-    $value.Substring(0, $MaxLength - 1).TrimEnd() + [char]0x2026
+    $keep = $MaxLength - 1
+    # never cut between the two halves of a surrogate pair (an emoji, for example)
+    if ([char]::IsHighSurrogate($value[$keep - 1])) { $keep-- }
+    $value.Substring(0, $keep).TrimEnd() + [char]0x2026
 }

@@ -36,10 +36,6 @@ function applyTemplates(option, props, rows, keys, ctx) {
     if (labelTemplate === undefined && tooltipTemplate === undefined) {
         return option;
     }
-    const rowOf = (p) => {
-        const i = p && p.data && typeof p.data === "object" ? p.data.rowIndex : undefined;
-        return i === undefined ? undefined : rows[i];
-    };
     const seriesList = Array.isArray(option.series) ? option.series : option.series ? [option.series] : [];
     if (labelTemplate !== undefined) {
         const render = compileTemplate(labelTemplate, keys, ctx.locale);
@@ -53,7 +49,7 @@ function applyTemplates(option, props, rows, keys, ctx) {
                 ...(s.label || {}),
                 show: true,
                 formatter: (p) => {
-                    const r = rowOf(p);
+                    const r = rowOf(rows, p);
                     if (r) return render(r);
                     return typeof previous === "function" ? previous(p) : p.name;
                 }
@@ -67,7 +63,7 @@ function applyTemplates(option, props, rows, keys, ctx) {
         // one); none left (the gap of a stacked bar chart) means the chart's own text, the total
         const reduce = previous && typeof previous.reduce === "function" ? previous.reduce : (items) => items;
         const one = (p) => {
-            const r = rowOf(p);
+            const r = rowOf(rows, p);
             if (!r) return undefined;
             const head = p.name !== undefined && p.name !== "" ? html`<b>${p.name}</b><br/>` : "";
             return html`${head}${trusted(render(r, true))}`;
@@ -145,8 +141,20 @@ export const CHART_TYPES = [...CARTESIAN, ...Object.keys(BUILDERS)];
  * ctx: { locale, exportIcons, mode } - exportIcons { csv, xlsx (SVG paths), onCsv, onXlsx (handlers) }
  * turn on the CSV/Excel toolbox buttons; mode ("light" or "dark") picks the -ColorMap colours.
  */
+// the rows a chart draws: objects only; a row's rowIndex (the click and selection events) counts these
+export function dataRows(data) {
+    return Array.isArray(data) ? data.filter((r) => r && typeof r === "object") : [];
+}
+
+// the row behind an event's data item, from the rows dataRows returned
+export function rowOf(rows, params) {
+    const data = params && params.data;
+    const index = data && typeof data === "object" && !Array.isArray(data) ? data.rowIndex : undefined;
+    return index === undefined ? undefined : rows[index];
+}
+
 export function buildOption(props, ctx = {}) {
-    const rows = Array.isArray(props.data) ? props.data.filter((r) => r && typeof r === "object") : [];
+    const rows = dataRows(props.data);
     const keys = columnsOf(rows);
     checkColumns(props, rows, keys);
     const type = String(props.chartType || "line").toLowerCase();

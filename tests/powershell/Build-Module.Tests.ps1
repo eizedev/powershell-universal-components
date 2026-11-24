@@ -9,8 +9,13 @@ BeforeDiscovery {
     $script:component = 'PowerShellUniversal.Component.Perspective'
     $repo = Resolve-Path (Join-Path $PSScriptRoot '..' '..')
     $script:installed = Test-Path -LiteralPath (Join-Path $repo 'modules' $script:component 'node_modules' 'webpack')
-    # the split modules: those with a Public/ folder
-    $script:splitModules = @(Get-ChildItem -Path (Join-Path $repo 'modules' '*' 'Public') -Directory | ForEach-Object { @{ Name = $_.Parent.Name } })
+    # the split modules: those with a Public/ folder, and whether their packages are installed
+    $script:splitModules = @(Get-ChildItem -Path (Join-Path $repo 'modules' '*' 'Public') -Directory | ForEach-Object {
+            @{ Name = $_.Parent.Name; HasPackages = Test-Path -LiteralPath (Join-Path $_.Parent.FullName 'node_modules' 'webpack') }
+        })
+    $pivotPackages = Join-Path $repo 'modules' 'PowerShellUniversal.Component.Pivot' 'node_modules'
+    $script:pivotInstalled = Test-Path -LiteralPath (Join-Path $pivotPackages 'webpack')
+    $script:pivotkitReactInstalled = Test-Path -LiteralPath (Join-Path $pivotPackages 'pivotkit-react')
 }
 
 BeforeAll {
@@ -27,8 +32,44 @@ Describe 'Build-Module.ps1 with a component module' {
     }
 }
 
+Describe 'Get-ThirdPartyNotice.ps1: the licences of the bundled packages' {
+    BeforeAll {
+        $script:notice = Join-Path $script:repo 'build' 'Get-ThirdPartyNotice.ps1'
+        # a module folder with a lock file and node_modules, without npm or a network
+        $script:packageFolder = {
+            param([hashtable]$Packages)
+            $folder = Join-Path $TestDrive ([guid]::NewGuid().ToString('n'))
+            $lock = [ordered]@{ name = 'probe'; lockfileVersion = 3; packages = [ordered]@{ '' = @{ name = 'probe' } } }
+            foreach ($name in $Packages.Keys) { $lock.packages["node_modules/$name"] = $Packages[$name] }
+            $null = New-Item -ItemType Directory -Path $folder
+            $lock | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $folder 'package-lock.json')
+            $folder
+        }
+    }
+
+    It 'writes each installed runtime package with its licence file, and leaves dev packages out' {
+        $folder = & $script:packageFolder @{ 'lib-a' = @{ version = '1.0.0'; license = 'MIT' }; 'tool-b' = @{ version = '2.0.0'; license = 'MIT'; dev = $true } }
+        $null = New-Item -ItemType Directory -Path (Join-Path $folder 'node_modules' 'lib-a')
+        Set-Content -LiteralPath (Join-Path $folder 'node_modules' 'lib-a' 'LICENSE') -Value 'MIT licence of lib-a'
+        $text = (& $script:notice -Path $folder) -join "`n"
+        $text | Should -Match 'lib-a 1\.0\.0 \(MIT\)'
+        $text | Should -Match 'MIT licence of lib-a'
+        $text | Should -Not -Match 'tool-b'
+    }
+
+    It 'skips an optional package that is not installed (one for another platform)' {
+        $folder = & $script:packageFolder @{ 'native-x' = @{ version = '1.0.0'; license = 'MIT'; optional = $true } }
+        @(& $script:notice -Path $folder) | Should -BeNullOrEmpty
+    }
+
+    It 'stops with what to do when a required package is not installed' {
+        $folder = & $script:packageFolder @{ 'lib-a' = @{ version = '1.0.0'; license = 'MIT' } }
+        { & $script:notice -Path $folder } | Should -Throw '*node_modules/lib-a is in package-lock.json but not installed; run npm ci*'
+    }
+}
+
 Describe 'Build-Module.ps1 with a split module: <Name>' -ForEach $splitModules {
-    It '<Name>: the built module carries its Public/ and Private/ files (the pivot module also its settings and C# sources) and exports the manifest''s commands (#163, #169)' -Skip:(-not (Test-Path -LiteralPath (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..' '..')) 'modules' $Name 'node_modules' 'webpack'))) {
+    It '<Name>: the built module carries its Public/ and Private/ files (the pivot module also its settings and C# sources) and exports the manifest''s commands (#163, #169)' -Skip:(-not $HasPackages) {
         $built = & (Join-Path $script:repo 'build' 'Build-Module.ps1') -Module $Name -OutputPath (Join-Path $TestDrive 'out') -SkipNpmInstall 6>$null
         $source = Join-Path $script:repo 'modules' $Name
         foreach ($file in Get-ChildItem -LiteralPath (Join-Path $source 'Public'), (Join-Path $source 'Private') -Include '*.ps1', '*.cs' -File -Recurse) {
@@ -72,7 +113,7 @@ Describe 'Build-Module.ps1 with the pivot module' {
         }
     }
 
-    It '-Tips takes the tip ids of the installed pivotkit-react, and its help lists them and the notices (#154)' -Skip:(-not (Test-Path -LiteralPath (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..' '..')) 'modules' 'PowerShellUniversal.Component.Pivot' 'node_modules' 'pivotkit-react'))) {
+    It '-Tips takes the tip ids of the installed pivotkit-react, and its help lists them and the notices (#154)' -Skip:(-not $pivotkitReactInstalled) {
         $installed = Get-PivotkitTipId -Package (Join-Path $script:repo 'modules' $script:pivot 'node_modules' 'pivotkit-react')
         $installed.Tips.Count | Should -BeGreaterThan 10 -Because 'the reader found the tips'
         $installed.Notices.Count | Should -BeGreaterThan 0 -Because 'the reader found the notices'
@@ -93,7 +134,7 @@ Describe 'Build-Module.ps1 with the pivot module' {
         (($listed.Groups[2].Value -split ', | and ') | Sort-Object -CaseSensitive) -join ',' | Should -BeExactly (($installed.Notices | Sort-Object -CaseSensitive) -join ',')
     }
 
-    It 'the built module carries pivotkit-core''s view-file and view schemas of the version the bundle uses (#138)' -Skip:(-not (Test-Path -LiteralPath (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..' '..')) 'modules' 'PowerShellUniversal.Component.Pivot' 'node_modules' 'webpack'))) {
+    It 'the built module carries pivotkit-core''s view-file and view schemas of the version the bundle uses (#138)' -Skip:(-not $pivotInstalled) {
         $built = & (Join-Path $script:repo 'build' 'Build-Module.ps1') -Module $script:pivot -OutputPath (Join-Path $TestDrive 'out') -SkipNpmInstall 6>$null
         $lock = Get-Content -LiteralPath (Join-Path $script:repo 'modules' $script:pivot 'package-lock.json') -Raw | ConvertFrom-Json -AsHashtable
         $installed = (Get-Content -LiteralPath (Join-Path $script:pivotCore 'package.json') -Raw | ConvertFrom-Json).version

@@ -16,7 +16,8 @@ export const VIEW_EVENT_DELAY_MS = 600;
 // minus 180 pixels for what a page shows above the report (PSU's app bar of 64 pixels, the page's
 // padding, a title line), so the whole report is on screen when the page loads and the result shows
 // rows enough below the toolbar, the zones and a tip. At least 600 pixels: below that pivotkit folds
-// the zones into one line, and the open zones take about 300. At most 1400 on a tall screen.
+// the zones into one line. The open zones take about 150 in the 2x2 grid of a wide report and about
+// 390 in one column (an area narrower than 640 pixels). At most 1400 on a tall screen.
 // docs/pivot/readers.md and the help of -Height name these numbers (tests/js/pivot.test.js).
 export const DEFAULT_HEIGHT = "clamp(600px, calc(100svh - 180px), 1400px)";
 
@@ -323,7 +324,7 @@ export function schemaUrlOf(value, origin = globalThis.location?.origin) {
 
 /*
  * The limits of -ImportLimit pivotkit-core's LIMITS knows for a loaded file (the module's
- * $Script:ImportLimitDefaults keeps the same list); pivotkit refuses an unknown limit with an error.
+ * $Script:ImportLimitKeys keeps the same list); pivotkit refuses an unknown limit with an error.
  */
 export const IMPORT_LIMIT_KEYS = Object.freeze(["fileBytes", "rows", "columns", "importCells", "textLength", "archiveEntries", "unpackedBytes"]);
 

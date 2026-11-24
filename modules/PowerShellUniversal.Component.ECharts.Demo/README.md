@@ -21,8 +21,8 @@ period, filters on a table), finance (waterfall, plan versus actual, candlestick
 (KPI matrix, VMware, storage, backup, customer ranking), operations (backup gantt, forecasts,
 dependencies), a data platform that combines many source systems (coverage, gaps, network path,
 asset 360), calendars, intraday charts with axis breaks, public data, layouts, technical examples,
-live data and a benchmark. All data is generated with a fixed seed; "Public data" calls public web
-APIs from the PSU server.
+live data and a benchmark. All data is generated with a fixed seed, with dates counted from today;
+"Public data" calls public web APIs from the PSU server.
 
 The app has no sign-in, and the Technical page shows the PSU server's processes. Read
 [Before you share the app](https://powershell-universal-components.eize.dev/demo/#before-you-share-the-app)

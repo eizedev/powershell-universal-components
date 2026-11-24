@@ -17,13 +17,13 @@
  * MUI's primary blue #1976d2; dark page black, app bar rgb(31, 31, 31), text white at 85 %, MUI's dark
  * primary #90caf9. pivotkit's own defaults are tinted blue-grey; here the surfaces, borders and rules
  * are PSU's neutral greys and the accent is MUI's primary. Series and heatmap defaults and the font
- * weights are pivotkit's own (pivotkit-react 0.8.1 styles.css), repeated here because a property
+ * weights are pivotkit's own (pivotkit-react's styles.css), repeated here because a property
  * cannot fall back to the value it replaces. The colour scale is the heatmap's (light to strong blue,
  * pivotkit's default): it says "more", not "good" or "bad". The report picks light or dark from
  * <html data-theme> itself (data-pk-theme on its root); the dark defaults below are written for that
  * attribute, never for the page's, so an export from a dark app takes the light colours.
  *
- * The tabs and buttons (pivotkit-react 0.8.1) take --psu-pivot-tab-*, --psu-pivot-icon-button-*,
+ * The tabs and buttons (pivotkit-react) take --psu-pivot-tab-*, --psu-pivot-icon-button-*,
  * --psu-pivot-button-* and --psu-pivot-primary-*; without them they derive from the general tokens as
  * pivotkit does, so they follow PSU. The zone frames follow --pk-border-strong. The field type colours
  * take --psu-pivot-type-*; without them they keep pivotkit's own values, repeated below per mode.
@@ -94,7 +94,7 @@
     --psu-default-mix-soft: 12%;
     --psu-default-mix-drop: 18%;
     --psu-default-mix-note: 7%;
-    /* the field types' colours: pivotkit's (pivotkit-react 0.8.1 styles.css) */
+    /* the field types' colours: pivotkit's (pivotkit-react's styles.css) */
     --psu-default-type-string: #6250d6;
     --psu-default-type-number: #1a7f5a;
     --psu-default-type-date: #b5560b;

@@ -83,9 +83,21 @@ export function formatBytes(bytes, locale) {
     return `${bytes < 0 ? "-" : ""}${n} ${units[i]}`;
 }
 
+// Intl.NumberFormat, or plain locale numbers where Intl refuses the options (a currency code it does
+// not know throws a RangeError)
+function numberFormat(locale, options) {
+    try {
+        return new Intl.NumberFormat(locale, options);
+    } catch (error) {
+        if (!(error instanceof RangeError) || !options.currency) throw error;
+        return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
+    }
+}
+
 /*
- * A function value -> string for the given format name and locale. Unknown names fall back to
- * locale numbers, so a typo shows numbers instead of breaking the chart.
+ * A function value -> string for the given format name and locale. Unknown names and currency codes
+ * Intl does not know (currency:EURO) fall back to locale numbers, so a typo shows numbers instead of
+ * breaking the chart.
  */
 export function formatter(spec, locale) {
     const f = parseFormat(spec);
@@ -94,7 +106,7 @@ export function formatter(spec, locale) {
     }
     const decimals = f.arg !== undefined && /^\d+$/.test(f.arg) ? Number(f.arg) : undefined;
     const nf = (options) => {
-        const fmt = new Intl.NumberFormat(locale, options);
+        const fmt = numberFormat(locale, options);
         return (v) => {
             const n = toNumber(v);
             return isNaN(n) ? (v === null || v === undefined ? "" : String(v)) : fmt.format(n);

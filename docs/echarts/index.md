@@ -42,7 +42,7 @@ In the PowerShell Gallery: [PowerShellUniversal.Component.ECharts](https://www.p
 | `chord` | `-Source`, `-Target`, `-Value` | overlaps or hand-overs between the same set of things | [Relations](relations.md) |
 | `parallel` | `-Y` (axes), `-X` (name), `-GroupBy` | many items across many measures; drag along an axis to filter | [Comparisons](comparisons.md) |
 | `themeriver` | `-X` (date), `-GroupBy`, `-Y` | how a mix of categories changes over time | |
-| `matrix` | `-Y` (rows), `-GroupBy` (columns), `-X` (inside a cell), `-Value`, `-CellType` | a table of sparklines, e.g. KPIs per customer; one scale per column | [Comparisons](comparisons.md) |
+| `matrix` | `-Y` (rows), `-GroupBy` (columns), `-X` (inside a cell), `-Value`, `-CellType` | a table of sparklines, for example KPIs per customer; one scale per column | [Comparisons](comparisons.md) |
 | `polar` | `-X` (around the circle), `-Y` or `-GroupBy` | hours of the day, weekdays; `-Stacked` | [Comparisons](comparisons.md) |
 | `radialbar` | `-X` (one ring each), `-Y`, `-Max` | progress per customer or service; the longest ring is three quarters of the circle | [Comparisons](comparisons.md) |
 | `bump` | `-X` (period), `-GroupBy` (item), `-Y` (value) | the rank of each item per period, highest value first | [Comparisons](comparisons.md) |

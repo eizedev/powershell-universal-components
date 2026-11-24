@@ -29,7 +29,7 @@ Install-PSResource -Name PowerShellUniversal.Component.Pivot
 
 In the PowerShell Gallery: [PowerShellUniversal.Component.Pivot](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot).
 
-or copy the built module folder into `Modules/PowerShellUniversal.Component.Pivot/<version>/` of your
+Without the Gallery, copy the built module folder into `Modules/PowerShellUniversal.Component.Pivot/<version>/` of your
 PSU repository. To update, see
 [Update](https://powershell-universal-components.eize.dev/getting-started/#update).
 

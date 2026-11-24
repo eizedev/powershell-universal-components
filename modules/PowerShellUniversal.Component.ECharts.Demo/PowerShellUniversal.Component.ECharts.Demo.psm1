@@ -6,7 +6,8 @@ function New-UDEChartShowcase {
         The app has fourteen pages: basics, every bar variant, a ticket report, finance, managed
         services, operations and SLA, a data platform that combines many source systems, calendars,
         intraday charts, public data, layouts, technical examples, live data and a benchmark. Data is
-        generated with a fixed seed; the page "Public data" needs internet access from the PSU server.
+        generated with a fixed seed, with dates counted from today; the page "Public data" needs
+        internet access from the PSU server.
         Use it as the whole content of an app:
             Import-Module PowerShellUniversal.Component.ECharts.Demo
             New-UDEChartShowcase

@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { buildOption, mergeOptions, boxStats, quantile, displayName, linearFit, tooltipTracksHover, CHART_TYPES, LARGE } from "../../modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js";
+import { buildOption, dataRows, rowOf, mergeOptions, boxStats, quantile, displayName, linearFit, tooltipTracksHover, CHART_TYPES, LARGE } from "../../modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js";
 import { echartsLocale, LANGUAGES } from "../../modules/PowerShellUniversal.Component.ECharts/Components/language.js";
 import { textsFor, TEXT_LANGUAGES } from "../../modules/PowerShellUniversal.Component.ECharts/Components/texts.js";
 
@@ -1048,4 +1048,17 @@ test("a heatmap and faceted bars of 300,000 values build without overflowing the
     assert.equal(heat.visualMap.max ?? heat.visualMap[0]?.max, 96);
     const bars = buildOption({ chartType: "bar", data: rows.map((r) => ({ g: r.y.length % 2 ? "a" : "b", x: r.x, v: r.v })), x: "x", y: ["v"], facet: "g" }, {});
     assert.ok(bars.series.length > 0);
+});
+
+test("events: a data item's rowIndex finds its row also when -Data holds rows that are no objects", () => {
+    const data = [null, { Team: "A", Hours: 1 }, "not a row", { Team: "B", Hours: 2 }];
+    assert.deepEqual(dataRows(data), [data[1], data[3]]);
+    assert.deepEqual(dataRows(undefined), []);
+    const o = buildOption({ chartType: "bar", data, x: "Team", y: ["Hours"] });
+    const items = o.series[0].data;
+    assert.equal(items.length, 2);
+    // the click handler's lookup: the row behind each bar, not the raw -Data entry at that index
+    assert.equal(rowOf(dataRows(data), { data: items[0] }).Team, "A");
+    assert.equal(rowOf(dataRows(data), { data: items[1] }).Team, "B");
+    assert.equal(rowOf(dataRows(data), { data: [1, 2] }), undefined);
 });

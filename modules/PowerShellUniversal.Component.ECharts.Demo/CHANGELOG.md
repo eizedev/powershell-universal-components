@@ -13,6 +13,9 @@ All notable changes to PowerShellUniversal.Component.ECharts.Demo. Format:
 
 - Requires PowerShellUniversal.Component.ECharts 0.3.1, where `Get-UDElement` works for charts
   ([#159](https://github.com/eizedev/powershell-universal-components/issues/159)).
+- The Bars page names its last card "Monthly trend as stacked bars, close together", which it shows.
+  The diverging survey chart lost an `-Options` entry that changed nothing.
+- The help and README say that the generated data counts its dates from today.
 
 ## [0.3.0] - 2026-11-09
 
@@ -36,3 +39,8 @@ All notable changes to PowerShellUniversal.Component.ECharts.Demo. Format:
 ### Added
 
 - `New-UDEChartShowcase`: the showcase app of PowerShellUniversal.Component.ECharts as a module.
+
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.ECharts.Demo-v0.3.0...HEAD
+[0.3.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.ECharts.Demo-v0.2.0...PowerShellUniversal.Component.ECharts.Demo-v0.3.0
+[0.2.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.ECharts.Demo-v0.1.0...PowerShellUniversal.Component.ECharts.Demo-v0.2.0
+[0.1.0]: https://github.com/eizedev/powershell-universal-components/releases/tag/PowerShellUniversal.Component.ECharts.Demo-v0.1.0

@@ -26,9 +26,6 @@ To see it with data first, the [showcase app](demo.md) is a module of its own
 
 --8<-- "examples/pivot-report-from-a-web-api.md"
 
-Some products on endoflife.date mix dates and `true`/`false` in `eol`; the next example keeps the dates
-only.
-
 Then, depending on what the report needs:
 
 | You want | Where |
@@ -45,6 +42,9 @@ Then, depending on what the report needs:
 | Every parameter | [Commands and parameters](reference.md) |
 
 ## Start view, field names and templates
+
+Some products on endoflife.date mix dates and `true` or `false` in `eol`. This example keeps the dates
+only.
 
 --8<-- "examples/start-view-field-names-and-templates.md"
 
