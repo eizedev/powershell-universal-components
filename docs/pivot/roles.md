@@ -65,7 +65,9 @@ The view comes from the browser: check it with `ConvertFrom-UDPivotView` (or wri
 `ConvertTo-UDPivotViewFile`, which checks it) before it is stored, check the name, never build a path
 or a query from it, and check `$Roles` again in `-OnPublishTemplate` and for a shared delete - the
 browser only hides the buttons. Return `@{ error = '...' }` to refuse with that text; a script block
-that throws refuses too, but the reader then sees only "the server reported an error".
+that throws refuses too, but the reader then sees only "the server reported an error". For a file
+everyone reads, pass `ConvertTo-UDPivotViewFile` an https `-SchemaUrl`: a path takes its origin from
+the request's headers.
 
 ```powershell
 New-UDPivotReport -Id 'tickets' -Data $tickets -Templates $templates -AdminRole 'Administrator' -OnSaveTemplate {

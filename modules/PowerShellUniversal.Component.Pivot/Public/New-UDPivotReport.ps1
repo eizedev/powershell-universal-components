@@ -136,7 +136,8 @@ function New-UDPivotReport {
         The $schema of the view files the report writes: an https address of your own copy, a path on
         PSU such as /assets/pivot/schema/view-file-2.json, or '' to leave it out. The browser writes a
         path with the address the reader used; the template store with the origin of an https default,
-        else of the event's request (ConvertTo-UDPivotViewFile). Default: the
+        else of the event's request for an own view and pivotkit's address for a shared one
+        (ConvertTo-UDPivotViewFile). Default: the
         environment variable PSU_COMPONENT_PIVOT_SCHEMA_URL, else pivotkit's published schema. Loading
         never depends on it.
     .PARAMETER FieldDefaults

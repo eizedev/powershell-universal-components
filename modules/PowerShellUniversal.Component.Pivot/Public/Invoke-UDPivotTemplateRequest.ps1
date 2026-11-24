@@ -62,7 +62,8 @@ function Invoke-UDPivotTemplateRequest {
             SourceName = $settings.SourceName
         }
         # $null: the default of ConvertTo-UDPivotViewFile. A path takes the origin of an https default,
-        # else of this event's request ($Headers of the handler: PSU sends Origin with an event)
+        # else of this event's request for an own view ($Headers of the handler: PSU sends Origin with an
+        # event); a shared view names pivotkit's address then (Invoke-UDPivotTemplateStore)
         if ($null -ne $settings.SchemaUrl) { $arguments['SchemaUrl'] = $settings.SchemaUrl }
         $arguments['Headers'] = $PSCmdlet.SessionState.PSVariable.GetValue('Headers')
         if ($Action -ne 'Delete') { $arguments['View'] = Get-UDPivotEntryValue -InputObject $data -Name 'view' }

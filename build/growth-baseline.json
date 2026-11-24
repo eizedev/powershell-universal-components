@@ -27,7 +27,7 @@
             "modules/PowerShellUniversal.Component.Pivot.Demo/Apps/Showcase.ps1": [305],
             "tests/powershell/Pivot.Tests.ps1": [521],
             "tests/powershell/PivotReport.Tests.ps1": [1391],
-            "tests/powershell/PivotTemplates.Tests.ps1": [719]
+            "tests/powershell/PivotTemplates.Tests.ps1": [729]
         },
         "functions": {
             "New-UDEChart": [121]

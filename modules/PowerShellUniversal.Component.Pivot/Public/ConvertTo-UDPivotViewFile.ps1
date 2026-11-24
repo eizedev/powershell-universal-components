@@ -12,6 +12,8 @@ function ConvertTo-UDPivotViewFile {
         A path in -SchemaUrl gets the origin of PSU_COMPONENT_PIVOT_SCHEMA_URL when that is an https
         address. Otherwise it gets the origin the reader's browser used: $Headers of the page, event or
         API endpoint that calls this function (Origin, the page address, Referer). With neither it stops.
+        For a file everyone reads (a shared view), pass an https -SchemaUrl: the request's headers come
+        from the reader.
     .PARAMETER View
         The view (JSON text, a hashtable or an object).
     .PARAMETER Name

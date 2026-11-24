@@ -798,26 +798,39 @@ Describe '-SchemaUrl: one check, a path on the instance, the module-wide default
         }
     }
 
-    It 'the template store writes a path with the origin of the event''s request, else of an https default' {
+    It 'the template store writes a path of an own view with the origin of the event''s request; a shared view never takes it' {
         $folder = & $script:newFolder
         try {
             $store = New-UDPivotFileTemplateStore -Path $folder
             $c = New-UDPivotReport -Id 'r' -Data $script:rows -TemplateStore $store -AdminRole 'Admin' -UserName 'boss' -Roles 'Admin' -SchemaUrl $script:path
             $c.schemaUrl | Should -BeExactly $script:path
-            $key = & $script:keyOf $c.onPublishTemplate
-            $read = { Get-ChildItem -LiteralPath (Join-Path $folder 'shared') -File | Get-Content -Raw | ConvertFrom-Json }
-            # the handler runs with the headers of the event (PSU sends Origin with it)
+            $send = { param($Action, $View = $script:v2) Invoke-UDPivotTemplateRequest -Key (& $script:keyOf $c."on$($Action)Template") -Action $Action -EventData @{ name = 'Hosted'; view = $View } -UserName 'boss' -Roles 'Admin' }
+            $read = { param($Scope) Get-ChildItem -LiteralPath $folder -Recurse -File -Filter '*.pivotkit.json' | Where-Object { ($_.Directory.Name -eq 'shared') -eq ($Scope -eq 'shared') } | Get-Content -Raw | ConvertFrom-Json }
+            # the handler runs with the headers of the event (PSU sends Origin with it); everyone reads a
+            # shared view, so no request names a host in it: pivotkit's address
             Set-Variable -Name Headers -Value (& $script:headersOf @{ Origin = 'https://psu.example.com'; Host = 'internal:5000' })
-            Invoke-UDPivotTemplateRequest -Key $key -Action Publish -EventData @{ name = 'Hosted'; view = $script:v2 } -UserName 'boss' -Roles 'Admin' | Should -BeNullOrEmpty
-            (& $read).'$schema' | Should -BeExactly "https://psu.example.com$($script:path)"
+            & $send Save | Should -BeNullOrEmpty
+            & $send Publish | Should -BeNullOrEmpty
+            (& $read user).'$schema' | Should -BeExactly "https://psu.example.com$($script:path)"
+            (& $read shared).'$schema' | Should -BeExactly 'https://pivotkit.eize.dev/schema/view-file-2.json'
             # an https default wins over the request: the address the platform names
             [Environment]::SetEnvironmentVariable($script:defaultName, 'https://reports.example.com/assets/pivot/schema/view-file-2.json')
-            Invoke-UDPivotTemplateRequest -Key $key -Action Publish -EventData @{ name = 'Hosted'; view = $script:v2 } -UserName 'boss' -Roles 'Admin' | Should -BeNullOrEmpty
-            (& $read).'$schema' | Should -BeExactly "https://reports.example.com$($script:path)"
-            # neither: the reader sees why nothing was saved
+            & $send Save | Should -BeNullOrEmpty
+            & $send Publish | Should -BeNullOrEmpty
+            (& $read user).'$schema' | Should -BeExactly "https://reports.example.com$($script:path)"
+            (& $read shared).'$schema' | Should -BeExactly "https://reports.example.com$($script:path)"
+            # neither: the reader sees why the own view was not saved; the shared one names pivotkit's
+            # address, of format 1 for a view of version 1
             [Environment]::SetEnvironmentVariable($script:defaultName, $null)
             Remove-Variable -Name Headers
-            (Invoke-UDPivotTemplateRequest -Key $key -Action Publish -EventData @{ name = 'Hosted'; view = $script:v2 } -UserName 'boss' -Roles 'Admin').error | Should -BeLike '*SchemaUrl*'
+            (& $send Save).error | Should -BeLike '*SchemaUrl*'
+            & $send Publish @{ rows = @('Team') } | Should -BeNullOrEmpty
+            (& $read shared).'$schema' | Should -BeExactly 'https://pivotkit.eize.dev/schema/view-file-1.json'
+            # a path as the default, without -SchemaUrl: the same for a shared view
+            [Environment]::SetEnvironmentVariable($script:defaultName, $script:path)
+            Set-Variable -Name Headers -Value (& $script:headersOf @{ Origin = 'https://psu.example.com' })
+            & $script:module { param($Store, $View, $Request) Invoke-UDPivotTemplateStore -Store $Store -Action Publish -Scope shared -UserName 'boss' -Name 'Hosted' -View $View -SourceId 'r' -Headers $Request } $store $script:v2 $Headers
+            (& $read shared).'$schema' | Should -BeExactly 'https://pivotkit.eize.dev/schema/view-file-2.json'
         }
         finally { Remove-Item -LiteralPath $folder -Recurse -Force -ErrorAction Ignore }
     }
