@@ -27,6 +27,8 @@ All notable changes to PowerShellUniversal.Component.Perspective. Format:
 ### Fixed
 
 - In dark mode, the chart picker at the top of the editor no longer turns white under the mouse.
+- When new rows hold a value the table refuses, the viewer frees the half-built table in its worker.
+  Before, its memory stayed until the reader closed the page.
 
 ## [0.1.0] - 2026-11-06
 

@@ -21,6 +21,18 @@ function sharedWorker() {
     return window.__psuPerspectiveWorker;
 }
 
+// a new table with the rows; a value the table refuses frees the table's memory in the worker again
+async function filledTable(worker, schema, rows) {
+    const table = await worker.table(schema);
+    try {
+        if (rows.length) await table.update(rows);
+        return table;
+    } catch (e) {
+        await table.delete().catch(() => {});
+        throw e;
+    }
+}
+
 /*
  * Pro Dark inverts the plugin selector on hover (white background, dark text), which flashes white
  * in a dark app. The rule lives in the viewer's shadow root, so the override goes there: the hover
@@ -107,8 +119,7 @@ export default function Perspective(props) {
                     return;
                 }
                 // first load, or the columns changed (a table keeps its schema): a new table
-                const table = await worker.table(prepared.schema);
-                if (prepared.rows.length) await table.update(prepared.rows);
+                const table = await filledTable(worker, prepared.schema, prepared.rows);
                 if (cancelled) {
                     // unmounted or new data while this one was being built
                     await table.delete();
