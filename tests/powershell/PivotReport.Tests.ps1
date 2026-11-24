@@ -1419,7 +1419,7 @@ Describe 'Errors of pivotkit-server as a record a page can read' {
     }
 
     It 'the documented page snippet tells the reader why, from the problem''s code' {
-        # docs/pivot/reports.md, "Errors": the same code a page runs
+        # docs/pivot/errors.md: the same code a page runs
         $why = {
             param([scriptblock]$Call)
             try { & $Call }

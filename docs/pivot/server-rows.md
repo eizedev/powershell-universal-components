@@ -135,7 +135,7 @@ page that handles it itself. `-ErrorVariable` holds the error once (with `-Error
 | 503 `SOURCE_UNAVAILABLE`, any other 5xx, a redirect, an answer cut off | `PivotServerError` | Try again later |
 | no answer | `PivotServerUnreachable` | The service does not answer |
 
-- `$_.TargetObject` is the server's answer as a `PivotServerProblem` ([errors](reports.md#errors)).
+- `$_.TargetObject` is the server's answer as a `PivotServerProblem` ([errors](errors.md#errors)).
   `NotShown` lists the fields of a `NOT_ALLOWED` answer.
 - A reader never sees the server's address, the token or a stack trace. The message ends with the
   request id, for the operator.

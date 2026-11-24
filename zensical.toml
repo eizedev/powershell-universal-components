@@ -69,6 +69,9 @@ nav = [
     { "Events, security and limits" = "pivot/events.md" },
     { "Rows from a server" = "pivot/server-rows.md" },
     { "Reports without a browser" = "pivot/reports.md" },
+    { "Reports from a pivotkit-server" = "pivot/reports-server.md" },
+    { "Sign-in to a pivotkit-server" = "pivot/server-sign-in.md" },
+    { "Errors" = "pivot/errors.md" },
     { "Commands and parameters" = "pivot/reference.md" },
   ] },
   { "Development" = [

@@ -58,7 +58,7 @@ function Get-UDPivotSource {
     .OUTPUTS
         System.Management.Automation.PSCustomObject (PivotSource).
     .LINK
-        https://powershell-universal-components.eize.dev/pivot/reports/
+        https://powershell-universal-components.eize.dev/pivot/reports-server/
     #>
     [CmdletBinding()]
     [OutputType('PivotSource')]
