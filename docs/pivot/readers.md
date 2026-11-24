@@ -105,8 +105,9 @@ What each part hands out:
   chart.
 - **Drill-down**: up to 1,000 rows behind a clicked value (all rows behind the grand total); the panel
   shows every column. Its Export menu (copies and files) is there with `-ExportData`, holding only the
-  columns of `-ExportDataColumn`, or with `-DrillDownExport`, holding every column. Turned off: without
-  `-ExportData` and `-DrillDownExport` (the default) its Export menu; `-NoDrillDown` the panel.
+  columns of `-ExportDataColumn`, or with `-DrillDownExport`, holding every column. The Export menu
+  is off by default: turn it on with `-ExportData` or `-DrillDownExport`. `-NoDrillDown` turns the
+  panel off.
 | Source data | every row and every column of `-Data` (or those of `-ExportDataColumn`), also the rows the filters leave out | without `-ExportData` (the default) |
 
 All three are rows the browser holds already: its developer tools reach them. Turn Source data on only

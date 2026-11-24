@@ -120,13 +120,13 @@ rendering.
   each of them a CHANGELOG entry, and a patch release for a fix. Code moves into `shared/` only once a
   second module needs it; until then it stays in its module. No common runtime module: each module
   stays installable on its own.
-- The theme tokens (`--psu-chart-*`, read by `shared/js/psuTheme.js` and documented on
-  `docs/echarts/themes.md`) are the contract between the modules and an app's stylesheet: a token is
-  added to the page and the reader together, and renaming or removing one is a breaking change in
-  every module.
+- The theme tokens (`--psu-chart-*`, read by the ECharts module's `Components/themes.js` and the pivot
+  module's `psu.css`, and documented on `docs/echarts/themes.md`) are the contract between the modules
+  and an app's stylesheet: a token is added to the page and the reader together, and renaming or
+  removing one is a breaking change in every module.
 - CI runs the browser tests in Playwright's container image: a new `@playwright/test` version (also a
-  Dependabot pull request) raises the image tag and digest in `ci.yml` with it; `tests/js/ci.test.js` fails
-  until both match.
+  Dependabot pull request) raises the image tag and its digest in `ci.yml` with it; `tests/js/ci.test.js` fails
+  until the tag matches the locked version and a digest is pinned.
 - A demo module requires a minimum version of its component module: raise it when the showcase uses a
   new feature (a Pester test checks that the version exists).
 
