@@ -1,8 +1,8 @@
 #Requires -Version 7.4
 # Pester tests for shared/powershell/ConvertTo-PSUComponentData.ps1 (with its helpers and RowConverter.cs),
 # which every component module uses.
-# The output must stay exactly what the original per-cell implementation returned (kept in Reference/
-# as the oracle): the same rows, property names, value types, PSObject wrappers and JSON, for every kind
+# The output must stay exactly what the per-cell reference implementation returns (in Reference/, the
+# oracle): the same rows, property names, value types, PSObject wrappers and JSON, for every kind
 # of input the modules promise.
 
 BeforeAll {
@@ -96,7 +96,7 @@ public static class ComponentDataProbe {
     }
 }
 
-Describe 'ConvertTo-PSUComponentData returns what the original implementation returned' {
+Describe 'ConvertTo-PSUComponentData returns what the reference implementation returns' {
     BeforeDiscovery {
         # name and a script block that builds the input (each implementation gets a fresh copy)
         $script:fixtures = @(
@@ -205,24 +205,24 @@ Describe 'ConvertTo-PSUComponentData speed' {
     }
     AfterAll { & $script:subject { $Script:PSUComponentRowCompiled = $null } }
 
-    # The bounds compare with the per-cell original on the same machine, so a slow CI runner does not
+    # The bounds compare with the per-cell reference on the same machine, so a slow CI runner does not
     # matter; they only catch a return to a function call per cell (measured: about ten times faster in
     # PowerShell, forty times compiled).
-    It 'converts a DataTable several times faster than the original, compiled and in PowerShell alone' {
-        $original = Measure-Conversion { $null = & $script:reference $script:convert $script:table }
+    It 'converts a DataTable several times faster than the reference, compiled and in PowerShell alone' {
+        $referenceMs = Measure-Conversion { $null = & $script:reference $script:convert $script:table }
         & $script:subject { $Script:PSUComponentRowCompiled = $null }
         $compiled = Measure-Conversion { $null = & $script:subject $script:convert $script:table }
         & $script:subject { $Script:PSUComponentRowCompiled } | Should -BeTrue
         & $script:subject { $Script:PSUComponentRowCompiled = $false }
         $powershell = Measure-Conversion { $null = & $script:subject $script:convert $script:table }
-        $because = 'original {0:n0} ms, compiled {1:n0} ms, PowerShell {2:n0} ms' -f $original, $compiled, $powershell
-        $compiled * 5 | Should -BeLessThan $original -Because $because
-        $powershell * 3 | Should -BeLessThan $original -Because $because
+        $because = 'reference {0:n0} ms, compiled {1:n0} ms, PowerShell {2:n0} ms' -f $referenceMs, $compiled, $powershell
+        $compiled * 5 | Should -BeLessThan $referenceMs -Because $because
+        $powershell * 3 | Should -BeLessThan $referenceMs -Because $because
     }
 
-    It 'converts PSCustomObjects several times faster than the original' {
-        $original = Measure-Conversion { $null = & $script:reference $script:convert $script:objects }
+    It 'converts PSCustomObjects several times faster than the reference' {
+        $referenceMs = Measure-Conversion { $null = & $script:reference $script:convert $script:objects }
         $fast = Measure-Conversion { $null = & $script:subject $script:convert $script:objects }
-        $fast * 3 | Should -BeLessThan $original -Because ('original {0:n0} ms, new {1:n0} ms' -f $original, $fast)
+        $fast * 3 | Should -BeLessThan $referenceMs -Because ('reference {0:n0} ms, this one {1:n0} ms' -f $referenceMs, $fast)
     }
 }

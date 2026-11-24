@@ -7,6 +7,8 @@ import { readFileSync } from "node:fs";
 import { expectChartType, openSaveAs, openViews } from "./pivot-menus.mjs";
 import { CSV, fileOf, openDataMenu, pickFile } from "./pivot-import.mjs";
 import { colorScaleCells, resolvedColor, workbookScaleColors } from "./pivot-colors.mjs";
+// the component's own link and storage format, so the tests write views exactly as the report does
+// (prepare.js is no public API; a change there changes these tests with it)
 import { parseView, readLinkView, writeLinkView, writeStoredView } from "../../modules/PowerShellUniversal.Component.Pivot/Components/prepare.js";
 
 // the pages of the built site, as paths ("/echarts/bars/")

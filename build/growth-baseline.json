@@ -3,7 +3,7 @@
         "pages": {
             "README.md": [99]
         },
-        "totalLines": 4342
+        "totalLines": 4326
     },
     "javascript": {
         "complexity": {
@@ -23,10 +23,10 @@
     "powershell": {
         "files": {
             "docs/site/examples.ps1": [510],
-            "modules/PowerShellUniversal.Component.ECharts.Demo/Apps/Showcase.ps1": [1331],
+            "modules/PowerShellUniversal.Component.ECharts.Demo/Apps/Showcase.ps1": [1330],
             "modules/PowerShellUniversal.Component.Pivot.Demo/Apps/Showcase.ps1": [305],
             "tests/powershell/Pivot.Tests.ps1": [521],
-            "tests/powershell/PivotReport.Tests.ps1": [1400],
+            "tests/powershell/PivotReport.Tests.ps1": [1391],
             "tests/powershell/PivotTemplates.Tests.ps1": [719]
         },
         "functions": {

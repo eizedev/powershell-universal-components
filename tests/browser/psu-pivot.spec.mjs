@@ -6,6 +6,8 @@ import { test, expect } from "@playwright/test";
 import { chipMenu, expectChartType, openSaveAs, openShare, openToolbarMenu, openViews } from "./pivot-menus.mjs";
 import { assetsXlsx, CSV, dropFiles, fieldNames, fileOf, openDataMenu, pickFile, preview, TICKETS_CSV, XLSX } from "./pivot-import.mjs";
 import { colorScaleCells, resolvedColor, workbookScaleColors } from "./pivot-colors.mjs";
+// the component's own link and storage format, so the tests write views exactly as the report does
+// (prepare.js is no public API; a change there changes these tests with it)
 import { writeLinkView } from "../../modules/PowerShellUniversal.Component.Pivot/Components/prepare.js";
 
 const base = (process.env.PSU_PIVOT_URL || "").replace(/\/$/, "");

@@ -110,8 +110,8 @@ PowerShell objects. Not affiliated with Devolutions. llms-full.txt holds every p
 
 [project.theme]
 language = "en"
-logo = "assets/icon.svg"
-favicon = "assets/icon.svg"
+logo = "assets/images/icon.svg"
+favicon = "assets/images/icon.svg"
 # Fonts come from the system; nothing is loaded from Google.
 font = false
 features = [

@@ -2,7 +2,7 @@
   "name": "powershell-universal-components",
   "private": true,
   "type": "module",
-  "description": "Repository root: shared JavaScript is ESM; unit tests run with node --test, browser tests with Playwright against the built documentation site. fflate is here so the tests resolve it the way each module's bundle does.",
+  "description": "Unit tests (node --test) and browser tests (Playwright) of the repository. fflate is here so the tests resolve it as the bundles do.",
   "scripts": {
     "test": "node --test \"tests/js/*.test.js\"",
     "growth": "node build/growth.js",

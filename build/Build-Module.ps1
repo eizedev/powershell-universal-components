@@ -140,6 +140,11 @@ $lock = Get-Content -LiteralPath (Join-Path $source 'package-lock.json') -Raw | 
 $notices = foreach ($entry in $lock.packages.GetEnumerator() | Sort-Object Key) {
     if (-not $entry.Key -or $entry.Value.dev) { continue }
     $dir = Join-Path $source $entry.Key
+    if (-not (Test-Path -LiteralPath $dir -PathType Container)) {
+        # an optional package for another platform is in the lock but not installed, and not in the bundle
+        if ($entry.Value.optional) { continue }
+        throw ('{0} is in package-lock.json but not installed; run npm ci in {1}.' -f $entry.Key, $source)
+    }
     $files = @(Get-ChildItem -LiteralPath $dir -File -ErrorAction Ignore | Where-Object Name -Match '^(LICEN[CS]E|NOTICE)(\.(md|txt))?$')
     '=' * 78
     '{0} {1} ({2})' -f ($entry.Key -replace '^.*node_modules/', ''), $entry.Value.version, $entry.Value.license
