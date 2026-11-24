@@ -37,6 +37,7 @@ AfterAll {
         Remove-Item -Path "function:$name" -ErrorAction Ignore
     }
     Remove-PSDrive -Name Session -ErrorAction Ignore
+    Remove-Variable -Scope Global -Name Repository, PivotDemoAlerts, PivotDemoDownload -ErrorAction Ignore
 }
 
 Describe 'Pivot demo module' {

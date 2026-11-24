@@ -16,44 +16,23 @@ App content (admin console > Apps > create, or a script):
 New-UDPivotShowcase
 ```
 
-| Page | Data | What it shows |
-| --- | --- | --- |
-| Weather (the first page) | [Open-Meteo](https://open-meteo.com/) | Daily weather of six cities in 2024 and 2025: the table and the chart side by side, with questions in the Views menu |
-| Python releases, End of life, Release cycles | [endoflife.date](https://endoflife.date/) | The three pivot examples of the documentation: one line; a start view, field names and templates; an app with a loading placeholder, views per reader on the server, roles and a server event |
-| Your data | your own file | A CSV, TSV, JSON or Excel file of your own as a pivot report, read in the browser |
-| Report as a file | Open-Meteo | The reader's view as an Excel workbook or an HTML report, made on the server (`Invoke-UDPivotReport`; needs pivotkit's command line) |
-| Rows from a server | a pivotkit-server | A server's source for the signed-in person (`New-UDPivotReport -Uri`; needs `-ServerUri` and `-ServerSource`) |
-| Tickets, Templates, Charts, Events, Fields, Layouts, Without Id | generated | The pivot module's ticket showcase: 5,000 tickets from a DataTable, shared and own views, charts, the events, field descriptions from an OpenAPI document, page layouts |
+Pages:
 
-Public data comes from snapshots shipped with the module (`Data/`, with sources and licences in
-`Data/SOURCES.md`), so the app works without internet access; the "Live data" switch on those pages,
-or `New-UDPivotShowcase -LiveData`, fetches it from the APIs on the PSU server. The language switch
-shows the reports in English or German (`-Locale de-DE` to start in German). The offline snapshot is
-the default: the switch calls Open-Meteo's free API, whose terms allow non-commercial use only, so a
-company that uses the demo internally keeps the snapshot or uses an Open-Meteo API key.
+- Weather from [Open-Meteo](https://open-meteo.com/): the table and the chart side by side.
+- Python releases, End of life, and Release cycles from [endoflife.date](https://endoflife.date/): the
+  three pivot examples of the documentation.
+- Your data: a CSV, TSV, JSON or Excel file of the reader's own, read in the browser.
+- Report as a file: the reader's view as an Excel workbook or an HTML report, made on the server.
+- Rows from a server: a pivotkit-server source for the signed-in person.
+- Tickets, Templates, Charts, Events, Fields, Layouts, and Without Id: the pivot module's ticket
+  showcase with 5,000 generated tickets.
 
-Report as a file needs Node 24 or later and pivotkit's command line on the PSU server
-(`npm install --global pivotkit-cli`; `-PivotkitPath` names the program when it is not on the PATH).
-Rows from a server needs `-ServerUri` and `-ServerSource`, PSU's OpenID Connect sign-in with saved
-tokens and pivotkit-server 0.4.0 or later. Without them, each page says what it needs. Each click on
-Report as a file runs Node on the PSU server, and the app has no sign-in: protect it before people
-outside your network can reach it.
+The public data comes from snapshots shipped with the module, so the app works without internet
+access. Two pages need more on the PSU server: Report as a file needs pivotkit's command line, and
+Rows from a server needs a pivotkit-server and a sign-in. The app has no sign-in and stores views in a
+folder next to the PSU repository. Read the
+[documentation](https://powershell-universal-components.eize.dev/pivot/demo/) before you share the app.
 
-Your data reads the reader's file in the browser (`New-UDPivotReport -AllowImport`): it is never
-uploaded, the server does not see it, and after a reload it is gone. Views of a file are kept in the
-reader's browser, per file.
-
-Views stored on the server: the page Release cycles and the ticket pages use
-`New-UDPivotFileTemplateStore`, which keeps views as files in a folder `pivot-views` next to the PSU
-repository folder: the own views of signed-in readers (`users/`) and the shared views readers with the
-role Administrator publish (`shared/`). Without sign-in, readers' own views stay in their browser. To
-remove what the app stored, delete that folder on the server, e.g.
-`Remove-Item -Recurse -Force (Join-Path (Split-Path -Parent $Repository) 'pivot-views')`; other apps
-with a file template store without `-Path` use the same folder.
-
-The source of the app is [Apps/Showcase.ps1](Apps/Showcase.ps1); the pages on endoflife.date run the
-documentation's examples and the ticket pages the pivot module's
-[examples/showcase.ps1](../PowerShellUniversal.Component.Pivot/examples/showcase.ps1), so each is
-written once.
+The source of the app is [Apps/Showcase.ps1](Apps/Showcase.ps1).
 
 Documentation: [Pivot showcase app](https://powershell-universal-components.eize.dev/pivot/demo/).

@@ -5,6 +5,12 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
+### Fixed
+
+- A value of `New-UDPivotShowcase` with a typographic apostrophe, such as `-PivotkitPath` with a
+  folder of `O’Neil`, no longer breaks the page's code: the app escapes every quote character
+  PowerShell reads.
+
 ### Changed
 
 - Requires PowerShellUniversal.Component.Pivot 0.9.1. The ticket showcase's Events page reads the
