@@ -267,7 +267,7 @@ test("Pivot: -ImportLimit refuses a file over its rows or bytes, loads one at th
 
 test("Pivot: -ExportData offers Source data with the columns of -ExportDataColumn only, also in the drill-down's files; the report still shows every column", async ({ page }) => {
     const errors = collectErrors(page);
-    await openPage(page, "/pivot/");
+    await openPage(page, "/pivot/readers/");
     const report = page.locator('[data-example="source-data-for-readers"] .pk-root');
     const table = report.getByRole("tabpanel", { name: "Table" });
     await expect(table).toContainText("250");
@@ -363,7 +363,7 @@ test("Pivot: a colour scale without colours runs over the heatmap's blues in bot
 
 test("Pivot: the placeholder shows the report's skeleton, tells screen readers it is loading and follows the switch", async ({ page }) => {
     const errors = collectErrors(page);
-    await openPage(page, "/pivot/");
+    await openPage(page, "/pivot/data/");
     const root = page.locator('[data-example="placeholder-while-the-data-loads"] .pk-root');
     await expect(root.getByRole("status")).toContainText("Loading the report");
     // pivotkit's own skeleton: field list, toolbar, four zones
@@ -381,7 +381,7 @@ test.describe("for readers who asked for reduced motion", () => {
     test.use({ reducedMotion: "reduce" });
 
     test("Pivot: the placeholder keeps still", async ({ page }) => {
-        await openPage(page, "/pivot/");
+        await openPage(page, "/pivot/data/");
         const bone = page.locator('[data-example="placeholder-while-the-data-loads"] .pk-skel').first();
         // pivotkit's rule for reduced motion: one run of a millisecond, then still
         const style = await bone.evaluate((el) => ({ duration: getComputedStyle(el).animationDuration, count: getComputedStyle(el).animationIterationCount }));

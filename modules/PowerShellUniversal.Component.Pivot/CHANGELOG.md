@@ -21,6 +21,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Changed
 
+- `ConvertTo-PSUComponentData`, the data conversion all modules share, keeps its C# converter in
+  `RowConverter.cs` and its helpers one function per file. The rows it returns are unchanged.
 - The module's code is one function per file in `Public/` and `Private/`; the `.psm1` only loads them.
   Commands, parameters, help and output are unchanged
   ([#163](https://github.com/eizedev/powershell-universal-components/issues/163)). The settings files in

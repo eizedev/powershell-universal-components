@@ -60,7 +60,7 @@ the tab keeps `-View`. The view is kept in two places of the tab:
   for it (more than 8000 characters) stays out. `-NoAddressBar` turns this off.
 - While a reader's own file is shown (`-AllowImport`), its view goes into neither the address bar
   nor sessionStorage ([Readers' own files](import.md#what-stays-in-the-browser)). The keys of both:
-  [how ids and names are built](templates.md#ids).
+  [how ids and names are built](ids.md#ids).
 - **sessionStorage** (per page and report), for a view that is not in the address bar. It returns
   after a reload as long as the page sends the same `-View`; a different `-View` from the server (the
   app chose another start view) wins. Closing the tab, or a browser that blocks storage, starts from
@@ -102,48 +102,9 @@ The keys of `chart`. From `valueLabels` on, they are the Display settings of **C
 | `colors` | `@(@{ name = 'North'; color = '#1f77b4' })`. |
 | `tooltipShare` | `$true`: each value's share in the tooltip. |
 
-### Links from pivotkit (create_link)
+### Links into the report
 
-pivotkit's MCP tool `create_link` and its REST route `POST /views/link` make a link that opens a view
-in a page; a model or a program that worked out a view with a pivotkit-server can hand a person that
-link, and the person sees the view over the app's data with their own rights. The report opens such
-a link when the pivotkit-server's source names the page and the report:
-
-```json
-{
-  "sources": {
-    "tickets": {
-      "file": "data/tickets.csv",
-      "link": "https://psu.example.com/tickets/report",
-      "linkKey": "tickets"
-    }
-  }
-}
-```
-
-```powershell
-New-UDPivotReport -Id 'tickets' -SourceId 'tickets' -Data $tickets
-```
-
-- `link` is the address of the PSU page, `linkKey` the report's `-Id`: the link then ends in
-  `#pivot-tickets=1.<view>` (pivotkit's share format). Without `linkKey` it ends in `#pivot=1.<view>`,
-  which the report whose data the link names takes, and removes from the address.
-- The link names the data it was made for (the source's id). The report opens it only when that is
-  its own `-SourceId` (default its `-Id`); a link for other data is left alone, the report starts as
-  without it, and the browser console says why. Give the PSU report the source's id as `-SourceId`.
-  A link that names no data (a view file without `source.id`, made by hand) is loaded without that
-  check: the report still checks its fields against the data, as for every view.
-- Once the report shows the link's view, it writes its own entry in place of pivotkit's, so a
-  reload, the light/dark switch and a copied address keep the view.
-- The link holds the layout only, never data; the report checks the view against the rows the
-  person may see, as for every link. `-NoAddressBar` ignores links, also these.
-
-pivotkit's side: [create_link](https://pivotkit.eize.dev/reference/mcp/) and
-[sources](https://pivotkit.eize.dev/reference/mcp/#configuration) (`sources.<id>.link`, `.linkKey`).
-
-A source only the server can reach opens with the person's own rows: `New-UDPivotReport -Uri -Source`
-fetches them on the PSU server, with the link's parameters from the page's query string
-([rows from a server](server-rows.md)).
+A link pivotkit made, or one with parameters of a server source, opens a view: [Links into a report](links.md).
 
 ## Filters
 
@@ -179,7 +140,7 @@ New-UDPivotReport -Id 'tickets' -Data $tickets -View @{
   too, `'only'` keeps only them. Write it on every filter, so the view says what it means.
 
 The whole catalogue with every key: pivotkit's [Filters, top N and sorting](https://pivotkit.eize.dev/concepts/filters/).
-A view of version 1 - without `version`, or one stored by an earlier release - still works: its
+A view of version 1 (without `version`) works too: its
 `include`, `exclude` and `label` filters and the operators `!=`, `notBetween`, `notEquals` and
 `notContains` are migrated to version 2 when the report reads them, with the same result
 ([pivotkit's table](https://pivotkit.eize.dev/concepts/views/#versions)). The report writes version 2,
@@ -221,7 +182,7 @@ and **Start over** goes back to `-View`. The difference matters because PSU's sc
 reload. `$Page:` is per tab but gone after a reload, which the address bar and the tab's storage
 already cover.
 For a view that follows the reader to other devices, store it per `$User` (as a
-[template store](templates.md#template-stores-templatestore) does), either on every change or with an
+[template store](stores.md#template-stores-templatestore) does), either on every change or with an
 explicit "save as my default", and pass it as `-SavedView`.
 
 Without `-Id` the report is identified by its page and its place in the app script (the line of the

@@ -9,6 +9,8 @@ BeforeDiscovery {
     $script:component = 'PowerShellUniversal.Component.Perspective'
     $repo = Resolve-Path (Join-Path $PSScriptRoot '..' '..')
     $script:installed = Test-Path -LiteralPath (Join-Path $repo 'modules' $script:component 'node_modules' 'webpack')
+    # the split modules: those with a Public/ folder
+    $script:splitModules = @(Get-ChildItem -Path (Join-Path $repo 'modules' '*' 'Public') -Directory | ForEach-Object { @{ Name = $_.Parent.Name } })
 }
 
 BeforeAll {
@@ -25,10 +27,7 @@ Describe 'Build-Module.ps1 with a component module' {
     }
 }
 
-Describe 'Build-Module.ps1 with a split module: <Name>' -ForEach @(
-    @{ Name = 'PowerShellUniversal.Component.ECharts' }
-    @{ Name = 'PowerShellUniversal.Component.Pivot' }
-) {
+Describe 'Build-Module.ps1 with a split module: <Name>' -ForEach $splitModules {
     It '<Name>: the built module carries its Public/ and Private/ files (the pivot module also its settings and C# sources) and exports the manifest''s commands (#163, #169)' -Skip:(-not (Test-Path -LiteralPath (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..' '..')) 'modules' $Name 'node_modules' 'webpack'))) {
         $built = & (Join-Path $script:repo 'build' 'Build-Module.ps1') -Module $Name -OutputPath (Join-Path $TestDrive 'out') -SkipNpmInstall 6>$null
         $source = Join-Path $script:repo 'modules' $Name
@@ -36,11 +35,9 @@ Describe 'Build-Module.ps1 with a split module: <Name>' -ForEach @(
             Join-Path $built.FullName ([System.IO.Path]::GetRelativePath($source, $file.FullName)) | Should -Exist
         }
         Join-Path $built.FullName 'Private' 'SHARED.txt' | Should -Exist
-        # the built folder loads on its own and exports the manifest's commands (a process of its own:
-        # this session has the source module loaded)
-        $manifest = Import-PowerShellDataFile -LiteralPath (Join-Path $source "$Name.psd1")
-        $exported = & (Join-Path $PSHOME 'pwsh') -NoProfile -NonInteractive -Command "Add-Type -TypeDefinition 'public class Endpoint { }'; (Import-Module '$(Join-Path $built.FullName "$Name.psd1")' -PassThru).ExportedFunctions.Keys | Sort-Object"
-        $exported | Should -Be ($manifest.FunctionsToExport | Sort-Object)
+        # the built folder loads on its own and exports the manifest's commands (CI's build job runs the
+        # same check on every component module it builds)
+        { & (Join-Path $script:repo 'build' 'Test-BuiltModule.ps1') -Path $built.FullName } | Should -Not -Throw
     }
 }
 

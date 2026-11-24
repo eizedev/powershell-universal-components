@@ -4,16 +4,7 @@
 # a stub, the asset id is set by hand.
 
 BeforeAll {
-    if (-not ('Endpoint' -as [type])) {
-        Add-Type -TypeDefinition @'
-public class Endpoint {
-    public System.Management.Automation.ScriptBlock ScriptBlock;
-    public string RegisteredId;
-    public Endpoint(System.Management.Automation.ScriptBlock scriptBlock) { ScriptBlock = scriptBlock; }
-    public void Register(string id, object cmdlet) { RegisteredId = id; }
-}
-'@
-    }
+    . (Join-Path $PSScriptRoot '..' '..' 'build' 'Add-EndpointType.ps1')
     $script:repo = Resolve-Path (Join-Path $PSScriptRoot '..' '..')
     $script:module = Import-Module (Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.Pivot' 'PowerShellUniversal.Component.Pivot.psm1') -Force -PassThru
     & $script:module { $Script:AssetId = 'asset-under-test' }
@@ -675,9 +666,9 @@ Describe 'New-UDPivotReport: source, view files and switches' {
     }
 }
 
-Describe 'How ids and names are built (docs/pivot/templates.md#ids)' {
+Describe 'How ids and names are built (docs/pivot/ids.md)' {
     BeforeAll {
-        $script:idsDoc = Get-Content -Raw -LiteralPath (Join-Path $script:repo 'docs' 'pivot' 'templates.md')
+        $script:idsDoc = Get-Content -Raw -LiteralPath (Join-Path $script:repo 'docs' 'pivot' 'ids.md')
     }
 
     It 'the snippet that finds a reader''s folder names the folder the file store writes' {

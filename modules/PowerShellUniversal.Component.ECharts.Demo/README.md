@@ -24,6 +24,10 @@ asset 360), calendars, intraday charts with axis breaks, public data, layouts, t
 live data and a benchmark. All data is generated with a fixed seed; "Public data" calls public web
 APIs from the PSU server.
 
+The app has no sign-in, and the Technical page shows the PSU server's processes. Read
+[Before you share the app](https://powershell-universal-components.eize.dev/demo/#before-you-share-the-app)
+first.
+
 The source of the app is [Apps/Showcase.ps1](Apps/Showcase.ps1); copy parts of it into your own apps.
 
 Documentation: [Demo](https://powershell-universal-components.eize.dev/demo/).

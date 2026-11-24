@@ -1,4 +1,4 @@
-function Get-UDPivotTypeSource {
+function Get-PSUComponentTypeSource {
     <#
     .SYNOPSIS
         The C# source of a type the module compiles on first use, and the type's name.
@@ -11,7 +11,7 @@ function Get-UDPivotTypeSource {
     .PARAMETER TypeName
         The type's name without the suffix: namespace and class, e.g. PivotReportTable.Writer.
     .EXAMPLE
-        $writer = Get-UDPivotTypeSource -Path (Join-Path $PSScriptRoot 'ReportWriter.cs') -TypeName 'PivotReportTable.Writer'
+        $writer = Get-PSUComponentTypeSource -Path (Join-Path $PSScriptRoot 'ReportWriter.cs') -TypeName 'PivotReportTable.Writer'
     .OUTPUTS
         PSCustomObject with Source (the C# text) and Type (the full type name).
     #>

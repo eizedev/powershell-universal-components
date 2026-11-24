@@ -21,107 +21,12 @@ $Script:PSUComponentValueKind = @{
     [System.DBNull]  = 'Null'
 }
 
-# A DataTable is the large case (SQL results of thousands of rows), and building PSCustomObjects in
-# PowerShell costs about 40 microseconds per row on a small server; the same in C# about 7 (measured
-# on PSU 2026.3.4: 5000 rows x 12 columns, 190 ms against 35 ms). The class is compiled once per
-# process (about 2 s), the first time a DataTable of at least $Script:PSUComponentCompileMinRows rows
-# arrives; PSU runs its apps in its own process, so that happens once per PSU start, not per app start.
-# Where Add-Type is not available (constrained language mode) the PowerShell path does the same work.
-# The class name carries a hash of the source, so modules built from different versions of this file
-# never share a class.
-$Script:PSUComponentRowSource = @'
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Data;
-using System.Management.Automation;
-
-namespace PSUComponentData
-{
-    public static class RowConverter_SUFFIX
-    {
-        // The rows (DataRows, or the DataRowViews of a DataView) as ConvertTo-PSUComponentData returns
-        // them, or null when a column needs the
-        // PowerShell rules (types other than strings, numbers, booleans, GUIDs, dates and
-        // TimeSpans) or two names differ only in case (an [ordered] dictionary merges them).
-        public static object[] Convert(DataTable table, IEnumerable rows)
-        {
-            int count = table.Columns.Count;
-            string[] names = new string[count];
-            int[] kinds = new int[count];
-            HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            for (int c = 0; c < count; c++)
-            {
-                DataColumn column = table.Columns[c];
-                names[c] = column.ColumnName;
-                if (!seen.Add(column.ColumnName)) return null;
-                Type type = column.DataType;
-                if (type.IsPrimitive || type == typeof(string) || type == typeof(decimal) || type == typeof(Guid)) kinds[c] = 0;
-                else if (type == typeof(DateTime)) kinds[c] = 1;
-                else if (type == typeof(DateTimeOffset)) kinds[c] = 2;
-                else if (type == typeof(TimeSpan)) kinds[c] = 3;
-                else return null;
-            }
-            List<object> result = new List<object>();
-            foreach (object item in rows)
-            {
-                DataRowView view = item as DataRowView;
-                DataRow row = view != null ? view.Row : (DataRow)item;
-                PSObject output = new PSObject();
-                for (int c = 0; c < count; c++)
-                {
-                    object value = row[c];
-                    if (value is DBNull) value = null;
-                    else if (kinds[c] == 1) value = ((DateTime)value).ToString("o");
-                    else if (kinds[c] == 2) value = ((DateTimeOffset)value).ToString("o");
-                    else if (kinds[c] == 3) value = ((TimeSpan)value).TotalSeconds;
-                    output.Properties.Add(new PSNoteProperty(names[c], value));
-                }
-                result.Add(output);
-            }
-            return result.ToArray();
-        }
-    }
-}
-'@
-$Script:PSUComponentRowType = & {
-    $sha = [System.Security.Cryptography.SHA256]::Create()
-    try { $hash = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Script:PSUComponentRowSource)) } finally { $sha.Dispose() }
-    'PSUComponentData.RowConverter_' + (-join ($hash[0..7] | ForEach-Object { $_.ToString('x2') }))
-}
-$Script:PSUComponentRowSource = $Script:PSUComponentRowSource.Replace('RowConverter_SUFFIX', ($Script:PSUComponentRowType -split '\.')[-1])
 # smaller tables take a few milliseconds in PowerShell; the compiler is not worth its 2 s there
 $Script:PSUComponentCompileMinRows = 1000
 # $true: compiled, $false: not available (or switched off by a test), $null: not tried yet
 $Script:PSUComponentRowCompiled = $null
-
-function Get-PSUComponentRowConverter {
-    <#
-    .SYNOPSIS
-        The compiled DataTable converter of ConvertTo-PSUComponentData, compiled on first use; $null when
-        Add-Type is not available.
-    .EXAMPLE
-        $converter = Get-PSUComponentRowConverter
-    .OUTPUTS
-        System.Type, or $null.
-    #>
-    [CmdletBinding()]
-    [OutputType([type])]
-    param()
-    if ($false -eq $Script:PSUComponentRowCompiled) { return $null }
-    $type = $Script:PSUComponentRowType -as [type]
-    if (-not $type) {
-        try {
-            Add-Type -TypeDefinition $Script:PSUComponentRowSource -ErrorAction Stop
-            $type = $Script:PSUComponentRowType -as [type]
-        }
-        catch {
-            Write-Verbose ('ConvertTo-PSUComponentData: no compiled converter ({0}); PowerShell converts the rows.' -f $_.Exception.Message)
-        }
-    }
-    $Script:PSUComponentRowCompiled = $null -ne $type
-    $type
-}
+# the C# source of the converter and its type name (Get-PSUComponentTypeSource), read on first use
+$Script:PSUComponentRowSource = $null
 
 function ConvertTo-PSUComponentData {
     <#
@@ -142,7 +47,7 @@ function ConvertTo-PSUComponentData {
 
         Speed: a page waits for this conversion before it gets the component, so it avoids a function
         call per cell. A DataTable of at least 1000 rows whose columns hold strings, numbers, booleans,
-        GUIDs, dates or TimeSpans goes through a small compiled class (see $Script:PSUComponentRowSource).
+        GUIDs, dates or TimeSpans goes through a small compiled class (RowConverter.cs, see Get-PSUComponentRowConverter).
         Otherwise the columns of a DataTable are classified once by their type, and strings, numbers,
         booleans, GUIDs and dates of other rows are converted inline. Only values of other types
         (TimeSpan, enums, arrays, nested objects) go through ConvertTo-PSUComponentValue.
@@ -256,25 +161,4 @@ function ConvertTo-PSUComponentData {
         [pscustomobject]$out
     })
     , $result
-}
-
-function ConvertTo-PSUComponentValue {
-    <#
-    .SYNOPSIS
-        Converts one cell value to a JSON-safe value (see ConvertTo-PSUComponentData).
-    .DESCRIPTION
-        The rules for every type. ConvertTo-PSUComponentData applies them inline for the common
-        types (see $Script:PSUComponentValueKind) and calls this function for the others.
-    .PARAMETER Value
-        The value.
-    .EXAMPLE
-        ConvertTo-PSUComponentValue ([DBNull]::Value)
-    #>
-    [CmdletBinding()]
-    param([AllowNull()][object]$Value)
-    if ($null -eq $Value -or $Value -is [System.DBNull]) { return $null }
-    if ($Value -is [datetime] -or $Value -is [datetimeoffset]) { return $Value.ToString('o') }
-    if ($Value -is [timespan]) { return $Value.TotalSeconds }
-    if ($Value -is [enum]) { return [string]$Value }
-    $Value
 }

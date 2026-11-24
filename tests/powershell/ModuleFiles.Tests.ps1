@@ -4,23 +4,12 @@
 # PSU's [Endpoint] type is a stub.
 
 BeforeDiscovery {
-    $script:splitModules = @(
-        @{ Name = 'PowerShellUniversal.Component.ECharts' }
-        @{ Name = 'PowerShellUniversal.Component.Pivot' }
-    )
+    # the split modules: those with a Public/ folder
+    $script:splitModules = @(Get-ChildItem -Path (Join-Path $PSScriptRoot '..' '..' 'modules' '*' 'Public') -Directory | ForEach-Object { @{ Name = $_.Parent.Name } })
 }
 
 BeforeAll {
-    if (-not ('Endpoint' -as [type])) {
-        Add-Type -TypeDefinition @'
-public class Endpoint {
-    public System.Management.Automation.ScriptBlock ScriptBlock;
-    public string RegisteredId;
-    public Endpoint(System.Management.Automation.ScriptBlock scriptBlock) { ScriptBlock = scriptBlock; }
-    public void Register(string id, object cmdlet) { RegisteredId = id; }
-}
-'@
-    }
+    . (Join-Path $PSScriptRoot '..' '..' 'build' 'Add-EndpointType.ps1')
     $script:repo = Resolve-Path (Join-Path $PSScriptRoot '..' '..')
 }
 

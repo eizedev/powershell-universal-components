@@ -20,8 +20,7 @@
 
 **Documentation: [powershell-universal-components.eize.dev](https://powershell-universal-components.eize.dev/)**: every module, parameter and chart type, with live examples.
 
-Requirements: PowerShell Universal 2026.2 or 2026.3 and PowerShell 7.4 or later. Tested on PSU 2026.2.5
-and 2026.3.4 in Chromium, Firefox and WebKit (the engine of Safari; the Safari app and iOS are not tested).
+Supported and tested versions: [Requirements](https://powershell-universal-components.eize.dev/#requirements).
 
 ## Modules
 

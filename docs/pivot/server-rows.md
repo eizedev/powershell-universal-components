@@ -90,28 +90,7 @@ page as well (default 32 MB, at most 64 MB).
 
 ## Links with parameters
 
-A link from `create_link` names the source's parameters in the page's query string, such as
-`/orders?customer=acme#pivot-orders=1.<view>`. The view stays in the fragment, and the report reads
-it in the browser as before ([links from pivotkit](views.md#links-from-pivotkit-create_link)).
-
-- The module reads `$Query` of the page. It passes on only the names the server lists as the source's
-  `linkParams` in `GET /sources`. Other names in the query string stay out.
-- Pass `-Query $Query` where the call runs in a script block or function defined in the app script.
-- `-Parameter` replaces the query string: `-Parameter @{ customer = $Query.customer }` narrows what a
-  link may set. A value that is `$null` is left out. `-Params` is another name for it.
-- The server checks every value again with the rights of the person who opens the page.
-- The report writes its view into the fragment and keeps the query string. A link a person copies from
-  the address bar still names the customer.
-- Values in a query string land in access logs, the browser history and the `Referer` header. List
-  only parameters whose values may show up there. Let the reverse proxy in front of PSU send a strict
-  `Referrer-Policy` header, such as `same-origin`
-  ([pivotkit's security notes](https://pivotkit.eize.dev/security/#link-params)).
-- Give the report an `-Id`. Without it, the key the reader's view is kept under follows the server's
-  columns, and a person with another profile gets another key.
-
-A view the server publishes for the source goes by its name: `-View 'by-region'`. Then only the fields
-it uses leave the server. The server lists its views' names, not the views, so the report starts with
-the view of the link, else empty.
+A link can name parameters of the source in the page's query string: [Links with parameters](links.md#links-with-parameters).
 
 ## When the server gives no rows
 
@@ -135,7 +114,7 @@ page that handles it itself. `-ErrorVariable` holds the error once (with `-Error
 | 503 `SOURCE_UNAVAILABLE`, any other 5xx, a redirect, an answer cut off | `PivotServerError` | Try again later |
 | no answer | `PivotServerUnreachable` | The service does not answer |
 
-- `$_.TargetObject` is the server's answer as a `PivotServerProblem` ([errors](reports.md#errors)).
+- `$_.TargetObject` is the server's answer as a `PivotServerProblem` ([errors](errors.md#errors)).
   `NotShown` lists the fields of a `NOT_ALLOWED` answer.
 - A reader never sees the server's address, the token or a stack trace. The message ends with the
   request id, for the operator.

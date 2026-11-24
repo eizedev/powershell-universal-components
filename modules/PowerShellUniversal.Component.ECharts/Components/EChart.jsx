@@ -7,8 +7,8 @@ import { scaleFonts } from "./fonts";
 import { fitPlot, insideLabelColors, legendRows, needsFit } from "./layout";
 import { registerLocales, echartsLocale } from "./locales";
 import { usePsuTheme, effectiveMode } from "../../../shared/js/psuTheme";
-import { defaultLocale } from "../../../shared/js/formatters";
-import { toCsv, toXlsxBytes, download, safeFileName } from "../../../shared/js/exporter";
+import { defaultLocale } from "./formatters.js";
+import { toCsv, toXlsxBytes, download, safeFileName } from "./exporter.js";
 import { pickColumns } from "../../../shared/js/columns";
 import { answerStateRequests } from "../../../shared/js/elementState";
 

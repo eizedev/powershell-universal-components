@@ -1,28 +1,21 @@
 {
     "docs": {
         "pages": {
-            "README.md": [100],
-            "docs/pivot/index.md": [264],
-            "docs/pivot/reports.md": [408],
-            "docs/pivot/server-rows.md": [208],
-            "docs/pivot/templates.md": [548],
-            "docs/pivot/views.md": [238]
+            "README.md": [99]
         },
-        "totalLines": 4157
+        "totalLines": 4342
     },
     "javascript": {
         "complexity": {
-            "Function 'PsuPivotReport'": [39],
             "Function 'cartesian'": [46],
             "Function 'formatter'": [26],
             "Function 'histogram'": [27],
             "Function 'responsive'": [38],
-            "modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js Arrow function": [35]
+            "modules/PowerShellUniversal.Component.ECharts/Components/cartesian.js Arrow function": [35]
         },
         "lines": {
             "Function 'EChart'": [277],
             "Function 'Perspective'": [139],
-            "Function 'PsuPivotReport'": [260],
             "Function 'cartesian'": [337],
             "modules/PowerShellUniversal.Component.ECharts/Components/EChart.jsx Arrow function": [127]
         }
@@ -32,9 +25,9 @@
             "docs/site/examples.ps1": [510],
             "modules/PowerShellUniversal.Component.ECharts.Demo/Apps/Showcase.ps1": [1331],
             "modules/PowerShellUniversal.Component.Pivot.Demo/Apps/Showcase.ps1": [305],
-            "tests/powershell/Pivot.Tests.ps1": [530],
-            "tests/powershell/PivotReport.Tests.ps1": [1409],
-            "tests/powershell/PivotTemplates.Tests.ps1": [728]
+            "tests/powershell/Pivot.Tests.ps1": [521],
+            "tests/powershell/PivotReport.Tests.ps1": [1400],
+            "tests/powershell/PivotTemplates.Tests.ps1": [719]
         },
         "functions": {
             "New-UDEChart": [121]

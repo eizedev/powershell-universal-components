@@ -116,7 +116,7 @@ Every page of the app opens views from pivotkit links. The Weather page's report
 `weather`: a pivotkit-server source with the id `weather`, `"link": "https://<your PSU>/<app base
 URL>/weather"` and `"linkKey": "weather"` makes `create_link` return links that open on that page,
 over the app's rows. The view's fields must be columns of those rows
-([Links from pivotkit](views.md#links-from-pivotkit-create_link)).
+([Links from pivotkit](links.md#links-from-pivotkit-create_link)).
 
 ## How it is built
 

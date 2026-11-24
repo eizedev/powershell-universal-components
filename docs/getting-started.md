@@ -42,7 +42,7 @@ What to check:
   (`New-UDPivotTemplateStore`). A release refuses view files of a newer format than it reads, so
   check before you go back to an older one: [View files](pivot/templates.md#view-files).
 - **A published folder for the pivot schema** names the old version folder:
-  [Your own copy of the schema](pivot/templates.md#your-own-copy-of-the-schema).
+  [Your own copy of the schema](pivot/schema.md#your-own-copy-of-the-schema).
 
 ## A first chart
 
@@ -80,7 +80,7 @@ New-UDEChart -Data $byTeam -Type bar -X Team -Y Tickets -GroupBy Priority -Stack
 
 DataTables, `Invoke-RestMethod` results and PowerShell objects go in as they are; column names are
 matched without regard to case. How the data is read: [ECharts: Data](echarts/data.md),
-[Perspective](perspective/index.md#data), [Pivot](pivot/index.md#data).
+[Perspective](perspective/index.md#data), [Pivot](pivot/data.md).
 
 The same rows as a table readers rearrange themselves:
 
@@ -96,7 +96,16 @@ New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Ticke
 ```
 
 With thousands of rows, give it a placeholder that shows the report's frame while the server builds the
-data: [Pivot: loading and performance](pivot/index.md#loading-and-performance).
+data: [Pivot: loading and performance](pivot/data.md#loading-and-performance).
+
+### How the modules convert data
+
+Every module converts the rows the same way, without a call per cell. A DataTable of 1000 rows or more
+whose columns hold text, numbers, booleans, GUIDs, dates or TimeSpans goes through a small C# class. The
+module compiles it with `Add-Type` the first time it needs it. That takes about 2 seconds, once per PSU
+process: PSU runs its apps in its own process, so once after PSU starts, not per app start. Where
+`Add-Type` is not available, for example in constrained language mode, PowerShell does the same
+conversion more slowly.
 
 ## Try everything
 

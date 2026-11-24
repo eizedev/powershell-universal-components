@@ -1,7 +1,8 @@
 // Links into a pivot report: pivotkit's own share format, as create_link writes it, and the outside
 // limits (#105, #116). These tests use the pivot module's packages (pivotkit-core, pivotkit-report):
 // they run after `npm ci` in modules/PowerShellUniversal.Component.Pivot and are skipped without it
-// (CI's unit-test job installs the root only; the browser job's site spec covers the built bundle).
+// (CI's unit-test job installs the root only; the pivot module's build job runs this file after
+// its npm ci, and the browser job's site spec covers the built bundle).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";

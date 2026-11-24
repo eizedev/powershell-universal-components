@@ -2,7 +2,7 @@
 // to one Playwright version, which must be the version of @playwright/test the tests are run with.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 
 const root = new URL("../../", import.meta.url);
 
@@ -13,4 +13,13 @@ test("the Playwright container image matches @playwright/test in package-lock.js
     const images = [...ci.matchAll(/mcr\.microsoft\.com\/playwright:v([0-9][^-@\s]*)/g)].map((m) => m[1]);
     assert.ok(images.length > 0, "no Playwright image in ci.yml");
     for (const v of images) assert.equal(v, locked, `ci.yml uses the Playwright image v${v}, package-lock.json has @playwright/test ${locked}: raise both together`);
+});
+
+test("the build job's matrix names every module in modules/", () => {
+    const ci = readFileSync(new URL(".github/workflows/ci.yml", root), "utf8");
+    const matrix = /^\s+module: \[(.*)\]$/m.exec(ci);
+    assert.ok(matrix, "no module matrix in ci.yml");
+    const listed = JSON.parse(`[${matrix[1]}]`).sort();
+    const folders = readdirSync(new URL("modules/", root), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
+    assert.deepEqual(listed, folders, "add the module to the build matrix in ci.yml");
 });

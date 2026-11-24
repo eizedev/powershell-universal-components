@@ -15,6 +15,16 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
 
 ### Changed
 
+- **Breaking:** the chart's own texts follow `-Locale`, or the browser's language without it, as
+  ECharts' texts do: the toolbox buttons, "Total" in a stack's tooltip, the box plot statistics and its
+  "Outliers" series, the histogram's "Count" axis, the candlestick's "Price" and "Volume" series, and
+  "No data". Before, they were English in every language.
+  - Who is affected: an app with a `-ColorMap` entry or a click handler that names "Outliers",
+    "Volume" or "Price".
+  - What to do: set `-Locale` on that chart and name the series in that language, or set
+    `-Locale en-US` to keep the English names.
+- `ConvertTo-PSUComponentData`, the data conversion all modules share, keeps its C# converter in
+  `RowConverter.cs` and its helpers one function per file. The rows it returns are unchanged.
 - The module's code is one function per file in `Public/` and `Private/`; the `.psm1` only loads them.
   `New-UDEChart` runs its steps through helpers. Commands, parameters, help and output are unchanged
   ([#169](https://github.com/eizedev/powershell-universal-components/issues/169)).

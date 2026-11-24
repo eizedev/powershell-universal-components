@@ -164,7 +164,8 @@ function New-UDEChart {
     .PARAMETER XFormat
         Format for x axis labels, e.g. date.
     .PARAMETER Locale
-        Locale for numbers and dates, e.g. de-DE. Default: the browser's language.
+        Locale for numbers, dates and the chart's own texts (toolbox, totals, box plot statistics), e.g.
+        de-DE. Default: the browser's language.
     .PARAMETER XTitle
         Name of the x axis.
     .PARAMETER YTitle
@@ -192,7 +193,7 @@ function New-UDEChart {
         On a time axis only rows with exactly the same timestamp combine: round dates first (to the day,
         the hour) to count events per day.
     .PARAMETER EmptyText
-        Text shown when -Data has no rows. Default: No data.
+        Text shown when -Data has no rows. Default: "No data" in the language of -Locale.
     .PARAMETER Stacked
         Stack the series (line, area, bar).
     .PARAMETER Horizontal

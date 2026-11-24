@@ -7,16 +7,7 @@
 param()
 
 BeforeAll {
-    if (-not ('Endpoint' -as [type])) {
-        Add-Type -TypeDefinition @'
-public class Endpoint {
-    public System.Management.Automation.ScriptBlock ScriptBlock;
-    public string RegisteredId;
-    public Endpoint(System.Management.Automation.ScriptBlock scriptBlock) { ScriptBlock = scriptBlock; }
-    public void Register(string id, object cmdlet) { RegisteredId = id; }
-}
-'@
-    }
+    . (Join-Path $PSScriptRoot '..' '..' 'build' 'Add-EndpointType.ps1')
     $script:repo = Resolve-Path (Join-Path $PSScriptRoot '..' '..')
     $script:demoDir = Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.Pivot.Demo'
     $pivot = Import-Module (Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.Pivot' 'PowerShellUniversal.Component.Pivot.psm1') -Force -PassThru

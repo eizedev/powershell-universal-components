@@ -1,34 +1,17 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { fieldDefaultsFromSchema } from "pivotkit-core";
+import React, { useMemo, useRef } from "react";
 import { PivotReport as Report } from "pivotkit-react";
 // Excel workbooks for -AllowImport: a small descriptor; its reader is imported on the first workbook
 import xlsxReader from "pivotkit-xlsx";
 import { bundleScriptOf, importWorkerOf, workerUrlOf } from "./importWorker";
 import "pivotkit-react/styles.css";
 import "./psu.css";
-import { answerStateRequests } from "../../../shared/js/elementState.js";
 import { useNarrowWindow } from "./hooks";
+import { useStoredView } from "./useStoredView";
+import { useLoadedFile } from "./useLoadedFile";
+import { useTemplateEndpoints } from "./useTemplateEndpoints";
+import { useReportOptions } from "./useReportOptions";
 import AdminPanel from "./AdminPanel";
-import { callEndpoint, cellEvent, problemOf, problemText, recordsOf, withheldFieldsOf, withheldText, dataLoadEvent, exportDataLabels, exportDataOf, fieldListOf, heightOf, importLimitsOf, MAX_OPTIONS_LENGTH, MAX_SCHEMA_LENGTH, mergeFieldDefaults, mergeTemplates, parseJsonObject, parseView, readStoredView, readTemplates, restoreRows, schemaUrlOf, sourceOf, startViewOf, switchOf, templateKey, themeOf, tipsOf, VIEW_EVENT_DELAY_MS, viewStoreKey, withoutBareLink, writeLinkView, writeStoredView, zonesOf } from "./prepare";
-import { readStartLink } from "./links";
-
-/*
- * What -Schema says about the fields (pivotkit-core's fieldDefaultsFromSchema: names, descriptions,
- * https links, types, orders), or undefined. A schema it cannot read is reported in the console and
- * left out; the report works without it.
- */
-function schemaDefaults(text, name) {
-    const schema = parseJsonObject(text, MAX_SCHEMA_LENGTH);
-    if (!schema) return undefined;
-    try {
-        const { defaults, issues } = fieldDefaultsFromSchema(schema, typeof name === "string" && name ? { schema: name } : {});
-        if (issues.length) console.warn("New-UDPivotReport -Schema:", issues.map((i) => `${i.path}: ${i.message}`).join("; "));
-        return defaults;
-    } catch (e) {
-        console.warn("New-UDPivotReport -Schema left out:", e instanceof Error ? e.message : String(e));
-        return undefined;
-    }
-}
+import { cellEvent, problemOf, problemText, recordsOf, withheldFieldsOf, withheldText, fieldListOf, heightOf, importLimitsOf, restoreRows, switchOf, themeOf, zonesOf } from "./prepare";
 
 // the reader plugins of -AllowImport (CSV, TSV, text and JSON are built into pivotkit)
 const IMPORT_PLUGINS = [xlsxReader];
@@ -37,15 +20,6 @@ const IMPORT_PLUGINS = [xlsxReader];
 // it, such as the documentation site's, reads files on the page)
 const WORKER_FILE = typeof __PIVOT_IMPORT_WORKER__ === "string" ? __PIVOT_IMPORT_WORKER__ : "";
 const importWorker = typeof document !== "undefined" && typeof location !== "undefined" ? importWorkerOf(workerUrlOf(bundleScriptOf(document), WORKER_FILE, location.origin)) : undefined;
-
-// sessionStorage, or null where the browser blocks it (the accessor itself can throw)
-function sessionStorageOrNull() {
-    try {
-        return typeof window !== "undefined" && window.sessionStorage ? window.sessionStorage : null;
-    } catch {
-        return null;
-    }
-}
 
 /*
  * What the report says in place of itself when New-UDPivotReport -Uri got no rows from the server
@@ -80,262 +54,11 @@ export default function PsuPivotReport(props) {
     latest.current = props;
     const narrow = useNarrowWindow();
 
-    // ---- the view: the server's start view, then the user's ----------------------------------------
-    const serverViewKey = JSON.stringify(parseView(props.view) ?? null);
-    // the reader's view of this tab survives PSU mounting the component anew (its light/dark switch)
-    // and a reload: in the address bar (#pivot-<key>=...) and in sessionStorage, the fallback for a
-    // view too long for the address bar
-    const store = useRef({ storage: sessionStorageOrNull(), key: null, linkKey: null, path: null, mountedWith: serverViewKey });
-    // written at once, not debounced: a reload right after a change must not find an older view in
-    // the address bar than in sessionStorage (the address bar wins on mount)
-    const showInLink = useCallback((next) => {
-        const s = store.current;
-        // -NoAddressBar; and only on the page the report was mounted on (PSU's menu may have moved on)
-        if (latest.current.addressBar === false || !s.linkKey || typeof window === "undefined" || window.location.pathname !== s.path) return;
-        try {
-            const hash = writeLinkView(window.location.hash, s.linkKey, next);
-            if (hash === window.location.hash || (hash === "" && !window.location.hash)) return;
-            // replaceState: no navigation, no new history entry, PSU's router does not react (measured)
-            window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search + hash);
-        } catch {
-            // a browser that refuses (Safari limits replaceState calls): sessionStorage still has it
-        }
-    }, []);
-    const remember = useCallback((next) => {
-        const s = store.current;
-        if (!s.key) return;
-        writeStoredView(s.storage, s.key, s.mountedWith, next);
-        showInLink(next);
-    }, [showInLink]);
-    // pivotkit's Reset goes back to the view of the first render: always -View, never a restored one
-    const [view, setView] = useState(() => parseView(props.view) ?? {});
-    // -AllowImport: whether a reader's file is shown, and the app's view while it is (what comes back
-    // when pivotkit no longer keeps it)
-    const fileRef = useRef(false);
-    const hostView = useRef(view);
-    const shownKey = useRef(serverViewKey);
-    const lastServerKey = useRef(serverViewKey);
-    useLayoutEffect(() => {
-        // the view in the address bar, else the tab's sessionStorage, else -SavedView replaces the
-        // start view before the browser paints;
-        // storageKey is -Id, or without one the module's key from the call site and the columns (the
-        // id is a new GUID per build). -SavedView is read only here: a later one (a new render of the
-        // page with $Session from another tab) never replaces what this tab shows.
-        const s = store.current;
-        const id = props.storageKey || props.id;
-        s.linkKey = id;
-        s.path = typeof window !== "undefined" ? window.location.pathname : "";
-        s.key = viewStoreKey(s.path, id);
-        // with -NoAddressBar a view in the link is ignored too: the report never reads what it never writes
-        // the report's own entry, or a pivotkit link (create_link) for this report's data
-        const link = typeof window !== "undefined" && props.addressBar !== false ? readStartLink(window.location.hash, id, sourceOf(props.source)?.id, readStoredView(s.storage, s.key, s.mountedWith)) : undefined;
-        if (link && link.bare) {
-            // "#pivot=" names no report: once this report took it, its own entry stands for it
-            try {
-                window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search + withoutBareLink(window.location.hash));
-            } catch {
-                // the view still opens; a reload would read the link again
-            }
-        }
-        // the tab's own view (sessionStorage) keeps the app's limits; only a link gets pivotkit's
-        // limits for views from outside (readStartLink)
-        const start = startViewOf(s.storage, s.key, s.mountedWith, props.savedView, link && link.view);
-        if (start && JSON.stringify(start.view) !== serverViewKey) {
-            hostView.current = start.view;
-            // pivotkit restored a loaded file in its own layout effect, before this one (onDataLoad
-            // "restore", then the file's view): the app's view waits for Back to original data
-            if (!fileRef.current) {
-                shownKey.current = JSON.stringify(start.view);
-                setView(start.view);
-            }
-            // from now on the tab keeps it in both places, whatever -SavedView a later render of the
-            // page brings; storage that has it already is left as it is
-            if (start.inStorage) showInLink(start.view);
-            else remember(start.view);
-            // the component's state holds the restored view too (withComponentFeatures passes it back as props.view)
-            if (typeof latest.current.setState === "function") latest.current.setState({ view: start.view });
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-    useEffect(() => {
-        // a new -View from the server that differs from the one shown (PSU echoes the view setState sent)
-        if (serverViewKey === lastServerKey.current) return;
-        lastServerKey.current = serverViewKey;
-        if (serverViewKey !== shownKey.current) {
-            const next = JSON.parse(serverViewKey) ?? {};
-            hostView.current = next;
-            // while a reader's file is shown, the server's view waits for the app's data
-            if (fileRef.current) return;
-            shownKey.current = serverViewKey;
-            setView(next);
-            remember(next);
-        }
-    }, [serverViewKey, remember]);
-
-    // Get-UDElement: the view of the app's data, also while a reader's file is shown. Only the view and
-    // the id: the props hold every row, and this answer travels back in one hub message. (The wrapper of
-    // universal-dashboard 1.1.2 still POSTs its whole state, rows included, which PSU ignores.)
-    useEffect(() => {
-        const pubsub = typeof window !== "undefined" ? window.UniversalDashboard : undefined;
-        return answerStateRequests(pubsub, props.id, () => ({ id: props.id, view: hostView.current }));
-    }, [props.id]);
-
-    // ---- a file the reader loaded (-AllowImport) ---------------------------------------------------
-    // While a file's data is shown, its view, its cells and its saved views stay in the browser: the
-    // address bar, sessionStorage, Get-UDElement, -OnViewChange and -OnCellClick keep to the app's data,
-    // and saving goes to the browser's store under the file's source id instead of the server's.
-    const [fileShown, setFileShown] = useState(false);
-    // the last view pivotkit reported; the one in the same task as onDataLoad (pivotkit's own view of
-    // the data it switches to)
-    const lastView = useRef(null);
-    const recentView = useRef(null);
-
-    const pending = useRef(null);
-    const flush = useCallback(() => {
-        if (!pending.current) return;
-        const { next } = pending.current;
-        clearTimeout(pending.current.timer);
-        pending.current = null;
-        const handler = latest.current.onViewChange;
-        if (typeof handler === "function") {
-            handler({ view: next, json: JSON.stringify(next) });
-        }
-    }, []);
-    useEffect(() => () => flush(), [flush]);
-
-    // the view of the app's data leaves the component: remembered, in the state, to -OnViewChange
-    const publish = useCallback(
-        (next) => {
-            hostView.current = next;
-            remember(next);
-            // the component's state holds the view (withComponentFeatures passes it back as props.view)
-            if (typeof latest.current.setState === "function") latest.current.setState({ view: next });
-            if (typeof latest.current.onViewChange === "function") {
-                if (pending.current) clearTimeout(pending.current.timer);
-                pending.current = { next, timer: setTimeout(flush, VIEW_EVENT_DELAY_MS) };
-            }
-        },
-        [flush, remember]
-    );
-    const onViewChange = useCallback(
-        (next) => {
-            shownKey.current = JSON.stringify(next);
-            lastView.current = next;
-            recentView.current = next;
-            setView(next);
-            // pivotkit shows the view of another data set (Undo, Redo, Back to original data) before it
-            // says which data that is (onDataLoad, in the same call): decide once both are known
-            queueMicrotask(() => {
-                if (recentView.current === next) recentView.current = null;
-                if (!fileRef.current && lastView.current === next) publish(next);
-            });
-        },
-        [publish]
-    );
-    const onDataLoad = useCallback(
-        (detail) => {
-            const file = Boolean(detail && detail.file);
-            if (file && !fileRef.current && pending.current) {
-                // a change of the app's view still waiting for -OnViewChange: send it now, before the file's
-                flush();
-            }
-            fileRef.current = file;
-            setFileShown(file);
-            if (!file) {
-                // back on the app's data. pivotkit shows its view again in the same task, before this
-                // call, while it still keeps that data's step (Undo keeps three); once that step is
-                // let go it shows the file's view on the app's data: then the app's last view comes back
-                let shown = recentView.current;
-                if (!shown) {
-                    shown = hostView.current;
-                    shownKey.current = JSON.stringify(shown);
-                    lastView.current = shown;
-                    setView(shown);
-                }
-                queueMicrotask(() => {
-                    if (!fileRef.current && lastView.current === shown) publish(shown);
-                });
-            }
-            const handler = latest.current.onDataLoad;
-            try {
-                if (typeof handler === "function") handler(dataLoadEvent(detail));
-            } catch (error) {
-                // never into pivotkit: an error there would refuse a file this component already shows
-                setTimeout(() => {
-                    throw error;
-                }, 0);
-            }
-            // never false: the server is told, it cannot refuse a file (pivotkit does not wait for it)
-            return undefined;
-        },
-        [flush, publish]
-    );
-
-    // ---- templates -------------------------------------------------------------------------------
-    const templatesKey = JSON.stringify(props.templates ?? null);
-    const serverTemplates = useMemo(() => readTemplates(JSON.parse(templatesKey)), [templatesKey]);
-    const [saved, setSaved] = useState([]);
-    const [deleted, setDeleted] = useState(() => new Set());
-    useEffect(() => {
-        // new templates from the server include what was saved and leave out what was deleted
-        setSaved([]);
-        setDeleted(new Set());
-    }, [templatesKey]);
-    const templates = useMemo(() => mergeTemplates(serverTemplates, saved, deleted), [serverTemplates, saved, deleted]);
-    // while a file is shown, "My views" are the browser's views of that file: the reader's own views of
-    // the app's data on the server stay out (they cannot be saved over or deleted from here)
-    const shownTemplates = useMemo(() => (fileShown ? templates.filter((t) => t.scope !== "user") : templates), [fileShown, templates]);
-
-    // a template the server confirmed: shown until the server sends the templates again
-    const keep = useCallback((template) => {
-        const key = templateKey(template.scope, template.name);
-        setSaved((list) => [...list.filter((t) => templateKey(t.scope, t.name) !== key), template]);
-        setDeleted((set) => {
-            if (!set.has(key)) return set;
-            const next = new Set(set);
-            next.delete(key);
-            return next;
-        });
-    }, []);
-    // a file's views are kept by the browser's store (pivotkit keeps them per file), not by the server
-    const serverSaves = !fileShown;
-    const onSaveTemplate = serverSaves && typeof props.onSaveTemplate === "function"
-        ? async (name, current) => {
-              await callEndpoint(latest.current.onSaveTemplate, { name, view: current, json: JSON.stringify(current), scope: "user" });
-              keep({ name, view: current, scope: "user", deletable: true });
-          }
-        : undefined;
-    const onDeleteTemplate = serverSaves && typeof props.onDeleteTemplate === "function"
-        ? async (name, how) => {
-              const scope = how && how.scope === "shared" ? "shared" : "user";
-              await callEndpoint(latest.current.onDeleteTemplate, { name, scope });
-              setDeleted((set) => new Set(set).add(templateKey(scope, name)));
-          }
-        : undefined;
-    // -AdminRole: the server sends canPublish only to readers with one of its roles, and checks again
-    const onPublishTemplate = serverSaves && props.canPublish === true && typeof props.onPublishTemplate === "function"
-        ? async (name, current) => {
-              await callEndpoint(latest.current.onPublishTemplate, { name, view: current, json: JSON.stringify(current), scope: "shared" });
-              keep({ name, view: current, scope: "shared", deletable: true });
-          }
-        : undefined;
-
-    // ---- fields: -Schema, then -FieldDefaults and -FieldDescriptions over it ---------------------
-    const columnsKey = JSON.stringify(props.columnNames ?? null);
-    const fieldDefaults = useMemo(
-        () => mergeFieldDefaults(schemaDefaults(props.schema, props.schemaName), parseJsonObject(props.fieldDefaults, MAX_SCHEMA_LENGTH), JSON.parse(columnsKey)),
-        [props.schema, props.schemaName, props.fieldDefaults, columnsKey]
-    );
-    const chartOptions = useMemo(() => parseJsonObject(props.chartOptions, MAX_OPTIONS_LENGTH), [props.chartOptions]);
-    const tipsKey = JSON.stringify(props.tips ?? null);
-    const tips = useMemo(() => tipsOf(JSON.parse(tipsKey)), [tipsKey]);
-    const sourceKey = JSON.stringify(props.source ?? null);
-    const source = useMemo(() => sourceOf(JSON.parse(sourceKey)), [sourceKey]);
-    const schemaUrl = schemaUrlOf(props.schemaUrl);
-    const exportDataKey = JSON.stringify(props.exportData ?? null);
-    const exportData = useMemo(() => exportDataOf(JSON.parse(exportDataKey)), [exportDataKey]);
-    const labelsKey = JSON.stringify(props.labels ?? null);
-    const labels = useMemo(() => exportDataLabels(JSON.parse(labelsKey) || undefined, exportData, props.locale), [labelsKey, exportData, props.locale]);
+    // the view, a file the reader loaded, the templates and the settings, in this order (hooks.js and use*.js)
+    const { view, setView, remember, fileRef, hostView, shownKey } = useStoredView(props, latest);
+    const { fileShown, onViewChange, onDataLoad } = useLoadedFile(latest, { setView, remember, fileRef, hostView, shownKey });
+    const { shownTemplates, onSaveTemplate, onDeleteTemplate, onPublishTemplate } = useTemplateEndpoints(props, latest, fileShown);
+    const { fieldDefaults, chartOptions, tips, source, schemaUrl, exportData, labels } = useReportOptions(props);
 
     // ---- clicks ----------------------------------------------------------------------------------
     const viewRef = useRef(view);

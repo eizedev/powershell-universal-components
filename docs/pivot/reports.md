@@ -1,6 +1,6 @@
 ---
 title: Reports without a browser
-description: "Invoke-UDPivotReport - render a pivot view into an Excel workbook, an HTML report, CSV, JSON or SVG from an endpoint or a schedule, with pivotkit's command line or a pivotkit-server, signed in with a token or OAuth client credentials; Get-UDPivotSource lists the server's sources, -AsLink returns a link that expires."
+description: "Invoke-UDPivotReport - render a pivot view into an Excel workbook, an HTML report, CSV, JSON or SVG from an endpoint or a schedule, with pivotkit's command line or a pivotkit-server; size, memory and security notes."
 ---
 
 # Reports without a browser
@@ -32,7 +32,7 @@ file's bytes, for an endpoint's answer or a mail attachment.
 | | `-Engine Node` | `-Engine Rest` |
 | --- | --- | --- |
 | Runs | pivotkit's command line on the PSU server | a pivotkit-server somewhere else |
-| Needs | Node and `npm install --global pivotkit-cli` (0.2.1 or later; tested with 0.4.0 and 0.5.0) on the PSU server: Node 22 or later, Node 24 or later for pivotkit-cli 0.5.0 and later | a pivotkit-server, its address and a token or OAuth client; for `-Data` and `-Parameter` pivotkit-server 0.2.0 or later ([which server](#rest-a-pivotkit-server)) |
+| Needs | Node and `npm install --global pivotkit-cli` (0.2.1 or later; tested with 0.4.0 and 0.5.0) on the PSU server: Node 22 or later, Node 24 or later for pivotkit-cli 0.5.0 and later | a pivotkit-server, its address and a token or OAuth client; for `-Data` and `-Parameter` pivotkit-server 0.2.0 or later ([which server](reports-server.md#rest-a-pivotkit-server)) |
 | Data | `-Data`, written to a temporary folder of its own (mode 0700 on Linux and macOS; on Windows it inherits the ACL of the user's TEMP folder), removed afterwards | `-Data`, sent in the request; or `-Source`, a source the server's operator configured |
 | Language, time zone | `-Locale`, `-TimeZone` | the server's |
 | HTML print template | `-Template` | the server's source decides |
@@ -105,123 +105,6 @@ properties come in another order (hashtables, objects merged from two sources) s
 row lacks is empty there, and a property the first row does not have is left out, with one warning
 that names it. Give every row the same properties (`Select-Object`) to keep them all.
 
-### REST: a pivotkit-server
-
-```powershell
-$bytes = Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Token $Secret:PivotkitToken `
-    -Data (Get-Ticket) -View $view -Format html
-```
-
-The rows go in the request as pivotkit's [data in the request](https://pivotkit.eize.dev/reference/rest/#data)
-(source `inline:`): nothing has to be put on the server first, and the server keeps nothing of them.
-The server's operator allows it per caller (a profile with `data: true`, or `policy.data`) and caps
-the body (`rest.data.maxBytes`, default 10 MiB); the operator's exposure policy does not apply to
-data you send. `-DataName` names the data, `-DataAsOf` says when it is from (sent as the data's
-`asOf`; the server keeps it with the request, while the file's own "Data as of" is when the data
-arrived).
-
-`-Data` (and with it `-DataName` and `-DataAsOf`) and `-Parameter` need pivotkit-server 0.2.0 or
-later. pivotkit-server 0.1.1 renders `-Source` without parameters. It answers `-Data` and `-Parameter`
-with `INVALID_INPUT (400)`, and the error then names the version they need.
-
-The token comes from the server's operator, who makes it with `pivotkit-server token new`; keep it in
-a PSU secret. pivotkit-server 0.2.0 does not start with a static token that is easy to guess
-([pivotkit's rule](https://pivotkit.eize.dev/getting-started/upgrading/#weak-tokens)).
-
-With `-Source` instead of `-Data` the report runs over a source the operator configured, with
-`-Parameter` for its parameters; that needs a caller whose policy has `results: true`:
-
-```powershell
-Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Token $Secret:PivotkitToken `
-    -Source 'vms' -Parameter @{ customer = 'acme' } -View $view -OutFile ./vms.xlsx
-```
-
-### Which sources the server has
-
-`Get-UDPivotSource` lists the sources the signed-in caller may use (`GET /sources`). It takes the same
-sign-in parameters as `Invoke-UDPivotReport -Engine Rest`: `-Uri`, and `-Token` or `-Credential` with
-`-TokenUri`, `-Scope`, `-Audience`, `-Resource` and `-ClientAuthentication`.
-
-```powershell
-$sources = Get-UDPivotSource -Uri 'https://reports.example.com/api/v1' -Token $Secret:PivotkitToken
-New-UDSelect -Id 'source' -Option { foreach ($s in $sources) { New-UDSelectOption -Name $s.Title -Value $s.Id } }
-```
-
-Each source is an object with these properties:
-
-| Property | What it is |
-| --- | --- |
-| `Id` | The source's id, for `-Source` |
-| `Title`, `Description` | The source's name and description |
-| `Kind` | `source`, or `file` for a file the server reads |
-| `Link` | Whether pivotkit's share links of views work for it. This is not the download link of `-AsLink` |
-| `Schedulable` | Whether the server drafts schedules for it |
-| `Parameters` | The values the source takes, as the server describes them (`name`, `type`, `required`, `description`, `example`) |
-| `DataMaxBytes` | The largest request this caller may send with `-Data`. Empty when it may send none. The same on every source |
-| `Records` | Whether the caller may read the source's rows ([rows from a server](server-rows.md)) |
-| `LinkParams` | The parameters a link may carry in the page's query string |
-| `Views` | The views the operator publishes for the source: `name`, `title`, `description` |
-| `Rows`, `DataAsOf` | The row count and the data's date, where the server read the data and shows them to the caller |
-| `RequestId` | The id of the answer, for the operator |
-
-A pivotkit-server older than 0.4.0 leaves `Records`, `LinkParams`, `Views`, `Rows` and `DataAsOf`
-empty. When the server lists no source, the function returns nothing and writes the server's reason to
-the warning stream: the sign-in lacks the sources' scopes.
-
-### A report as a link
-
-With `-AsLink` the server keeps the report and the function returns a link to it that expires
-(`POST /views/render` with `save: true`). A page or a mail then hands out the link instead of the file:
-
-```powershell
-$link = Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Token $Secret:PivotkitToken `
-    -Source 'sales' -View $view -AsLink
-$until = if ($link.ExpiresAt) { ', until {0:t}' -f $link.ExpiresAt.ToLocalTime() }
-New-UDLink -Text "Sales report$until" -Url $link.Url
-```
-
-| Property | What it is |
-| --- | --- |
-| `Url` | The download link |
-| `ExpiresAt` | When the link stops working, a `DateTimeOffset` in UTC. Empty where the server names no expiry, as for some links of an operator's own store |
-| `Rows` | The rows of the report's table, without the header. Empty where the server withholds it |
-| `RequestId` | The id of the answer, for the operator |
-| `Format` | xlsx, html, csv, json or svg |
-| `FileName` | The file's name for the person who opens it |
-| `Bound` | `none` (anyone with the link), `once` (one download) or `signIn` (only the person who asked). Empty for a link of an operator's own store |
-| `DataAsOf` | When the data is from |
-| `Message` | The server's sentence for the person who asked |
-
-The server decides which report gets a link ([download links](https://pivotkit.eize.dev/reference/delivery/)).
-A report over an open source gets one where the operator turned on download links and the server can
-sign them. A report over a closed source, or over data sent with `-Data`, gets one only where the
-operator binds links to a sign-in or to one download. A server without an output directory saves no
-report at all. In each of these cases the function stops with `PivotNoLink`, and the message says so
-in plain words, with the server's own reason. `-AsLink` does not go with `-OutFile`.
-
-The link, `FileName` and `Message` are the server's text. The function returns only an `http` or
-`https` link. Show the other two as text, never as markup.
-
-What the function does on the way:
-
-- Only `https://` addresses, or `http://` to this machine (`localhost`, `127.0.0.1`, `::1`), for the
-  server and the token endpoint. An address with a user name or password in it is refused, and so is
-  a `-Uri` with a query string or fragment (the routes are appended to its path); messages show an
-  address as scheme, host, port and path only.
-- No redirect is followed: a token goes only to the address you gave.
-- `-TimeoutSec` (default 120) limits each call as a whole: sending the request and reading the
-  report in full; the token request has a limit of the same length of its own.
-- An error has a fixed error id ([Errors](#errors)). Its message says:
-    - the server's code and detail, and the findings of a view with errors (422);
-    - when to try again (`Retry-After` of a 429 or 503), or that trying again may work (`retryable`);
-    - the request id the operator finds the log lines by.
-- A 413 says what to do by its code. For a request over the server's cap, send less data or use
-  `-Source`. This holds also when the server answers while the request is still being sent. For a
-  report over a limit of the server, make the view smaller or filter it.
-- Data over `-MaxBytes` is refused before it is sent ([Size and memory](#size-and-memory)).
-- The token and the client secret never appear in an error, `$Error`, the verbose or the debug stream
-  or the output, also with `-Verbose` and `-Debug`.
-
 ## Size and memory
 
 The rows go into the request one by one: a DataTable (or DataView) straight from its rows, a list of
@@ -251,147 +134,6 @@ PowerShell 7 environment of their own, and keep large data out of PSU altogether
 pivotkit-server operator configure a source for it (a file, a database export, an HTTP source) and
 render with `-Source`. `-Data` is for what a script has at hand, a few megabytes.
 
-## Errors
-
-Every failure of `Invoke-UDPivotReport` and `Get-UDPivotSource`, and every answer the server refuses
-to `New-UDPivotReport -Uri` ([rows from a server](server-rows.md#when-the-server-gives-no-rows)), is an
-ErrorRecord with a fixed error id (`$_.FullyQualifiedErrorId`, or `catch` and `Should -Throw -ErrorId` in a test).
-
-For an answer of pivotkit-server, `$_.TargetObject` is the server's
-[problem document](https://pivotkit.eize.dev/reference/rest/) as a `PivotServerProblem`. It has these
-properties:
-
-- `Status`: the HTTP status.
-- `Code`: the server's stable code, such as `INVALID_TOKEN`, `INSUFFICIENT_SCOPE`, `NOT_ALLOWED` or
-  `SOURCE_NOT_FOUND`.
-- `Title`, `Detail`: the problem's title, and what went wrong and what to do.
-- `RequestId`: the id the operator finds the log lines by.
-- `Retryable`, `RetryAfter`: whether trying again may work, and when.
-- `Type`, `Findings`: the address that names the code, and the findings of a view with errors.
-- `NotShown`: the fields of a `NOT_ALLOWED` answer of the rows route.
-
-A field the answer lacks is empty. An error that is no answer of the server (no connection, a missing
-command line) has no `TargetObject`. A page uses the code to tell the reader why a report failed:
-
-```powershell
-try { $link = Invoke-UDPivotReport -Engine Rest -Uri $uri -Token $Secret:PivotkitToken -Source 'sales' -View $view -AsLink }
-catch {
-    $problem = $_.TargetObject
-    # [string]: a switch over $null runs no branch, not even default
-    $why = switch ([string]$problem.Code) {
-        'INVALID_TOKEN' { 'The report service did not accept the sign-in.' }
-        'INSUFFICIENT_SCOPE' { 'The sign-in lacks the scope for reports.' }
-        'NOT_ALLOWED' { 'Your role may not use this report.' }
-        default { 'The report failed. Request id: {0}' -f $problem.RequestId }
-    }
-    Show-UDToast -Message $why
-}
-```
-
-`$_.Exception.Data` holds the same for a script, where the answer had it:
-
-- `Status`: the HTTP status.
-- `Code`: pivotkit-server's problem code, the OAuth error or the command line's error code.
-- `Title`, `Detail`: the problem's title and detail.
-- `RetryAfter`: the `Retry-After` header of a 429 or 503, in seconds or as an HTTP date.
-- `Retryable`: `$true` or `$false` where the server said whether the same request may work when
-  tried again, as for a source that is not available right now. The message then says "Trying again
-  may work."
-- `RequestId`: give it to the server's operator. It comes from the answer's body, else from its
-  `X-Request-Id` header.
-- `MaxBytes`: the cap `-Data` went over.
-
-| Error id | When |
-| --- | --- |
-| `PivotServerUnreachable` | pivotkit-server or the token endpoint did not answer (no connection, a time-out) |
-| `PivotRedirectRefused` | the server or the token endpoint answered with a redirect, which is not followed |
-| `PivotTokenRefused` | the server answered 401, or 403 `INSUFFICIENT_SCOPE` (the token lacks the REST scope: with client credentials ask for it with `-Scope`; for `New-UDPivotReport -Uri` see [rows from a server](server-rows.md#when-the-server-gives-no-rows)), or the token endpoint refused the client credentials or gave no usable token, or `New-UDPivotReport -Uri` got no token |
-| `PivotDataTooLarge` | `-Data` passed `-MaxBytes`, or the server answered 413: `BODY_TOO_LARGE` (the request is over the server's cap: send fewer rows or columns, or use `-Source`) or `LIMIT_EXCEEDED` (the report is over a limit of the server, rows, cells or memory: make the view smaller or filter) |
-| `PivotViewHasErrors` | the view has errors: the server's 422 (with `-AsLink` its 200 with `ok: false`) or the command line's findings (exit 1) |
-| `PivotNoLink` | `-AsLink`: the server saved the report without a download link, or it has no output directory (409 `NO_OUTPUT`) |
-| `PivotRowsNotAllowed` | `New-UDPivotReport -Uri`: the rows route answered 403 `NOT_ALLOWED` |
-| `PivotNoData` | `New-UDPivotReport -Uri`: the rows route answered 404 `SOURCE_NOT_FOUND` or `DATA_NOT_AVAILABLE` |
-| `PivotServerBusy` | `New-UDPivotReport -Uri`: the rows route answered 429 `RATE_LIMITED` or 503 `BUSY` |
-| `PivotServerError` | any other answer of the server that is no report (400, 403, 404, 429, 500, 502, 503 and so on). The three ids above apply to the rows route only; on the other routes these answers stay `PivotServerError` |
-| `PivotCliNotFound` | `pivotkit` (or `node` for a .js) was not found, or `-CliPath` is no file |
-| `PivotCliFailed` | the command line did not start, took longer than `-TimeoutSec`, gave no `--json` answer or failed otherwise (exit 2) |
-
-Wrong or missing parameters (an engine's parameter given to the other, `-Uri` without https) are
-plain errors before anything runs.
-
-`-ErrorVariable` holds the error record once, the same one `catch` gets. With `-ErrorVariable +name`
-the entries you had before stay in front of it. These errors stop the call with every `-ErrorAction`,
-also `SilentlyContinue`: handle them with `try` and `catch`.
-
-```powershell
-try { Invoke-UDPivotReport -Engine Rest -Uri $uri -Token $Secret:PivotkitToken -Data $rows -View $view -OutFile $file }
-catch {
-    switch ($_.FullyQualifiedErrorId) {
-        'PivotServerError' { if ($_.Exception.Data['RetryAfter'] -or $_.Exception.Data['Retryable']) { <# try again later #> } }
-        'PivotDataTooLarge' { <# fewer rows, or a source on the server #> }
-        default { throw }
-    }
-}
-```
-
-## Sign-in
-
-=== "Static token"
-
-    A token the operator gave you (`auth.tokens` of the server), kept as a PSU secret:
-
-    ```powershell
-    Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Token $Secret:PivotkitToken -Data $rows -View $view
-    ```
-
-    `-Token` takes a string or a SecureString.
-
-    pivotkit-server 0.3.0 and later also accept short-lived tokens that another system signs
-    ([tokens from another system](https://pivotkit.eize.dev/reference/rest/#external-issuers),
-    `auth.externalIssuers`). `-Token` sends such a token as it sends a static one.
-
-=== "OAuth client credentials"
-
-    The client id and secret of an OAuth client, kept as a PSU secret of type PSCredential (user name:
-    the client id, password: the client secret):
-
-    ```powershell
-    Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Credential $Secret:PivotkitClient `
-        -TokenUri 'https://auth.example.com/application/o/token/' -Scope 'pivotkit:rest' -Data $rows -View $view
-    ```
-
-    The function asks the token endpoint for an access token (`grant_type=client_credentials`, the
-    client id and secret in the body, or as HTTP Basic with `-ClientAuthentication Basic`; `-Scope`,
-    `-Audience` and `-Resource` when given) and keeps it in the PowerShell runspace until a minute
-    before it expires, per token endpoint, client id, secret (as its SHA-256), scopes and server: a
-    changed secret is checked at the token endpoint, and a token never goes to another server. A 401
-    from the server gets one new token and one more try. A token without `expires_in` is not kept.
-
-### Authentik
-
-On the pivotkit-server side, set up the provider as pivotkit's
-[Sign-in with Authentik](https://pivotkit.eize.dev/getting-started/kubernetes/#oauth) says, with a
-signing key and a scope of its own for REST (`rest.requiredScopes`, a scope mapping in Authentik), and
-`rest.audience` set to the provider's client ID, since Authentik puts the client ID into the access
-token's `aud`. For this function:
-
-1. Set the provider's **Client Type** to **Confidential** and note its **Client ID** and **Client
-   Secret**.
-2. In PSU, create a secret of type PSCredential with the client ID as user name and the client secret
-   as password, e.g. `PivotkitClient`.
-3. Call the function with `-TokenUri 'https://<authentik>/application/o/token/'` and `-Scope` with
-   the REST scope's name, e.g. `-Scope 'pivotkit:rest'`. Without it Authentik issues a token without
-   that scope, and the server answers 403 `INSUFFICIENT_SCOPE` (`PivotTokenRefused`).
-
-Authentik answers the client credentials grant with the provider's client ID and secret and creates a
-service account for it (`ak-<provider>-client_credentials`): bind it, or a group it is in, to the
-application if the application has bindings
-([Authentik: client credentials](https://docs.goauthentik.io/add-secure-apps/providers/oauth2/client_credentials/)).
-This sequence was run against Authentik 2026.8.5: the client ID and secret as a PSU secret of type
-PSCredential, `-TokenUri` `/application/o/token/` and `-Scope` with the REST scope. Labels and
-defaults can change between Authentik releases; decode an access token of your own to check its
-`aud` and `scope`.
-
 ## Security notes
 
 - The rows you send leave the PSU server: send only the columns the report needs (`Select-Object`, the
@@ -406,3 +148,10 @@ defaults can change between Authentik releases; decode an access token of your o
   schedule that may find no rows checks first (`if (@($rows).Count) { ... }`).
 - The access token is kept per runspace in memory, as a SecureString; it is gone when the runspace
   ends. A new PSU runspace asks for a new one.
+
+## More on reports
+
+- [Reports from a pivotkit-server](reports-server.md): `-Engine Rest`, the server's sources and
+  reports as links.
+- [Sign-in to a pivotkit-server](server-sign-in.md): a token, or OAuth client credentials.
+- [Errors](errors.md): the error ids of the report functions and of pivotkit-server's answers.

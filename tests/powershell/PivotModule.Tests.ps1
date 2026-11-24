@@ -4,16 +4,7 @@
 # ModuleFiles.Tests.ps1. PSU's [Endpoint] type is a stub.
 
 BeforeAll {
-    if (-not ('Endpoint' -as [type])) {
-        Add-Type -TypeDefinition @'
-public class Endpoint {
-    public System.Management.Automation.ScriptBlock ScriptBlock;
-    public string RegisteredId;
-    public Endpoint(System.Management.Automation.ScriptBlock scriptBlock) { ScriptBlock = scriptBlock; }
-    public void Register(string id, object cmdlet) { RegisteredId = id; }
-}
-'@
-    }
+    . (Join-Path $PSScriptRoot '..' '..' 'build' 'Add-EndpointType.ps1')
     $script:repo = Resolve-Path (Join-Path $PSScriptRoot '..' '..')
     $script:folder = Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.Pivot'
     $script:module = Import-Module (Join-Path $script:folder 'PowerShellUniversal.Component.Pivot.psm1') -Force -PassThru

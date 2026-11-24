@@ -22,8 +22,7 @@ Name it `PowerShellUniversal.Component.<Name>`, with `New-UD<Name>` and the type
 Apache-2.0, BSD) and free for companies. A new module needs:
 
 - a README, a CHANGELOG, an example app and tests
-- an entry in the build matrix of `.github/workflows/ci.yml`
-- an entry in `$moduleNames` of `docs/site/Build-Site.ps1`
+- an entry in the build matrix of `.github/workflows/ci.yml` (`tests/js/ci.test.js` checks it)
 - its pages in `nav` and in one `llmstxt` section of `zensical.toml`
 - a link on the docs start page and in the root README
 

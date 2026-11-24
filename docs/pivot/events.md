@@ -55,14 +55,14 @@ templates: [Templates, view files and roles](templates.md).
   select the columns a reader may see first (`Select-Object`, the SQL query). `-ExportData` makes
   every row a download (Export, Source data) and gives the drill-down panel its Export menu;
   `-ExportDataColumn` limits both to the columns it names. `-DrillDownExport` gives the drill-down
-  panel its Export menu without Source data, with every column ([Source data](index.md#source-data-exportdata)).
+  panel its Export menu without Source data, with every column ([Source data](readers.md#source-data-exportdata)).
 - `$EventData` comes from the browser: treat it as user input. Check views with
   `ConvertFrom-UDPivotView` before storing them, never build file paths or queries from names or values
   without checking them, and never pass any of it to `Invoke-Expression`.
 - Who may change shared views is decided on the server: `-AdminRole` with a template store checks
   `$Roles` of every save, publish and delete event; the browser only hides what a reader may not do.
   In your own `-OnPublishTemplate` and `-OnDeleteTemplate`, check `$Roles` yourself
-  ([Templates, view files and roles](templates.md#who-may-change-shared-views-adminrole)).
+  ([Templates, view files and roles](roles.md#who-may-change-shared-views-adminrole)).
 - View files from `-TemplatePath` and a store are read as untrusted input: size, depth, version and the
   view are checked, and a file that does not pass is left out.
 - Copying (Copy table, Copy data as JSON, the drill-down's Copy) works without the browser's Clipboard
@@ -77,7 +77,7 @@ templates: [Templates, view files and roles](templates.md).
   names, not code. The table and the drill-down show values as text, never as HTML, and so are field
   labels and descriptions; a description's link must be `https://`.
 - A `-SchemaUrl` path gets its origin on the server from the request's `Origin`, page address or
-  `Referer` header ([the `$schema` of a view file](templates.md#the-schema-of-a-view-file-schemaurl)).
+  `Referer` header ([the `$schema` of a view file](schema.md#the-schema-of-a-view-file-schemaurl)).
   A reader controls these headers. A view the reader saves can then name another host in `$schema`.
   The module takes only a plain http or https origin, and nothing in pivotkit fetches it. To use no
   header at all, set the default to an https address.
