@@ -63,13 +63,13 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $built = ./build/Build-Module.ps1 -Module '${{ matrix.module }}'
           if (-not '${{ matrix.module }}'.EndsWith('.Demo')) { ./build/Test-BuiltModule.ps1 -Path $built.FullName }
-      # needs the module's packages, which only this job installs; selects the Describe "Build-Module.ps1
-      # with the pivot module" of tests/powershell/Build-Module.Tests.ps1 by name: pivotkit-core's schema
-      # files of the bundle's version, pivotkit-react's tip ids
       # the unit tests that need the pivot module's packages (skipped in the javascript job)
       - name: Pivot links and theme against the installed pivotkit packages
         if: matrix.module == 'PowerShellUniversal.Component.Pivot'
         run: node --test tests/js/pivot-links.test.js tests/js/pivot.test.js
+      # needs the module's packages, which only this job installs; selects the Describe "Build-Module.ps1
+      # with the pivot module" of tests/powershell/Build-Module.Tests.ps1 by name: pivotkit-core's schema
+      # files of the bundle's version, pivotkit-react's tip ids
       - name: Pivot matches the pivotkit packages it is built with
         if: matrix.module == 'PowerShellUniversal.Component.Pivot'
         shell: pwsh

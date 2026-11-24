@@ -12,4 +12,6 @@ docs/site/generated/
 .claude/*
 !.claude/settings.json
 test-results/
+# Pester's result file of a local run
+testResults.xml
 playwright-report/

@@ -39,7 +39,9 @@ The modules form one product. Judge code, tests, docs and these rules as a whole
   `RowConverter.cs`, asset registration, compiling a `.cs` file under a versioned type name), one
   function per file. `build/Copy-SharedCode.ps1` copies it with the `.cs` files into each built module's
   `Private/` and writes `Private/SHARED.txt`: the content hashes of `shared/` the module was built from.
-- `build/` - `Build-Module.ps1`, the shared webpack configuration and the growth guards in `growth.js`.
+- `build/` - `Build-Module.ps1`, the shared webpack configuration, the growth guards in `growth.js`,
+  `Test-BuiltModule.ps1` (loads a built module in a new process and checks its commands) and the one
+  `Endpoint` stub for tests and the site build (`Endpoint.cs`, added by `Add-EndpointType.ps1`).
   Webpack writes a module's bundle to `modules/<Module>/dist/`; `Build-Module.ps1` copies it into `output/`.
 - `docs/` - the documentation site (Zensical, `zensical.toml`, shared design of eizedev/brand): the pages
   as Markdown, the complete documentation of every module. `docs/site/` builds its live parts:
