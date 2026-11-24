@@ -88,8 +88,9 @@ In the PowerShell Gallery: [PowerShellUniversal.Component.Pivot](https://www.pow
 
 ## Requirements
 
-PowerShell Universal 2026 (PowerShell 7.4 or newer). Tested on PSU 2026.2.5 and 2026.3.4 in Chromium,
-Firefox and WebKit (the engine of Safari; the Safari app and iOS are not tested).
+- PowerShell Universal 2026.2 or 2026.3, with PowerShell 7.4 or later.
+- Tested on PowerShell Universal 2026.2.5 and 2026.3.4.
+- Tested in Chromium, Firefox and WebKit, the engine of Safari. The Safari app and iOS are not tested.
 
 ## License
 

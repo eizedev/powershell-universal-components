@@ -16,8 +16,7 @@ New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Ticke
 New-UDPivotReport -Id 'own-data' -Data @() -AllowImport -TemplateStore Browser   # the reader's own file
 ```
 
-Requires PowerShell Universal 2026 (PowerShell 7.4+). Tested on PSU 2026.3.4 and 2026.2.5 in Chromium,
-Firefox and WebKit (Safari's engine).
+Supported and tested versions: [Requirements](https://powershell-universal-components.eize.dev/#requirements).
 
 **Documentation: [powershell-universal-components.eize.dev](https://powershell-universal-components.eize.dev/pivot/)** - data and dates, views and
 templates, events, security notes, with live examples.

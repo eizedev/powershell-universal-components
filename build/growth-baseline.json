@@ -1,7 +1,7 @@
 {
     "docs": {
         "pages": {
-            "README.md": [100],
+            "README.md": [99],
             "docs/pivot/index.md": [264],
             "docs/pivot/reports.md": [408],
             "docs/pivot/server-rows.md": [208],
