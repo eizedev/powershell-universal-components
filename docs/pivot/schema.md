@@ -35,8 +35,8 @@ A path becomes an address when a view file is written:
   `Origin`, else the page address, else `Referer`. PSU passes them to pages, event handlers and API
   endpoints. A template store uses the request of the save, which carries `Origin`.
 - Without either, for example in a scheduled job, the command stops with an error.
-- A shared view never takes the origin from the request, since everyone reads it. Without an https
-  default it names pivotkit's address.
+- A shared view of a template store never takes the origin from the request, since everyone reads
+  it. Without an https default it names pivotkit's address.
 
 The request must carry the address your users see. Behind a reverse proxy that rewrites these
 headers, set the module-wide default to the full https address. The server then uses its origin for
@@ -89,7 +89,8 @@ validator fetches only your copy.
     folder after an update, or copy `schema` into a folder of your own when you deploy. PSU serves
     `.json` files as `application/json`.
 
-2. Pass the path, or set it as the default:
+2. Pass the path, or set it as the default. Shared views name your copy only when the default is
+   its full https address.
 
     ```powershell
     New-UDPivotReport -Id 'tickets' -Data $tickets -SchemaUrl '/assets/pivot/schema/view-file-2.json'

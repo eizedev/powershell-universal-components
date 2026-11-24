@@ -5,14 +5,6 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
-### Changed
-
-- A shared view takes no origin from the request's headers for a `-SchemaUrl` path. It takes the
-  origin of an https `PSU_COMPONENT_PIVOT_SCHEMA_URL`, else it names pivotkit's schema address. This
-  affects you when you publish shared views with a path and no https default: to keep your own
-  address in them, set `PSU_COMPONENT_PIVOT_SCHEMA_URL` to it. A view a reader saves for themselves
-  keeps the origin of the request.
-
 ### Fixed
 
 - A store error of the server, such as a folder it cannot write, no longer shows the server's path to
@@ -31,6 +23,11 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Changed
 
+- A shared view of a template store takes no origin from the request's headers for a `-SchemaUrl`
+  path. It takes the origin of an https `PSU_COMPONENT_PIVOT_SCHEMA_URL`, else it names pivotkit's
+  schema address. This affects you when you publish shared views with a path and no https default:
+  to keep your own address in them, set `PSU_COMPONENT_PIVOT_SCHEMA_URL` to it. A view a reader saves
+  for themselves keeps the origin of the request.
 - `ConvertTo-PSUComponentData`, the data conversion all modules share, keeps its C# converter in
   `RowConverter.cs` and its helpers one function per file. The rows it returns are unchanged.
 - The module's code is one function per file in `Public/` and `Private/`; the `.psm1` only loads them.

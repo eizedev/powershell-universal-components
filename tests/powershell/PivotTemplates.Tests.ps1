@@ -826,6 +826,11 @@ Describe '-SchemaUrl: one check, a path on the instance, the module-wide default
             (& $send Save).error | Should -BeLike '*SchemaUrl*'
             & $send Publish @{ rows = @('Team') } | Should -BeNullOrEmpty
             (& $read shared).'$schema' | Should -BeExactly 'https://pivotkit.eize.dev/schema/view-file-1.json'
+            # a path as the default, without -SchemaUrl: the same for a shared view
+            [Environment]::SetEnvironmentVariable($script:defaultName, $script:path)
+            Set-Variable -Name Headers -Value (& $script:headersOf @{ Origin = 'https://psu.example.com' })
+            & $script:module { param($Store, $View, $Request) Invoke-UDPivotTemplateStore -Store $Store -Action Publish -Scope shared -UserName 'boss' -Name 'Hosted' -View $View -SourceId 'r' -Headers $Request } $store $script:v2 $Headers
+            (& $read shared).'$schema' | Should -BeExactly 'https://pivotkit.eize.dev/schema/view-file-2.json'
         }
         finally { Remove-Item -LiteralPath $folder -Recurse -Force -ErrorAction Ignore }
     }
