@@ -3,8 +3,8 @@
 import { test, expect } from "@playwright/test";
 
 const base = process.env.PSU_URL;
-// "public" calls public web APIs (slow, outside our control), "live" and "benchmark" redraw on a timer
-// or on demand - left out so a run is repeatable
+// every page of the app. "public" calls public web APIs (slow, outside our control), and "live" and
+// "benchmark" redraw on a timer or on demand: a failure there can come from outside the app.
 const pages = ["basics", "bars", "tickets", "finance", "msp", "operations", "calendar", "intraday", "dataplatform", "public", "layouts", "technical", "live", "benchmark"];
 
 test.describe("showcase on PSU", () => {
