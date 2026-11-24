@@ -4,10 +4,8 @@
 # PSU's [Endpoint] type is a stub.
 
 BeforeDiscovery {
-    $script:splitModules = @(
-        @{ Name = 'PowerShellUniversal.Component.ECharts' }
-        @{ Name = 'PowerShellUniversal.Component.Pivot' }
-    )
+    # the split modules: those with a Public/ folder
+    $script:splitModules = @(Get-ChildItem -Path (Join-Path $PSScriptRoot '..' '..' 'modules' '*' 'Public') -Directory | ForEach-Object { @{ Name = $_.Parent.Name } })
 }
 
 BeforeAll {

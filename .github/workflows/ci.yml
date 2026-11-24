@@ -46,6 +46,7 @@ jobs:
     timeout-minutes: 15
     strategy:
       matrix:
+        # every folder in modules/ (tests/js/ci.test.js checks it)
         module: ["PowerShellUniversal.Component.ECharts", "PowerShellUniversal.Component.ECharts.Demo", "PowerShellUniversal.Component.Perspective", "PowerShellUniversal.Component.Pivot", "PowerShellUniversal.Component.Pivot.Demo"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -54,12 +55,21 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
-      - name: Build module
+      # a demo module requires its component module, which this job does not install: it is loaded from
+      # source by the Pester tests
+      - name: Build module, and load the built folder
         shell: pwsh
-        run: ./build/Build-Module.ps1 -Module '${{ matrix.module }}'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $built = ./build/Build-Module.ps1 -Module '${{ matrix.module }}'
+          if (-not '${{ matrix.module }}'.EndsWith('.Demo')) { ./build/Test-BuiltModule.ps1 -Path $built.FullName }
       # needs the module's packages, which only this job installs; selects the Describe "Build-Module.ps1
       # with the pivot module" of tests/powershell/Build-Module.Tests.ps1 by name: pivotkit-core's schema
       # files of the bundle's version, pivotkit-react's tip ids
+      # the unit tests that need the pivot module's packages (skipped in the javascript job)
+      - name: Pivot links and theme against the installed pivotkit packages
+        if: matrix.module == 'PowerShellUniversal.Component.Pivot'
+        run: node --test tests/js/pivot-links.test.js tests/js/pivot.test.js
       - name: Pivot matches the pivotkit packages it is built with
         if: matrix.module == 'PowerShellUniversal.Component.Pivot'
         shell: pwsh
