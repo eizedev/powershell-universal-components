@@ -39,3 +39,6 @@ All notable changes to PowerShellUniversal.Component.Perspective. Format:
   and typed columns (dates as dates).
 - `-OnClick` with the clicked row and its group/split filter; light and dark theme following the app;
   WebAssembly bundled, no internet access needed.
+
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Perspective-v0.1.0...HEAD
+[0.1.0]: https://github.com/eizedev/powershell-universal-components/releases/tag/PowerShellUniversal.Component.Perspective-v0.1.0
