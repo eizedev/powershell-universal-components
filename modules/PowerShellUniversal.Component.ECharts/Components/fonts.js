@@ -2,7 +2,7 @@
  * Text sizes from the app's theme. An app stylesheet sets --psu-chart-font-size (e.g. 14px); every text
  * of a chart then grows or shrinks by the same factor against ECharts' base of 12 px: axis labels,
  * legend, data labels, tooltip, titles, and the smaller sizes the width rules use in narrow charts
- * (responsive() in buildOption.js), so a phone still gets smaller text than a wide screen.
+ * (responsive() in responsive.js), so a phone still gets smaller text than a wide screen.
  *
  * Without the property the option is returned unchanged.
  */

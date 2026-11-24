@@ -11,7 +11,7 @@
             "Function 'formatter'": [26],
             "Function 'histogram'": [27],
             "Function 'responsive'": [38],
-            "modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js Arrow function": [35]
+            "modules/PowerShellUniversal.Component.ECharts/Components/cartesian.js Arrow function": [35]
         },
         "lines": {
             "Function 'EChart'": [277],
