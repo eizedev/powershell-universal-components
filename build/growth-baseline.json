@@ -1,9 +1,9 @@
 {
     "docs": {
         "pages": {
-            "README.md": [109]
+            "README.md": [108]
         },
-        "totalLines": 4358
+        "totalLines": 4369
     },
     "javascript": {
         "complexity": {
@@ -22,7 +22,7 @@
     },
     "powershell": {
         "files": {
-            "docs/site/examples.ps1": [510],
+            "docs/site/examples.ps1": [552],
             "modules/PowerShellUniversal.Component.ECharts.Demo/Apps/Showcase.ps1": [1330],
             "modules/PowerShellUniversal.Component.Pivot.Demo/Apps/Showcase.ps1": [305],
             "tests/powershell/Pivot.Tests.ps1": [521],

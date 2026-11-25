@@ -35,8 +35,8 @@ Install-PSResource -Name PowerShellUniversal.Component.ECharts
 
 In the PowerShell Gallery: [PowerShellUniversal.Component.ECharts](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.ECharts).
 
-![The quick start app in the light theme: stacked bars of PowerShell commands per verb, cmdlets and functions](assets/images/screenshot-quickstart-light.png#only-light)
-![The quick start app in the dark theme: stacked bars of PowerShell commands per verb, cmdlets and functions](assets/images/screenshot-quickstart-dark.png#only-dark)
+![ECharts in the light theme: monthly mean temperature of six cities in 2024 and 2025 as lines, with a zoom slider](assets/echarts-weather-light.png#only-light)
+![ECharts in the dark theme: monthly mean temperature of six cities in 2024 and 2025 as lines, with a zoom slider](assets/echarts-weather-dark.png#only-dark)
 
 [ECharts overview](echarts/index.md){ .md-button .md-button--primary }
 [Showcase app (demo)](demo.md){ .md-button title="PowerShellUniversal.Component.ECharts.Demo: 14 pages of New-UDEChart examples" }
@@ -53,8 +53,8 @@ Install-PSResource -Name PowerShellUniversal.Component.Perspective
 
 In the PowerShell Gallery: [PowerShellUniversal.Component.Perspective](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Perspective).
 
-![The Perspective viewer in the light theme with its toolbar: Edit view, Table and Chart](assets/perspective-viewer-1-light.png#only-light)
-![The Perspective viewer in the dark theme with its toolbar: Edit view, Table and Chart](assets/perspective-viewer-1-dark.png#only-dark)
+![The Perspective viewer in the light theme: a bar chart of the mean temperature of six cities, with the toolbar Edit view, Table and Chart](assets/perspective-weather-light.png#only-light)
+![The Perspective viewer in the dark theme: a bar chart of the mean temperature of six cities, with the toolbar Edit view, Table and Chart](assets/perspective-weather-dark.png#only-dark)
 
 [Perspective overview](perspective/index.md){ .md-button .md-button--primary }
 [Using the viewer](perspective/using.md){ .md-button }
@@ -77,10 +77,10 @@ New-UDPivotReport -Id 'python' -Data (Invoke-RestMethod 'https://endoflife.date/
 
 In the PowerShell Gallery: [PowerShellUniversal.Component.Pivot](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot).
 
-![The pivot report in the light theme: release cycles of nine products from endoflife.date per product and LTS, with the field list and the admin panel](assets/pivot-report-light.png#only-light)
-![The pivot report in the dark theme: release cycles of nine products from endoflife.date per product and LTS, with the field list and the admin panel](assets/pivot-report-dark.png#only-dark)
+![The pivot report in the light theme: mean temperature per month and city of six cities as a colour scale, with the tabs Table, Chart and Both](assets/pivot-weather-light.png#only-light)
+![The pivot report in the dark theme: mean temperature per month and city of six cities as a colour scale, with the tabs Table, Chart and Both](assets/pivot-weather-dark.png#only-dark)
 
-<small>Release data by [endoflife.date](https://endoflife.date/), MIT licence, Copyright 2020 endoflife.date contributors ([sources and licence](https://github.com/eizedev/powershell-universal-components/blob/HEAD/docs/site/data/SOURCES.md)).</small>
+<small>The pictures on this page: weather data by [Open-Meteo.com](https://open-meteo.com/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), with modified Copernicus Climate Change Service information ([sources and licences](https://github.com/eizedev/powershell-universal-components/blob/HEAD/docs/site/data/SOURCES.md)).</small>
 
 [Pivot overview](pivot/index.md){ .md-button .md-button--primary }
 [Templates, view files and roles](pivot/templates.md){ .md-button }

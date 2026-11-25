@@ -47,13 +47,19 @@ $moduleNames = @(Get-ChildItem -LiteralPath $modulesDir -Directory | Sort-Object
 
 # PSU's endpoint type, as in the Pester tests: event script blocks become a marker the page replaces
 . (Join-Path $repo 'build' 'Add-EndpointType.ps1')
-# a public API in an example: the snapshot of that address in data/ (data/<host>/<path>), returned as
-# Invoke-RestMethod returns JSON (an array is one object in the pipeline, as there)
+# a public API in an example: the snapshot of that address in data/ (data/<host>/<path>, or the file
+# data/Addresses.psd1 names for an address with a query string), returned as Invoke-RestMethod returns
+# JSON (an array is one object in the pipeline, as there)
+$snapshotOf = Import-PowerShellDataFile -LiteralPath (Join-Path $site 'data' 'Addresses.psd1')
 function Invoke-RestMethod {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidOverwritingBuiltInCmdlets', '', Justification = 'Answers the examples from snapshots while the site is built')]
     param([Parameter(Mandatory, Position = 0)][uri]$Uri)
     $file = Join-Path $site 'data' $Uri.Host $Uri.AbsolutePath.TrimStart('/')
-    if ($Uri.Scheme -ne 'https' -or $Uri.Query -or -not (Test-Path -LiteralPath $file -PathType Leaf)) {
+    if ($Uri.Query) {
+        $path = $snapshotOf.Keys | Where-Object { $snapshotOf[$_] -eq $Uri.OriginalString } | Select-Object -First 1
+        $file = if ($path) { Join-Path $site 'data' $path }
+    }
+    if ($Uri.Scheme -ne 'https' -or -not $file -or -not (Test-Path -LiteralPath $file -PathType Leaf)) {
         throw "No snapshot of $Uri in docs/site/data/ (see data/SOURCES.md)."
     }
     Get-Content -LiteralPath $file -Raw | ConvertFrom-Json -NoEnumerate
