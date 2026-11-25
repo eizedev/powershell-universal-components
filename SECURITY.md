@@ -4,12 +4,13 @@
 
 The PowerShell modules and JavaScript bundles in this repository, the demo modules included.
 
-What the modules treat as untrusted, what runs where and which requests they make:
-[Security](https://powershell-universal-components.eize.dev/security/) on the docs site.
+The modules treat as untrusted: the data, what comes back from the browser (views and `$EventData`),
+view files, a reader's own files and request headers. The full list, what runs where and which
+requests the modules make: [Security](https://powershell-universal-components.eize.dev/security/).
 
 Report a way to:
 
-- run script in the browser, or PowerShell on the server, from any of these untrusted inputs
+- run script in the browser, or PowerShell on the server, from any untrusted input
 - make a template store read or write outside its folder
 - make an exported or downloaded file (CSV, XLSX, HTML report, SVG) dangerous to open
 - leak a request, header or token into an error, `$Error`, a log line or an event

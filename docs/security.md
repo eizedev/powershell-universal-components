@@ -42,8 +42,9 @@ what is not a vulnerability by design:
 - **Pivot** makes requests from the PSU server only, to addresses the app's script names: a
   `-Schema` address, a pivotkit-server and its token endpoint
   ([Network requests](pivot/events.md#network-requests)).
-- **The showcase apps** call public web services from the PSU server on their public and live data
-  pages ([ECharts showcase](demo.md), [Pivot showcase](pivot/demo.md#public-data-offline-or-live)).
+- **The showcase apps**, from the PSU server: the ECharts showcase's Public data page calls five public
+  web services ([ECharts showcase](demo.md)); the Pivot showcase only when its Live data switch is on
+  ([Pivot showcase](pivot/demo.md#public-data-offline-or-live)).
 
 ## Each module
 

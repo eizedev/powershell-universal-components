@@ -84,8 +84,8 @@ New-UDPivotReport -Id 'python' -Data (Invoke-RestMethod 'https://endoflife.date/
 
 ## Requirements
 
-PowerShell Universal with PowerShell 7 in the app's environment, and a current browser. The versions
-the modules support and were tested with: [Compatibility](compatibility.md).
+PowerShell Universal 2026.2 or 2026.3 with PowerShell 7.4 or later, and a desktop browser built on
+Chromium, Firefox or WebKit (Safari). What was tested and how: [Compatibility](compatibility.md).
 
 ## Questions and stability
 
