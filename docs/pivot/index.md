@@ -6,18 +6,48 @@ description: "New-UDPivotReport - a pivot report builder for PSU apps: readers d
 # Pivot reports
 
 `New-UDPivotReport` puts a pivot report builder into PSU apps, built on
-[pivotkit](https://pivotkit.eize.dev/): readers drag fields from a searchable list into **Rows**,
-**Columns**, **Values** and **Filters** and get a table with totals or a chart. Install the module,
-pass the rows to `-Data`, and the report is there. Everything runs in the browser; the server is only
-asked for what the [event parameters](events.md) do.
+[pivotkit](https://pivotkit.eize.dev/).
 
-Install it from the PowerShell Gallery on the PSU server:
+!!! info "Where to read what"
+    - **These pages**, for app authors: install and update, `New-UDPivotReport` and its parameters,
+      data from SQL, REST and DataTables, themes, roles, template stores, `Invoke-UDPivotReport`.
+    - **pivotkit's guide [Use a report](https://pivotkit.eize.dev/use/)**, for your readers: fields,
+      values, filters, charts, views and export. Try it in the [live demo](https://pivotkit.eize.dev/demo/).
+    - **[pivotkit's docs](https://pivotkit.eize.dev/)**, for the report itself: the view format,
+      sharing, limits, the command line and REST reference, security,
+      [versioning](https://pivotkit.eize.dev/versioning/) and
+      [upgrading](https://pivotkit.eize.dev/getting-started/upgrading/).
+
+Install it on the PSU server, pass the rows to `-Data`, and the report is there. Everything runs in
+the browser; the server is only asked for what the [event parameters](events.md) do.
 
 ```powershell
 Install-PSResource -Name PowerShellUniversal.Component.Pivot
+New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets')
 ```
 
-In the PowerShell Gallery: [PowerShellUniversal.Component.Pivot](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot).
+| You want | Where |
+| --- | --- |
+| A start view, field names, a language, views in the Views menu | [the example](#start-view-field-names-and-templates), [Views](views.md), [Field names and descriptions](fields.md) |
+| The report while the server is still loading, readers' own views, roles | [the app example](#a-report-app-with-loading-views-per-reader-and-roles), [Templates, view files and roles](templates.md) |
+| Data from SQL Server | [With your own data: SQL Server](#with-your-own-data-sql-server) |
+| Your corporate colours | [Themes and corporate design](themes.md) |
+| Readers download the rows behind the report | [Source data](readers.md#source-data-exportdata) |
+| Open a view from a link pivotkit made | [Links from pivotkit](links.md#links-from-pivotkit-create_link) |
+| Rows only a pivotkit-server can reach, for the signed-in person | [Rows from a server](server-rows.md) |
+| The report as a file from an endpoint or a schedule | [Reports without a browser](reports.md) |
+| Run code when readers click or change the view | [Events, security and limits](events.md) |
+| What readers get, and what the app decides for them | [Readers and your app](readers.md) |
+| What `-Data` takes, large data | [Data and loading](data.md) |
+| Every parameter | [Commands and parameters](reference.md) |
+
+Readers drag fields from a searchable list into **Rows**, **Columns**, **Values** and **Filters** and
+get a table with totals or a chart, with date grouping, drill-down to the source rows, shared views and
+views readers keep (roles decide who publishes), undo, Excel, CSV, PNG, SVG and HTML export and print,
+and their own CSV, JSON and Excel files read in the browser ([`-AllowImport`](import.md)); English and
+German; themed from the same stylesheet as the charts. `Invoke-UDPivotReport` renders the same views
+into Excel, HTML, CSV, JSON or SVG files from endpoints and schedules, without a browser, or into a
+link that expires from a pivotkit-server ([Reports without a browser](reports.md)).
 
 To see it with data first, the [showcase app](demo.md) is a module of its own
 (`New-UDPivotShowcase`): these examples, weather data, your own CSV and JSON files and a ticket report.
@@ -29,21 +59,6 @@ To see it with data first, the [showcase app](demo.md) is a module of its own
 ## Weather of six cities
 
 --8<-- "examples/weather-of-six-cities.md"
-
-Then, depending on what the report needs:
-
-| You want | Where |
-| --- | --- |
-| A start view, field names, a language, views in the Views menu | [the next example](#start-view-field-names-and-templates), [Views](views.md), [Field names and descriptions](fields.md) |
-| The report while the server is still loading, readers' own views, roles | [the app example](#a-report-app-with-loading-views-per-reader-and-roles), [Templates, view files and roles](templates.md) |
-| Data from SQL Server | [With your own data: SQL Server](#with-your-own-data-sql-server) |
-| Your corporate colours | [Themes and corporate design](themes.md) |
-| Readers download the rows behind the report | [Source data](readers.md#source-data-exportdata) |
-| Open a view from a link pivotkit made | [Links from pivotkit](links.md#links-from-pivotkit-create_link) |
-| Rows only a pivotkit-server can reach, for the signed-in person | [Rows from a server](server-rows.md) |
-| The report as a file from an endpoint or a schedule | [Reports without a browser](reports.md) |
-| Run code when readers click or change the view | [Events, security and limits](events.md) |
-| Every parameter | [Commands and parameters](reference.md) |
 
 ## Start view, field names and templates
 
@@ -80,14 +95,8 @@ New-UDDynamic -Id 'tickets-report' -LoadingComponent {
 
 --8<-- "examples/pivot-report-from-a-datatable.md"
 
-## What readers can do
-
-Readers place fields in rows, columns, values and filters, switch between table and chart, drill down
-into the rows behind a value, save views and export: [What readers can do](readers.md). What
-`-Data` takes and how large data loads: [Data and loading](data.md).
-
 ## Pivot report in German
 
 --8<-- "examples/pivot-report-in-german.md"
 
-Next: [What readers can do](readers.md), [Data and loading](data.md), [Field names and descriptions](fields.md), [Themes and corporate design](themes.md), [Views](views.md), [Templates, view files and roles](templates.md), [Events, security and limits](events.md), [Reference](reference.md).
+Next: [Readers and your app](readers.md), [Data and loading](data.md), [Field names and descriptions](fields.md), [Themes and corporate design](themes.md), [Views](views.md), [Templates, view files and roles](templates.md), [Events, security and limits](events.md), [Reference](reference.md).

@@ -184,6 +184,9 @@ default text on the accent is white in light mode and near-black in dark mode.
 
 ## Light and dark
 
+Excel and print are light also from a dark app; the HTML report is light on paper and on a light screen
+and dark on a dark one.
+
 The report takes light or dark from PSU's `<html data-theme>` and switches with the app's toggle, the
 table and the chart at once, without a reload, and keeps the reader's view ([Views](views.md#the-start-view-view));
 undo and redo start over. The theme the report shows is `data-pk-theme="light"` or `"dark"` on its

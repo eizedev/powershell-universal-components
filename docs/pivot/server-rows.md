@@ -40,7 +40,8 @@ explains the design.
 
 ### On pivotkit-server
 
-You need pivotkit-server 0.4.0 or later.
+You need pivotkit-server 0.4.0 or later. To run it next to PSU on a Windows server, follow pivotkit's
+[Services next to PowerShell Universal](https://pivotkit.eize.dev/getting-started/powershell-universal/).
 pivotkit's [rows route for a host backend](https://pivotkit.eize.dev/reference/rest/#records-host) has
 the details. In short:
 

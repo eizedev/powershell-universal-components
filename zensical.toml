@@ -57,7 +57,7 @@ nav = [
   ] },
   { "Pivot" = [
     { "Overview" = "pivot/index.md" },
-    { "What readers can do" = "pivot/readers.md" },
+    { "Readers and your app" = "pivot/readers.md" },
     { "Data and loading" = "pivot/data.md" },
     { "Showcase app (demo)" = "pivot/demo.md" },
     { "Themes and corporate design" = "pivot/themes.md" },

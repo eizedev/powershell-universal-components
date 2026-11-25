@@ -43,7 +43,7 @@ is a showcase app in one line (`New-UDPivotShowcase`).
 ## Where to read on
 
 - [Overview](https://powershell-universal-components.eize.dev/pivot/): three examples on public data
-- [What readers can do](https://powershell-universal-components.eize.dev/pivot/readers/): the parts of the report, Source data, theme and height
+- [Readers and your app](https://powershell-universal-components.eize.dev/pivot/readers/): what the app decides for readers, Source data, theme and height
 - [Data and loading](https://powershell-universal-components.eize.dev/pivot/data/): `-Data`, dates, language, chart options, the placeholder
 - [Field names and descriptions](https://powershell-universal-components.eize.dev/pivot/fields/): `-FieldDefaults`, `-FieldDescriptions`, SQL Server column descriptions, `-Schema`
 - [Views](https://powershell-universal-components.eize.dev/pivot/views/): `-View`, `-SavedView`, filters, tabs, the address bar; [links into a report](https://powershell-universal-components.eize.dev/pivot/links/)

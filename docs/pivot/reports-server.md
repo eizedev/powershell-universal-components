@@ -7,6 +7,8 @@ description: "Invoke-UDPivotReport -Engine Rest: render a view on a pivotkit-ser
 
 `Invoke-UDPivotReport -Engine Rest` sends the view and the rows to a pivotkit-server, or names one of
 its sources. The basics, the formats and the Node engine: [Reports without a browser](reports.md).
+To run the pivotkit-server on the Windows server next to PSU, with its token in a PSU secret, follow
+pivotkit's [Services next to PowerShell Universal](https://pivotkit.eize.dev/getting-started/powershell-universal/).
 
 ## REST: a pivotkit-server
 
