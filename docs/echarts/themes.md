@@ -1,8 +1,9 @@
 # Themes and corporate design
 
 Light and dark follow the app's theme switch (`-Theme Auto`); `-Theme Light` or `Dark` pins one.
-`-Palette` sets the series colours, `-Decal` adds patterns for colour-blind readers and print. The
-charts on this site follow its light/dark switch the same way.
+`-Palette` sets the series colours, `-Decal` adds patterns for colour-blind readers and print (off by
+default). The default palette is not checked for contrast. The charts on this site follow its
+light/dark switch the same way.
 
 A corporate design comes in two ways, both optional.
 
