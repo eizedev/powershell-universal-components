@@ -1,5 +1,5 @@
 // Screenshots for the documentation, in the light and the dark theme. The files land in docs/assets/
-// and are committed; look at them before committing.
+// (the ECharts showcase app's in assets/) and are committed; look at them before committing.
 //
 // The live examples of the README and the start page: each one is the example's element on the built site, drawn by
 // the module's own component. Build and serve the site first (docs/development/), then:
@@ -11,12 +11,21 @@
 // those are taken then:
 //
 //   PSU_PIVOT_DEMO_URL=https://psu.example.com/pivot-showcase node docs/site/screenshots.mjs
+//
+// The ECharts showcase app's pages for docs/demo.md (screenshot-ticket-report-*, screenshot-data-platform-*,
+// screenshot-service-review-*): set PSU_ECHARTS_DEMO_URL to the app on a PSU instance (New-UDEChartShowcase),
+// as PSU_URL for tests/browser/psu.spec.mjs. Only those are taken then; with both variables set, both sets:
+//
+//   PSU_ECHARTS_DEMO_URL=https://psu.example.com/echarts node docs/site/screenshots.mjs
 import { chromium, expect } from "@playwright/test";
 import { fileURLToPath } from "node:url";
 import { CSV, fileOf, pickFile } from "../../tests/browser/pivot-import.mjs";
 
 const out = fileURLToPath(new URL("../assets/", import.meta.url));
+// the root's assets/: the showcase app's screenshots, which Build-Site.ps1 copies into the site
+const rootAssets = fileURLToPath(new URL("../../assets/", import.meta.url));
 const demo = (process.env.PSU_PIVOT_DEMO_URL || "").replace(/\/$/, "");
+const echartsDemo = (process.env.PSU_ECHARTS_DEMO_URL || "").replace(/\/$/, "");
 
 // ---- the site's live examples ----------------------------------------------------------------------
 const base = process.argv[2] || "http://127.0.0.1:8765";
@@ -145,10 +154,61 @@ async function demoShots(browser) {
     }
 }
 
+// ---- the ECharts showcase app on PSU ---------------------------------------------------------------
+// page, file name (without -light/-dark) and the card whose bottom ends the shot (with half the gap to
+// the next card), so no chart is cut
+const ECHARTS_SHOTS = [
+    ["tickets", "screenshot-ticket-report", "Lead time by team"],
+    ["dataplatform", "screenshot-data-platform", "In how many sources"],
+    ["msp", "screenshot-service-review", "Service review"],
+];
+const chartCount = (page) => page.evaluate(() => [...document.querySelectorAll("div")].filter((d) => d.echarts).length);
+
+async function echartsDemoShots(browser) {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    try {
+        for (const mode of ["light", "dark"]) {
+            for (const [path, name, lastCard] of ECHARTS_SHOTS) {
+                await page.goto(`${echartsDemo}/${path}`);
+                // wait until the page stops adding charts, as tests/browser/psu.spec.mjs does
+                await expect.poll(() => chartCount(page), { timeout: 30000 }).toBeGreaterThan(0);
+                let last = -1;
+                await expect.poll(async () => {
+                    const n = await chartCount(page);
+                    const stable = n === last;
+                    last = n;
+                    return stable;
+                }, { timeout: 30000, intervals: [1000] }).toBe(true);
+                await setTheme(page, mode);
+                // the pointer off the switch and the charts: no hover state, no tooltip
+                await page.mouse.move(4, 80);
+                await expect(page.locator("[role=alert], .MuiSnackbar-root")).toHaveCount(0);
+                const card = page.locator(".MuiCard-root", { hasText: lastCard }).first();
+                const box = await card.boundingBox();
+                const clip = { x: 0, y: 0, width: 1440, height: Math.round(box.y + box.height + 8) };
+                // the charts redraw in the new theme with their entry animation, which
+                // animations: "disabled" does not stop on a canvas: wait until two shots in a row match
+                let previous;
+                await expect.poll(async () => {
+                    const shot = await page.screenshot({ fullPage: true, clip });
+                    const still = previous !== undefined && shot.equals(previous);
+                    previous = shot;
+                    return still;
+                }, { timeout: 30000, intervals: [700] }).toBe(true);
+                await page.screenshot({ path: `${rootAssets}${name}-${mode}.png`, fullPage: true, clip });
+                console.log(`${name}-${mode}.png`);
+            }
+        }
+    } finally {
+        await page.close();
+    }
+}
+
 const browser = await chromium.launch();
 try {
     if (demo) await demoShots(browser);
-    else await siteShots(browser);
+    if (echartsDemo) await echartsDemoShots(browser);
+    if (!demo && !echartsDemo) await siteShots(browser);
 } finally {
     await browser.close();
 }

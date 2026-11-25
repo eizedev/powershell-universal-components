@@ -65,6 +65,7 @@ of these sections; `tests/js/llms-sections.test.js` fails otherwise.
 | The pivot report on a page | Drawn into a shadow root of its placeholder, with the module's stylesheets inside it, so the page's typography stays outside. |
 | The screenshots of the README and the start page (`echarts-weather-*`, `perspective-weather-*`, `pivot-weather-*`) | `node docs/site/screenshots.mjs <site url>` on the built and served site, light and dark, into `docs/assets/`. |
 | The Pivot showcase screenshots (`pivot-showcase-*`) | `PSU_PIVOT_DEMO_URL=<app url> node docs/site/screenshots.mjs` against `New-UDPivotShowcase` on a PSU instance, light and dark, into `docs/assets/`. |
+| The ECharts showcase screenshots (`assets/screenshot-*` but the quick start) | `PSU_ECHARTS_DEMO_URL=<app url> node docs/site/screenshots.mjs` against `New-UDEChartShowcase` on a PSU instance, light and dark, into `assets/`. |
 
 ## Browser tests on PSU
 
