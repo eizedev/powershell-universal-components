@@ -20,7 +20,7 @@
 
 **Documentation: [powershell-universal-components.eize.dev](https://powershell-universal-components.eize.dev/)**: every module, parameter and chart type, with live examples.
 Supported and tested versions: [Requirements](https://powershell-universal-components.eize.dev/#requirements). The modules are 0.x: a minor
-release can break things, marked **Breaking** in the module's `CHANGELOG.md`. Questions and ideas: [Discussions](https://github.com/eizedev/powershell-universal-components/discussions).
+release can break things, so read the module's `CHANGELOG.md` before you update. Questions and ideas: [Discussions](https://github.com/eizedev/powershell-universal-components/discussions).
 
 ## Modules
 

@@ -19,4 +19,4 @@ body:
     id: idea
     attributes:
       label: Your idea
-      description: How a module could help. Sketches and screenshots are welcome.
+      description: How a module could help. Sketches and screenshots are welcome; remove confidential values first.

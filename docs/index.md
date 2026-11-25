@@ -94,8 +94,8 @@ In the PowerShell Gallery: [PowerShellUniversal.Component.Pivot](https://www.pow
 
 ## Questions and stability
 
-The modules are 0.x. A minor release can break things. Each break is marked **Breaking** in the
-module's `CHANGELOG.md`, with what to do.
+The modules are 0.x. A minor release can break things. Read the module's `CHANGELOG.md` before
+you update.
 
 Ask questions and share ideas in [GitHub Discussions](https://github.com/eizedev/powershell-universal-components/discussions). Bugs go into
 [issues](https://github.com/eizedev/powershell-universal-components/issues). Each release of a component module is announced in Discussions too.
