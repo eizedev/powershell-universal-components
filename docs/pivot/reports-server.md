@@ -27,7 +27,7 @@ arrived).
 later.
 
 The token comes from the server's operator, who makes it with `pivotkit-server token new`; keep it in
-a PSU secret. pivotkit-server does not start with a static token that is easy to guess
+a PSU secret. pivotkit-server refuses a static token that is easy to guess
 ([pivotkit's rule](https://pivotkit.eize.dev/security/#rest)).
 
 With `-Source` instead of `-Data` the report runs over a source the operator configured, with
@@ -66,7 +66,9 @@ Each source is an object with these properties:
 | `Rows`, `DataAsOf` | The row count and the data's date, where the server read the data and shows them to the caller |
 | `RequestId` | The id of the answer, for the operator |
 
-`Records`, `LinkParams`, `Views`, `Rows` and `DataAsOf` need pivotkit-server 0.4.0 or later. When the server lists no source, the function returns nothing and writes the server's reason to
+`Records`, `LinkParams`, `Views`, `Rows` and `DataAsOf` need pivotkit-server 0.4.0 or later.
+
+When the server lists no source, the function returns nothing and writes the server's reason to
 the warning stream: the sign-in lacks the sources' scopes.
 
 ## A report as a link

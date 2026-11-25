@@ -90,7 +90,7 @@ In the PowerShell Gallery: [PowerShellUniversal.Component.Pivot](https://www.pow
 
 - PowerShell Universal 2026.2 or 2026.3, with PowerShell 7.4 or later.
 - Tested on PowerShell Universal 2026.2.5 and 2026.3.4.
-- Pivot reports without a browser (`Invoke-UDPivotReport -Engine Node`): tested with pivotkit-cli 0.5.0 and 0.6.0.
+- `Invoke-UDPivotReport -Engine Node` tested with pivotkit-cli 0.5.0 and 0.6.0 ([what it needs](pivot/reports.md#two-engines)).
 - Tested in Chromium, Firefox and WebKit, the engine of Safari. The Safari app and iOS are not tested.
 
 ## Questions and stability
