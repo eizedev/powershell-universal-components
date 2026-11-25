@@ -107,12 +107,16 @@ test("only the publish job, behind the psgallery environment, gets the gallery k
     assert.equal(jobOf("release.yml", "prepare").environment, undefined, "prepare runs in an environment");
     assert.deepEqual(release.permissions, { contents: "read" }, "release.yml grants more than contents: read to every job");
     const others = Object.fromEntries(Object.entries(release.jobs).filter(([name]) => name !== "publish"));
-    const outside = stringsOf({ ...release, jobs: others }).filter((text) => /\bsecrets\./.test(text));
+    // any form: secrets.X, secrets['X'], toJSON(secrets)
+    const outside = stringsOf({ ...release, jobs: others }).filter((text) => /\bsecrets\b/.test(text));
     assert.deepEqual(outside, [], "a secret is read outside the publish job");
-    assert.ok(stringsOf(publish).some((text) => text.includes("secrets.PSGALLERY_API_KEY")), "the publish job does not read PSGALLERY_API_KEY");
+    assert.deepEqual(stringsOf(publish).filter((text) => /\bsecrets\b/.test(text)), ["${{ secrets.PSGALLERY_API_KEY }}"], "the publish job reads another secret than PSGALLERY_API_KEY, or reads it another way");
     const publishing = (job) => job.steps.flatMap(commandsOf).filter((line) => /Publish-Module\.ps1\b.*\s-Publish\b/.test(line));
     assert.equal(publishing(publish).length, 1, "the publish job does not run Publish-Module.ps1 -Publish once");
+    // prepare runs Publish-Module.ps1 only as its check, never another publishing command
+    const prepareLines = jobOf("release.yml", "prepare").steps.flatMap(commandsOf);
     assert.deepEqual(publishing(jobOf("release.yml", "prepare")), [], "prepare publishes");
+    assert.deepEqual(prepareLines.filter((line) => /\bPublish-(PSResource|Module)\b(?!\.ps1)|\bgh release\b/.test(line)), [], "prepare runs a publishing command");
 });
 
 // prepare checks that the tagged commit is on main and that CI passed for it before it installs or runs
@@ -130,6 +134,16 @@ test("the release needs the tagged commit on main and a green CI run of it, befo
     assert.match(query, /[?&]head_sha=\$GITHUB_SHA(&|")/, "the gate accepts a CI run of another commit");
     assert.match(query, /[?&]event=push(&|")/, "the gate accepts a pull request's CI run");
     assert.match(query, /[?&]status=success(&|")/, "the gate accepts a CI run that did not succeed");
-    assert.ok(commandsOf(steps[gate]).some((line) => /^test "\$runs" -gt 0 \|\|/.test(line)), "the gate does not fail without a green run");
+    // these commands and no other: a change that weakens the gate needs a review here
+    assert.deepEqual(commandsOf(steps[gate]), [
+        query,
+        'test "$runs" -gt 0 || { echo "::error::no successful CI run for $GITHUB_SHA on main; wait for it, then re-run this workflow."; exit 1; }',
+    ]);
+    assert.deepEqual(commandsOf(steps[onMain]), ['git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "::error::$GITHUB_SHA is not on main; tag the merge commit on main."; exit 1; }']);
+    // nothing makes either check optional: no if, continue-on-error or working-directory
+    assert.deepEqual(Object.keys(steps[gate]).sort(), ["env", "name", "run"]);
+    assert.deepEqual(Object.keys(steps[onMain]).sort(), ["name", "run"]);
+    assert.equal(prepare["continue-on-error"], undefined, "a failed prepare job would not stop the release");
+    assert.equal(prepare.if, undefined, "prepare runs only under a condition");
     assert.deepEqual(prepare.permissions, { contents: "read", actions: "read" }, "prepare needs actions: read for the gate, and nothing more");
 });

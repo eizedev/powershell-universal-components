@@ -19,7 +19,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { LANGUAGE_OPTIONS, SOURCES } from "../eslint.config.js";
+import { LANGUAGE_OPTIONS, SOURCES } from "./javascript-sources.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const BASELINE = new URL("growth-baseline.json", import.meta.url);
@@ -125,8 +125,8 @@ export function parseFunctionMessage({ ruleId, message }) {
  * The JavaScript functions over FUNCTION_LIMITS, as "Function 'name'" (or "<file> Arrow function" for
  * an anonymous one) -> numbers per metric. ESLint
  * runs with these two rules only and ignores eslint-disable comments, so a comment cannot hide a
- * function from the guard. It reads SOURCES with LANGUAGE_OPTIONS of eslint.config.js (`npm run lint`),
- * but not that file's rules; .jscpd.json names the same folders.
+ * function from the guard. It reads the code `npm run lint` reads, parsed the same way
+ * (build/javascript-sources.js), but not that lint's rules.
  * @param {string} [cwd]
  * @returns {Promise<{ lines: Record<string, number[]>, complexity: Record<string, number[]> }>}
  */

@@ -1,17 +1,12 @@
 // `npm run lint`: ESLint's recommended rules, which find real errors (undefined names, unreachable
 // code, unused variables), and the rules of hooks for the React code. Formatting is left to
 // .editorconfig. Function length and complexity are no rules here: they are a ratchet in
-// build/growth.js (`npm run growth`), because today's long functions would fail a rule. That guard
-// reads SOURCES with LANGUAGE_OPTIONS from this file, so both parse the same code the same way.
+// build/growth.js (`npm run growth`), because today's long functions would fail a rule. Both read the
+// same code the same way (build/javascript-sources.js).
 import js from "@eslint/js";
 import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
-
-/** How the JavaScript is parsed: modern ES modules with JSX. */
-export const LANGUAGE_OPTIONS = Object.freeze({ ecmaVersion: "latest", sourceType: "module", parserOptions: Object.freeze({ ecmaFeatures: Object.freeze({ jsx: true }) }) });
-
-/** The code each module ships to the browser: its components and what the modules share. */
-export const SOURCES = Object.freeze(["modules/*/Components/**/*.{js,jsx}", "shared/js/**/*.js"]);
+import { LANGUAGE_OPTIONS, SOURCES } from "./build/javascript-sources.js";
 
 /** The code that runs in a browser page: the modules' components and the site's drawing code. */
 const BROWSER = [...SOURCES, "docs/site/src/**"];
@@ -48,7 +43,9 @@ export default [
     },
     {
         // a broken rule of hooks fails. A missing effect dependency only warns: the components keep
-        // the latest props in a ref for event handlers registered once, which this rule cannot see
+        // the latest props in a ref for event handlers registered once, which this rule cannot see.
+        // The React Compiler rules of the plugin's recommended set stay off: they flag that same
+        // ref pattern, and the modules are not built with the React Compiler
         files: BROWSER,
         plugins: { "react-hooks": reactHooks },
         rules: { "react-hooks/rules-of-hooks": "error", "react-hooks/exhaustive-deps": "warn" },

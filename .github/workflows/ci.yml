@@ -36,7 +36,8 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm test
       - name: Audit
-        # every lock file: the repository's, each module's and the site's. All are read before it fails
+        # every lock file: the repository's, each module's and the site's. All are read before it fails.
+        # A high advisory, also in a build-time package, turns main red and so holds back every release
         if: ${{ !cancelled() }}
         run: |
           status=0
