@@ -19,8 +19,10 @@
 
 ## Limits
 
-- Keyboard navigation inside a chart is not supported by Apache ECharts; the data stays reachable
-  through export and tooltips.
+- Apache ECharts draws a chart on a canvas. The keyboard reaches none of its points, tooltips or
+  toolbox buttons (zoom, export, full screen), and a tooltip needs a pointer. Screen readers get
+  ECharts' generated description of the chart (`role="img"`). Keyboard users reach the data only
+  through what the app shows beside the chart, such as a table.
 - PSU provides React 18.3.1; the module does not bundle React.
 - Above 20,000 points per chart, points are drawn with sampling (LTTB) and click events carry values
   but no row.

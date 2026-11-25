@@ -1,0 +1,36 @@
+name: Accessibility barrier
+description: Something in a chart, grid or pivot report is hard or impossible to use with a keyboard, a screen reader, zoom or touch.
+labels: ["accessibility"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What you tried to do, and what happened
+      description: The component, the steps and, if you can, the New-UD... call. Made-up data, no real data.
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Can you still do it?
+      options:
+        - No, it blocks me
+        - Yes, with a workaround
+        - Yes, but it is hard
+    validations:
+      required: true
+  - type: input
+    id: setup
+    attributes:
+      label: Browser, system and assistive technology
+      placeholder: Edge on Windows with NVDA, keyboard only, zoom 200%
+  - type: input
+    id: version
+    attributes:
+      label: Module and version
+      placeholder: PowerShellUniversal.Component.Pivot 0.x
+  - type: input
+    id: psu
+    attributes:
+      label: PowerShell Universal version and platform
+      placeholder: 2026.3 on Windows / Linux container

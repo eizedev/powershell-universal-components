@@ -2,16 +2,21 @@
   "name": "powershell-universal-components",
   "private": true,
   "type": "module",
-  "description": "Unit tests (node --test) and browser tests (Playwright) of the repository. fflate is here so the tests resolve it as the bundles do.",
+  "description": "Unit tests (node --test), lint (ESLint) and browser tests (Playwright) of the repository. fflate is here so the tests resolve it as the bundles do.",
   "scripts": {
     "test": "node --test \"tests/js/*.test.js\"",
+    "lint": "eslint .",
     "growth": "node build/growth.js",
     "test:browser": "playwright test"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@playwright/test": "1.64.1",
     "eslint": "10.15.0",
+    "eslint-plugin-react-hooks": "7.1.1",
     "fflate": "0.8.3",
-    "jscpd": "5.4.3"
+    "globals": "17.14.0",
+    "jscpd": "5.4.3",
+    "yaml": "2.9.1"
   }
 }
