@@ -10,7 +10,7 @@ thousands of rows stay fast.
 New-UDPerspective -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets') -GroupBy Team -SplitBy Priority -Columns Id -Aggregates @{ Id = 'count' }
 ```
 
-Supported and tested versions: [Requirements](https://powershell-universal-components.eize.dev/#requirements).
+Supported and tested versions: [Compatibility](https://powershell-universal-components.eize.dev/compatibility/).
 
 **Documentation: [powershell-universal-components.eize.dev](https://powershell-universal-components.eize.dev/perspective/)** - data and types, the
 starting view, events, security notes, with live examples.

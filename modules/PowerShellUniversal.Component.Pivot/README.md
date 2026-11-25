@@ -16,7 +16,7 @@ New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Ticke
 New-UDPivotReport -Id 'own-data' -Data @() -AllowImport -TemplateStore Browser   # the reader's own file
 ```
 
-Supported and tested versions: [Requirements](https://powershell-universal-components.eize.dev/#requirements).
+Supported and tested versions: [Compatibility](https://powershell-universal-components.eize.dev/compatibility/).
 
 **Documentation: [powershell-universal-components.eize.dev](https://powershell-universal-components.eize.dev/pivot/)** - data and dates, views and
 templates, events, security notes, with live examples.

@@ -132,8 +132,8 @@ const RELEASE_NAMES_ALLOWED = [
     { file: "docs/versioning.md" },
     // the breaks of each module's newest release, by release
     { file: "docs/upgrading.md" },
-    // the versions the modules were tested with
-    { file: "docs/index.md", section: "Requirements" },
+    // the versions the modules support and were tested with
+    { file: "docs/compatibility.md" },
 ];
 
 /**
