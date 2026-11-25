@@ -1,3 +1,7 @@
+---
+description: "Distributions with New-UDEChart: a histogram of -Y with -Bins and the median, and a boxplot with quartiles, whiskers and outliers per group."
+---
+
 # Distributions
 
 `-Type histogram` bins the values of `-Y` (`-Bins` sets the number) and draws the median unless

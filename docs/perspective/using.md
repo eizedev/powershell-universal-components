@@ -1,3 +1,7 @@
+---
+description: "How readers use the Perspective viewer: Edit view, picking what to show, dragging columns into group, split, filter and sort, and what the app sets for them."
+---
+
 # Using the viewer
 
 Every Perspective viewer has a small toolbar above it. Readers arrange the data themselves in three

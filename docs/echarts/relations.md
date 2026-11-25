@@ -1,3 +1,7 @@
+---
+description: "Relations and hierarchies with New-UDEChart: network graphs with layers and ports, trees from -Path, sankey flows and chord overlaps."
+---
+
 # Relations and hierarchies
 
 `graph` draws dependencies and topology from `-Source` and `-Target` (`-Layout Force | Circular |

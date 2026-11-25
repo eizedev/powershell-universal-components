@@ -1,3 +1,7 @@
+---
+description: "Labels and tooltips of New-UDEChart from the row behind each point: -LabelTemplate, -TooltipColumns, which items the tooltip shows, the legend and labels on filled shapes."
+---
+
 # Labels and tooltips
 
 Labels and tooltips can come from the row behind each point, for every chart type:

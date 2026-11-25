@@ -1,3 +1,7 @@
+---
+description: "Heatmaps and calendars with New-UDEChart: two category columns and a value with a colour scale, and one calendar per year of the days with data."
+---
+
 # Heatmaps and calendars
 
 `-Type heatmap` takes two category columns (`-X`, `-Y`) and a `-Value`, with a colour scale from

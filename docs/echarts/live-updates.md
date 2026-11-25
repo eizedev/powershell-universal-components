@@ -1,3 +1,7 @@
+---
+description: "Live updates of New-UDEChart: Set-UDEChartData replaces a chart's data on the page and keeps zoom and hidden series, for example on a refresh interval."
+---
+
 # Live updates
 
 `Set-UDEChartData` replaces the data of a chart on the page; zoom and hidden series stay.

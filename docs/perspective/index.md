@@ -1,3 +1,7 @@
+---
+description: "New-UDPerspective - the Perspective datagrid, pivot table and charts in one in PSU apps: readers rearrange the data themselves, the parameters set the view it starts with."
+---
+
 # Perspective
 
 `New-UDPerspective` puts [Perspective](https://perspective-dev.github.io/) into PSU apps: a datagrid,

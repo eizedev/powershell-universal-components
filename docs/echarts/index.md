@@ -1,3 +1,7 @@
+---
+description: "New-UDEChart - interactive Apache ECharts charts in PSU apps: name the columns, pick one of the chart types, and get zoom, tooltips, click events, light and dark theme and export."
+---
+
 # ECharts
 
 `New-UDEChart` draws interactive [Apache ECharts](https://echarts.apache.org/) charts in PSU apps: name

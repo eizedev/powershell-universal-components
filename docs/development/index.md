@@ -1,3 +1,7 @@
+---
+description: "Build and test the modules and this site: Node and PowerShell versions, unit, Pester and browser tests, tests on a PSU instance and against the real pivotkit, and adding a module."
+---
+
 # Development
 
 The repository builds one PowerShell module per component. Each module is a React component registered
@@ -14,6 +18,7 @@ Requires Node.js 22.18 or newer 22.x, or 24.11 or newer (Babel 8; CI tests the l
 
 ```powershell
 npm ci; npm test                                   # JavaScript unit tests
+npm run lint                                       # ESLint, as CI runs it
 ./build/Build-Module.ps1 -Module <Module>          # any folder in modules/; output/<Module>/<Version>
 Invoke-Pester -Path ./tests/powershell
 ```

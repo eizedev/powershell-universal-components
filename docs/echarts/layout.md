@@ -1,3 +1,7 @@
+---
+description: "Size and place of New-UDEChart: -Height, -Width, -Id, -ClassName and -Style, a chart that follows its container, and the grid of charts with axes."
+---
+
 # Layout
 
 `-Height` (default `400px`, also `100%` inside a container with a fixed height) and `-Width` (default:

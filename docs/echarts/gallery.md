@@ -1,3 +1,7 @@
+---
+description: "How the examples of the Apache ECharts gallery map to New-UDEChart: which parameter or -Options key draws each one, and what the module does not ship."
+---
+
 # Apache ECharts gallery
 
 How the examples of the [Apache ECharts gallery](https://echarts.apache.org/examples/en/index.html)

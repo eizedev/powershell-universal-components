@@ -1,3 +1,7 @@
+---
+description: "Install, update and first steps with the PowerShell Universal component modules: a first chart, your own data from SQL, REST or PowerShell objects, and the showcase apps."
+---
+
 # Getting started
 
 ## Install
@@ -64,7 +68,8 @@ New-UDApp -Title 'Commands' -Content {
 }
 ```
 
-![The quick start app: stacked bars of PowerShell commands per verb, cmdlets and functions](assets/images/screenshot-quickstart-light.png)
+![The quick start app in the light theme: stacked bars of PowerShell commands per verb, cmdlets and functions](assets/images/screenshot-quickstart-light.png#only-light)
+![The quick start app in the dark theme: stacked bars of PowerShell commands per verb, cmdlets and functions](assets/images/screenshot-quickstart-dark.png#only-dark)
 
 The same app is in the repository as
 [examples/quickstart.ps1](https://github.com/eizedev/powershell-universal-components/blob/HEAD/modules/PowerShellUniversal.Component.ECharts/examples/quickstart.ps1).

@@ -1,3 +1,7 @@
+---
+description: "Operations charts with New-UDEChart: gantt bars for backup windows, maintenance and on-call, and a gauge coloured by -Thresholds."
+---
+
 # Operations
 
 `-Type gantt` draws lanes (`-X`) with bars from `-Start` to `-End`, coloured by `-GroupBy`, labelled

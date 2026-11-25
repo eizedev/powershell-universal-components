@@ -1,0 +1,40 @@
+{#-
+  Open Graph and Twitter card tags for every page, so a link to the site shows its title, its
+  description and the social preview (assets/social-preview.png of the repository, copied into
+  docs/assets/images/ by docs/site/Build-Site.ps1). Title and description follow the theme's own
+  <title> and description meta tag; the address is the page's canonical URL.
+-#}
+{% extends "base.html" %}
+{% block extrahead %}
+  {% set is_home = page.is_homepage or page.canonical_url == config.site_url %}
+  {% if is_home %}
+    {% set og_title = config.site_name %}
+  {% elif page.meta and page.meta.title %}
+    {% set og_title = page.meta.title ~ " - " ~ config.site_name %}
+  {% elif page.title %}
+    {% set og_title = (page.title | striptags) ~ " - " ~ config.site_name %}
+  {% else %}
+    {% set og_title = config.site_name %}
+  {% endif %}
+  {% if page.meta and page.meta.description %}
+    {% set og_description = page.meta.description %}
+  {% else %}
+    {% set og_description = config.site_description %}
+  {% endif %}
+  {% set og_image = config.site_url ~ "assets/images/social-preview.png" %}
+  {% set og_image_alt = "The " ~ config.site_name ~ " icon, a bar chart with a line, next to the name and the words: Interactive charts and components for PowerShell Universal apps" %}
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ config.site_name | e }}">
+  <meta property="og:title" content="{{ og_title | e }}">
+  <meta property="og:description" content="{{ og_description | e }}">
+  {% if page.canonical_url %}
+    <meta property="og:url" content="{{ page.canonical_url }}">
+  {% endif %}
+  <meta property="og:image" content="{{ og_image }}">
+  <meta property="og:image:alt" content="{{ og_image_alt | e }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ og_title | e }}">
+  <meta name="twitter:description" content="{{ og_description | e }}">
+  <meta name="twitter:image" content="{{ og_image }}">
+  <meta name="twitter:image:alt" content="{{ og_image_alt | e }}">
+{% endblock %}

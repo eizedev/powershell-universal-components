@@ -1,3 +1,7 @@
+---
+description: "Every parameter of New-UDPivotReport, Invoke-UDPivotReport, the template stores and the other commands of the pivot module, from the module's comment-based help."
+---
+
 # Reference
 
 From the comment-based help of the module (`Get-Help New-UDPivotReport -Full` shows the same).

@@ -1,3 +1,7 @@
+---
+description: "Security notes and limits of New-UDEChart: what -Data sends to the browser, event data as user input, -Options, and the limits on rows and sizes."
+---
+
 # Security and limits
 
 ## Security notes

@@ -1,3 +1,7 @@
+---
+description: "Lines and time with New-UDEChart: time axis with zoom, second axis, log scale, bands, marked windows, reference lines, pins, trends and forecasts, axis breaks and business hours."
+---
+
 # Lines and time
 
 `-Type line`, `area` or `step`. A date column on `-X` gives a time axis with zoom; `-Smooth` smooths the

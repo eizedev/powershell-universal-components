@@ -1,3 +1,7 @@
+---
+description: "Comparisons with New-UDEChart: a KPI matrix of sparklines, parallel axes, radar, small multiples with -Facet, rankings over time, polar charts and progress rings."
+---
+
 # Comparisons
 
 Many items across many measures: `matrix` (a table of sparklines, one scale per column), `parallel`

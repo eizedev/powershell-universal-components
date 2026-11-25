@@ -1,3 +1,7 @@
+---
+description: "Shares with New-UDEChart: donut, funnel, and a treemap or sunburst from paths that zooms in on a click, with labels that contrast with their fill."
+---
+
 # Shares
 
 `pie`, `donut` and `funnel` take a name (`-X`) and a value (`-Y`); labels show value and share.
