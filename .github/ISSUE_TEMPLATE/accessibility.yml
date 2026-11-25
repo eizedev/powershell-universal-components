@@ -23,9 +23,14 @@ body:
     id: setup
     attributes:
       label: Browser, system and assistive technology
-      placeholder: Edge 142 on Windows 11 with NVDA, keyboard only, zoom 200 %
+      placeholder: Edge on Windows with NVDA, keyboard only, zoom 200%
   - type: input
     id: version
     attributes:
       label: Module and version
-      placeholder: PowerShellUniversal.Component.Pivot 0.1.0
+      placeholder: PowerShellUniversal.Component.Pivot 0.x
+  - type: input
+    id: psu
+    attributes:
+      label: PowerShell Universal version and platform
+      placeholder: 2026.3 on Windows / Linux container
