@@ -25,9 +25,9 @@ of expression columns from `-Config` count as columns.
 
 --8<-- "examples/pivot-tickets-per-team-and-priority.md"
 
-## Weather of six cities
+## Temperature per city
 
---8<-- "examples/weather-of-six-cities.md"
+--8<-- "examples/temperature-per-city.md"
 
 ## Perspective chart: open tickets per team
 

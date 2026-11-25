@@ -26,6 +26,10 @@ To see it with data first, the [showcase app](demo.md) is a module of its own
 
 --8<-- "examples/pivot-report-from-a-web-api.md"
 
+## Weather of six cities
+
+--8<-- "examples/weather-of-six-cities.md"
+
 Then, depending on what the report needs:
 
 | You want | Where |

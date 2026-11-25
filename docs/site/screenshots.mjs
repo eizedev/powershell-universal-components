@@ -24,22 +24,28 @@ const base = process.argv[2] || "http://127.0.0.1:8765";
 const DRAWN = { pivot: ".pk-result td", echarts: "canvas", perspective: "perspective-viewer" };
 // page, example id, file name (without -light/-dark) and kind of component
 const SHOTS = [
-    ["/pivot/", "a-report-app-with-loading-views-per-reader-and-roles", "pivot-report", "pivot"],
     ["/echarts/lines-and-time/", "temperature-of-six-cities", "echarts-weather", "echarts"],
-    ["/perspective/view/", "weather-of-six-cities", "perspective-weather", "perspective"],
+    ["/perspective/view/", "temperature-per-city", "perspective-weather", "perspective"],
+    ["/pivot/", "weather-of-six-cities", "pivot-weather", "pivot"],
 ];
+// for the shots only: the header scrolls away, and the content takes the window's width without the
+// navigation and the table of contents, so every example is as wide and the pivot report is wide
+// enough (1,024 pixels) for its tab Both
+const SHOT_LAYOUT = `.md-header { position: static !important; }
+.md-sidebar { display: none !important; }
+.md-grid, .md-main__inner, .md-content { max-width: none !important; }
+.md-content { margin: 0 !important; }`;
 
 async function siteShots(browser) {
     for (const scheme of ["light", "dark"]) {
-        const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, colorScheme: scheme, deviceScaleFactor: 2 });
+        const page = await browser.newPage({ viewport: { width: 1200, height: 900 }, colorScheme: scheme, deviceScaleFactor: 2 });
         for (const [path, id, name, kind] of SHOTS) {
             await page.goto(base + path);
             const example = page.locator(`[data-example="${id}"]`);
             await example.locator(DRAWN[kind]).first().waitFor();
-            // the site's sticky header would cover the top of the example scrolled to the window's edge
-            await page.addStyleTag({ content: ".md-header { position: static !important; }" });
-            // let fonts, the layout and the charts' entry animation settle
-            await page.waitForTimeout(kind === "pivot" ? 500 : 2000);
+            await page.addStyleTag({ content: SHOT_LAYOUT });
+            // let fonts, the new width and the charts' entry animation settle
+            await page.waitForTimeout(2500);
             await example.screenshot({ path: `${out}${name}-${scheme}.png`, animations: "disabled" });
             console.log(`${name}-${scheme}.png`);
         }

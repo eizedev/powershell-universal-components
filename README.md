@@ -38,7 +38,7 @@ charts, network graphs, and KPI matrices. Clicks filter other elements. Readers 
 
 ### Pivot
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pivot-showcase-weather-dark.png"><img src="docs/assets/pivot-showcase-weather-light.png" alt="Pivot: mean temperature per month and city as a colour scale, next to a line chart" width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pivot-weather-dark.png"><img src="docs/assets/pivot-weather-light.png" alt="Pivot: mean temperature per month and city of six cities as a colour scale from blue to orange, with the tabs Table, Chart and Both" width="100%"></picture>
 
 `New-UDPivotReport` is a pivot report builder on [pivotkit](https://pivotkit.eize.dev/) ([live demo](https://pivotkit.eize.dev/demo/)). Readers drag
 fields into rows, columns, values and filters and get a table or a chart. They save views and export to Excel.
@@ -48,7 +48,7 @@ fields into rows, columns, values and filters and get a table or a chart. They s
 
 ### Perspective
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/perspective-weather-dark.png"><img src="docs/assets/perspective-weather-light.png" alt="Perspective: temperature, rain and sunshine of six cities, grouped by city and split by year" width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/perspective-weather-dark.png"><img src="docs/assets/perspective-weather-light.png" alt="Perspective: a bar chart of the mean temperature of six cities, with the toolbar Edit view, Table and Chart" width="100%"></picture>
 
 `New-UDPerspective` is the [Perspective](https://perspective-dev.github.io/) datagrid, pivot table, and WebGL
 charts in one. Readers group, split, filter, and sort. A WebAssembly engine handles large row counts.
