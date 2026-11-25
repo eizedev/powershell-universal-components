@@ -32,7 +32,7 @@ file's bytes, for an endpoint's answer or a mail attachment.
 | | `-Engine Node` | `-Engine Rest` |
 | --- | --- | --- |
 | Runs | pivotkit's command line on the PSU server | a pivotkit-server somewhere else |
-| Needs | Node and `npm install --global pivotkit-cli` (0.2.1 or later; tested with 0.4.0 and 0.5.0) on the PSU server: Node 22 or later, Node 24 or later for pivotkit-cli 0.5.0 and later | a pivotkit-server, its address and a token or OAuth client; for `-Data` and `-Parameter` pivotkit-server 0.2.0 or later ([which server](reports-server.md#rest-a-pivotkit-server)) |
+| Needs | Node and `npm install --global pivotkit-cli` (0.2.1 or later; tested with 0.5.0 and 0.6.0) on the PSU server: Node 22 or later, Node 24 or later for pivotkit-cli 0.5.0 and later | a pivotkit-server, its address and a token or OAuth client; for `-Data` and `-Parameter` pivotkit-server 0.2.0 or later ([which server](reports-server.md#rest-a-pivotkit-server)) |
 | Data | `-Data`, written to a temporary folder of its own (mode 0700 on Linux and macOS; on Windows it inherits the ACL of the user's TEMP folder), removed afterwards | `-Data`, sent in the request; or `-Source`, a source the server's operator configured |
 | Language, time zone | `-Locale`, `-TimeZone` | the server's |
 | HTML print template | `-Template` | the server's source decides |
