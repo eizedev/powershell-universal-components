@@ -1,31 +1,78 @@
 # Contributing
 
-Thanks for helping. Bug reports and concrete feature requests go into [issues](https://github.com/eizedev/powershell-universal-components/issues),
-questions and ideas into [discussions](https://github.com/eizedev/powershell-universal-components/discussions),
-security reports privately (see [SECURITY.md](SECURITY.md)).
+Thanks for helping.
 
-## Changes
+- Bug reports and concrete feature requests go into [issues](https://github.com/eizedev/powershell-universal-components/issues).
+- Questions and ideas go into [discussions](https://github.com/eizedev/powershell-universal-components/discussions).
+- Security reports go privately, see [SECURITY.md](SECURITY.md).
+- Everyone follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-1. Fork, create a branch named after the change (`feat/...`, `fix/...`, `docs/...`).
-2. Follow [AGENTS.md](AGENTS.md): layout, commands and the rules that keep modules working inside PSU.
-3. A new page in `docs/` goes into the `nav` of `zensical.toml` and into one section of
-   `[project.plugins.llmstxt.sections]` there (`tests/js/llms-sections.test.js` checks it).
-4. Run the tests (`npm test`, `npm run test:browser` after building the docs site, `Invoke-Pester -Path tests/powershell`) and build the module you changed.
-5. Check the change on a PSU instance in a browser: light and dark theme, a narrow and a wide window.
-6. Add an entry under `[Unreleased]` in the module's `CHANGELOG.md`.
-7. Open a pull request with a short description and what you tested; use Conventional Commits.
+## Before you start
+
+- Read [PRODUCT.md](PRODUCT.md): what the modules are, for whom, and what they are not.
+- A new feature starts as an issue that says what problem it solves and for whom.
+- [AGENTS.md](AGENTS.md) holds the layout, the commands and the rules that keep modules working inside PSU.
+- What you need installed is in [Development](docs/development/index.md#build-and-test).
+
+## Make a change
+
+1. Fork the repository and create a branch named after the change: `feat/...`, `fix/...` or `docs/...`.
+2. For a fix, write the test first. Watch it fail, then fix the code.
+3. Run the checks below.
+4. Update the pages in `docs/` and add an entry under `[Unreleased]` in the `CHANGELOG.md` of each
+   module you changed.
+5. Open a pull request. Use Conventional Commits with the module as scope: `fix(pivot): ...`.
+
+## Check your change
+
+Every change, from the repository root:
+
+```bash
+npm ci
+npm run lint
+npm test
+npm run growth
+pwsh ./build/Invoke-ScriptAnalysis.ps1
+pwsh -c 'Invoke-Pester -Path tests/powershell'
+```
+
+Then, depending on what you changed:
+
+| You changed | Also run |
+| --- | --- |
+| a component (`Components/`) | `./build/Build-Module.ps1 -Module <Module>`, then check it on a PSU instance: light and dark theme, a narrow and a wide window, the events it fires |
+| `shared/` | build every module that uses it; each gets a `CHANGELOG.md` entry |
+| the pivot module's packages | `npm ci` in its folder first: some unit tests skip without them |
+| a page or an example in `docs/` | `pwsh ./docs/site/Build-Site.ps1`, build the site and `npm run test:browser` ([Development](docs/development/index.md#this-site)) |
+| a showcase app or a demo module | the browser tests on PSU ([Development](docs/development/index.md#browser-tests-on-psu)) |
+| a `package.json` or lock file | `npm audit --audit-level=high` in that folder |
+
+## Tests
+
+- A fix comes with a test that fails without it.
+- Never weaken, skip or delete a test to get green. If a test fails, say in the pull request whether
+  the code or the test was wrong.
+- Logic goes into plain `.js` modules tested with `node --test` in `tests/js/`, PowerShell into Pester
+  tests in `tests/powershell/`. Rendering needs a browser: a Playwright test in `tests/browser/`.
+
+## Dependencies
+
+- Check the licence of every library you add: permissive (MIT, Apache-2.0, BSD) and free for companies.
+- Pin every package to an exact version and commit the lock file.
+- Prefer a small own wrapper over a wrapper package.
+- Never bundle React, ReactDOM or `UniversalDashboard`: PSU provides them ([AGENTS.md](AGENTS.md#rules-that-matter-here)).
 
 ## Adding a module
 
 Name it `PowerShellUniversal.Component.<Name>`, with `New-UD<Name>` and the type `ud-<name>`. Reuse
-`shared/` instead of copying code. Check the licence of every library you add: permissive (MIT,
-Apache-2.0, BSD) and free for companies. A new module needs:
+`shared/` instead of copying code. A new module needs:
 
 - a README, a CHANGELOG, an example app and tests
 - an entry in the build matrix of `.github/workflows/ci.yml` (`tests/js/ci.test.js` checks it)
 - its pages in `nav` and in one `llmstxt` section of `zensical.toml`
 - a link on the docs start page and in the root README
 
-## Releasing a module (maintainers)
+## Releasing a module
 
-The steps and the one-time setup are in [Releases](docs/development/release.md).
+Maintainers release each module on its own. The steps and the one-time setup are in
+[Releases](docs/development/release.md).
