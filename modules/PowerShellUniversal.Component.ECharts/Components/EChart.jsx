@@ -73,6 +73,19 @@ function useFullscreen(ref) {
     return full;
 }
 
+// true from the moment the component unmounts, read by the cleanups of effects declared after it
+function useUnmounting() {
+    const ref = useRef(false);
+    useEffect(() => {
+        // false again after React's trial unmount and mount in StrictMode
+        ref.current = false;
+        return () => {
+            ref.current = true;
+        };
+    }, []);
+    return ref;
+}
+
 /*
  * Values from ECharts events turned into something PowerShell can use: time axis values (epoch ms)
  * become ISO strings, category indices become the category names.
@@ -162,11 +175,8 @@ export default function EChart(props) {
     };
 
     // the component goes (not only the chart, made again for another renderer or locale): its chart
-    // hands its view over. Declared before the chart's effect, so React runs this cleanup first
-    const unmounting = useRef(false);
-    useEffect(() => () => {
-        unmounting.current = true;
-    }, []);
+    // hands its view over. Called before the chart's effect, so React runs this cleanup first
+    const unmounting = useUnmounting();
 
     // create once, dispose on unmount; follow the container's size
     useEffect(() => {
@@ -193,7 +203,9 @@ export default function EChart(props) {
         return () => {
             cancelAnimationFrame(frame);
             resize.disconnect();
-            // set by the unmount effect above when the component goes, not for another renderer or locale
+            // set by useUnmounting when the component goes, not for another renderer or locale: read at
+            // cleanup on purpose, and a flag, not a node
+            // eslint-disable-next-line react-hooks/exhaustive-deps
             if (unmounting.current) handOverView(props.id, chart);
             chart.dispose();
             chartRef.current = null;

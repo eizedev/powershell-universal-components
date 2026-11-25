@@ -1,8 +1,9 @@
 /*
  * What the reader did to a chart and a theme change must not undo: the zoom, the series hidden in the
  * legend and the brushed range. ECharts' setTheme builds the chart from its option again and drops
- * them, and PSU mounts the component again on the first light/dark switch after a page loads. Both
- * read the view before and set it again afterwards, with silent actions, so no -OnZoom, -OnSelect or
+ * them, and PSU mounts the component again on the first light/dark switch after a page loads (the
+ * hand-over below covers every remount of a chart with the same id in the same task). Both read the
+ * view before and set it again afterwards, with silent actions, so no -OnZoom, -OnSelect or
  * -OnLegendChange fires. A toolbox switch to line, bar or stack is not kept: the option is set anew.
  */
 

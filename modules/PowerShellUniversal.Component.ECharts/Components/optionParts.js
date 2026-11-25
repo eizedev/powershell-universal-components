@@ -387,8 +387,8 @@ function labelSide(lines, rank) {
 /*
  * The labels of statistic lines of several series, by where the lines lie, so the labels of close
  * lines face away from each other. Each statistic is ordered on its own, among the series on the same
- * value axis; equal values keep the series order. A label set on a line item wins over one set for
- * the series' markLine (-Options).
+ * value axis; equal values keep the series order. A line alone there keeps the series' position (from
+ * markLineOf or -Options); a position set here on a line item wins over the series' one.
  */
 export function placeStatisticLabels(series, horizontal) {
     const drawn = drawnValues(series, horizontal);
@@ -402,7 +402,7 @@ export function placeStatisticLabels(series, horizontal) {
             }
         }
     });
-    for (const lines of groups.values()) {
+    for (const lines of [...groups.values()].filter((g) => g.length > 1)) {
         lines.sort((a, b) => b.value - a.value);
         lines.forEach((line, rank) => {
             line.item.label = { position: labelSide(lines, rank) };

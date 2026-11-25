@@ -28,8 +28,9 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
   `-OnZoom`, `-OnSelect` or `-OnLegendChange` runs for the switch.
 - `-MarkLine 'average'` (and `median`, `min`, `max`) with several series: the label of the higher line
   sits above it and the lower one's below. Before, the side came from the series' order, so the labels
-  of close lines overlapped when the second line was higher. A label position for a series' whole
-  `markLine` in `-Options` no longer moves these labels; set it per line instead:
+  of close lines overlapped when the second line was higher. Where another series has the same
+  statistic on the same axis, a label position for a series' whole `markLine` in `-Options` no
+  longer moves these labels; set it per line instead:
   `markLine = @{ data = @(@{ label = @{ position = 'insideStartBottom' } }) }`.
 
 ### Changed
