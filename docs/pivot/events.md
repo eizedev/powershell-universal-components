@@ -46,7 +46,7 @@ Filtering from the menu is a view change (`-OnViewChange`).
 `-OnViewChange` can keep the reader's layout, for example for the session:
 `$Session:PivotView = ConvertFrom-UDPivotView -InputObject $EventData.json`, then `-SavedView $Session:PivotView`
 when the page is built again (not `-View`: `$Session` is shared by all tabs of a browser, see
-[several tabs](views.md#several-tabs-and-keeping-the-readers-view)). Saving, publishing and deleting
+[several tabs](saved-view.md)). Saving, publishing and deleting
 templates: [Templates, view files and roles](templates.md).
 
 ## Security notes
