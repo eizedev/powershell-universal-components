@@ -22,6 +22,8 @@ Thanks for helping.
 4. Update the pages in `docs/` and add an entry under `[Unreleased]` in the `CHANGELOG.md` of each
    module you changed.
 5. Open a pull request. Use Conventional Commits with the module as scope: `fix(pivot): ...`.
+   A change to docs or code fills in the template's whole-change check: what you read whole, and how
+   you reshaped it instead of appending. CI fails without it; editing the description runs it again.
 
 ## Check your change
 
