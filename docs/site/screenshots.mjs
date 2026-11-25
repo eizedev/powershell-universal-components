@@ -1,7 +1,7 @@
 // Screenshots for the documentation, in the light and the dark theme. The files land in docs/assets/
 // and are committed; look at them before committing.
 //
-// The live examples of the start page: each one is the example's element on the built site, drawn by
+// The live examples of the README and the start page: each one is the example's element on the built site, drawn by
 // the module's own component. Build and serve the site first (docs/development/), then:
 //
 //   node docs/site/screenshots.mjs [http://127.0.0.1:8765]
@@ -20,20 +20,26 @@ const demo = (process.env.PSU_PIVOT_DEMO_URL || "").replace(/\/$/, "");
 
 // ---- the site's live examples ----------------------------------------------------------------------
 const base = process.argv[2] || "http://127.0.0.1:8765";
-// page, example id and file name (without -light/-dark)
-const SHOTS = [["/pivot/", "a-report-app-with-loading-views-per-reader-and-roles", "pivot-report"]];
+// what shows that an example has drawn: the pivot report's table, a chart's canvas, Perspective's grid
+const DRAWN = { pivot: ".pk-result td", echarts: "canvas", perspective: "perspective-viewer" };
+// page, example id, file name (without -light/-dark) and kind of component
+const SHOTS = [
+    ["/pivot/", "a-report-app-with-loading-views-per-reader-and-roles", "pivot-report", "pivot"],
+    ["/echarts/lines-and-time/", "temperature-of-six-cities", "echarts-weather", "echarts"],
+    ["/perspective/view/", "weather-of-six-cities", "perspective-weather", "perspective"],
+];
 
 async function siteShots(browser) {
     for (const scheme of ["light", "dark"]) {
         const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, colorScheme: scheme, deviceScaleFactor: 2 });
-        for (const [path, id, name] of SHOTS) {
+        for (const [path, id, name, kind] of SHOTS) {
             await page.goto(base + path);
             const example = page.locator(`[data-example="${id}"]`);
-            // the report has drawn its table
-            await example.locator(".pk-result td").first().waitFor();
-            await example.scrollIntoViewIfNeeded();
-            // let fonts and the table's layout settle
-            await page.waitForTimeout(500);
+            await example.locator(DRAWN[kind]).first().waitFor();
+            // the site's sticky header would cover the top of the example scrolled to the window's edge
+            await page.addStyleTag({ content: ".md-header { position: static !important; }" });
+            // let fonts, the layout and the charts' entry animation settle
+            await page.waitForTimeout(kind === "pivot" ? 500 : 2000);
             await example.screenshot({ path: `${out}${name}-${scheme}.png`, animations: "disabled" });
             console.log(`${name}-${scheme}.png`);
         }

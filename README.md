@@ -18,9 +18,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License: MIT"></a>
 </p>
 
-**Documentation: [powershell-universal-components.eize.dev](https://powershell-universal-components.eize.dev/)**: every module, parameter and chart type, with live examples.
-
-Supported and tested versions: [Requirements](https://powershell-universal-components.eize.dev/#requirements).
+**[Documentation](https://powershell-universal-components.eize.dev/)** · [Getting started](https://powershell-universal-components.eize.dev/getting-started/) · [Requirements](https://powershell-universal-components.eize.dev/#requirements) · [Releases](https://github.com/eizedev/powershell-universal-components/releases)
 
 > [!NOTE]
 > The modules are 0.x. A minor release can break things, so read the module's `CHANGELOG.md` before
@@ -30,7 +28,7 @@ Supported and tested versions: [Requirements](https://powershell-universal-compo
 
 ### ECharts
 
-<img src="assets/screenshot-service-review-light.png" alt="ECharts: a service review page with a KPI matrix of sparklines and bar charts" width="100%">
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/echarts-weather-dark.png"><img src="docs/assets/echarts-weather-light.png" alt="ECharts: monthly mean temperature of six cities in 2024 and 2025 as lines, with a zoom slider" width="100%"></picture>
 
 `New-UDEChart` draws 29 [Apache ECharts](https://echarts.apache.org/) chart types, from bars and lines to gantt
 charts, network graphs, and KPI matrices. Clicks filter other elements. Readers zoom, export, and go full screen.
@@ -40,9 +38,9 @@ charts, network graphs, and KPI matrices. Clicks filter other elements. Readers 
 
 ### Pivot
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pivot-report-dark.png"><img src="docs/assets/pivot-report-light.png" alt="Pivot: report builder with field list, zones and a table" width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pivot-showcase-weather-dark.png"><img src="docs/assets/pivot-showcase-weather-light.png" alt="Pivot: mean temperature per month and city as a colour scale, next to a line chart" width="100%"></picture>
 
-`New-UDPivotReport` is a pivot report builder on [pivotkit](https://github.com/eizedev/pivotkit). Readers drag
+`New-UDPivotReport` is a pivot report builder on [pivotkit](https://pivotkit.eize.dev/) ([live demo](https://pivotkit.eize.dev/demo/)). Readers drag
 fields into rows, columns, values and filters and get a table or a chart. They save views and export to Excel.
 
 - [Docs](https://powershell-universal-components.eize.dev/pivot/) · [PowerShell Gallery](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot)
@@ -50,7 +48,7 @@ fields into rows, columns, values and filters and get a table or a chart. They s
 
 ### Perspective
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/perspective-viewer-1-dark.png"><img src="docs/assets/perspective-viewer-1-light.png" alt="Perspective: datagrid grouped and split by the reader" width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/perspective-weather-dark.png"><img src="docs/assets/perspective-weather-light.png" alt="Perspective: temperature, rain and sunshine of six cities, grouped by city and split by year" width="100%"></picture>
 
 `New-UDPerspective` is the [Perspective](https://perspective-dev.github.io/) datagrid, pivot table, and WebGL
 charts in one. Readers group, split, filter, and sort. A WebAssembly engine handles large row counts.
@@ -106,4 +104,5 @@ Contributors and coding agents: [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRI
 
 [MIT](LICENSE). Bundled libraries keep their own licenses. The build writes their texts into each module's `THIRD-PARTY-NOTICES.txt`.
 Icon, header and social preview in `assets/` are generated in [eizedev/brand](https://github.com/eizedev/brand)
-and licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+and licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The weather in the screenshots: data by
+[Open-Meteo.com](https://open-meteo.com/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), with modified Copernicus Climate Change Service information ([sources](docs/site/data/SOURCES.md)).

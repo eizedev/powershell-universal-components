@@ -11,6 +11,8 @@
 
 # the attribution endoflife.date's licence asks for, under every example with its data
 $endoflife = 'Release data by [endoflife.date](https://endoflife.date/), MIT licence, Copyright 2020 endoflife.date contributors; on this page a snapshot ([date, sources and licence](https://github.com/eizedev/powershell-universal-components/blob/HEAD/docs/site/data/SOURCES.md)).'
+# the attribution Open-Meteo's licence asks for, under every example with its weather data
+$openMeteo = 'Weather data by [Open-Meteo.com](https://open-meteo.com/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); changed: daily values mapped to rows. Contains modified Copernicus Climate Change Service information 2026; neither the European Commission nor ECMWF is responsible for any use that may be made of the Copernicus information or data it contains; on this page a snapshot ([sources and licences](https://github.com/eizedev/powershell-universal-components/blob/HEAD/docs/site/data/SOURCES.md)).'
 
 @(
     #region Start
@@ -55,6 +57,18 @@ $endoflife = 'Release data by [endoflife.date](https://endoflife.date/), MIT lic
             $rng = [System.Random]::new(4)
             $latency = foreach ($m in 0..287) { [pscustomobject]@{ Time = ([datetime]'2026-11-03').AddMinutes(5 * $m); Ms = [math]::Round(90 + 30 * [math]::Sin($m / 20) + $rng.Next(0, 20)) } }
             New-UDEChart -Data $latency -Type area -X Time -Y Ms -MarkLine @{ value = 150; name = 'SLA'; color = '#e53935' } -Thresholds @{ value = 150; color = '#43a047' }, @{ value = 100000; color = '#e53935' } -Height 320px
+        }
+    }
+    @{ Section = 'Lines and time'; Title = 'Temperature of six cities'; Source = $openMeteo; Text = 'Daily weather from the Open-Meteo archive, one answer per city. Each day counts for the first of its month, and -Aggregate Avg combines the days of a month into its mean.'; Code = {
+            $cities = 'Berlin', 'London', 'Madrid', 'New York', 'Tokyo', 'Sydney'
+            $answers = Invoke-RestMethod 'https://archive-api.open-meteo.com/v1/archive?latitude=52.52,51.51,40.42,40.71,35.69,-33.87&longitude=13.41,-0.13,-3.70,-74.01,139.69,151.21&start_date=2024-01-01&end_date=2025-12-31&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum,sunshine_duration&timezone=auto'
+            $days = for ($c = 0; $c -lt $cities.Count; $c++) {
+                $daily = $answers[$c].daily
+                for ($d = 0; $d -lt $daily.time.Count; $d++) {
+                    [pscustomobject]@{ City = $cities[$c]; Month = [datetime]($daily.time[$d].Substring(0, 7) + '-01'); Temperature = $daily.temperature_2m_mean[$d] }
+                }
+            }
+            New-UDEChart -Data $days -Type line -X Month -Y Temperature -GroupBy City -Aggregate Avg -Smooth -Format 'number:1' -YTitle 'Degrees Celsius' -Height 380px
         }
     }
     @{ Section = 'Lines and time'; Title = 'Trend to a limit: when is the datastore full?'; Text = '-Trend Linear with -TrendTarget continues the least-squares line and marks the date.'; Code = {
@@ -353,6 +367,18 @@ $endoflife = 'Release data by [endoflife.date](https://endoflife.date/), MIT lic
                 [pscustomobject]@{ Id = $i; Team = ('Service Desk', 'Network', 'Server', 'Applications')[$rng.Next(0, 4)]; Priority = 'P{0}' -f $rng.Next(1, 5); LeadHours = [math]::Round(2 + 40 * $rng.NextDouble(), 1) }
             }
             New-UDPerspective -Data $tickets -GroupBy Team -SplitBy Priority -Columns Id, LeadHours -Aggregates @{ Id = 'count'; LeadHours = 'avg' } -Height 320px
+        }
+    }
+    @{ Section = 'Perspective'; Title = 'Weather of six cities'; Source = $openMeteo; Text = 'One row per city and day from the Open-Meteo archive, grouped by city: the mean temperature in degrees Celsius, the rain in millimetres and the sunshine in hours per year.'; Code = {
+            $cities = 'Berlin', 'London', 'Madrid', 'New York', 'Tokyo', 'Sydney'
+            $answers = Invoke-RestMethod 'https://archive-api.open-meteo.com/v1/archive?latitude=52.52,51.51,40.42,40.71,35.69,-33.87&longitude=13.41,-0.13,-3.70,-74.01,139.69,151.21&start_date=2024-01-01&end_date=2025-12-31&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum,sunshine_duration&timezone=auto'
+            $days = for ($c = 0; $c -lt $cities.Count; $c++) {
+                $daily = $answers[$c].daily
+                for ($d = 0; $d -lt $daily.time.Count; $d++) {
+                    [pscustomobject]@{ City = $cities[$c]; Year = $daily.time[$d].Substring(0, 4); Temperature = $daily.temperature_2m_mean[$d]; Rain = $daily.precipitation_sum[$d]; Sunshine = [math]::Round($daily.sunshine_duration[$d] / 3600, 1) }
+                }
+            }
+            New-UDPerspective -Data $days -GroupBy City -SplitBy Year -Columns Temperature, Rain, Sunshine -Aggregates @{ Temperature = 'avg'; Rain = 'sum'; Sunshine = 'sum' } -Height 320px
         }
     }
     @{ Section = 'Perspective'; Title = 'Perspective chart: open tickets per team'; Text = 'A chart plugin with a filter; the WebGL charts redraw as the reader changes the grouping.'; Code = {

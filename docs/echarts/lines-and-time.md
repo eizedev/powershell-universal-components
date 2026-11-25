@@ -8,6 +8,10 @@ lines, `-SecondaryY` puts named series on a second axis, `-LogScale` makes the v
 
 --8<-- "examples/time-axis-with-zoom-and-a-reference-line.md"
 
+## Temperature of six cities
+
+--8<-- "examples/temperature-of-six-cities.md"
+
 ## Reference lines and pins
 
 `-MarkLine 'median', 'average'` per series, or fixed lines: `@{ value = 48; name = 'SLA'; color = '#e53935' }`
