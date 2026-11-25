@@ -61,7 +61,6 @@ export default function EChart(props) {
     // -LightTheme / -DarkTheme: the corporate ECharts theme for the current mode
     const customTheme = mode === "dark" ? props.darkTheme : props.lightTheme;
     const customKey = customTheme ? JSON.stringify(customTheme) : "";
-    const rows = Array.isArray(props.data) ? props.data : [];
     // the latest props for event handlers registered once
     const latest = useRef(props);
     latest.current = props;

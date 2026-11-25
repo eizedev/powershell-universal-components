@@ -19,6 +19,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { LANGUAGE_OPTIONS, SOURCES } from "../eslint.config.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const BASELINE = new URL("growth-baseline.json", import.meta.url);
@@ -54,9 +55,6 @@ export const DOCS_LIMITS = Object.freeze({ overview: 150, topic: 200, reference:
 
 /** How far the lines of all pages together may drift from the baseline, in percent, before it is updated. */
 export const DOCS_TOTAL_MARGIN = 2;
-
-/** The JavaScript the javascript guard reads; .jscpd.json names the same folders. */
-const JAVASCRIPT = ["modules/*/Components/**/*.{js,jsx}", "shared/js/**/*.js"];
 
 /** What to do when a guard fails, said once per guard. */
 const ADVICE = {
@@ -127,7 +125,8 @@ export function parseFunctionMessage({ ruleId, message }) {
  * The JavaScript functions over FUNCTION_LIMITS, as "Function 'name'" (or "<file> Arrow function" for
  * an anonymous one) -> numbers per metric. ESLint
  * runs with these two rules only and ignores eslint-disable comments, so a comment cannot hide a
- * function from the guard. The repository has no ESLint configuration of its own.
+ * function from the guard. It reads SOURCES with LANGUAGE_OPTIONS of eslint.config.js (`npm run lint`),
+ * but not that file's rules; .jscpd.json names the same folders.
  * @param {string} [cwd]
  * @returns {Promise<{ lines: Record<string, number[]>, complexity: Record<string, number[]> }>}
  */
@@ -137,9 +136,8 @@ export async function measureJavaScript(cwd = root) {
         "max-lines-per-function": ["error", { max: FUNCTION_LIMITS.lines, skipBlankLines: true, skipComments: true }],
         complexity: ["error", { max: FUNCTION_LIMITS.complexity }],
     };
-    const languageOptions = { ecmaVersion: "latest", sourceType: "module", parserOptions: { ecmaFeatures: { jsx: true } } };
-    const eslint = new ESLint({ cwd, overrideConfigFile: true, allowInlineConfig: false, overrideConfig: { files: ["**/*.{js,jsx}"], languageOptions, rules } });
-    const results = await eslint.lintFiles(JAVASCRIPT);
+    const eslint = new ESLint({ cwd, overrideConfigFile: true, allowInlineConfig: false, overrideConfig: { files: ["**/*.{js,jsx}"], languageOptions: LANGUAGE_OPTIONS, rules } });
+    const results = await eslint.lintFiles([...SOURCES]);
     const found = { lines: {}, complexity: {} };
     for (const result of results) {
         for (const message of result.messages) {

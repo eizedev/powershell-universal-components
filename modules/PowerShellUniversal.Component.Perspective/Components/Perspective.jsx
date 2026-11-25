@@ -175,7 +175,7 @@ export default function Perspective(props) {
                 // getConfig is valid only while the event is dispatched
                 const config = e.detail && typeof e.detail.getConfig === "function" ? e.detail.getConfig() : null;
                 name = config && config.plugin;
-            } catch (err) {
+            } catch {
                 name = undefined;
             }
             if (!name) return;
@@ -224,7 +224,7 @@ export default function Perspective(props) {
             try {
                 if (viewer) await viewer.delete();
                 if (current) await current.table.delete();
-            } catch (e) {
+            } catch {
                 // already gone with the page
             }
         })();

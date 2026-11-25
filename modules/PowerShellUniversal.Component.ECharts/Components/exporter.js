@@ -106,6 +106,7 @@ function xmlEscape(text) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         // characters XML 1.0 does not allow
+        // eslint-disable-next-line no-control-regex -- matches control characters on purpose, to remove them
         .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
 }
 
@@ -231,6 +232,7 @@ export function download(fileName, data, mime) {
 }
 
 export function safeFileName(name, fallback = "export") {
+    // eslint-disable-next-line no-control-regex -- matches control characters on purpose, to remove them
     const clean = String(name || fallback).replace(/[\\/:*?"<>|\u0000-\u001F]+/g, "_").trim();
     return clean || fallback;
 }

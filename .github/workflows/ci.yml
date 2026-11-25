@@ -9,6 +9,13 @@ on:
 permissions:
   contents: read
 
+# a newer push to a pull request replaces its run in progress. Each push to main has a group of its
+# own, so no run of main is cancelled or replaced while it waits: a release needs the green run of its
+# tagged commit (release.yml)
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   javascript:
     runs-on: ubuntu-latest
@@ -20,11 +27,25 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
+      - name: Install
+        # no install scripts: the tests need none, and a hijacked dependency could run one
+        run: npm ci --no-audit --no-fund --ignore-scripts
+      - name: Lint
+        run: npm run lint
       - name: Unit tests
+        if: ${{ !cancelled() }}
+        run: npm test
+      - name: Audit
+        # every lock file: the repository's, each module's and the site's. All are read before it fails
+        if: ${{ !cancelled() }}
         run: |
-          # no install scripts: the tests need none, and a hijacked dependency could run one
-          npm ci --no-audit --no-fund --ignore-scripts
-          npm test
+          status=0
+          for lock in $(git ls-files '*package-lock.json'); do
+            echo "::group::$lock"
+            npm audit --audit-level=high --prefix "$(dirname "$lock")" || status=1
+            echo "::endgroup::"
+          done
+          exit "$status"
       # The growth guards (build/growth.js): a ratchet on build/growth-baseline.json, one step each so
       # a red step names its guard, and each runs when an earlier step failed. The powershell guard
       # uses the runner's pwsh.
