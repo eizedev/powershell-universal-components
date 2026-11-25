@@ -6,7 +6,7 @@ description: "New-UDPivotReport - a pivot report builder for PSU apps: readers d
 # Pivot reports
 
 `New-UDPivotReport` puts a pivot report builder into PSU apps, built on
-[pivotkit](https://www.npmjs.com/package/pivotkit-react): readers drag fields from a searchable list into **Rows**,
+[pivotkit](https://pivotkit.eize.dev/): readers drag fields from a searchable list into **Rows**,
 **Columns**, **Values** and **Filters** and get a table with totals or a chart. Install the module,
 pass the rows to `-Data`, and the report is there. Everything runs in the browser; the server is only
 asked for what the [event parameters](events.md) do.
