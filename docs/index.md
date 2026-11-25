@@ -74,7 +74,7 @@ New-UDPivotReport -Id 'python' -Data (Invoke-RestMethod 'https://endoflife.date/
 
 [PowerShell Gallery](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot) ·
 [pivotkit docs](https://pivotkit.eize.dev/) · [Live demo](https://pivotkit.eize.dev/demo/) ·
-[How readers use the report](https://pivotkit.eize.dev/use/) · [Versioning](versioning.md)
+[How readers use the report](https://pivotkit.eize.dev/use/) · [Module versioning](versioning.md)
 
 <small>The pictures on this page: weather data by [Open-Meteo.com](https://open-meteo.com/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), with modified Copernicus Climate Change Service information ([sources and licences](https://github.com/eizedev/powershell-universal-components/blob/HEAD/docs/site/data/SOURCES.md)).</small>
 

@@ -1,9 +1,9 @@
 ---
-title: What readers can do
-description: "What readers do in New-UDPivotReport (fields, values, filters, table and chart, drill-down, views, exports, their own files), what they can take away, and how the report fits the page."
+title: Readers and your app
+description: "For app authors: what New-UDPivotReport offers readers and which parameters decide it, with links to pivotkit's reader guide; Source data (-ExportData), tips, and the report's size and layout on the page."
 ---
 
-# What readers can do
+# Readers and your app
 
 For app authors: what the report offers your readers, and which parameters decide it.
 

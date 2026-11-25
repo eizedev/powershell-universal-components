@@ -6,7 +6,7 @@ description: "New-UDPivotReport - a pivot report builder for PSU apps: readers d
 # Pivot reports
 
 `New-UDPivotReport` puts a pivot report builder into PSU apps, built on
-[pivotkit](https://pivotkit.eize.dev/). These pages are for the people who build the apps.
+[pivotkit](https://pivotkit.eize.dev/).
 
 !!! info "Where to read what"
     - **These pages**, for app authors: install and update, `New-UDPivotReport` and its parameters,
@@ -18,21 +18,12 @@ description: "New-UDPivotReport - a pivot report builder for PSU apps: readers d
       [versioning](https://pivotkit.eize.dev/versioning/) and
       [upgrading](https://pivotkit.eize.dev/getting-started/upgrading/).
 
-Readers drag fields from a searchable list into **Rows**, **Columns**, **Values** and **Filters** and
-get a table with totals or a chart, with date grouping, drill-down to the source rows, shared views and
-views readers keep (roles decide who publishes), undo, Excel, CSV, PNG, SVG and HTML export and print,
-and their own CSV, JSON and Excel files read in the browser ([`-AllowImport`](import.md)); English and
-German; themed from the same stylesheet as the charts. `Invoke-UDPivotReport` renders the same views
-into Excel, HTML, CSV, JSON or SVG files from endpoints and schedules, without a browser, or into a
-link that expires from a pivotkit-server ([Reports without a browser](reports.md)).
-
-Install it from the PowerShell Gallery on the PSU server
-([PowerShellUniversal.Component.Pivot](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot)),
-pass the rows to `-Data`, and the report is there. Everything runs in the browser; the server is only
-asked for what the [event parameters](events.md) do.
+Install it on the PSU server, pass the rows to `-Data`, and the report is there. Everything runs in
+the browser; the server is only asked for what the [event parameters](events.md) do.
 
 ```powershell
 Install-PSResource -Name PowerShellUniversal.Component.Pivot
+New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Tickets')
 ```
 
 | You want | Where |
@@ -46,9 +37,17 @@ Install-PSResource -Name PowerShellUniversal.Component.Pivot
 | Rows only a pivotkit-server can reach, for the signed-in person | [Rows from a server](server-rows.md) |
 | The report as a file from an endpoint or a schedule | [Reports without a browser](reports.md) |
 | Run code when readers click or change the view | [Events, security and limits](events.md) |
-| What readers get, and what the app decides for them | [What readers can do](readers.md) |
+| What readers get, and what the app decides for them | [Readers and your app](readers.md) |
 | What `-Data` takes, large data | [Data and loading](data.md) |
 | Every parameter | [Commands and parameters](reference.md) |
+
+Readers drag fields from a searchable list into **Rows**, **Columns**, **Values** and **Filters** and
+get a table with totals or a chart, with date grouping, drill-down to the source rows, shared views and
+views readers keep (roles decide who publishes), undo, Excel, CSV, PNG, SVG and HTML export and print,
+and their own CSV, JSON and Excel files read in the browser ([`-AllowImport`](import.md)); English and
+German; themed from the same stylesheet as the charts. `Invoke-UDPivotReport` renders the same views
+into Excel, HTML, CSV, JSON or SVG files from endpoints and schedules, without a browser, or into a
+link that expires from a pivotkit-server ([Reports without a browser](reports.md)).
 
 To see it with data first, the [showcase app](demo.md) is a module of its own
 (`New-UDPivotShowcase`): these examples, weather data, your own CSV and JSON files and a ticket report.
@@ -100,4 +99,4 @@ New-UDDynamic -Id 'tickets-report' -LoadingComponent {
 
 --8<-- "examples/pivot-report-in-german.md"
 
-Next: [What readers can do](readers.md), [Data and loading](data.md), [Field names and descriptions](fields.md), [Themes and corporate design](themes.md), [Views](views.md), [Templates, view files and roles](templates.md), [Events, security and limits](events.md), [Reference](reference.md).
+Next: [Readers and your app](readers.md), [Data and loading](data.md), [Field names and descriptions](fields.md), [Themes and corporate design](themes.md), [Views](views.md), [Templates, view files and roles](templates.md), [Events, security and limits](events.md), [Reference](reference.md).
