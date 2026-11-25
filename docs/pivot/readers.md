@@ -16,7 +16,7 @@ app decide.
 | --- | --- | --- |
 | Place fields, read the table | [Fields, zones and the table](https://pivotkit.eize.dev/use/fields/) | Names and descriptions of fields ([Field names and descriptions](fields.md)), `-FieldList`, `-Zones` |
 | Sum, count, show as, formats | [Values and formats](https://pivotkit.eize.dev/use/values/) | The start view ([Views](views.md)), `-Locale` |
-| Filter, top N, sort | [Filters, top N and sorting](https://pivotkit.eize.dev/use/filters/) | The start view's filters ([Views](views.md)) |
+| Filter, top N, sort | [Filters, top N and sorting](https://pivotkit.eize.dev/use/filters/) | The start view's filters ([Filters in a view](filters.md)) |
 | Charts | [Charts](https://pivotkit.eize.dev/use/charts/) | The start view's chart ([Views](views.md)) |
 | The rows behind a number | [The rows behind a number](https://pivotkit.eize.dev/use/drill-down/) | `-NoDrillDown`, `-DrillDownExport`, `-ExportData` ([below](#source-data-exportdata)) |
 | Save, pick and share views | [Views, saving and sharing](https://pivotkit.eize.dev/use/views/) | Shared views, readers' own views and roles ([Templates, view files and roles](templates.md)) |
@@ -78,7 +78,10 @@ The report adapts to its own width, to touch screens and to a low window by itse
   readers build reports. `-Grow On` lets the report grow past it when the table would get too small,
   and the page scrolls.
 - **Zones open or folded**: In a low report the zones start folded under **Fields in the report**, so
-  the table keeps its room. `-Zones Open` or `-Zones Folded` decides it for every height.
+  the table keeps its room. `-Zones Open` or `-Zones Folded` decides it for every height; give
+  `-Zones Open` about 700 pixels, or the table gets only a few rows.
+- **Containers**: In a card, a tab or a stack the report stays inside its container, and the table
+  scrolls inside it.
 - **Light and dark**: The report follows the app's switch and takes PSU's colours. `-Theme Light` or
   `-Theme Dark` pins it. Corporate colours come from the app's stylesheet: [Themes and corporate
   design](themes.md).

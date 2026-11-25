@@ -86,7 +86,8 @@ The properties apply to every chart and report of the page, so this site shows n
 
 The series colours (`--psu-chart-1` ... `--psu-chart-8`) and the accent (`--psu-chart-accent` or
 `--psu-pivot-accent`) carry a corporate design: the highlight, drop zone, note, tab and button colours
-follow from the accent. Set `--psu-pivot-accent-text` whenever the accent is light in the light mode
+follow from the accent, and without one they keep PSU's values. The `--psu-pivot-*` properties in the
+table set what only the report has or give it a value of its own. Set `--psu-pivot-accent-text` whenever the accent is light in the light mode
 or dark in the dark mode: the default text on the accent is white in light mode and near-black in dark.
 
 <details class="note" markdown="1">

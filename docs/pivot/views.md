@@ -109,8 +109,7 @@ A link pivotkit made, or one with parameters of a server source, opens a view: [
 
 ## Filters
 
-Every filter of a view has one shape: `field`, `type`, the keys of its type, and `not` and `blanks`.
-The types and their keys: [Filters in a view](filters.md).
+The shape of a filter, its types and their keys: [Filters in a view](filters.md).
 
 ## Several tabs and keeping the reader's view
 

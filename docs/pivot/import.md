@@ -131,11 +131,12 @@ browser; approximate).
 
 `-ImportLimit` raises or lowers these limits for the files readers load into a report; keys left
 out keep pivotkit's defaults. The app's `-Data` keeps pivotkit's own limits, so a limit for files
-may be lower or higher than what the app's data gets. The keys are `fileBytes` (100 MiB), `rows`
-(1,000,000), `columns`, `importCells`, `textLength`, `archiveEntries` and `unpackedBytes`.
+may be lower or higher than what the app's data gets. The keys and their defaults: `fileBytes`
+(100 MiB), `rows` (1,000,000), `columns` (1,000), `importCells` (10,000,000), `textLength` (32,767),
+`archiveEntries` (10,000) and `unpackedBytes` (500 MiB).
 
 <details class="note" markdown="1">
-<summary>Every key with its default</summary>
+<summary>What each key counts</summary>
 
 | Key | Default | Counts |
 | --- | --- | --- |
