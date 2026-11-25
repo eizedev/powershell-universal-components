@@ -16,9 +16,10 @@
 // entry by itself. Raising one is --accept-growth, and the pull request says why.
 // eizedev/pivotkit has the same guards in scripts/growth.js; both work alike.
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readmes, sitePages } from "./docs-files.js";
 import { LANGUAGE_OPTIONS, SOURCES } from "./javascript-sources.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -167,24 +168,13 @@ export function docsKind(page) {
 const lineCount = (text) => text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
 
 /**
- * Lines of every docs page (docs/**\/*.md without docs/site/, which builds the site) and every README
- * (the repository's and each module's), as repository path -> lines.
+ * Lines of every docs page and every README (build/docs-files.js), as repository path -> lines.
  * @param {string} [dir]  the repository
  * @returns {Record<string, number>}
  */
 export function docsPages(dir = root) {
-    const pages = {};
-    const add = (path) => {
-        if (existsSync(join(dir, path))) pages[path] = lineCount(readFileSync(join(dir, path), "utf8"));
-    };
-    for (const entry of readdirSync(join(dir, "docs"), { recursive: true, withFileTypes: true })) {
-        if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
-        const path = posix(join(entry.parentPath, entry.name), dir);
-        if (!path.startsWith("docs/site/")) add(path);
-    }
-    add("README.md");
-    for (const module of readdirSync(join(dir, "modules"), { withFileTypes: true })) if (module.isDirectory()) add(`modules/${module.name}/README.md`);
-    return pages;
+    const paths = [...sitePages(dir).map((page) => `docs/${page}`), ...readmes(dir)];
+    return Object.fromEntries(paths.map((path) => [path, lineCount(readFileSync(join(dir, path), "utf8"))]));
 }
 
 /**

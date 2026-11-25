@@ -1,5 +1,5 @@
 ---
-description: "Install, update and first steps with the PowerShell Universal component modules: a first chart, your own data from SQL, REST or PowerShell objects, and the showcase apps."
+description: "Install and first steps with the PowerShell Universal component modules: a first chart, your own data from SQL, REST or PowerShell objects, and the showcase apps."
 ---
 
 # Getting started
@@ -22,31 +22,7 @@ when a page uses it.
 
 ## Update
 
-1. Install the new version of each module you use, the way you installed it:
-
-    ```powershell
-    Install-PSResource -Name PowerShellUniversal.Component.Pivot   # repeat for each module
-    ```
-
-    `Install-PSResource` puts the new version in a folder of its own, next to the old one. From a release
-    zip, copy the new `<version>` folder next to the old one in `Modules/<Module>/`.
-2. Restart PSU. PowerShell imports the newest version it finds in the folder, but a process that has
-    already imported the module keeps that version.
-3. Readers reload their open pages. The bundle's file name holds a hash of its content, so a reload
-    fetches the new code.
-4. Remove the old version folder once nothing uses it. Installing a new version does not remove it.
-
-What to check:
-
-- **Every module carries its own copy of the code the modules share.** A fix in that code reaches a
-  module only with that module's own release. Update every module you use, and read each module's
-  `CHANGELOG.md`.
-- **Readers' views (Pivot)** live outside the module folder: in the reader's browser, in
-  `pivot-views` next to the repository (`New-UDPivotFileTemplateStore`), or in your own storage
-  (`New-UDPivotTemplateStore`). A release refuses view files of a newer format than it reads, so
-  check before you go back to an older one: [View files](pivot/templates.md#view-files).
-- **A published folder for the pivot schema** names the old version folder:
-  [Your own copy of the schema](pivot/schema.md#your-own-copy-of-the-schema).
+How to update a module and what to change for its newest release: [Upgrading](upgrading.md).
 
 ## A first chart
 

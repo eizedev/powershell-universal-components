@@ -50,7 +50,7 @@ These are the parts a break can hit:
   `Get-UDElement`.
 - Environment variables, such as `PSU_COMPONENT_PIVOT_SCHEMA_URL`.
 - The addresses of the showcase apps' pages where the docs name them.
-- The lowest supported versions of PowerShell Universal and PowerShell ([requirements](index.md#requirements)).
+- The lowest supported versions of PowerShell Universal and PowerShell ([compatibility](compatibility.md)).
 
 These are not public interface and can change in any release:
 

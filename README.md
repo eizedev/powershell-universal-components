@@ -18,7 +18,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License: MIT"></a>
 </p>
 
-**[Documentation](https://powershell-universal-components.eize.dev/)** · [Getting started](https://powershell-universal-components.eize.dev/getting-started/) · [Requirements](https://powershell-universal-components.eize.dev/#requirements) · [Releases](https://github.com/eizedev/powershell-universal-components/releases)
+**[Documentation](https://powershell-universal-components.eize.dev/)** · [Getting started](https://powershell-universal-components.eize.dev/getting-started/) · [Compatibility](https://powershell-universal-components.eize.dev/compatibility/) · [Releases](https://github.com/eizedev/powershell-universal-components/releases)
 
 > [!NOTE]
 > The modules are 0.x. A minor release can break things, so read the module's `CHANGELOG.md` before
