@@ -77,5 +77,5 @@ Name it `PowerShellUniversal.Component.<Name>`, with `New-UD<Name>` and the type
 
 ## Releasing a module
 
-Maintainers release each module on its own. The steps and the one-time setup are in
+Maintainers release each module on its own. The checklist and the one-time setup are in
 [Releases](docs/development/release.md).

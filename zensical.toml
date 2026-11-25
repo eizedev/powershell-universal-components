@@ -18,6 +18,7 @@ nav = [
   { "Overview" = "index.md" },
   { "Getting started" = "getting-started.md" },
   { "Versioning" = "versioning.md" },
+  { "Upgrading" = "upgrading.md" },
   { "Compatibility" = "compatibility.md" },
   { "Security" = "security.md" },
   { "ECharts" = [
@@ -118,7 +119,7 @@ PowerShell objects. Not affiliated with Devolutions. llms-full.txt holds every p
 """
 
 [project.plugins.llmstxt.sections]
-"Start" = ["index.md", "getting-started.md", "versioning.md", "compatibility.md", "security.md"]
+"Start" = ["index.md", "getting-started.md", "versioning.md", "upgrading.md", "compatibility.md", "security.md"]
 "ECharts module" = ["echarts/*.md", "demo.md"]
 "Perspective module" = ["perspective/*.md"]
 "Pivot module" = ["pivot/*.md"]
