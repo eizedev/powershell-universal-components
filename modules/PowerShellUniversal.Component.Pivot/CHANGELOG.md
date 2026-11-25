@@ -5,6 +5,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-25
+
 ### Fixed
 
 - A store error of the server, such as a folder it cannot write, no longer shows the server's path to
@@ -23,6 +25,14 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Changed
 
+- pivotkit-core 0.10.0, pivotkit-react 0.10.0, pivotkit-report 0.6.0 and pivotkit-xlsx 0.7.0, all
+  pinned. What readers see:
+    - A loaded CSV or Excel file with numbers such as `1,234` or `1.500` reads them in the notation
+      of the report's locale and says so in a note. Check such a column after the update.
+    - On a phone, the settings button shows its icon only, and table headers wrap between words.
+    - A menu that a low window cuts off fades out at its end.
+  `-Labels` no longer uses the key `settingsShort`. Remove it if you set it. The
+  [pivotkit changelogs](https://pivotkit.eize.dev/getting-started/upgrading/#from-0-9) list all changes.
 - A shared view of a template store takes no origin from the request's headers for a `-SchemaUrl`
   path. It takes the origin of an https `PSU_COMPONENT_PIVOT_SCHEMA_URL`, else it names pivotkit's
   schema address. This affects you when you publish shared views with a path and no https default:
