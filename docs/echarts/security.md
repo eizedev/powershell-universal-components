@@ -1,3 +1,7 @@
+---
+description: "Security notes and limits of New-UDEChart: what -Data sends to the browser, event data as user input, -Options, and its limits: accessibility, PSU's React and sampling above 20,000 points."
+---
+
 # Security and limits
 
 ## Security notes

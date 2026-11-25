@@ -124,6 +124,8 @@ PowerShell objects. Not affiliated with Devolutions. llms-full.txt holds every p
 "Decisions" = ["decisions/*.md"]
 
 [project.theme]
+# overrides/main.html adds the Open Graph and Twitter card tags to every page
+custom_dir = "overrides"
 language = "en"
 logo = "assets/images/icon.svg"
 favicon = "assets/images/icon.svg"

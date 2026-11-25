@@ -1,3 +1,7 @@
+---
+description: "Bar charts with New-UDEChart: one or more -Y columns or -GroupBy, stacked, to 100 %, horizontal and sorted, value labels and negative values in their own colour."
+---
+
 # Bars
 
 `-Type bar` with one or more `-Y` columns or `-GroupBy` for one series per group. `-Stacked` stacks the

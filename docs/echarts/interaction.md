@@ -1,3 +1,7 @@
+---
+description: "Interaction with New-UDEChart: tooltips, zoom, the toolbox with export and full screen, and the click, selection and zoom events that run PowerShell or filter other elements."
+---
+
 # Interaction and events
 
 On by default: tooltips (the element under the pointer, or every series at an axis position; see

@@ -1,3 +1,7 @@
+---
+description: "Build and test the modules and this site: Node and PowerShell versions, unit, Pester and browser tests, tests on a PSU instance and against the real pivotkit, and adding a module."
+---
+
 # Development
 
 The repository builds one PowerShell module per component. Each module is a React component registered
@@ -14,6 +18,7 @@ Requires Node.js 22.18 or newer 22.x, or 24.11 or newer (Babel 8; CI tests the l
 
 ```powershell
 npm ci; npm test                                   # JavaScript unit tests
+npm run lint                                       # ESLint, as CI runs it
 ./build/Build-Module.ps1 -Module <Module>          # any folder in modules/; output/<Module>/<Version>
 Invoke-Pester -Path ./tests/powershell
 ```
@@ -40,6 +45,9 @@ npx playwright install chromium firefox webkit; npm run test:browser
 The design's stylesheet comes from eizedev/brand (`docs/assets/site.css`, not committed): copy it from
 there for a local build. A new example goes into `examples.ps1` and is included on the page it belongs
 to; the build fails for an example that no page includes.
+Every page has a `description:` in its front matter: `overrides/main.html` puts it, with the title and
+`assets/social-preview.png`, into the page's Open Graph and Twitter card tags. `Build-Site.ps1` writes
+`robots.txt` with the sitemap's address from `site_url`.
 
 For AI tools the site also publishes [llms.txt](https://powershell-universal-components.eize.dev/llms.txt)
 (the pages by section, with links to their Markdown), `llms-full.txt` (all of them in one file) and a

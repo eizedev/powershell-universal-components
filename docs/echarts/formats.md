@@ -1,3 +1,7 @@
+---
+description: "Number and date formats of New-UDEChart: -Format, -LabelFormat and -XFormat for axis, tooltip and labels, the reader's language or -Locale, and time axis labels."
+---
+
 # Formats
 
 `-Format` applies to axis, tooltip and labels; `-LabelFormat` to value labels only (default: the short

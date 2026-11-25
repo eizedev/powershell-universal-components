@@ -1,3 +1,7 @@
+---
+description: "Every parameter of New-UDEChart, New-UDEChartTimeBreak and Set-UDEChartData, from the module's comment-based help."
+---
+
 # Reference
 
 From the comment-based help of the module (`Get-Help New-UDEChart -Full` shows the same).

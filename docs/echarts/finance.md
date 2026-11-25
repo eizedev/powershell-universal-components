@@ -1,3 +1,7 @@
+---
+description: "Finance charts with New-UDEChart: a waterfall from revenue to result, and candlesticks from -Open, -Close, -Low and -High with volume in its own panel."
+---
+
 # Finance
 
 `-Type waterfall` shows how steps (`-X`) change a total; steps named in `-Totals` show the running

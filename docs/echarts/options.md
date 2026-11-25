@@ -1,3 +1,7 @@
+---
+description: "-Options of New-UDEChart: any Apache ECharts option merged over what the parameters generate, the ECharts instance in the browser, and why it is for the app author only."
+---
+
 # Everything else: `-Options`
 
 `-Options` takes any [Apache ECharts option](https://echarts.apache.org/en/option.html) and is merged
