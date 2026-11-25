@@ -19,8 +19,12 @@
 </p>
 
 **Documentation: [powershell-universal-components.eize.dev](https://powershell-universal-components.eize.dev/)**: every module, parameter and chart type, with live examples.
-Supported and tested versions: [Requirements](https://powershell-universal-components.eize.dev/#requirements). The modules are 0.x: a minor
-release can break things, so read the module's `CHANGELOG.md` before you update. Questions and ideas: [Discussions](https://github.com/eizedev/powershell-universal-components/discussions).
+
+Supported and tested versions: [Requirements](https://powershell-universal-components.eize.dev/#requirements).
+
+> [!NOTE]
+> The modules are 0.x. A minor release can break things, so read the module's `CHANGELOG.md` before
+> you update.
 
 ## Modules
 
@@ -87,10 +91,16 @@ without regard to case. A column name that matches no column shows the columns t
 
 Your own data from SQL, REST and PowerShell: [Getting started](https://powershell-universal-components.eize.dev/getting-started/).
 
+## Questions and help
+
+- Questions, ideas and what you built: [Discussions](https://github.com/eizedev/powershell-universal-components/discussions).
+- Bugs and concrete feature requests: [issues](https://github.com/eizedev/powershell-universal-components/issues).
+- Security problems: report them [privately](https://github.com/eizedev/powershell-universal-components/security/advisories/new), see [SECURITY.md](SECURITY.md).
+
 ## Development
 
 Build, tests, docs site and releases: [Development](https://powershell-universal-components.eize.dev/development/).
-Contributors and coding agents: [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md). Security reports: [SECURITY.md](SECURITY.md).
+Contributors and coding agents: [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
