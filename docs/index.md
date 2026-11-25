@@ -101,8 +101,9 @@ Chromium, Firefox or WebKit (Safari). What was tested and how: [Compatibility](c
 
 ## Questions and stability
 
-The modules are 0.x. A minor release can break things. Read the module's `CHANGELOG.md` before
-you update. [Versioning](versioning.md) lists what the modules treat as public interface.
+The modules are 0.x. A minor release can break things. Each break is marked **Breaking** in the module's
+`CHANGELOG.md`, and [Upgrading](upgrading.md) says what to do. [Versioning](versioning.md) lists what the
+modules treat as public interface.
 
 Ask questions and share ideas in [GitHub Discussions](https://github.com/eizedev/powershell-universal-components/discussions). Bugs go into
 [issues](https://github.com/eizedev/powershell-universal-components/issues). Each release of a component module is announced in Discussions too.

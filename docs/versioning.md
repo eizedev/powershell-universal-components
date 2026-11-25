@@ -15,7 +15,8 @@ its own `CHANGELOG.md`, and has releases of its own.
 The modules are 0.x and under active development.
 
 - A minor release, from 0.y to 0.(y+1), can break things. The modules break as little as possible.
-- The module's `CHANGELOG.md` says what changed. Read it before you update.
+- The module's `CHANGELOG.md` says what changed and marks each break **Breaking**;
+  [Upgrading](upgrading.md) says what to do. Read them before you update.
 
 To choose when you update, install a fixed version:
 
