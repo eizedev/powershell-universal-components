@@ -35,7 +35,9 @@ chart, after dragging *Priority* into Split By:
 
 `-Labels @{ EditView = 'Ansicht bearbeiten'; Table = 'Tabelle'; Chart = 'Diagramm' }` puts the
 toolbar into another language, `-ChartPlugin Treemap` chooses the chart of the Chart button,
-`-NoToolbar` hides the toolbar. The module's showcase app
+`-NoToolbar` hides the toolbar. The toolbar is an ARIA toolbar named "Perspective", and its buttons
+say with `aria-pressed` which one is on. The viewer below it is Perspective's own; this repository
+does not test it with a keyboard or a screen reader. The module's showcase app
 ([examples/showcase.ps1](https://github.com/eizedev/powershell-universal-components/blob/HEAD/modules/PowerShellUniversal.Component.Perspective/examples/showcase.ps1))
 has pages for tickets, assets across source systems and costs, each starting with a view the reader
 then changes.
