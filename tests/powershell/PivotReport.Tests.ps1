@@ -553,7 +553,9 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
 
     It 'POSTs the rows as inline: data with the view, the format and the static token' {
         $bytes = Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view -Format csv -Title 'Hours' -DataName 'Tickets' -DataAsOf ([datetime]::new(2026, 11, 15, 6, 0, 0, [DateTimeKind]::Utc))
-        [System.Text.Encoding]::UTF8.GetString($bytes) | Should -Be 'Team,Sum of Hours'
+        # one byte[], not an object[] of single bytes: GetString takes both, but [string] of an object[]
+        # joins the byte values with spaces, and an HTML frame showed those numbers (#204)
+        @($bytes.GetType().FullName, [System.Text.Encoding]::UTF8.GetString($bytes)) | Should -Be @('System.Byte[]', 'Team,Sum of Hours')
         $log = @(Get-Log)
         $log.Count | Should -Be 1
         $log[0].Path | Should -Be '/api/v1/views/render/file'
