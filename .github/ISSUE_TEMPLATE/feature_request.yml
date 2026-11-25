@@ -2,13 +2,28 @@ name: Feature request
 description: A chart type, an option or a new component.
 labels: ["enhancement"]
 body:
-  - type: textarea
-    id: need
+  - type: markdown
     attributes:
-      label: What you want to show or do
-      description: The data you have and what the chart or component should let people do with it.
+      value: "[PRODUCT.md](https://github.com/eizedev/powershell-universal-components/blob/main/PRODUCT.md) says what the modules are and are not. Short answers are fine."
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you want to show or do, with the data you have, and what stands in the way today.
     validations:
       required: true
+  - type: textarea
+    id: who
+    attributes:
+      label: Who has it, and how often
+      description: Readers of an app, app authors or developers; once a month or every day.
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: What you do today
+      description: Your workaround, or another tool you use for it.
   - type: textarea
     id: example
     attributes:
