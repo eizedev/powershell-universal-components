@@ -31,6 +31,8 @@ test("readView: the zoom of each dataZoom, the legend selection of all legends a
     assert.equal(readView(fakeChart({})), null);
     assert.equal(readView(fakeChart({ legend: [{ selected: {} }] })), null);
     assert.equal(readView(null), null);
+    // before its first setOption a chart has no model (the theme effect runs before the option effect)
+    assert.equal(readView({ isDisposed: () => false, getModel: () => undefined, getOption: () => undefined }), null);
 });
 
 test("applyView: the kept state as silent actions, so no -OnZoom, -OnSelect or -OnLegendChange fires", () => {
@@ -79,6 +81,11 @@ test("ECharts: zoom, legend selection and brush survive setTheme and a new insta
         dataZoom: [{ type: "inside", xAxisIndex: [0], filterMode: "none" }, { type: "slider", xAxisIndex: [0] }],
         series: [{ name: "a", type: "line", data: Array.from({ length: 20 }, (_, i) => i) }, { name: "b", type: "line", data: Array.from({ length: 20 }, (_, i) => 20 - i) }]
     };
+    // nothing to keep before the first option
+    const blank = echarts.init(null, null, { renderer: "svg", ssr: true, width: 600, height: 400 });
+    setThemeKeepingView(blank, { color: ["#ff0000"] });
+    assert.equal(readView(blank), null);
+    blank.dispose();
     const make = () => {
         const chart = echarts.init(null, null, { renderer: "svg", ssr: true, width: 600, height: 400 });
         chart.setOption(option);

@@ -6,15 +6,17 @@
  * -OnLegendChange fires. A toolbox switch to line, bar or stack is not kept: the option is set anew.
  */
 
-// the view of a living chart, or null when there is nothing to keep
+// the view of a living chart, or null when there is nothing to keep (also before its first option,
+// when ECharts has no model yet)
 export function readView(chart) {
-    if (!chart || chart.isDisposed()) {
+    const model = chart && !chart.isDisposed() ? chart.getModel() : undefined;
+    if (!model) {
         return null;
     }
     const option = chart.getOption() || {};
     const zoom = (option.dataZoom || []).map((z, dataZoomIndex) => ({ dataZoomIndex, start: z.start, end: z.end }));
     const legend = Object.assign({}, ...(option.legend || []).map((l) => l.selected || {}));
-    const brushModel = chart.getModel().getComponent("brush");
+    const brushModel = model.getComponent("brush");
     // the range in data values and the grid it is drawn in; ECharts computes the pixels again
     const brush = ((brushModel && brushModel.areas) || []).map((a) => ({ brushType: a.brushType, coordRange: a.coordRange, panelId: a.panelId }));
     return zoom.length || Object.keys(legend).length || brush.length ? { zoom, legend, brush } : null;
