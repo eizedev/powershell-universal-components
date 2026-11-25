@@ -5,6 +5,7 @@ description: "Themes of New-UDEChart: light and dark with the app, an ECharts th
 # Themes and corporate design
 
 Light and dark follow the app's theme switch (`-Theme Auto`); `-Theme Light` or `Dark` pins one.
+The zoom, the series hidden in the legend and a brushed range stay when the theme switches.
 `-Palette` sets the series colours, `-Decal` adds patterns for colour-blind readers and print (off by
 default). The default palette is not checked for contrast. The charts on this site follow its
 light/dark switch the same way.

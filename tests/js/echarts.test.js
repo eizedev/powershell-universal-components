@@ -57,6 +57,47 @@ test("markLine: statistics per series, fixed line once", () => {
     assert.equal(o.series[0].markLine.data[1].yAxis, 48);
 });
 
+// the label side of each statistic line: [series][line] -> position
+const statLabels = (o) => o.series.map((s) => (s.markLine ? s.markLine.data.filter((d) => d.type).map((d) => d.label.position) : []));
+
+test("markLine: the higher statistic line is labelled above, the lower one below, whichever series it is", () => {
+    const rows = [{ d: "1", a: 2, b: 5 }, { d: "2", a: 4, b: 7 }];
+    // second series higher: before, its label faced the first one's and both overlapped
+    assert.deepEqual(statLabels(buildOption({ chartType: "line", data: rows, x: "d", y: ["a", "b"], markLine: ["average"] }, {})), [["insideEndBottom"], ["insideEndTop"]]);
+    // first series higher: as before
+    assert.deepEqual(statLabels(buildOption({ chartType: "line", data: rows, x: "d", y: ["b", "a"], markLine: ["average"] }, {})), [["insideEndTop"], ["insideEndBottom"]]);
+    // one series: above its line, as before
+    assert.deepEqual(statLabels(buildOption({ chartType: "line", data: rows, x: "d", y: ["a"], markLine: ["average"] }, {})), [["insideEndTop"]]);
+});
+
+test("markLine: each statistic is ordered on its own, a middle line's label faces away from its nearer neighbour", () => {
+    // averages a 3, b 6, c 10: b is nearer to a, so its label goes above; maxima a 4, b 7, c 12 alike
+    const rows = [{ d: "1", a: 2, b: 5, c: 8 }, { d: "2", a: 4, b: 7, c: 12 }];
+    assert.deepEqual(statLabels(buildOption({ chartType: "line", data: rows, x: "d", y: ["c", "a", "b"], markLine: ["average", "max"] }, {})), [
+        ["insideEndTop", "insideEndTop"],
+        ["insideEndBottom", "insideEndBottom"],
+        ["insideEndTop", "insideEndTop"]
+    ]);
+    // min of a is higher than b's, its average lower: each line by its own value
+    const crossing = [{ d: "1", a: 5, b: 1 }, { d: "2", a: 5, b: 20 }];
+    assert.deepEqual(statLabels(buildOption({ chartType: "line", data: crossing, x: "d", y: ["a", "b"], markLine: ["average", "min"] }, {})), [
+        ["insideEndBottom", "insideEndTop"],
+        ["insideEndTop", "insideEndBottom"]
+    ]);
+});
+
+test("markLine: lines are compared on their own value axis, stacked series by their stacked values, median as ECharts computes it", () => {
+    const rows = [{ d: "1", a: 2, b: 50 }, { d: "2", a: 4, b: 70 }];
+    // b on the secondary axis: alone there, so both labels above their lines
+    assert.deepEqual(statLabels(buildOption({ chartType: "line", data: rows, x: "d", y: ["b", "a"], secondaryY: ["b"], markLine: ["average"] }, {})), [["insideEndTop"], ["insideEndTop"]]);
+    // stacked: ECharts draws b's line at a + b, above a, although b alone is smaller here
+    const stacked = [{ d: "1", a: 10, b: 1 }, { d: "2", a: 12, b: 1 }];
+    assert.deepEqual(statLabels(buildOption({ chartType: "area", data: stacked, x: "d", y: ["a", "b"], stacked: true, markLine: ["average"] }, {})), [["insideEndBottom"], ["insideEndTop"]]);
+    // median of an even count is the mean of the two middle values: a 5.5 against b 5
+    const median = [{ d: "1", a: 1, b: 5 }, { d: "2", a: 10, b: 5 }, { d: "3", a: 1, b: 5 }, { d: "4", a: 10, b: 5 }];
+    assert.deepEqual(statLabels(buildOption({ chartType: "bar", data: median, x: "d", y: ["b", "a"], markLine: ["median"] }, {})), [["insideEndBottom"], ["insideEndTop"]]);
+});
+
 test("every formatter returns a string", () => {
     const o = buildOption({ chartType: "line", data: days, x: "day", y: ["opened"], dataLabels: true }, {});
     const label = o.series[0].label.formatter({ value: ["x", 5] });

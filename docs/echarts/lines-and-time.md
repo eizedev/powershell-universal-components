@@ -19,7 +19,8 @@ lines, `-SecondaryY` puts named series on a second axis, `-LogScale` makes the v
 ## Reference lines and pins
 
 `-MarkLine 'median', 'average'` per series, or fixed lines: `@{ value = 48; name = 'SLA'; color = '#e53935' }`
-(`axis = 'x'` for a vertical line).
+(`axis = 'x'` for a vertical line). With several series, the label of the higher line of a statistic
+sits above it and the lower one's below, so the labels of close lines do not overlap.
 
 `-MarkPoint 'max', 'min'` pins those values on every series; `@{ x = 'Thu'; y = 306; label = 'Outage' }`
 pins one point (add `series = 'Mail'` for another series than the first).

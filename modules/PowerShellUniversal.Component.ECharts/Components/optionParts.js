@@ -291,9 +291,10 @@ export function markAreaOf(props, xType, horizontal) {
 
 /*
  * markLine entries from PowerShell: "median", "average", "min", "max" (of each series) or
- * @{ value = 48; name = 'SLA'; axis = 'y' } for a fixed line.
+ * @{ value = 48; name = 'SLA'; axis = 'y' } for a fixed line. Labels sit above the line's end;
+ * placeStatisticLabels moves those of statistic lines that lie below another series' line.
  */
-export function markLineOf(props, horizontal, fmt, seriesIndex = 0) {
+export function markLineOf(props, horizontal, fmt) {
     const items = list(props.markLine);
     if (items.length === 0) {
         return undefined;
@@ -316,10 +317,97 @@ export function markLineOf(props, horizontal, fmt, seriesIndex = 0) {
     }
     return {
         symbol: ["none", "none"],
-        label: { formatter: (p) => `${p.name ? p.name + ": " : ""}${fmt ? fmt(p.value) : p.value}`, position: seriesIndex % 2 === 0 ? "insideEndTop" : "insideEndBottom" },
+        label: { formatter: (p) => `${p.name ? p.name + ": " : ""}${fmt ? fmt(p.value) : p.value}`, position: "insideEndTop" },
         lineStyle: { type: "dashed" },
         data
     };
+}
+
+// -MarkLine statistics belong to every series of a cartesian chart; fixed lines only to the first,
+// which has them from markLineOf already
+export function addStatisticLines(series, props, horizontal, fmt) {
+    const statistics = list(props.markLine).filter((m) => typeof m === "string");
+    if (statistics.length === 0) {
+        return;
+    }
+    series.slice(1).forEach((s) => {
+        s.markLine = markLineOf({ markLine: statistics }, horizontal, fmt);
+    });
+    placeStatisticLabels(series, horizontal);
+}
+
+// the value a statistic line is drawn at, as ECharts computes it (marker/markerHelper.js numCalculate)
+const STATISTICS = {
+    average: (v) => AGGREGATES.avg(v),
+    median: (v) => quantile([...v].sort((a, b) => a - b), 0.5),
+    min: (v) => AGGREGATES.min(v),
+    max: (v) => AGGREGATES.max(v)
+};
+
+// a data item as built: a number, { value }, [x, y] or { value: [x, y] } ([y, x] for horizontal bars)
+function pointOf(item, index, horizontal) {
+    const point = item && typeof item === "object" && !Array.isArray(item) ? item.value : item;
+    return Array.isArray(point) ? { x: point[horizontal ? 1 : 0], value: num(point[horizontal ? 0 : 1]) } : { x: index, value: num(point) };
+}
+
+// each series' values as drawn: a stacked series on top of the earlier ones of its stack with the same
+// sign (ECharts' default stackStrategy), matched by x on a time or value axis, by position otherwise
+function drawnValues(series, horizontal) {
+    const stacks = new Map();
+    return series.map((s) => {
+        const sums = s.stack ? stacks.get(s.stack) ?? new Map() : null;
+        if (sums) {
+            stacks.set(s.stack, sums);
+        }
+        return (s.data || []).map((item, i) => {
+            const { x, value } = pointOf(item, i, horizontal);
+            if (!sums || value === null) {
+                return value;
+            }
+            const key = `${x}|${value < 0 ? "-" : "+"}`;
+            sums.set(key, (sums.get(key) ?? 0) + value);
+            return sums.get(key);
+        });
+    });
+}
+
+// highest line: label above; lowest: below; one in between: away from its nearer neighbour
+function labelSide(lines, rank) {
+    if (rank === 0) {
+        return "insideEndTop";
+    }
+    if (rank === lines.length - 1) {
+        return "insideEndBottom";
+    }
+    const gapAbove = lines[rank - 1].value - lines[rank].value;
+    const gapBelow = lines[rank].value - lines[rank + 1].value;
+    return gapBelow <= gapAbove ? "insideEndTop" : "insideEndBottom";
+}
+
+/*
+ * The labels of statistic lines of several series, by where the lines lie, so the labels of close
+ * lines face away from each other. Each statistic is ordered on its own, among the series on the same
+ * value axis; equal values keep the series order. A label set on a line item wins over one set for
+ * the series' markLine (-Options).
+ */
+export function placeStatisticLabels(series, horizontal) {
+    const drawn = drawnValues(series, horizontal);
+    const groups = new Map();
+    series.forEach((s, i) => {
+        const values = drawn[i].filter((v) => v !== null);
+        for (const item of (s.markLine && s.markLine.data) || []) {
+            if (STATISTICS[item.type] && values.length) {
+                const key = `${item.type}|${s.yAxisIndex ?? 0}`;
+                groups.set(key, [...(groups.get(key) ?? []), { item, value: STATISTICS[item.type](values) }]);
+            }
+        }
+    });
+    for (const lines of groups.values()) {
+        lines.sort((a, b) => b.value - a.value);
+        lines.forEach((line, rank) => {
+            line.item.label = { position: labelSide(lines, rank) };
+        });
+    }
 }
 
 // ---- axis breaks -----------------------------------------------------------------------------------

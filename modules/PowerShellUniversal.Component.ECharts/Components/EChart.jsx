@@ -4,6 +4,7 @@ import { buildOption, dataRows, rowOf, responsive, optionForWidth, tooltipTracks
 import { tooltipState } from "./tooltipMode";
 import { ensureTheme, themeObject, pageFontSize } from "./themes";
 import { scaleFonts } from "./fonts";
+import { applyView, handOverView, setThemeKeepingView, takeHandedOverView } from "./viewState";
 import { fitPlot, insideLabelColors, legendRows, needsFit } from "./layout";
 import { registerLocales, echartsLocale } from "./locales";
 import { usePsuTheme, effectiveMode } from "../../../shared/js/psuTheme";
@@ -57,6 +58,21 @@ function toggleFullscreen(el) {
     }
 }
 
+// whether the element is on the whole screen now (the button, Esc or the browser's own way out)
+function useFullscreen(ref) {
+    const [full, setFull] = useState(false);
+    useEffect(() => {
+        const onChange = () => setFull(fullscreenElement() === ref.current);
+        document.addEventListener("fullscreenchange", onChange);
+        document.addEventListener("webkitfullscreenchange", onChange);
+        return () => {
+            document.removeEventListener("fullscreenchange", onChange);
+            document.removeEventListener("webkitfullscreenchange", onChange);
+        };
+    }, [ref]);
+    return full;
+}
+
 /*
  * Values from ECharts events turned into something PowerShell can use: time axis values (epoch ms)
  * become ISO strings, category indices become the category names.
@@ -78,8 +94,8 @@ function axisValue(chart, axisIndex, value) {
 export default function EChart(props) {
     const outer = useRef(null);
     const container = useRef(null);
-    const [full, setFull] = useState(false);
     const chartRef = useRef(null);
+    const full = useFullscreen(outer);
     const psuTheme = usePsuTheme();
     const mode = effectiveMode(props.theme, psuTheme);
     const locale = defaultLocale(props.locale);
@@ -89,8 +105,11 @@ export default function EChart(props) {
     // one object per content: PSU sends the theme anew with every update of the props, which must
     // not set the theme again
     const customTheme = useMemo(() => (customKey ? JSON.parse(customKey) : undefined), [customKey]);
-    // the latest props for event handlers registered once
+    // the latest props for event handlers registered once, the latest mode for the chart's disposal
     const latest = useLatest(props);
+    const latestMode = useLatest(mode);
+    // zoom, legend and brush of the chart this one replaces after PSU's light/dark switch (viewState.js)
+    const handedView = useRef(null);
     // Get-UDElement: the last click, range and zoom, kept here because PSU asks for them synchronously
     // (shared/js/elementState.js). The component's state holds them too; the wrapper's late POST sends
     // that copy, which PSU ignores
@@ -132,16 +151,6 @@ export default function EChart(props) {
         }
     }, [props, locale, mode, latest]);
 
-    useEffect(() => {
-        const onChange = () => setFull(fullscreenElement() === outer.current);
-        document.addEventListener("fullscreenchange", onChange);
-        document.addEventListener("webkitfullscreenchange", onChange);
-        return () => {
-            document.removeEventListener("fullscreenchange", onChange);
-            document.removeEventListener("webkitfullscreenchange", onChange);
-        };
-    }, []);
-
     // layout key of the container: the option is applied again only when the width crosses a rule's
     // limit, or - for charts without a grid, whose plot is placed by size (fitPlot) - when the size or
     // the number of legend lines changes noticeably
@@ -158,6 +167,7 @@ export default function EChart(props) {
         registerLocales(echarts);
         const chart = echarts.init(container.current, ensureTheme(echarts, mode, psuTheme, customTheme), { renderer: props.renderer === "svg" ? "svg" : "canvas", locale: echartsLocale(locale) });
         chartRef.current = chart;
+        handedView.current = takeHandedOverView(props.id, mode);
         // the ECharts instance on its element, for page scripts and tests: element.echarts.getOption()
         container.current.echarts = chart;
         // resize in the next frame: resizing inside the observer's callback changes the layout it is
@@ -177,11 +187,14 @@ export default function EChart(props) {
         return () => {
             cancelAnimationFrame(frame);
             resize.disconnect();
+            // the mode at disposal, not at creation: a value, not a node, so the rule's case does not apply
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+            handOverView(props.id, latestMode.current, chart);
             chart.dispose();
             chartRef.current = null;
         };
         // made again only for another renderer or locale: the theme is the starting one, a new theme
-        // goes to the living chart (next effect), so zoom, legend and brush stay
+        // goes to the living chart (next effect); zoom, legend and brush stay over both (viewState.js)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [props.renderer, locale]);
 
@@ -189,7 +202,7 @@ export default function EChart(props) {
     useEffect(() => {
         const chart = chartRef.current;
         if (chart) {
-            chart.setTheme(ensureTheme(echarts, mode, psuTheme, customTheme));
+            setThemeKeepingView(chart, ensureTheme(echarts, mode, psuTheme, customTheme));
         }
     }, [mode, psuTheme, customTheme]);
 
@@ -207,6 +220,8 @@ export default function EChart(props) {
         const placed = fitPlot(sized, { width, height: chart.getHeight() }, props.options);
         const theme = themeObject(mode, psuTheme, customTheme);
         chart.setOption(insideLabelColors(placed, theme.color, theme.textStyle && theme.textStyle.color), { replaceMerge: REPLACED });
+        applyView(chart, handedView.current);
+        handedView.current = null;
         // the series are as built again (a toolbox switch to line, bar or stack is gone)
         tipState.current.live = null;
     }, [option, layoutKey, mode, psuTheme, customTheme, props.options]);
