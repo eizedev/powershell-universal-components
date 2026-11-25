@@ -1,6 +1,6 @@
-// Checks every docs page and README must pass, beyond what the site build checks: a list starts after a
-// blank line, every page has a description, and the current-state docs name no release of pivotkit or
-// of a module. eizedev/pivotkit has the same checks (tests/docs-lists.test.js, tests/ci.test.js).
+// Checks beyond what the site build checks: on every page of the site, a list starts after a blank line
+// and the front matter has a description; the current-state docs (READMEs, guides and pages outside
+// docs/decisions/) name no release of pivotkit or of a module. eizedev/pivotkit has the same checks (tests/docs-lists.test.js, tests/ci.test.js).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -121,7 +121,7 @@ test("every page of the site has a description in its front matter", () => {
 // ("pivotkit-server 0.4.0 or later") and otherwise describe what an older version does, without its
 // number. The pattern names pivotkit and its packages, the modules by their full name, "Pivot" and
 // "<name> module"; "ECharts 6.1" or "Perspective 5.7" name a bundled library, not a module.
-const RELEASE_NAME = /\b(?:pivotkit(?:-[a-z]+)?|PowerShellUniversal\.Component\.[A-Za-z.]*[A-Za-z]|Pivot|(?:ECharts|Perspective|Pivot) module)[ @]\(?v?\d+\.\d+(?:\.\d+)?(?!\.?\d)(?!\)?\s+or\s+(?:later|newer))/g;
+const RELEASE_NAME = /\b(?:pivotkit(?:-[a-z]+)?|PowerShellUniversal\.Component\.[A-Za-z.]*[A-Za-z]|Pivot|(?:ECharts|Perspective|Pivot) module)`?[ @]\(?v?\d+\.\d+(?:\.\d+)?(?!\.?\d)(?!\)?\s+or\s+(?:later|newer))/g;
 
 /**
  * Where a current-state page may name releases: the whole file, or one section of it (its "## "
@@ -148,6 +148,7 @@ function releaseNames(text, sections = []) {
 test("releaseNames finds a release named as a fact and leaves minimums and allowed sections alone", () => {
     assert.deepEqual(releaseNames("pivotkit 0.8 does not know it. Pivot 0.10.0 changed it."), ["pivotkit 0.8", "Pivot 0.10.0"]);
     assert.deepEqual(releaseNames("Tag pivotkit-server@0.4.0 or PowerShellUniversal.Component.Pivot.Demo 0.3."), ["pivotkit-server@0.4.0", "PowerShellUniversal.Component.Pivot.Demo 0.3"]);
+    assert.deepEqual(releaseNames("Since `pivotkit-cli` 0.8 it works."), ["pivotkit-cli` 0.8"]);
     assert.deepEqual(releaseNames("needs pivotkit-server 0.4.0 or\nlater; a pivotkit-server (0.3.0 or later)"), []);
     assert.deepEqual(releaseNames("Apache ECharts 6.1 and Perspective 5.7, the ECharts module 0.3"), ["ECharts module 0.3"]);
     assert.deepEqual(releaseNames("## Requirements\n\nTested with pivotkit-cli 0.6.0.\n\n## Next\n\npivotkit 0.9\n", ["Requirements"]), ["pivotkit 0.9"]);

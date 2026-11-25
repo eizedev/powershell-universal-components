@@ -1,7 +1,8 @@
 // The screenshots of the docs and the READMEs: every one is shown somewhere, comes as a light and a dark
 // one, and is shown with alt text. On the site each one carries the fragment that shows it in its theme
 // only (#only-light, #only-dark); a README shows a pair as a <picture> whose <source> holds the dark one.
-// eizedev/pivotkit has the same checks (tests/screenshots.test.js).
+// Images count as Markdown images, ![alt](src), <img> and <picture>; reference-style images are not
+// read (the docs use none). eizedev/pivotkit has the same checks (tests/screenshots.test.js).
 //
 // The screenshots live in two places: docs/assets/ (the pages and the READMEs show them from there) and
 // assets/screenshot-* (the README's quick start and the showcase app; docs/site/Build-Site.ps1 copies
@@ -42,6 +43,13 @@ function resolve(page, src) {
 /** The Markdown images of a text: { src, alt, fragment }. */
 const markdownImages = (text) => [...text.matchAll(/!\[([^\]]*)\]\(([^)\s#]+)(#[\w-]+)?\)/g)].map((m) => ({ alt: m[1], src: m[2], fragment: m[3] ?? "" }));
 
+/** The <img> elements outside a <picture>: { src, alt, fragment }. */
+const htmlImages = (text) =>
+    [...text.replace(/<picture>[\s\S]*?<\/picture>/g, "").matchAll(/<img [^>]*>/g)].map(([tag]) => {
+        const [src, fragment = ""] = (/src="([^"]+)"/.exec(tag)?.[1] ?? "").split(/(?=#)/);
+        return { src, alt: /alt="([^"]*)"/.exec(tag)?.[1] ?? "", fragment };
+    });
+
 /** The <picture> elements of a text: { dark, light, alt } from its <source> srcset and its <img>. */
 const pictures = (text) =>
     [...text.matchAll(/<picture>([\s\S]*?)<\/picture>/g)].map((m) => ({
@@ -54,7 +62,7 @@ const pages = sitePages().map((page) => `docs/${page}`);
 /** Every screenshot shown: { file, page, alt, fragment, picture }. */
 const shown = [...pages, ...readmes()].flatMap((page) => {
     const text = readFileSync(join(root, page), "utf8");
-    const images = markdownImages(text).map((image) => ({ ...image, file: resolve(page, image.src), page }));
+    const images = [...markdownImages(text), ...htmlImages(text)].map((image) => ({ ...image, file: resolve(page, image.src), page }));
     const fromPictures = pictures(text).flatMap(({ dark, light, alt }) => [
         { file: resolve(page, dark), page, alt, fragment: "", picture: "dark" },
         { file: resolve(page, light), page, alt, fragment: "", picture: "light" },
