@@ -1,6 +1,7 @@
 // Optional: the showcase app on a PSU instance in all three browsers. Runs only when PSU_URL points
 // at the app (e.g. PSU_URL=https://psu.example.com/echarts npx playwright test psu); skipped in CI.
 import { test, expect } from "@playwright/test";
+import { waitForCharts } from "./echarts-page.mjs";
 
 const base = process.env.PSU_URL;
 // every page of the app. "public" calls public web APIs (slow, outside our control), and "live" and
@@ -14,15 +15,7 @@ test.describe("showcase on PSU", () => {
             const errors = [];
             page.on("pageerror", (e) => errors.push(e.message));
             await page.goto(`${base.replace(/\/$/, "")}/${name}`);
-            await expect.poll(() => page.evaluate(() => [...document.querySelectorAll("div")].filter((d) => d.echarts).length), { timeout: 30000 }).toBeGreaterThan(0);
-            // wait until the page stops adding charts (dynamic regions render after the first ones)
-            let last = -1;
-            await expect.poll(async () => {
-                const n = await page.evaluate(() => [...document.querySelectorAll("div")].filter((d) => d.echarts).length);
-                const stable = n === last;
-                last = n;
-                return stable;
-            }, { timeout: 30000, intervals: [1000] }).toBe(true);
+            await waitForCharts(page);
             await expect(page.locator("[role=alert]")).toHaveCount(0);
             const charts = await page.evaluate(() => [...document.querySelectorAll("div")].filter((d) => d.echarts && d.offsetParent !== null).map((d) => ({ w: d.clientWidth, cw: d.echarts.getWidth() })));
             for (const c of charts) expect(Math.abs(c.w - c.cw)).toBeLessThanOrEqual(2);

@@ -30,11 +30,14 @@ asset 360), calendars, intraday charts with axis breaks, public data, layouts, t
 live data and a benchmark. All data is generated with a fixed seed; "Public data" calls public web
 APIs from the PSU server.
 
-![Data platform page of the showcase app: coverage heatmap of source systems and assets per number of sources](assets/images/screenshot-data-platform-dark.png)
+![Data platform page of the showcase app in the light theme: coverage heatmap of source systems per asset class, and assets per number of sources](assets/images/screenshot-data-platform-light.png#only-light)
+![Data platform page of the showcase app in the dark theme: coverage heatmap of source systems per asset class, and assets per number of sources](assets/images/screenshot-data-platform-dark.png#only-dark)
 
-![Ticket report page: SLA gauge, opened per day against the previous period, lead time histogram, boxplot per team](assets/images/screenshot-ticket-report-dark.png)
+![Ticket report page in the light theme: SLA gauge, opened per day against the previous period, lead time histogram, boxplot per team](assets/images/screenshot-ticket-report-light.png#only-light)
+![Ticket report page in the dark theme: SLA gauge, opened per day against the previous period, lead time histogram, boxplot per team](assets/images/screenshot-ticket-report-dark.png#only-dark)
 
-![Service review page: KPI matrix of sparklines per customer](assets/images/screenshot-service-review-light.png)
+![Managed services page in the light theme: service review, a KPI matrix of sparklines per customer](assets/images/screenshot-service-review-light.png#only-light)
+![Managed services page in the dark theme: service review, a KPI matrix of sparklines per customer](assets/images/screenshot-service-review-dark.png#only-dark)
 
 ## Before you share the app
 

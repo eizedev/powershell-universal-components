@@ -21,8 +21,10 @@
 **[Documentation](https://powershell-universal-components.eize.dev/)** · [Getting started](https://powershell-universal-components.eize.dev/getting-started/) · [Compatibility](https://powershell-universal-components.eize.dev/compatibility/) · [Releases](https://github.com/eizedev/powershell-universal-components/releases)
 
 > [!NOTE]
-> The modules are 0.x. A minor release can break things, so read the module's `CHANGELOG.md` before
-> you update. [Versioning](https://powershell-universal-components.eize.dev/versioning/) lists what the modules treat as public interface.
+> The modules are 0.x. A minor release can break things.
+> Each break is marked **Breaking** in the module's `CHANGELOG.md`.
+> [Upgrading](https://powershell-universal-components.eize.dev/upgrading/) says what to do.
+> [Versioning](https://powershell-universal-components.eize.dev/versioning/) lists what the modules treat as public interface.
 
 ## Modules
 

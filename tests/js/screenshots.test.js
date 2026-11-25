@@ -23,10 +23,9 @@ const files = [
     ...readdirSync(join(root, "assets")).filter((name) => name.startsWith("screenshot-")).map((name) => `assets/${name}`),
 ];
 
-// Single screenshots of the ECharts showcase app (docs/demo.md). Their partners need new screenshots
-// from the app on a PowerShell Universal instance: #213. The site shows them without a theme fragment,
-// so they stay visible in both themes. Remove an entry when its partner is there; the test fails until then.
-const SINGLES = new Set(["assets/screenshot-data-platform-dark.png", "assets/screenshot-ticket-report-dark.png", "assets/screenshot-service-review-light.png"]);
+// Single screenshots, shown in both themes without a theme fragment. None at present; an entry needs a
+// reason and an issue for its partner. The test fails once an entry has its partner or is gone.
+const SINGLES = new Set([]);
 
 /**
  * The repository path an image address of `page` points to, or null for an image elsewhere (a badge).
