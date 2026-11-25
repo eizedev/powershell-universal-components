@@ -12,9 +12,10 @@ Sources: [#66](https://github.com/eizedev/powershell-universal-components/pull/6
 ## Context and Problem Statement
 
 The pivot report follows PSU's light and dark mode: it reads `<html data-theme>` and sets pivotkit's
-`data-pk-theme` on its own root (#66). The Excel export reads the light theme, and the HTML report
-both, by showing that theme on the report for a moment. A dark value written for the page's
-`data-theme` stays in force while the report shows its light theme, so it reaches the file (#104).
+`data-pk-theme` on its own root (the header of `psu.css`). The Excel export reads the report's light
+theme. The HTML report reads both themes: it shows each on the report for a moment. A dark value
+written for the page's `data-theme` stays in force while the report shows its light theme, so it
+reaches the file (#104). The rule comes from pivotkit's upgrade notes for its 0.5.0 (#104).
 
 ## Considered Options
 
@@ -33,4 +34,5 @@ so one stylesheet themes the ECharts module and the report. `tests/js/pivot.test
 
 - Good: an export or HTML report from a dark app has the colours of the theme it shows; a report
   pinned to one theme with `-Theme` keeps it.
-- Bad: an app's stylesheet needs a selector for the report besides the page's.
+- Bad: an app's stylesheet needs a selector for the report besides the page's, as
+  `docs/pivot/themes.md` shows.
