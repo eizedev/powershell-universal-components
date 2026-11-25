@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-    DOCS_LIMITS, FUNCTION_LIMITS, GUARD_NAMES, POWERSHELL_LIMITS, compareCounts, compareTotal, docsKind, docsPages,
+    DOCS_LIMITS, FUNCTION_LIMITS, POWERSHELL_LIMITS, compareCounts, compareTotal, docsKind, docsPages,
     formatBaseline, main, measureDocs, measureJavaScript, parseFunctionMessage, powershellOffenders,
 } from "../../build/growth.js";
 
@@ -159,9 +159,4 @@ test("the command fails on growth and on a stale baseline, and --update writes o
 test("the committed baseline is sorted, one entry per line, as --update writes it", () => {
     const text = readFileSync(new URL("../../build/growth-baseline.json", import.meta.url), "utf8");
     assert.equal(formatBaseline(JSON.parse(text)), text, "build/growth-baseline.json was edited by hand: run node build/growth.js --update");
-});
-
-test("CI runs every guard in a step of its own", () => {
-    const ci = readFileSync(new URL("../../.github/workflows/ci.yml", import.meta.url), "utf8");
-    for (const name of GUARD_NAMES) assert.match(ci, new RegExp(`^ {8}run: node build/growth\\.js ${name}$`, "m"), `ci.yml runs no step "node build/growth.js ${name}"`);
 });

@@ -3,7 +3,7 @@
 // playwright test psu-pivot); skipped in CI. The app is modules/PowerShellUniversal.Component.Pivot/
 // examples/showcase.ps1. The template test saves and deletes a template of the anonymous user.
 import { test, expect } from "@playwright/test";
-import { chipMenu, expectChartType, openSaveAs, openShare, openToolbarMenu, openViews } from "./pivot-menus.mjs";
+import { chipMenu, expectChartType, openSaveAs, openShare, openViews } from "./pivot-menus.mjs";
 import { assetsXlsx, CSV, dropFiles, fieldNames, fileOf, openDataMenu, pickFile, preview, TICKETS_CSV, XLSX } from "./pivot-import.mjs";
 import { colorScaleCells, resolvedColor, workbookScaleColors } from "./pivot-colors.mjs";
 // the component's own link and storage format, so the tests write views exactly as the report does
