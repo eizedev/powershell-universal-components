@@ -7,16 +7,16 @@
     },
     "javascript": {
         "complexity": {
-            "Function 'cartesian'": [46],
+            "Function 'cartesian'": [45],
             "Function 'formatter'": [26],
             "Function 'histogram'": [27],
             "Function 'responsive'": [38],
             "modules/PowerShellUniversal.Component.ECharts/Components/cartesian.js Arrow function": [35]
         },
         "lines": {
-            "Function 'EChart'": [254],
+            "Function 'EChart'": [251],
             "Function 'Perspective'": [135],
-            "Function 'cartesian'": [337],
+            "Function 'cartesian'": [333],
             "modules/PowerShellUniversal.Component.ECharts/Components/EChart.jsx Arrow function": [127]
         }
     },
