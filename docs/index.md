@@ -69,8 +69,20 @@ filters and get a table or a chart.
 
 ```powershell
 Install-PSResource -Name PowerShellUniversal.Component.Pivot
-New-UDPivotReport -Id 'python' -Data (Invoke-RestMethod 'https://endoflife.date/api/python.json')
+
+# $days: one row per city and day with City, Date and Temperature
+New-UDPivotReport -Id 'weather' -Data $days -View @{
+    derived = @(@{ name = 'Month'; field = 'Date'; by = 'month' })
+    rows = @('Month'); cols = @('City')
+    values = @(@{
+        field = 'Temperature'; agg = 'average'; format = 'number:1'
+        conditional = @{ type = 'colorScale'; colors = @('#2a78d6', '#f2f2f2', '#eb6834') }
+    })
+}
 ```
+
+The full example, with the call that loads the weather data and the layout of the picture:
+[Weather of six cities](pivot/index.md#weather-of-six-cities).
 
 [PowerShell Gallery](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot) ·
 [pivotkit docs](https://pivotkit.eize.dev/) · [Live demo](https://pivotkit.eize.dev/demo/) ·
