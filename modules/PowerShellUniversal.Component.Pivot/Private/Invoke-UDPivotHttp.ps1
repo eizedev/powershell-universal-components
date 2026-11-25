@@ -30,7 +30,13 @@ function Invoke-UDPivotHttp {
     [OutputType([pscustomobject])]
     param([Parameter(Mandatory)][hashtable]$Request, [Parameter(Mandatory)][string]$What, [string]$Hint)
     $get = $Request['Method'] -eq 'Get'
-    $body = if ($get) { $null } elseif ($Request['Body'] -is [byte[]]) { $Request['Body'] } else { [System.Text.Encoding]::UTF8.GetBytes([string]$Request['Body']) }
+    # assigned in each branch: the value of an if goes through the pipeline, which would send a body of
+    # megabytes byte by byte and make an object[] of it (#204)
+    $body = $null
+    if (-not $get) {
+        $body = $Request['Body']
+        if ($body -isnot [byte[]]) { $body = [System.Text.Encoding]::UTF8.GetBytes([string]$body) }
+    }
     # every header value as visible ASCII or a tab (RFC 9110 5.5): HttpClient sends other characters as
     # they are (a line break would start another header) or fails with a message that looks like an
     # unreachable server. The error names the header (without line breaks), never its value (a token)
@@ -77,16 +83,18 @@ function Invoke-UDPivotHttp {
             # an answer that is no success holds a problem document of a few hundred bytes: in the text
             # mode its body is read with the same cap and time limit, so a stalled or huge error body
             # cannot hold the page
-            $content = if ($textMax -gt 0) {
+            # assigned in each branch: the value of an if goes through the pipeline, which turns a byte[]
+            # into an object[] of single bytes, byte by byte (#204)
+            if ($textMax -gt 0) {
                 $errorText = try { Read-UDPivotAnswerText -Content $response.Content -MaxBytes $Script:ErrorBodyMaxBytes -TimeoutSec $(if ($Request['TimeoutSec']) { [int]$Request['TimeoutSec'] } else { 100 }) -What $What }
                 catch {
                     # the status says enough; keep no record of the cut body in $Error
                     Remove-UDPivotErrorRecord -ErrorRecord $_
                     ''
                 }
-                [System.Text.Encoding]::UTF8.GetBytes([string]$errorText)
+                $content = [System.Text.Encoding]::UTF8.GetBytes([string]$errorText)
             }
-            else { [byte[]]$response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult() }
+            else { $content = $response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult() }
             return [pscustomobject]@{
                 StatusCode = $status
                 Headers    = $headers

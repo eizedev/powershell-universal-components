@@ -5,6 +5,14 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+### Fixed
+
+- `Invoke-UDPivotReport -Engine Rest` without `-OutFile` returns a `byte[]` again, as with
+  `-Engine Node`. Since 0.9.0 it returned an `object[]` of single bytes: `[string]` of it gave the
+  byte values joined by spaces, so an HTML report shown in a page read `60 33 100 ...`
+  ([#204](https://github.com/eizedev/powershell-universal-components/issues/204)). Large answers and
+  requests no longer pass through PowerShell's pipeline byte by byte.
+
 ## [0.10.0] - 2026-11-25
 
 ### Fixed
