@@ -147,3 +147,15 @@ test("the release needs the tagged commit on main and a green CI run of it, befo
     assert.equal(prepare.if, undefined, "prepare runs only under a condition");
     assert.deepEqual(prepare.permissions, { contents: "read", actions: "read" }, "prepare needs actions: read for the gate, and nothing more");
 });
+
+// The READMEs travel with each module: their links into the site are checked against the site the
+// docs workflow just built, before it is published
+test("the docs workflow checks the README links against the built site, after building it", () => {
+    const steps = jobOf("docs.yml", "build").steps;
+    const build = steps.findIndex((step) => String(step.uses ?? "").startsWith("eizedev/brand/docs-site@"));
+    const check = stepRunning(steps, "node build/check-readme-links.js site");
+    assert.ok(build !== -1, "docs.yml builds no site with eizedev/brand/docs-site");
+    assert.ok(check > build, "docs.yml checks no README links against the built site after building it");
+    const upload = steps.findIndex((step) => String(step.uses ?? "").startsWith("actions/upload-pages-artifact@"));
+    assert.ok(check < upload, "docs.yml uploads the site before checking the README links");
+});

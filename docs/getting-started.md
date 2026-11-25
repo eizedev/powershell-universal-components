@@ -30,6 +30,7 @@ when a page uses it.
 
     `Install-PSResource` puts the new version in a folder of its own, next to the old one. From a release
     zip, copy the new `<version>` folder next to the old one in `Modules/<Module>/`.
+
 2. Restart PSU. PowerShell imports the newest version it finds in the folder, but a process that has
     already imported the module keeps that version.
 3. Readers reload their open pages. The bundle's file name holds a hash of its content, so a reload
