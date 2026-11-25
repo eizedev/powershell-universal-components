@@ -62,11 +62,13 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
 
 ### Changed
 
-- Tooltips of bar, line, area and step charts show the element under the pointer: a bar, a stacked
-  segment (with the stack total) or a line point alone; between them all series at that position,
-  between stacked bars the total only. Before, every series at the position was listed, also when the
-  pointer was on one segment. `-TooltipMode Axis` lists every series at the position as before.
-  Stacked tooltips have a total row in every mode (with `-SecondaryY` one per axis); switching line,
+- **Breaking:** tooltips of bar, line, area and step charts show the element under the pointer: a bar,
+  a stacked segment (with the stack total) or a line point alone; between them all series at that
+  position, between stacked bars the total only. Before, every series at the position was listed, also
+  when the pointer was on one segment.
+  - Who is affected: readers who compare the series of a position in the tooltip.
+  - What to do: `-TooltipMode Axis` lists every series at the position as before.
+- Stacked tooltips have a total row in every mode (with `-SecondaryY` one per axis); switching line,
   bar or stack in the toolbox is followed, Restore goes back. The tooltip text of these charts is the
   module's own now: one line per series (`Name: value`), series without a value at that position left
   out (ECharts showed "-").

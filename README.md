@@ -24,7 +24,7 @@ Supported and tested versions: [Requirements](https://powershell-universal-compo
 
 > [!NOTE]
 > The modules are 0.x. A minor release can break things, so read the module's `CHANGELOG.md` before
-> you update.
+> you update. [Versioning](https://powershell-universal-components.eize.dev/versioning/) lists what the modules treat as public interface.
 
 ## Modules
 
@@ -100,7 +100,7 @@ Your own data from SQL, REST and PowerShell: [Getting started](https://powershel
 ## Development
 
 Build, tests, docs site and releases: [Development](https://powershell-universal-components.eize.dev/development/).
-Contributors and coding agents: [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md).
+Contributors and coding agents: [PRODUCT.md](PRODUCT.md), [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
