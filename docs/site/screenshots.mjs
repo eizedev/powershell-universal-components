@@ -20,6 +20,7 @@
 import { chromium, expect } from "@playwright/test";
 import { fileURLToPath } from "node:url";
 import { CSV, fileOf, pickFile } from "../../tests/browser/pivot-import.mjs";
+import { waitForCharts } from "../../tests/browser/echarts-page.mjs";
 
 const out = fileURLToPath(new URL("../assets/", import.meta.url));
 // the root's assets/: the showcase app's screenshots, which Build-Site.ps1 copies into the site
@@ -155,37 +156,30 @@ async function demoShots(browser) {
 }
 
 // ---- the ECharts showcase app on PSU ---------------------------------------------------------------
-// page, file name (without -light/-dark) and the card whose bottom ends the shot (with half the gap to
-// the next card), so no chart is cut
+// page, file name (without -light/-dark) and the card whose bottom ends the shot, with 8 pixels of the
+// page below it (half the gap between two rows of cards), so no chart is cut
 const ECHARTS_SHOTS = [
     ["tickets", "screenshot-ticket-report", "Lead time by team"],
     ["dataplatform", "screenshot-data-platform", "In how many sources"],
     ["msp", "screenshot-service-review", "Service review"],
 ];
-const chartCount = (page) => page.evaluate(() => [...document.querySelectorAll("div")].filter((d) => d.echarts).length);
+const ECHARTS_WIDTH = 1440;
 
 async function echartsDemoShots(browser) {
-    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const page = await browser.newPage({ viewport: { width: ECHARTS_WIDTH, height: 900 } });
     try {
         for (const mode of ["light", "dark"]) {
             for (const [path, name, lastCard] of ECHARTS_SHOTS) {
                 await page.goto(`${echartsDemo}/${path}`);
-                // wait until the page stops adding charts, as tests/browser/psu.spec.mjs does
-                await expect.poll(() => chartCount(page), { timeout: 30000 }).toBeGreaterThan(0);
-                let last = -1;
-                await expect.poll(async () => {
-                    const n = await chartCount(page);
-                    const stable = n === last;
-                    last = n;
-                    return stable;
-                }, { timeout: 30000, intervals: [1000] }).toBe(true);
+                await waitForCharts(page);
                 await setTheme(page, mode);
                 // the pointer off the switch and the charts: no hover state, no tooltip
                 await page.mouse.move(4, 80);
                 await expect(page.locator("[role=alert], .MuiSnackbar-root")).toHaveCount(0);
                 const card = page.locator(".MuiCard-root", { hasText: lastCard }).first();
-                const box = await card.boundingBox();
-                const clip = { x: 0, y: 0, width: 1440, height: Math.round(box.y + box.height + 8) };
+                // the card's bottom on the page, not in the window
+                const bottom = await card.evaluate((el) => el.getBoundingClientRect().bottom + window.scrollY);
+                const clip = { x: 0, y: 0, width: ECHARTS_WIDTH, height: Math.round(bottom + 8) };
                 // the charts redraw in the new theme with their entry animation, which
                 // animations: "disabled" does not stop on a canvas: wait until two shots in a row match
                 let previous;
