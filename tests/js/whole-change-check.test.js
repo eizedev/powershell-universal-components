@@ -8,9 +8,9 @@ import { check, exemption, inScope, sectionText } from "../../build/whole-change
 const template = readFileSync(new URL("../../.github/PULL_REQUEST_TEMPLATE.md", import.meta.url), "utf8");
 const pr = (body, files = ["docs/echarts/themes.md"], more = {}) => check({ body, title: "docs: themes", author: "someone", files, ...more });
 
-test("docs, READMEs, root Markdown, module code, shared/ and build/ need the check; the rest does not", () => {
+test("docs, READMEs, root Markdown, module code and showcase apps, shared/ and build/ need the check; the rest does not", () => {
     const M = "modules/PowerShellUniversal.Component.Pivot";
-    const needed = ["docs/echarts/themes.md", "docs/development/index.md", "README.md", `${M}/README.md`, "AGENTS.md", "CONTRIBUTING.md", `${M}/Components/pivot.jsx`, `${M}/Public/New-UDPivotReport.ps1`, `${M}/Private/Settings/Limits.ps1`, `${M}/Private/RowConverter.cs`, "modules/PowerShellUniversal.Component.Perspective/PowerShellUniversal.Component.Perspective.psm1", "shared/js/columns.js", "shared/powershell/ConvertTo-PSUComponentData.ps1", "build/growth.js"];
+    const needed = ["docs/echarts/themes.md", "docs/development/index.md", "README.md", `${M}/README.md`, "AGENTS.md", "CONTRIBUTING.md", `${M}/Components/pivot.jsx`, `${M}/Public/New-UDPivotReport.ps1`, `${M}/Private/Settings/Limits.ps1`, `${M}/Private/RowConverter.cs`, "modules/PowerShellUniversal.Component.Perspective/PowerShellUniversal.Component.Perspective.psm1", "modules/PowerShellUniversal.Component.Pivot.Demo/Apps/Showcase.ps1", "shared/js/columns.js", "shared/powershell/ConvertTo-PSUComponentData.ps1", "build/growth.js"];
     const not = ["docs/site/examples.ps1", "docs/site/src/charts.jsx", `${M}/CHANGELOG.md`, `${M}/package.json`, `${M}/${M.split("/")[1]}.psd1`, `${M}/examples/app.ps1`, "tests/js/ci.test.js", ".github/workflows/ci.yml", "package-lock.json"];
     assert.deepEqual(inScope([...needed, ...not]), needed);
 });
@@ -42,6 +42,9 @@ test("the section ends at the next heading of level 1 or 2, not at a sub-heading
     // a heading inside a comment or within a line does not count
     assert.equal(sectionText("<!-- ## Whole-change check\nnot here -->"), null);
     assert.equal(sectionText("Text about ## Whole-change check"), null);
+    // a heading inside a code fence is text
+    assert.equal(sectionText("```\n## Whole-change check\nfake\n```"), null);
+    assert.equal(sectionText("## Whole-change check\n```\n## not a heading\n```\nRead it whole.\n## Test plan"), "```\n## not a heading\n```\nRead it whole.");
 });
 
 test("an unclosed comment hides the rest, as GitHub renders it", () => {
@@ -58,7 +61,7 @@ test("Dependabot and release pull requests are exempt; other titles and authors 
     for (const title of ["chore(pivot): release Pivot 0.10.1", "chore(pivot): release Pivot.Demo 0.3.0", "chore(release): ECharts 0.2.0", "chore: release 0.1.0"]) {
         assert.equal(exemption({ author: "someone", title }), "a release pull request", title);
     }
-    for (const [author, title] of [["dependabot", "x"], ["someone", "ci(release): release only commits that are on main"], ["someone", "feat: release notes page"], ["someone", "chore: released files"]]) {
+    for (const [author, title] of [["dependabot", "x"], ["someone", "ci(release): release only commits that are on main"], ["someone", "feat: release notes page"], ["someone", "chore: released files"], ["someone", "chore(release): fold the unreleased entries into the 0.9.0 sections"], ["someone", "chore(docs): release notes page"]]) {
         assert.equal(exemption({ author, title }), null, `${author} ${title}`);
     }
     assert.equal(pr("", ["build/growth.js"], { author: "dependabot[bot]" }).ok, true);

@@ -39,7 +39,8 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
-          # quotepath off: a path with non-ASCII letters as it is, not quoted and escaped
-          CHANGED_FILES="$(git -c core.quotepath=off diff --name-only HEAD^1 HEAD)"
+          # quotepath off: a path with non-ASCII letters as it is, not quoted and escaped. No renames:
+          # a file moved out of scope counts by its old path too
+          CHANGED_FILES="$(git -c core.quotepath=off diff --no-renames --name-only HEAD^1 HEAD)"
           export CHANGED_FILES
           node build/whole-change-check.js

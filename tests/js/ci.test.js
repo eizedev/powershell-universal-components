@@ -183,7 +183,7 @@ test("the whole-change check runs on every pull request event that can fix it, r
         PR_TITLE: "${{ github.event.pull_request.title }}",
         PR_AUTHOR: "${{ github.event.pull_request.user.login }}",
     });
-    assert.ok(commandsOf(run).some((line) => /^CHANGED_FILES="\$\(git -c core\.quotepath=off diff --name-only HEAD\^1 HEAD\)"$/.test(line)), "the changed files are not the merge commit's difference to its base");
+    assert.ok(commandsOf(run).some((line) => /^CHANGED_FILES="\$\(git -c core\.quotepath=off diff --no-renames --name-only HEAD\^1 HEAD\)"$/.test(line)), "the changed files are not the merge commit's difference to its base");
     const checkout = steps.find((step) => String(step.uses).startsWith("actions/checkout@"));
     assert.equal(checkout.with["persist-credentials"], false);
     assert.equal(checkout.with["fetch-depth"], 2, "without the merge commit's parent there is nothing to compare with");

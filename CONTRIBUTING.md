@@ -39,7 +39,7 @@ pwsh -c 'Invoke-Pester -Path tests/powershell'
 ```
 
 When `npm run growth` reports that something shrank, lower the baseline in the same pull request with
-`node build/growth.js --update`. When something grew, its message says what to do.
+`node build/growth.js --update`.
 
 Then, depending on what you changed:
 
