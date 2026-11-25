@@ -1,0 +1,35 @@
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask how to do something with the modules. When an answer helps, mark it as the answer.
+        A bug goes into an [issue](https://github.com/eizedev/powershell-universal-components/issues/new/choose), a security problem into a [private report](https://github.com/eizedev/powershell-universal-components/security/advisories/new).
+  - type: textarea
+    id: goal
+    attributes:
+      label: What do you want to do?
+      description: The task, in a few sentences. The command you call and a few rows of sample data help. Remove passwords, tokens, server names and confidential values first.
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What did you try?
+      description: Code, parameters or steps, and what happened.
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      multiple: true
+      options:
+        - ECharts
+        - Pivot
+        - Perspective
+        - A demo module
+        - Other
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: The module and PowerShell Universal, and the browser if it matters.
+      placeholder: the module and its version, the PowerShell Universal version
