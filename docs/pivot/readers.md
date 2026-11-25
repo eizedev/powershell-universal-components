@@ -71,35 +71,29 @@ file (Views, Download view) make the report again with pivotkit's command line:
 
 ## Size and layout
 
-The report adapts to its own width:
+The report adapts to its own width, to touch screens and to a low window by itself. The app sets:
+
+- **Height**: By default one screen: the window's height minus 180 pixels for PSU's app bar and a page
+  title, between 600 and 1400 pixels. `-Height` sets another one; give it at least 600 pixels where
+  readers build reports. `-Grow On` lets the report grow past it when the table would get too small,
+  and the page scrolls.
+- **Zones open or folded**: In a low report the zones start folded under **Fields in the report**, so
+  the table keeps its room. `-Zones Open` or `-Zones Folded` decides it for every height.
+- **Light and dark**: The report follows the app's switch and takes PSU's colours. `-Theme Light` or
+  `-Theme Dark` pins it. Corporate colours come from the app's stylesheet: [Themes and corporate
+  design](themes.md).
+- **Several reports on one page**: Each needs its own `-Label`, the name screen readers hear for it.
+
+<details class="note" markdown="1">
+<summary>The pixel rules</summary>
 
 | Where | What changes |
 | --- | --- |
-| A narrow column or a phone | The field list opens as a drawer and the zones stack above the table. |
+| A narrow column or a phone | The field list opens as a drawer and the zones stack above the table. The default height is almost the whole window. |
 | A touch screen | Every button and menu row is at least 44 by 44 pixels. The toolbar, the tabs and the chips are taller, so the table has about a seventh less room on a phone. |
-| Below 600 pixels of height (820 in the narrow layout) | The zones start folded into one line under **Fields in the report**; that heading opens them (**Zones open or folded** below). |
-| Several reports on one page | Each needs its own `-Label`, the name screen readers hear for the report. |
+| Below 600 pixels of height (820 in the narrow layout) | The zones start folded into one line under **Fields in the report**; that heading opens them. A report with no field placed starts with them open unless `-Zones` says otherwise. |
+| The open zones | About 150 pixels in the 2×2 grid of a wide report, more where their text wraps. Where the area next to the field list is narrower than 640 pixels, they stand in one column and take about 390. With `-Zones Open`, give the report about 700 pixels or more, or the table gets only a few rows. |
+| Inside a fixed size | The report stays inside its height, in a card of a fixed size too: the table scrolls inside it, however small it gets (measured in a 560-pixel `New-UDCard` on PSU 2026.3.4). |
+| Containers | Inside `New-UDTabs`, `New-UDCard`, `New-UDStack` and expansion panels it fits its container and grows when a hidden tab is shown. |
 
-What the app sets:
-
-- **Light and dark**: The report follows the app's light and dark switch and takes PSU's colours: the
-  neutral greys of PSU's pages and MUI's primary blue. `-Theme Light` or `-Theme Dark` pins it.
-- **Corporate design**: From the app's stylesheet, the same one that themes the ECharts charts: [Themes
-  and corporate design](themes.md).
-- **Height**: One screen: the window's height minus 180 pixels for PSU's app bar and a page title,
-  between 600 and 1400 pixels (almost the whole window on a phone), so the whole report is on screen
-  when the page loads and the table shows rows enough below the zones. `-Height` sets another one. Give
-  it at least 600 pixels where readers build reports. The open zones take about 150 of them in the 2×2
-  grid of a wide report, more where their text wraps. Where the area next to the field list is narrower
-  than 640 pixels, they stand in one column and take about 390.
-- **Inside a fixed size**: The report stays inside its height - in a card of a fixed size too: the table
-  scrolls inside it, however small it gets (measured in a 560-pixel `New-UDCard` on PSU 2026.3.4).
-- **Growing**: `-Grow On` lets it grow past the height instead when the table would get too small, and
-  the page scrolls.
-- **Zones open or folded**: Below 600 pixels of height (820 in the narrow layout) the zones start folded
-  under **Fields in the report**, so the table keeps its room. `-Zones Open` keeps them open from the
-  start (give the report about 700 pixels or more, or the table gets only a few rows); `-Zones Folded`
-  starts them folded in any height. A report with no field placed starts with them open unless `-Zones`
-  says otherwise. Readers fold and open them either way.
-- **Containers**: Inside `New-UDTabs`, `New-UDCard`, `New-UDStack` and expansion panels it fits its
-  container and grows when a hidden tab is shown.
+</details>

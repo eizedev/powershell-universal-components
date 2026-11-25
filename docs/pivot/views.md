@@ -1,6 +1,6 @@
 ---
 title: Views
-description: "The start view of New-UDPivotReport, its keys, views per browser tab and in the address bar, -SavedView, and where templates come in."
+description: "The start view of New-UDPivotReport (-View) and its keys, chart settings, the view in the address bar, and where filters, the reader's view across tabs and templates are explained."
 ---
 
 # Views
@@ -110,86 +110,12 @@ A link pivotkit made, or one with parameters of a server source, opens a view: [
 ## Filters
 
 Every filter of a view has one shape: `field`, `type`, the keys of its type, and `not` and `blanks`.
-All filters apply together.
-
-```powershell
-New-UDPivotReport -Id 'tickets' -Data $tickets -View @{
-    version = 2
-    rows    = @('Team')
-    values  = @(@{ field = 'Ticket'; agg = 'count' })
-    filters = @(
-        @{ field = 'Status'; type = 'in'; items = @('Closed'); not = $true; blanks = 'include' }
-        @{ field = 'Host'; type = 'text'; op = 'contains'; value = 'test'; not = $true; blanks = 'exclude' }
-        @{ field = 'Created'; type = 'relative'; unit = 'year'; count = 2; blanks = 'exclude' }
-    )
-}
-```
-
-| `type` | What |
-| --- | --- |
-| `in` | Keeps the listed `items`; with `not = $true` drops them. |
-| `blank` | Keeps the blank items; with `not = $true` every other. |
-| `text` | A rule on the names: `op` `equals`, `contains`, `beginsWith`, `endsWith` and `value` the text, case and runs of spaces ignored. `on = 'label'` compares the text the table shows (a number or a date as formatted). |
-| `compare` | The item itself compared with `value`: `op` `=`, `>`, `>=`, `<`, `<=`, `between` (with `value2`); a date by its calendar day `'2025-01-01'`, or by `precision` `year`, `quarter`, `month`, `hour`. |
-| `relative` | Dates of a range that moves with today: `@{ field = 'Created'; type = 'relative'; unit = 'year'; count = 2 }` (the last 2 years, this one included); `direction` `last`, `next`, `this`, `before`, units `hour` to `year`, `anchor = 'latest'` counts from the latest date of the field's data. |
-| `value` | A rule on the total, `op` as `compare`'s, `by` the value: `@{ field = 'Team'; type = 'value'; op = '>'; value = 1000 }`. |
-| `top` | The `count` largest items (`bottom = $true`: the smallest), `ties = 'all'` keeps every item tied at the cut. |
-
-- `not = $true` turns the rule around for the items with a value: "is not", "does not contain" and
-  "is not between" are `equals`, `contains`, `=` and `between` with `not`.
-- `blanks` alone decides the blank items: `'exclude'` (the default) drops them, `'include'` keeps them
-  too, `'only'` keeps only them. Write it on every filter, so the view says what it means.
-
-The whole catalogue with every key: pivotkit's [Filters, top N and sorting](https://pivotkit.eize.dev/concepts/filters/).
-A view of version 1 (without `version`) works too: its
-`include`, `exclude` and `label` filters and the operators `!=`, `notBetween`, `notEquals` and
-`notContains` are migrated to version 2 when the report reads them, with the same result
-([pivotkit's table](https://pivotkit.eize.dev/concepts/views/#versions)). The report writes version 2,
-so `-OnViewChange`, `Get-UDElement` and saved views carry it. `ConvertFrom-UDPivotView` passes the
-filters of either version as they are; the report checks them against the data.
-
-A `relative` filter and the quick choices of the Filter level keep a rule, not dates: "today" is read
-when the report computes, in the browser, from the reader's clock at the wall time of `-TimeZone`
-(pivotkit-core's `now` option; the module passes none, so a view saved today still shows "last 2
-years" next year).
+The types and their keys: [Filters in a view](filters.md).
 
 ## Several tabs and keeping the reader's view
 
-Every browser tab keeps its own view, also two tabs on the same page: nothing needs to be stored on
-the server for a reload, a light/dark switch, a `Sync-UDElement` of a surrounding `New-UDDynamic` or a
-shared link.
-
-To keep the reader's view beyond the tab (a new tab, another day, another device), store it in
-`-OnViewChange` and pass it back as `-SavedView`, never as `-View`:
-
-```powershell
-New-UDPivotReport -Id 'tickets' -Data $tickets -View $startView -SavedView $Session:PivotView -OnViewChange {
-    Import-Module PowerShellUniversal.Component.Pivot
-    $Session:PivotView = ConvertFrom-UDPivotView -InputObject $EventData.json
-}
-```
-
-`-SavedView` starts a tab that has no view of its own yet; a tab that already shows a view keeps it,
-and **Start over** goes back to `-View`. The difference matters because PSU's scopes are not per tab
-(measured on PSU 2026.3.4):
-
-| Scope | Shared by | Lifetime |
-| --- | --- | --- |
-| `$Session:` | all tabs of one browser (one session cookie) | until the session ends (idle timeout) |
-| `$Page:` | one tab | until the tab reloads or closes; survives the light/dark switch and `Sync-UDElement` |
-| a file or table per `$User` | all browsers and devices of the reader | until the app removes it |
-
-`-View $Session:PivotView` would hand the last change of one tab to every other tab on its next
-reload. `$Page:` is per tab but gone after a reload, which the address bar and the tab's storage
-already cover.
-For a view that follows the reader to other devices, store it per `$User` (as a
-[template store](stores.md#template-stores-templatestore) does), either on every change or with an
-explicit "save as my default", and pass it as `-SavedView`.
-
-Without `-Id` the report is identified by its page and its place in the app script (the line of the
-`New-UDPivotReport` call) together with its column names, so two reports on one page keep their own
-views. Set `-Id` if reports are added or removed dynamically, or when one call builds several reports
-(a loop): they would share one view otherwise.
+Every browser tab keeps its own view. To keep the reader's view beyond the tab, store it in
+`-OnViewChange` and pass it back as `-SavedView`: [Several tabs and the reader's view](saved-view.md).
 
 ## Templates
 
