@@ -18,8 +18,9 @@
       comment-based help; included by the reference pages.
     - docs/assets/charts/: charts.js (webpack, the modules' own React components), its lazy
       Perspective and pivot chunks and examples.json (the props of every example).
-    - docs/assets/images/: the screenshots from assets/ that the pages show, and the icon the site uses
-      as logo and favicon.
+    - docs/assets/images/: the screenshots from assets/ that the pages show, the icon the site uses
+      as logo and favicon, and the social preview its Open Graph tags name (overrides/main.html).
+    - docs/robots.txt: allows every page and names the sitemap, from site_url in zensical.toml.
 
     Fails when an example is included by no page, so examples.ps1 and the pages stay in step.
 .PARAMETER SkipNpmInstall
@@ -47,13 +48,19 @@ $moduleNames = @(Get-ChildItem -LiteralPath $modulesDir -Directory | Sort-Object
 
 # PSU's endpoint type, as in the Pester tests: event script blocks become a marker the page replaces
 . (Join-Path $repo 'build' 'Add-EndpointType.ps1')
-# a public API in an example: the snapshot of that address in data/ (data/<host>/<path>), returned as
-# Invoke-RestMethod returns JSON (an array is one object in the pipeline, as there)
+# a public API in an example: the snapshot of that address in data/ (data/<host>/<path>, or the file
+# data/Addresses.psd1 names for an address with a query string), returned as Invoke-RestMethod returns
+# JSON (an array is one object in the pipeline, as there)
+$snapshotOf = Import-PowerShellDataFile -LiteralPath (Join-Path $site 'data' 'Addresses.psd1')
 function Invoke-RestMethod {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidOverwritingBuiltInCmdlets', '', Justification = 'Answers the examples from snapshots while the site is built')]
     param([Parameter(Mandatory, Position = 0)][uri]$Uri)
     $file = Join-Path $site 'data' $Uri.Host $Uri.AbsolutePath.TrimStart('/')
-    if ($Uri.Scheme -ne 'https' -or $Uri.Query -or -not (Test-Path -LiteralPath $file -PathType Leaf)) {
+    if ($Uri.Query) {
+        $path = $snapshotOf.Keys | Where-Object { $snapshotOf[$_] -eq $Uri.OriginalString } | Select-Object -First 1
+        $file = if ($path) { Join-Path $site 'data' $path }
+    }
+    if ($Uri.Scheme -ne 'https' -or -not $file -or -not (Test-Path -LiteralPath $file -PathType Leaf)) {
         throw "No snapshot of $Uri in docs/site/data/ (see data/SOURCES.md)."
     }
     Get-Content -LiteralPath $file -Raw | ConvertFrom-Json -NoEnumerate
@@ -225,11 +232,15 @@ finally {
     Remove-Item Env:SITE_OUT -ErrorAction Ignore
     Pop-Location
 }
-# the screenshots of the repository's README and its icon, for the pages (one copy in assets/, not
-# committed here)
+# the screenshots of the repository's README, its icon and the social preview the pages' Open Graph tags
+# name (overrides/main.html), for the pages (one copy in assets/, not committed here)
 $images = Join-Path $docs 'assets' 'images'
 New-Item -ItemType Directory -Path $images -Force | Out-Null
-Copy-Item -Path (Join-Path $repo 'assets' 'screenshot-*.png'), (Join-Path $repo 'assets' 'icon.svg') -Destination $images -Force
+Copy-Item -Path (Join-Path $repo 'assets' 'screenshot-*.png'), (Join-Path $repo 'assets' 'icon.svg'), (Join-Path $repo 'assets' 'social-preview.png') -Destination $images -Force
+# robots.txt with the address of the sitemap, from site_url in zensical.toml (it ends with a slash)
+$siteUrl = (Select-String -LiteralPath (Join-Path $repo 'zensical.toml') -Pattern '^site_url\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
+if (-not $siteUrl) { throw 'zensical.toml names no site_url.' }
+Write-Generated (Join-Path $docs 'robots.txt') ("User-agent: *`nAllow: /`n`nSitemap: {0}sitemap.xml" -f $siteUrl)
 # after webpack, which empties its output folder
 Write-Generated (Join-Path $charts 'examples.json') ($examples | ConvertTo-Json -Depth 30 -Compress)
 Get-Item -LiteralPath $charts

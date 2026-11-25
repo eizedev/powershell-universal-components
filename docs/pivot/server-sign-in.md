@@ -18,7 +18,7 @@ credentials ([Reports from a pivotkit-server](reports-server.md)).
 
     `-Token` takes a string or a SecureString.
 
-    pivotkit-server 0.3.0 and later also accept short-lived tokens that another system signs
+    A pivotkit-server (0.3.0 or later) also accepts short-lived tokens that another system signs
     ([tokens from another system](https://pivotkit.eize.dev/reference/rest/#external-issuers),
     `auth.externalIssuers`). `-Token` sends such a token as it sends a static one.
 

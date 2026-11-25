@@ -1,6 +1,6 @@
 # PowerShellUniversal.Component.Pivot
 
-A pivot report builder for PowerShell Universal apps, on [pivotkit](https://github.com/eizedev/pivotkit).
+A pivot report builder for PowerShell Universal apps, on [pivotkit](https://pivotkit.eize.dev/).
 Readers drag fields into Rows, Columns, Values and Filters and get a table with totals or a chart.
 
 - Dates grouped by month, quarter or year; a click on a value shows the rows behind it.
@@ -16,7 +16,7 @@ New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Ticke
 New-UDPivotReport -Id 'own-data' -Data @() -AllowImport -TemplateStore Browser   # the reader's own file
 ```
 
-Supported and tested versions: [Requirements](https://powershell-universal-components.eize.dev/#requirements).
+Supported and tested versions: [Compatibility](https://powershell-universal-components.eize.dev/compatibility/).
 
 **Documentation: [powershell-universal-components.eize.dev](https://powershell-universal-components.eize.dev/pivot/)** - data and dates, views and
 templates, events, security notes, with live examples.
@@ -43,7 +43,7 @@ is a showcase app in one line (`New-UDPivotShowcase`).
 ## Where to read on
 
 - [Overview](https://powershell-universal-components.eize.dev/pivot/): three examples on public data
-- [What readers can do](https://powershell-universal-components.eize.dev/pivot/readers/): the parts of the report, Source data, theme and height
+- [Readers and your app](https://powershell-universal-components.eize.dev/pivot/readers/): what the app decides for readers, Source data, theme and height
 - [Data and loading](https://powershell-universal-components.eize.dev/pivot/data/): `-Data`, dates, language, chart options, the placeholder
 - [Field names and descriptions](https://powershell-universal-components.eize.dev/pivot/fields/): `-FieldDefaults`, `-FieldDescriptions`, SQL Server column descriptions, `-Schema`
 - [Views](https://powershell-universal-components.eize.dev/pivot/views/): `-View`, `-SavedView`, filters, tabs, the address bar; [links into a report](https://powershell-universal-components.eize.dev/pivot/links/)

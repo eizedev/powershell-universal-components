@@ -1,82 +1,33 @@
 ---
-title: What readers can do
-description: "What readers do in New-UDPivotReport (fields, values, filters, table and chart, drill-down, views, exports, their own files), what they can take away, and how the report fits the page."
+title: Readers and your app
+description: "For app authors: what New-UDPivotReport offers readers and which parameters decide it, with links to pivotkit's reader guide; Source data (-ExportData), tips, and the report's size and layout on the page."
 ---
 
-# What readers can do
+# Readers and your app
 
-The report is pivotkit's interface. Readers use these parts:
+For app authors: what the report offers your readers, and which parameters decide it.
 
-- **Fields**: Search the list (by name, display name and description), drag a field into a zone, click
-  it (numbers go to Values, the rest to Rows), or pick it with **+ Add** in a zone; every field has a
-  menu with the same moves, for the keyboard too. **Name** in the menu of a field in Rows, Columns or
-  Filters gives it a name of the report's own; the chip, the table, the chart and the exports show it,
-  and the view keeps it (`fieldLabels`). The zones sit under **Fields in the report**, a heading that
-  folds them into one line. An "i" next to a field explains it when the app describes its fields ([Field
-  names and descriptions](fields.md)); an "i" next to each zone explains the zone.
-- **Values**: Sum, count, average, minimum, maximum and more statistics; "show as" a share of the total,
-  of the row or column, a running total, a rank or the difference to the previous one; a number format;
-  colour scales and data bars. A colour scale's **Colours** row offers **Theme colours, light to dark**
-  and three fixed scales: **Low blue, high orange**, **Low blue, high red** and **Low red, high green**.
-  A fixed scale goes into the view as the value's own colours.
-- **Menus**: A chip's menu, Table settings and Chart settings are in levels: the first level says what
-  is set per topic ("Filter · All", "Top items · Off"), a row opens the topic's level in place with ‹
-  Back, and every choice applies at once. A search above a chip's menu finds a choice of any level with
-  its path, also a rule as words ("last 3 years", "from 2022"); "/" goes to it.
-- **Rows and columns**: Sort by label, by a value or in the field's own order, top or bottom N by any
-  value, rules on the items and their totals ("Count of rows > 3", "from 2022"), number ranges. A click
-  on a column's name in the table sorts the rows by that column; a column field's name sorts that field.
-  A date is grouped as soon as it is placed (by day, month, quarter or year, from the span of its
-  values), and its menu groups along the time line or across years (month of the year, weekday, hour).
-- **Filters**: The Filter level of every chip starts with a summary card that stays in view: what the
-  table shows of the field ("3 of 12 months shown") and why the rest does not, each reason with its
-  count, and **Reset filter**. Below it, in sections that fold: **Quick choices** for a date (This year,
-  Last N years, Last N months or days, each with the days it keeps and the data's share, counted back
-  from today or from the latest record), **Years combined** instead for a grouping that repeats every
-  year (month of the year, weekday), **Pick items** (the values with their row counts and a search) and
-  **Rules** (the item itself compared, "is in the last N years", its total compared, a rule on its
-  name), each with an "i" and a line that says what it keeps. A field in Filters opens the same level
-  from its chip, and a date there has **Group** in its menu too.
-- **Table or chart**: **Table**, **Chart** and **Both** are tabs on top of the result, each with its
-  settings beside it. **Both** shows the table and the chart side by side on a wide report, with a
-  divider to drag; a narrower report shows the table. Charts: bars, stacked or horizontal bars, lines,
-  area, pie, donut, heatmap, bars and lines, treemap, or Automatic (lines over dates, bars otherwise). A
-  pie without a legend puts its smallest slices into one slice "Other (n)" when their labels have no
-  room. Chart settings, Display: value labels, legend, title, axis and group labels, a zoom slider for a
-  long axis, the tooltip (the element under the pointer or every series, with each value's share), the
-  colour of each series, stacks to 100 %, and reference lines (average, trend, a target, the high and
-  low points). A click on the legend hides a series. Export, Copy chart image puts the chart on the
-  clipboard.
-- **Enlarge, Full screen**: **Enlarge** lets the table or chart fill the report (the field list and the
-  zones step aside; Escape brings them back), **Full screen** shows the report on the whole screen where
-  the browser allows it. Neither is part of the view.
-- **Drill-down**: A click on a value opens the source rows behind it. A click on a bar, a point or a
-  heatmap cell opens a menu at it: **Show the rows**, **Only …** and **Without …** (a double click opens
-  the rows at once). The panel has its own Enlarge. With `-ExportData` or `-DrillDownExport` the panel
-  has an Export menu (Copy for a spreadsheet, Copy as JSON, Download CSV and Excel).
-- **Source data**: With `-ExportData`: Export, Source data downloads every row behind the report as CSV
-  or JSON, for the reader's own analysis or `pivotkit render` ([below](#source-data-exportdata)).
-- **Undo, Start over, Views, Export**: **Undo and redo** (Ctrl/Cmd+Z), **Start over** back to the start
-  view, **Views** with shared views and the reader's own, Save, Save as and New, empty report
-  ([Templates, view files and roles](templates.md)), and its Share level with "Copy link", "Copy view as
-  JSON", "Download view" (a view file) and "Load view…", and **Export** to Excel (XLSX with number
-  formats and merged headers), the table as CSV, PNG, SVG and an HTML report, Print or save as PDF, or
-  Copy table and Copy data as JSON. Excel and print are light also from a dark app; the HTML report is
-  light on paper and a light screen and dark on a dark one
-  ([Themes](themes.md#one-stylesheet-for-echarts-and-the-pivot-report)).
-- **Tips**: Above the result, for a layout that could be clearer: one at a time, each dismissible and
-  remembered per report in the browser. `-Tips Off` or a list of tip ids limits them. The help of
-  `-Tips` lists the ids; an unknown id is refused. More, Help has "Show tips" and "Show explanations"
-  (every "i" next to fields, zones and settings); `-FieldInfo`, `-ZoneInfo` and `-SettingInfo` decide
-  one kind for the reader.
-- **Own files**: With `-AllowImport`: drop a CSV, TSV, JSON or Excel file onto the report, or pick it
-  under Data, check a preview with a type per column, and pivot it; read in the browser, never uploaded;
-  views kept per file; Back to original data ([Readers' own files](import.md)).
-- **Field list**: « collapses it to a narrow rail (the reader's choice is remembered); `-FieldList
-  Collapsed` or `Open` starts every reader so.
-- **Zones**: The heading **Fields in the report** folds the zones into one line that names what is
-  placed, and opens them again. `-Zones Open` or `Folded` sets how they start; without it the report's
-  height decides ([Size and layout](#size-and-layout)).
+The report is pivotkit's interface, and pivotkit's guide [Use a report](https://pivotkit.eize.dev/use/)
+explains it to readers, one page per task. Link it from your app, or point readers to pivotkit's
+[live demo](https://pivotkit.eize.dev/demo/) to try it. This page covers only what the module and your
+app decide.
+
+| Readers | pivotkit's guide | What the app decides |
+| --- | --- | --- |
+| Place fields, read the table | [Fields, zones and the table](https://pivotkit.eize.dev/use/fields/) | Names and descriptions of fields ([Field names and descriptions](fields.md)), `-FieldList`, `-Zones` |
+| Sum, count, show as, formats | [Values and formats](https://pivotkit.eize.dev/use/values/) | The start view ([Views](views.md)), `-Locale` |
+| Filter, top N, sort | [Filters, top N and sorting](https://pivotkit.eize.dev/use/filters/) | The start view's filters ([Filters in a view](filters.md)) |
+| Charts | [Charts](https://pivotkit.eize.dev/use/charts/) | The start view's chart ([Views](views.md)) |
+| The rows behind a number | [The rows behind a number](https://pivotkit.eize.dev/use/drill-down/) | `-NoDrillDown`, `-DrillDownExport`, `-ExportData` ([below](#source-data-exportdata)) |
+| Save, pick and share views | [Views, saving and sharing](https://pivotkit.eize.dev/use/views/) | Shared views, readers' own views and roles ([Templates, view files and roles](templates.md)) |
+| Export and print | [Export and copy](https://pivotkit.eize.dev/use/export/) | Source data with `-ExportData` ([below](#source-data-exportdata)), the colours ([Themes](themes.md#one-stylesheet-for-echarts-and-the-pivot-report)) |
+| Load their own file | [Load your own data](https://pivotkit.eize.dev/use/load-data/) | `-AllowImport` ([Readers' own files](import.md)) |
+| Tips, small screens | [Small screens, menus and tips](https://pivotkit.eize.dev/use/layout/) | `-Tips`, `-Height`, `-Zones` ([below](#size-and-layout)) |
+
+Tips appear above the result for a layout that could be clearer, one at a time; readers dismiss each
+one. `-Tips Off` turns them off, a list of tip ids keeps only those; the help of `-Tips` lists the ids,
+and an unknown id is refused. `-FieldInfo`, `-ZoneInfo` and `-SettingInfo` decide whether the "i"
+explanations next to fields, zones and settings show.
 
 ## Source data (-ExportData)
 
@@ -120,35 +71,32 @@ file (Views, Download view) make the report again with pivotkit's command line:
 
 ## Size and layout
 
-The report adapts to its own width:
+The report adapts to its own width, to touch screens and to a low window by itself. The app sets:
+
+- **Height**: By default one screen: the window's height minus 180 pixels for PSU's app bar and a page
+  title, between 600 and 1400 pixels. `-Height` sets another one; give it at least 600 pixels where
+  readers build reports. `-Grow On` lets the report grow past it when the table would get too small,
+  and the page scrolls.
+- **Zones open or folded**: In a low report the zones start folded under **Fields in the report**, so
+  the table keeps its room. `-Zones Open` or `-Zones Folded` decides it for every height; give
+  `-Zones Open` about 700 pixels, or the table gets only a few rows.
+- **Containers**: In a card, a tab or a stack the report stays inside its container, and the table
+  scrolls inside it.
+- **Light and dark**: The report follows the app's switch and takes PSU's colours. `-Theme Light` or
+  `-Theme Dark` pins it. Corporate colours come from the app's stylesheet: [Themes and corporate
+  design](themes.md).
+- **Several reports on one page**: Each needs its own `-Label`, the name screen readers hear for it.
+
+<details class="note" markdown="1">
+<summary>The pixel rules</summary>
 
 | Where | What changes |
 | --- | --- |
-| A narrow column or a phone | The field list opens as a drawer and the zones stack above the table. |
+| A narrow column or a phone | The field list opens as a drawer and the zones stack above the table. The default height is almost the whole window. |
 | A touch screen | Every button and menu row is at least 44 by 44 pixels. The toolbar, the tabs and the chips are taller, so the table has about a seventh less room on a phone. |
-| Below 600 pixels of height (820 in the narrow layout) | The zones start folded into one line under **Fields in the report**; that heading opens them (**Zones open or folded** below). |
-| Several reports on one page | Each needs its own `-Label`, the name screen readers hear for the report. |
+| Below 600 pixels of height (820 in the narrow layout) | The zones start folded into one line under **Fields in the report**; that heading opens them. A report with no field placed starts with them open unless `-Zones` says otherwise. |
+| The open zones | About 150 pixels in the 2×2 grid of a wide report, more where their text wraps. Where the area next to the field list is narrower than 640 pixels, they stand in one column and take about 390. With `-Zones Open`, give the report about 700 pixels or more, or the table gets only a few rows. |
+| Inside a fixed size | The report stays inside its height, in a card of a fixed size too: the table scrolls inside it, however small it gets (measured in a 560-pixel `New-UDCard` on PSU 2026.3.4). |
+| Containers | Inside `New-UDTabs`, `New-UDCard`, `New-UDStack` and expansion panels it fits its container and grows when a hidden tab is shown. |
 
-What the app sets:
-
-- **Light and dark**: The report follows the app's light and dark switch and takes PSU's colours: the
-  neutral greys of PSU's pages and MUI's primary blue. `-Theme Light` or `-Theme Dark` pins it.
-- **Corporate design**: From the app's stylesheet, the same one that themes the ECharts charts: [Themes
-  and corporate design](themes.md).
-- **Height**: One screen: the window's height minus 180 pixels for PSU's app bar and a page title,
-  between 600 and 1400 pixels (almost the whole window on a phone), so the whole report is on screen
-  when the page loads and the table shows rows enough below the zones. `-Height` sets another one. Give
-  it at least 600 pixels where readers build reports. The open zones take about 150 of them in the 2×2
-  grid of a wide report, more where their text wraps. Where the area next to the field list is narrower
-  than 640 pixels, they stand in one column and take about 390.
-- **Inside a fixed size**: The report stays inside its height - in a card of a fixed size too: the table
-  scrolls inside it, however small it gets (measured in a 560-pixel `New-UDCard` on PSU 2026.3.4).
-- **Growing**: `-Grow On` lets it grow past the height instead when the table would get too small, and
-  the page scrolls.
-- **Zones open or folded**: Below 600 pixels of height (820 in the narrow layout) the zones start folded
-  under **Fields in the report**, so the table keeps its room. `-Zones Open` keeps them open from the
-  start (give the report about 700 pixels or more, or the table gets only a few rows); `-Zones Folded`
-  starts them folded in any height. A report with no field placed starts with them open unless `-Zones`
-  says otherwise. Readers fold and open them either way.
-- **Containers**: Inside `New-UDTabs`, `New-UDCard`, `New-UDStack` and expansion panels it fits its
-  container and grows when a hidden tab is shown.
+</details>

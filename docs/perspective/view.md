@@ -1,3 +1,7 @@
+---
+description: "The starting view of New-UDPerspective: group, split, filter, sort and aggregate by column name, a pivot, a chart, and theme and layout."
+---
+
 # The starting view
 
 | Parameter | Effect |
@@ -24,6 +28,10 @@ of expression columns from `-Config` count as columns.
 ## Pivot: tickets per team and priority
 
 --8<-- "examples/pivot-tickets-per-team-and-priority.md"
+
+## Temperature per city
+
+--8<-- "examples/temperature-per-city.md"
 
 ## Perspective chart: open tickets per team
 

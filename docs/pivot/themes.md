@@ -84,8 +84,14 @@ The properties apply to every chart and report of the page, so this site shows n
 
 ## Properties
 
-The light and dark columns are the values without a corporate stylesheet. "Falls back to" is the
-property used when the first one is not set; without either the default applies.
+The series colours (`--psu-chart-1` ... `--psu-chart-8`) and the accent (`--psu-chart-accent` or
+`--psu-pivot-accent`) carry a corporate design: the highlight, drop zone, note, tab and button colours
+follow from the accent, and without one they keep PSU's values. The `--psu-pivot-*` properties in the
+table set what only the report has or give it a value of its own. Set `--psu-pivot-accent-text` whenever the accent is light in the light mode
+or dark in the dark mode: the default text on the accent is white in light mode and near-black in dark.
+
+<details class="note" markdown="1">
+<summary>Every property: what it falls back to when unset, and its default without a corporate stylesheet</summary>
 
 | Property | Falls back to | What it sets in the report | Light | Dark |
 | --- | --- | --- | --- | --- |
@@ -141,14 +147,15 @@ property used when the first one is not set; without either the default applies.
 | `--psu-pivot-weight-strong` | - | titles, field chips, buttons, subtotals, the admin panel's titles | `600` | `600` |
 | `--psu-pivot-weight-bold` | - | grand totals, step numbers | `700` | `700` |
 
+</details>
+
 The report's chart has eight series colours: `--psu-chart-9` ... `--psu-chart-12` colour only ECharts
 charts. `--psu-chart-tooltip`, `--psu-chart-tooltip-border` and `--psu-chart-font-size` are ECharts
 only as well; the report's tooltips use `--psu-pivot-surface-raised`.
 
 The field type colours are pivotkit's own: a corporate palette sets them per mode, so each stays
-readable on its mode's surface. The tab and button properties fall back to the general ones, so a
-corporate accent already reaches the shown tab and the main action of a dialog. Set them only where a
-part needs a colour of its own.
+readable on its mode's surface. Set the tab and button properties only where a part needs a colour of
+its own.
 
 A colour scale a reader adds without picking colours runs from light to strong blue, the heatmap's
 colours: it says "more", not "good" or "bad", and the Excel export writes the same colours. For
@@ -177,14 +184,10 @@ menu, Highlight, Colour scale, **Colours**: **Low blue, high orange**, **Low blu
 **Low red, high green** ([the colours](views.md#the-start-view-view)). Only **Theme colours, light to
 dark** follows the three properties above.
 
-Without a corporate accent the highlight, drop zone and note colours keep PSU's values; with one
-(`--psu-pivot-accent` or `--psu-chart-accent`) they are mixed from it, so they match. Set
-`--psu-pivot-accent-text` whenever the accent is light in the light mode or dark in the dark mode: the
-default text on the accent is white in light mode and near-black in dark mode.
-
 ## Light and dark
 
-The report takes light or dark from PSU's `<html data-theme>` and switches with the app's toggle, the
+Excel and print are light also from a dark app; the HTML report is light on paper and on a light screen
+and dark on a dark one. The report takes light or dark from PSU's `<html data-theme>` and switches with the app's toggle, the
 table and the chart at once, without a reload, and keeps the reader's view ([Views](views.md#the-start-view-view));
 undo and redo start over. The theme the report shows is `data-pk-theme="light"` or `"dark"` on its
 root; the stylesheet above sets the values on it, so a report pinned with `-Theme Light` or

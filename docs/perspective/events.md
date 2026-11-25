@@ -1,3 +1,7 @@
+---
+description: "Events, security and limits of New-UDPerspective: the $EventData of a click, what the data sends to the browser, and the size of the bundle."
+---
+
 # Events, security and limits
 
 ## Events

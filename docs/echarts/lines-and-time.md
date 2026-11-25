@@ -1,3 +1,7 @@
+---
+description: "Lines and time with New-UDEChart: time axis with zoom, second axis, log scale, bands, marked windows, reference lines, pins, trends and forecasts, axis breaks and business hours."
+---
+
 # Lines and time
 
 `-Type line`, `area` or `step`. A date column on `-X` gives a time axis with zoom; `-Smooth` smooths the
@@ -7,6 +11,10 @@ lines, `-SecondaryY` puts named series on a second axis, `-LogScale` makes the v
 ## Time axis with zoom and a reference line
 
 --8<-- "examples/time-axis-with-zoom-and-a-reference-line.md"
+
+## Temperature of six cities
+
+--8<-- "examples/temperature-of-six-cities.md"
 
 ## Reference lines and pins
 

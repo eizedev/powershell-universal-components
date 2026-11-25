@@ -25,7 +25,7 @@ const EVENTS = {
 // where this script was loaded from: examples.json and the Perspective and pivot chunks lie next to it
 const base = new URL(".", document.currentScript ? document.currentScript.src : window.location.href).href;
 // webpack loads lazy chunks (Perspective, pivot) from the same folder
-// eslint-disable-next-line no-undef, camelcase
+// eslint-disable-next-line no-undef
 __webpack_public_path__ = base;
 
 let examples = null;

@@ -34,6 +34,9 @@ jobs:
         run: ./docs/site/Build-Site.ps1
       # the shared design and the pinned Zensical version (eizedev/brand, docs-site/); the site lands in site/
       - uses: eizedev/brand/docs-site@8d8d554bf72868842330a40a61e843ec631edcf5 # v1.0.0
+      # every link from a README into the site names a page and anchor of this build
+      - name: README links
+        run: node build/check-readme-links.js site
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site

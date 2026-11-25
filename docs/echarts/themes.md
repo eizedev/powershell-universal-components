@@ -1,8 +1,13 @@
+---
+description: "Themes of New-UDEChart: light and dark with the app, an ECharts theme per mode, CSS custom properties shared with the pivot report, fixed colours per category and their order."
+---
+
 # Themes and corporate design
 
 Light and dark follow the app's theme switch (`-Theme Auto`); `-Theme Light` or `Dark` pins one.
-`-Palette` sets the series colours, `-Decal` adds patterns for colour-blind readers and print. The
-charts on this site follow its light/dark switch the same way.
+`-Palette` sets the series colours, `-Decal` adds patterns for colour-blind readers and print (off by
+default). The default palette is not checked for contrast. The charts on this site follow its
+light/dark switch the same way.
 
 A corporate design comes in two ways, both optional.
 

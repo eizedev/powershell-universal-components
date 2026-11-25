@@ -70,9 +70,8 @@ every Monday and mail it ([Reports without a browser](reports.md)).
 - The page keeps the reader's view with `-OnViewChange` in `$Session`; the button reads it from there.
   The report keeps its view out of the address bar (`-NoAddressBar`), so a link never shows a view
   the server does not know.
-- The buttons need pivotkit's command line on the PSU server: Node 24 or later and
-  `npm install --global pivotkit-cli`. `New-UDPivotShowcase -PivotkitPath` names the program when it
-  is not on the PATH.
+- The buttons need pivotkit's command line on the PSU server ([what it needs](reports.md#two-engines)).
+  `New-UDPivotShowcase -PivotkitPath` names the program when it is not on the PATH.
 - Without it, the page says what to install, and the buttons are off. The report still works.
 - Each click runs Node on the PSU server. The app has no sign-in: protect it before people outside
   your network can reach it.
@@ -91,7 +90,8 @@ New-UDPivotShowcase -ServerUri 'https://reports.example.com/api/v1' -ServerSourc
 
 - PSU's OpenID Connect sign-in with `Authentication__OIDC__SaveTokens=true`, so the page has the
   person's token (`$AccessToken`).
-- pivotkit-server 0.4.0 or later. The person's profile names the source under `records`.
+- A pivotkit-server whose profile for the person names the source under `records`
+  ([what it needs](server-rows.md#on-pivotkit-server)).
 - Without `-ServerUri`, the page says what it needs and shows no report. Without a token (no sign-in,
   or tokens not saved), it says that the page needs a sign-in and sends nothing to the server.
 

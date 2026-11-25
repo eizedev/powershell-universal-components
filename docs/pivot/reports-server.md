@@ -7,6 +7,8 @@ description: "Invoke-UDPivotReport -Engine Rest: render a view on a pivotkit-ser
 
 `Invoke-UDPivotReport -Engine Rest` sends the view and the rows to a pivotkit-server, or names one of
 its sources. The basics, the formats and the Node engine: [Reports without a browser](reports.md).
+To run the pivotkit-server on the Windows server next to PSU, with its token in a PSU secret, follow
+pivotkit's [Services next to PowerShell Universal](https://pivotkit.eize.dev/getting-started/powershell-universal/).
 
 ## REST: a pivotkit-server
 
@@ -24,12 +26,11 @@ data you send. `-DataName` names the data, `-DataAsOf` says when it is from (sen
 arrived).
 
 `-Data` (and with it `-DataName` and `-DataAsOf`) and `-Parameter` need pivotkit-server 0.2.0 or
-later. pivotkit-server 0.1.1 renders `-Source` without parameters. It answers `-Data` and `-Parameter`
-with `INVALID_INPUT (400)`, and the error then names the version they need.
+later.
 
 The token comes from the server's operator, who makes it with `pivotkit-server token new`; keep it in
-a PSU secret. pivotkit-server 0.2.0 does not start with a static token that is easy to guess
-([pivotkit's rule](https://pivotkit.eize.dev/getting-started/upgrading/#weak-tokens)).
+a PSU secret. pivotkit-server refuses a static token that is easy to guess
+([pivotkit's rule](https://pivotkit.eize.dev/security/#rest)).
 
 With `-Source` instead of `-Data` the report runs over a source the operator configured, with
 `-Parameter` for its parameters; that needs a caller whose policy has `results: true`:
@@ -67,8 +68,9 @@ Each source is an object with these properties:
 | `Rows`, `DataAsOf` | The row count and the data's date, where the server read the data and shows them to the caller |
 | `RequestId` | The id of the answer, for the operator |
 
-A pivotkit-server older than 0.4.0 leaves `Records`, `LinkParams`, `Views`, `Rows` and `DataAsOf`
-empty. When the server lists no source, the function returns nothing and writes the server's reason to
+`Records`, `LinkParams`, `Views`, `Rows` and `DataAsOf` need pivotkit-server 0.4.0 or later.
+
+When the server lists no source, the function returns nothing and writes the server's reason to
 the warning stream: the sign-in lacks the sources' scopes.
 
 ## A report as a link

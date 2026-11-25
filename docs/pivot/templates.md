@@ -103,7 +103,7 @@ report writes it for Copy view as JSON and Download view, the template stores ke
 }
 ```
 
-Format version 2 carries a view of version 2 ([filters](views.md#filters)), which the report writes.
+Format version 2 carries a view of version 2 ([filters](filters.md)), which the report writes.
 Files of format version 1 (views of version 1) are read as they are:
 the report migrates their filters to version 2 with the same result, and the module keeps them
 unchanged on the server until they are saved again.

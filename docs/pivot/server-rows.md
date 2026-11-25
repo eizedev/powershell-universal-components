@@ -40,7 +40,8 @@ explains the design.
 
 ### On pivotkit-server
 
-You need pivotkit-server 0.4.0 or later: older servers have no rows route.
+You need pivotkit-server 0.4.0 or later. To run it next to PSU on a Windows server, follow pivotkit's
+[Services next to PowerShell Universal](https://pivotkit.eize.dev/getting-started/powershell-universal/).
 pivotkit's [rows route for a host backend](https://pivotkit.eize.dev/reference/rest/#records-host) has
 the details. In short:
 
@@ -144,6 +145,14 @@ Three places hold the rows:
   PSU's server process. In a **PowerShell 7** environment, it is a host process of its own.
 - **PSU's server process.** It passes the text on to the browser.
 
+A worked guess for a container: PSU's server process at rest, plus the page processes, plus about
+200 to 270 MB per person who opens a report at the default row limit (50,000 rows) at the same time.
+That is the page process and PSU's server process together, measured on two test instances; measure
+with your own data.
+
+<details class="note" markdown="1">
+<summary>The measurements behind it</summary>
+
 Measured on two PSU test instances (2026.2.5 and 2026.3.4 in containers with a 2 GiB limit), an app in
 a PowerShell 7 environment, a pivotkit-server on the same host, 20 columns, three page loads each.
 The numbers are the growth of each process's memory (RSS) at the peak, sampled every 0.25 seconds.
@@ -163,9 +172,8 @@ Before the loads, PSU's server process held about 1.0 to 1.2 GB and the host pro
   collector frees at its own time, so a single load can show more or less. Measure with your data.
 - The largest text the module passed through PSU to the browser was 64 MiB, on both instances. A
   string of 128 MiB crashed the browser tab, not PSU. That is why `-MaxBytes` stops at 64 MB.
-- A worked guess for a container: PSU's server process at rest, plus the page processes, plus about
-  200 to 270 MB per person who opens a report at the default row limit at the same time. That is the
-  page process and PSU's server process together, in the row of 50,000 rows.
+
+</details>
 
 Set a memory limit per PSU process, so a load too large fails with an `OutOfMemoryException` in .NET
 before the system kills the whole container:

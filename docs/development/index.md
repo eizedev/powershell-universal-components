@@ -1,3 +1,7 @@
+---
+description: "Build and test the modules and this site: Node and PowerShell versions, unit, Pester and browser tests, tests on a PSU instance and against the real pivotkit, and adding a module."
+---
+
 # Development
 
 The repository builds one PowerShell module per component. Each module is a React component registered
@@ -14,6 +18,7 @@ Requires Node.js 22.18 or newer 22.x, or 24.11 or newer (Babel 8; CI tests the l
 
 ```powershell
 npm ci; npm test                                   # JavaScript unit tests
+npm run lint                                       # ESLint, as CI runs it
 ./build/Build-Module.ps1 -Module <Module>          # any folder in modules/; output/<Module>/<Version>
 Invoke-Pester -Path ./tests/powershell
 ```
@@ -40,6 +45,9 @@ npx playwright install chromium firefox webkit; npm run test:browser
 The design's stylesheet comes from eizedev/brand (`docs/assets/site.css`, not committed): copy it from
 there for a local build. A new example goes into `examples.ps1` and is included on the page it belongs
 to; the build fails for an example that no page includes.
+Every page has a `description:` in its front matter: `overrides/main.html` puts it, with the title and
+`assets/social-preview.png`, into the page's Open Graph and Twitter card tags. `Build-Site.ps1` writes
+`robots.txt` with the sitemap's address from `site_url`.
 
 For AI tools the site also publishes [llms.txt](https://powershell-universal-components.eize.dev/llms.txt)
 (the pages by section, with links to their Markdown), `llms-full.txt` (all of them in one file) and a
@@ -51,11 +59,11 @@ of these sections; `tests/js/llms-sections.test.js` fails otherwise.
 | --- | --- |
 | An example's text | `Text` in `examples.ps1`; parameters (`-View`), commands (`New-UDDynamic`) and variables (`$EventData`) become code. |
 | An example as a whole app | `App` in `examples.ps1` (the app's title): the page shows the code once more inside `New-UDApp -Content { }`. |
-| Public data in an example | `Invoke-RestMethod` with the real address; the build answers it from the snapshot in `docs/site/data/<host>/<path>`, so it needs no network. `docs/site/Update-Data.ps1` fetches the snapshots again; sources, licences and the attribution each source asks for (`Source` in `examples.ps1`, shown under the example) are in [data/SOURCES.md](https://github.com/eizedev/powershell-universal-components/blob/HEAD/docs/site/data/SOURCES.md). |
+| Public data in an example | `Invoke-RestMethod` with the real address; the build answers it from the snapshot in `docs/site/data/<host>/<path>` (for an address with a query string, the file `data/Addresses.psd1` names), so it needs no network. `docs/site/Update-Data.ps1` fetches the snapshots again; sources, licences and the attribution each source asks for (`Source` in `examples.ps1`, shown under the example) are in [data/SOURCES.md](https://github.com/eizedev/powershell-universal-components/blob/HEAD/docs/site/data/SOURCES.md). |
 | The pivot showcase app | Runs the pivot examples of `examples.ps1` and reads the snapshots in `docs/site/data/` (`Addresses.psd1` holds the exact address of a snapshot whose address has a query string); `Build.psd1` of the demo module copies both into it, so a change of an example or a snapshot reaches the app with its next release. |
 | What PSU provides | Stubs in `Build-Site.ps1`: the `[Endpoint]` type, `New-UDDynamic` (draws its `-Content`), a signed-in reader with the role `Administrator` (`$User`, `$Roles`) and `$Repository`. |
 | The pivot report on a page | Drawn into a shadow root of its placeholder, with the module's stylesheets inside it, so the page's typography stays outside. |
-| The pivot screenshots of the start page | `node docs/site/screenshots.mjs <site url>` on the built and served site, light and dark, into `docs/assets/`. |
+| The screenshots of the README and the start page (`echarts-weather-*`, `perspective-weather-*`, `pivot-weather-*`) | `node docs/site/screenshots.mjs <site url>` on the built and served site, light and dark, into `docs/assets/`. |
 | The Pivot showcase screenshots (`pivot-showcase-*`) | `PSU_PIVOT_DEMO_URL=<app url> node docs/site/screenshots.mjs` against `New-UDPivotShowcase` on a PSU instance, light and dark, into `docs/assets/`. |
 
 ## Browser tests on PSU

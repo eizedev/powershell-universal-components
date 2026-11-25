@@ -1,3 +1,7 @@
+---
+description: "What -Data of New-UDEChart takes: DataTables, objects, hashtables or a script block; wide and long data, rows with the same x, empty data, numbers, language and how much data fits."
+---
+
 # Data
 
 `-Data` takes a `System.Data.DataTable` or `DataView` (SqlClient, ODBC), DataRows, PSCustomObjects,

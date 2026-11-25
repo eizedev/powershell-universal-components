@@ -17,6 +17,10 @@ site/
 nav = [
   { "Overview" = "index.md" },
   { "Getting started" = "getting-started.md" },
+  { "Versioning" = "versioning.md" },
+  { "Upgrading" = "upgrading.md" },
+  { "Compatibility" = "compatibility.md" },
+  { "Security" = "security.md" },
   { "ECharts" = [
     { "Overview" = "echarts/index.md" },
     { "Showcase app (demo)" = "demo.md" },
@@ -55,31 +59,44 @@ nav = [
     { "Commands and parameters" = "perspective/reference.md" },
   ] },
   { "Pivot" = [
-    { "Overview" = "pivot/index.md" },
-    { "What readers can do" = "pivot/readers.md" },
-    { "Data and loading" = "pivot/data.md" },
-    { "Showcase app (demo)" = "pivot/demo.md" },
-    { "Themes and corporate design" = "pivot/themes.md" },
-    { "Field names and descriptions" = "pivot/fields.md" },
-    { "Views" = "pivot/views.md" },
-    { "Links into a report" = "pivot/links.md" },
-    { "Templates, view files and roles" = "pivot/templates.md" },
-    { "The $schema of a view file" = "pivot/schema.md" },
-    { "Template stores" = "pivot/stores.md" },
-    { "Roles and your own code" = "pivot/roles.md" },
-    { "How ids and names are built" = "pivot/ids.md" },
-    { "Readers' own files" = "pivot/import.md" },
-    { "Events, security and limits" = "pivot/events.md" },
-    { "Rows from a server" = "pivot/server-rows.md" },
-    { "Reports without a browser" = "pivot/reports.md" },
-    { "Reports from a pivotkit-server" = "pivot/reports-server.md" },
-    { "Sign-in to a pivotkit-server" = "pivot/server-sign-in.md" },
-    { "Errors" = "pivot/errors.md" },
-    { "Commands and parameters" = "pivot/reference.md" },
+    { "Start" = [
+      { "Overview" = "pivot/index.md" },
+      { "Readers and your app" = "pivot/readers.md" },
+      { "Showcase app (demo)" = "pivot/demo.md" },
+    ] },
+    { "Build a report" = [
+      { "Data and loading" = "pivot/data.md" },
+      { "Field names and descriptions" = "pivot/fields.md" },
+      { "Views" = "pivot/views.md" },
+      { "Filters in a view" = "pivot/filters.md" },
+      { "Themes and corporate design" = "pivot/themes.md" },
+      { "Readers' own files" = "pivot/import.md" },
+      { "Events, security and limits" = "pivot/events.md" },
+    ] },
+    { "Share and keep views" = [
+      { "Templates, view files and roles" = "pivot/templates.md" },
+      { "Several tabs and the reader's view" = "pivot/saved-view.md" },
+      { "Links into a report" = "pivot/links.md" },
+      { "Template stores" = "pivot/stores.md" },
+      { "Roles and your own code" = "pivot/roles.md" },
+      { "The $schema of a view file" = "pivot/schema.md" },
+      { "How ids and names are built" = "pivot/ids.md" },
+    ] },
+    { "Reports and server" = [
+      { "Reports without a browser" = "pivot/reports.md" },
+      { "Reports from a pivotkit-server" = "pivot/reports-server.md" },
+      { "Rows from a server" = "pivot/server-rows.md" },
+      { "Sign-in to a pivotkit-server" = "pivot/server-sign-in.md" },
+    ] },
+    { "Reference" = [
+      { "Commands and parameters" = "pivot/reference.md" },
+      { "Errors" = "pivot/errors.md" },
+    ] },
   ] },
   { "Development" = [
     { "Build and test" = "development/index.md" },
     { "Releases" = "development/release.md" },
+    { "Decisions" = "decisions/index.md" },
   ] },
 ]
 
@@ -102,13 +119,16 @@ PowerShell objects. Not affiliated with Devolutions. llms-full.txt holds every p
 """
 
 [project.plugins.llmstxt.sections]
-"Start" = ["index.md", "getting-started.md"]
+"Start" = ["index.md", "getting-started.md", "versioning.md", "upgrading.md", "compatibility.md", "security.md"]
 "ECharts module" = ["echarts/*.md", "demo.md"]
 "Perspective module" = ["perspective/*.md"]
 "Pivot module" = ["pivot/*.md"]
 "Development (build, test, release)" = ["development/*.md"]
+"Decisions" = ["decisions/*.md"]
 
 [project.theme]
+# overrides/main.html adds the Open Graph and Twitter card tags to every page
+custom_dir = "overrides"
 language = "en"
 logo = "assets/images/icon.svg"
 favicon = "assets/images/icon.svg"

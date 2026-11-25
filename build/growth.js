@@ -16,9 +16,11 @@
 // entry by itself. Raising one is --accept-growth, and the pull request says why.
 // eizedev/pivotkit has the same guards in scripts/growth.js; both work alike.
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readmes, sitePages } from "./docs-files.js";
+import { LANGUAGE_OPTIONS, SOURCES } from "./javascript-sources.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const BASELINE = new URL("growth-baseline.json", import.meta.url);
@@ -54,9 +56,6 @@ export const DOCS_LIMITS = Object.freeze({ overview: 150, topic: 200, reference:
 
 /** How far the lines of all pages together may drift from the baseline, in percent, before it is updated. */
 export const DOCS_TOTAL_MARGIN = 2;
-
-/** The JavaScript the javascript guard reads; .jscpd.json names the same folders. */
-const JAVASCRIPT = ["modules/*/Components/**/*.{js,jsx}", "shared/js/**/*.js"];
 
 /** What to do when a guard fails, said once per guard. */
 const ADVICE = {
@@ -127,7 +126,8 @@ export function parseFunctionMessage({ ruleId, message }) {
  * The JavaScript functions over FUNCTION_LIMITS, as "Function 'name'" (or "<file> Arrow function" for
  * an anonymous one) -> numbers per metric. ESLint
  * runs with these two rules only and ignores eslint-disable comments, so a comment cannot hide a
- * function from the guard. The repository has no ESLint configuration of its own.
+ * function from the guard. It reads the code `npm run lint` reads, parsed the same way
+ * (build/javascript-sources.js), but not that lint's rules.
  * @param {string} [cwd]
  * @returns {Promise<{ lines: Record<string, number[]>, complexity: Record<string, number[]> }>}
  */
@@ -137,9 +137,8 @@ export async function measureJavaScript(cwd = root) {
         "max-lines-per-function": ["error", { max: FUNCTION_LIMITS.lines, skipBlankLines: true, skipComments: true }],
         complexity: ["error", { max: FUNCTION_LIMITS.complexity }],
     };
-    const languageOptions = { ecmaVersion: "latest", sourceType: "module", parserOptions: { ecmaFeatures: { jsx: true } } };
-    const eslint = new ESLint({ cwd, overrideConfigFile: true, allowInlineConfig: false, overrideConfig: { files: ["**/*.{js,jsx}"], languageOptions, rules } });
-    const results = await eslint.lintFiles(JAVASCRIPT);
+    const eslint = new ESLint({ cwd, overrideConfigFile: true, allowInlineConfig: false, overrideConfig: { files: ["**/*.{js,jsx}"], languageOptions: LANGUAGE_OPTIONS, rules } });
+    const results = await eslint.lintFiles([...SOURCES]);
     const found = { lines: {}, complexity: {} };
     for (const result of results) {
         for (const message of result.messages) {
@@ -169,24 +168,13 @@ export function docsKind(page) {
 const lineCount = (text) => text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
 
 /**
- * Lines of every docs page (docs/**\/*.md without docs/site/, which builds the site) and every README
- * (the repository's and each module's), as repository path -> lines.
+ * Lines of every docs page and every README (build/docs-files.js), as repository path -> lines.
  * @param {string} [dir]  the repository
  * @returns {Record<string, number>}
  */
 export function docsPages(dir = root) {
-    const pages = {};
-    const add = (path) => {
-        if (existsSync(join(dir, path))) pages[path] = lineCount(readFileSync(join(dir, path), "utf8"));
-    };
-    for (const entry of readdirSync(join(dir, "docs"), { recursive: true, withFileTypes: true })) {
-        if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
-        const path = posix(join(entry.parentPath, entry.name), dir);
-        if (!path.startsWith("docs/site/")) add(path);
-    }
-    add("README.md");
-    for (const module of readdirSync(join(dir, "modules"), { withFileTypes: true })) if (module.isDirectory()) add(`modules/${module.name}/README.md`);
-    return pages;
+    const paths = [...sitePages(dir).map((page) => `docs/${page}`), ...readmes(dir)];
+    return Object.fromEntries(paths.map((path) => [path, lineCount(readFileSync(join(dir, path), "utf8"))]));
 }
 
 /**

@@ -131,7 +131,12 @@ browser; approximate).
 
 `-ImportLimit` raises or lowers these limits for the files readers load into a report; keys left
 out keep pivotkit's defaults. The app's `-Data` keeps pivotkit's own limits, so a limit for files
-may be lower or higher than what the app's data gets:
+may be lower or higher than what the app's data gets. The keys and their defaults: `fileBytes`
+(100 MiB), `rows` (1,000,000), `columns` (1,000), `importCells` (10,000,000), `textLength` (32,767),
+`archiveEntries` (10,000) and `unpackedBytes` (500 MiB).
+
+<details class="note" markdown="1">
+<summary>What each key counts</summary>
 
 | Key | Default | Counts |
 | --- | --- | --- |
@@ -142,6 +147,8 @@ may be lower or higher than what the app's data gets:
 | `textLength` | 32,767 | Characters of one value (Excel's cell limit); longer text is cut, with a note. |
 | `archiveEntries` | 10,000 | Parts of an Excel workbook (an `.xlsx` is a ZIP), before anything is unpacked. |
 | `unpackedBytes` | 524,288,000 (500 MiB) | Bytes the parts of a workbook unpack to, before anything is unpacked. |
+
+</details>
 
 ```powershell
 # exports of up to 250 MB and 2,000,000 rows; workbooks that unpack to up to 1 GB
