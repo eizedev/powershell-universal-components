@@ -105,9 +105,8 @@ export default function EChart(props) {
     // one object per content: PSU sends the theme anew with every update of the props, which must
     // not set the theme again
     const customTheme = useMemo(() => (customKey ? JSON.parse(customKey) : undefined), [customKey]);
-    // the latest props for event handlers registered once, the latest mode for the chart's disposal
+    // the latest props for event handlers registered once
     const latest = useLatest(props);
-    const latestMode = useLatest(mode);
     // zoom, legend and brush of the chart this one replaces after PSU's light/dark switch (viewState.js)
     const handedView = useRef(null);
     // Get-UDElement: the last click, range and zoom, kept here because PSU asks for them synchronously
@@ -162,12 +161,19 @@ export default function EChart(props) {
         return o && needsFit(o) ? `${base}|${Math.round(w / 32)}|${Math.round(h / 16)}|${legendRows(o, w)}` : base;
     };
 
+    // the component goes (not only the chart, made again for another renderer or locale): its chart
+    // hands its view over. Declared before the chart's effect, so React runs this cleanup first
+    const unmounting = useRef(false);
+    useEffect(() => () => {
+        unmounting.current = true;
+    }, []);
+
     // create once, dispose on unmount; follow the container's size
     useEffect(() => {
         registerLocales(echarts);
         const chart = echarts.init(container.current, ensureTheme(echarts, mode, psuTheme, customTheme), { renderer: props.renderer === "svg" ? "svg" : "canvas", locale: echartsLocale(locale) });
         chartRef.current = chart;
-        handedView.current = takeHandedOverView(props.id, mode);
+        handedView.current = takeHandedOverView(props.id);
         // the ECharts instance on its element, for page scripts and tests: element.echarts.getOption()
         container.current.echarts = chart;
         // resize in the next frame: resizing inside the observer's callback changes the layout it is
@@ -187,9 +193,8 @@ export default function EChart(props) {
         return () => {
             cancelAnimationFrame(frame);
             resize.disconnect();
-            // the mode at disposal, not at creation: a value, not a node, so the rule's case does not apply
-            // eslint-disable-next-line react-hooks/exhaustive-deps
-            handOverView(props.id, latestMode.current, chart);
+            // set by the unmount effect above when the component goes, not for another renderer or locale
+            if (unmounting.current) handOverView(props.id, chart);
             chart.dispose();
             chartRef.current = null;
         };

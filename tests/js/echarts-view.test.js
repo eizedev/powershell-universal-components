@@ -50,22 +50,19 @@ test("applyView: the kept state as silent actions, so no -OnZoom, -OnSelect or -
     assert.deepEqual(empty.actions, []);
 });
 
-test("handOverView: a chart mounted again at once with the same id in the other mode gets the view; the same mode or later gets nothing", async () => {
+test("handOverView: a chart mounted with the same id in the same task gets the view; later gets nothing", async () => {
     const zoomed = () => fakeChart({ dataZoom: [{ start: 40, end: 60 }] });
-    handOverView("chart1", "light", zoomed());
-    assert.deepEqual(takeHandedOverView("chart1", "dark"), { zoom: [{ dataZoomIndex: 0, start: 40, end: 60 }], legend: {}, brush: [] });
+    handOverView("chart1", zoomed());
+    assert.deepEqual(takeHandedOverView("chart1"), { zoom: [{ dataZoomIndex: 0, start: 40, end: 60 }], legend: {}, brush: [] });
     // taken once
-    assert.equal(takeHandedOverView("chart1", "dark"), null);
-    // drawn again in the same mode (a New-UDDynamic that refreshes): starts as built, as before
-    handOverView("chart1", "light", zoomed());
-    assert.equal(takeHandedOverView("chart1", "light"), null);
+    assert.equal(takeHandedOverView("chart1"), null);
     // an id nobody mounts at once (the page was left) is forgotten
-    handOverView("chart2", "light", zoomed());
+    handOverView("chart2", zoomed());
     await new Promise((resolve) => setTimeout(resolve, 5));
-    assert.equal(takeHandedOverView("chart2", "dark"), null);
+    assert.equal(takeHandedOverView("chart2"), null);
     // no id: nothing to match
-    handOverView(undefined, "light", zoomed());
-    assert.equal(takeHandedOverView(undefined, "dark"), null);
+    handOverView(undefined, zoomed());
+    assert.equal(takeHandedOverView(undefined), null);
 });
 
 // the same against the real ECharts of the module (server-side rendering, no DOM)
@@ -108,10 +105,10 @@ test("ECharts: zoom, legend selection and brush survive setTheme and a new insta
     assert.deepEqual(state(chart), expected);
     assert.deepEqual(events, []);
     // PSU mounts the chart again on its first theme switch: a new instance of the same id
-    handOverView("t", "light", chart);
+    handOverView("t", chart);
     chart.dispose();
     const again = make();
-    applyView(again, takeHandedOverView("t", "dark"));
+    applyView(again, takeHandedOverView("t"));
     assert.deepEqual(state(again), expected);
     again.dispose();
 });

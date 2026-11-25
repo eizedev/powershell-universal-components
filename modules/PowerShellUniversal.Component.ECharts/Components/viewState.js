@@ -45,18 +45,18 @@ export function setThemeKeepingView(chart, theme) {
 }
 
 /*
- * PSU's remount: the old chart hands its view over when it is disposed, the new one of the same id
- * takes it in the same task. Only in the other mode, so a chart drawn again for other reasons (a
- * New-UDDynamic that refreshes) starts as built, as before; an id nobody takes is forgotten.
+ * PSU's remount: the unmounted chart hands its view over, and the one mounted with the same id in the
+ * same task takes it. PSU mounts it before it sets the new data-theme, so both charts start in the old
+ * mode; the theme follows through setThemeKeepingView. An id nobody takes is forgotten.
  */
 const handedOver = new Map();
 
-export function handOverView(id, mode, chart) {
+export function handOverView(id, chart) {
     const view = readView(chart);
     if (id === undefined || id === null || !view) {
         return;
     }
-    const entry = { mode, view };
+    const entry = { view };
     handedOver.set(id, entry);
     setTimeout(() => {
         if (handedOver.get(id) === entry) {
@@ -65,8 +65,8 @@ export function handOverView(id, mode, chart) {
     }, 0);
 }
 
-export function takeHandedOverView(id, mode) {
+export function takeHandedOverView(id) {
     const entry = handedOver.get(id);
     handedOver.delete(id);
-    return entry && entry.mode !== mode ? entry.view : null;
+    return entry ? entry.view : null;
 }
