@@ -1,5 +1,5 @@
 // `npm run lint`: ESLint's recommended rules, which find real errors (undefined names, unreachable
-// code, unused variables), and the rules of hooks for the React code. Formatting is left to
+// code, unused variables), and the React hooks rules for the React code. Formatting is left to
 // .editorconfig. Function length and complexity are no rules here: they are a ratchet in
 // build/growth.js (`npm run growth`), because today's long functions would fail a rule. Both read the
 // same code the same way (build/javascript-sources.js).
@@ -42,12 +42,13 @@ export default [
         languageOptions: { globals: { ...globals.browser, UniversalDashboard: "readonly", require: "readonly", __PIVOT_IMPORT_WORKER__: "readonly" } },
     },
     {
-        // a broken rule of hooks fails. A missing effect dependency only warns: the components keep
-        // the latest props in a ref for event handlers registered once, which this rule cannot see.
-        // The React Compiler rules of the plugin's recommended set stay off: they flag that same
-        // ref pattern, and the modules are not built with the React Compiler
+        // the plugin's recommended rules for React 18 code, with a missing effect dependency as an
+        // error too: the rules of hooks and the React Compiler's checks (no ref read or written during
+        // render, no setState in an effect body). Props that handlers registered once need are kept in a
+        // ref written in an effect (shared/js/useLatest.js); a dependency left out on purpose is
+        // disabled on its line with the reason
         files: BROWSER,
         plugins: { "react-hooks": reactHooks },
-        rules: { "react-hooks/rules-of-hooks": "error", "react-hooks/exhaustive-deps": "warn" },
+        rules: { ...reactHooks.configs["recommended-latest"].rules, "react-hooks/exhaustive-deps": "error" },
     },
 ];

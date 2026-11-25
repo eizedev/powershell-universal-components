@@ -3,7 +3,7 @@
         "pages": {
             "README.md": [108]
         },
-        "totalLines": 5182
+        "totalLines": 5194
     },
     "javascript": {
         "complexity": {
@@ -14,8 +14,8 @@
             "modules/PowerShellUniversal.Component.ECharts/Components/cartesian.js Arrow function": [35]
         },
         "lines": {
-            "Function 'EChart'": [276],
-            "Function 'Perspective'": [138],
+            "Function 'EChart'": [254],
+            "Function 'Perspective'": [135],
             "Function 'cartesian'": [337],
             "modules/PowerShellUniversal.Component.ECharts/Components/EChart.jsx Arrow function": [127]
         }

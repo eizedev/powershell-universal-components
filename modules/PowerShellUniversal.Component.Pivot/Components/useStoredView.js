@@ -15,9 +15,10 @@ function sessionStorageOrNull() {
 /*
  * The report's view: the server's start view (-View), then the reader's. The reader's view of this tab
  * is kept in the address bar and in sessionStorage, restored on mount, and answers Get-UDElement.
- * latest: a ref to the current props. Returns the view and what useLoadedFile needs of it.
+ * latestRef: a ref to the current props (named ...Ref in these hooks, so the React Compiler rules of the lint
+ * see a ref, not a value). Returns the view and what useLoadedFile needs of it.
  */
-export function useStoredView(props, latest) {
+export function useStoredView(props, latestRef) {
     const serverViewKey = JSON.stringify(parseView(props.view) ?? null);
     // the reader's view of this tab survives PSU mounting the component anew (its light/dark switch)
     // and a reload: in the address bar (#pivot-<key>=...) and in sessionStorage, the fallback for a
@@ -28,7 +29,7 @@ export function useStoredView(props, latest) {
     const showInLink = useCallback((next) => {
         const s = store.current;
         // -NoAddressBar; and only on the page the report was mounted on (PSU's menu may have moved on)
-        if (latest.current.addressBar === false || !s.linkKey || typeof window === "undefined" || window.location.pathname !== s.path) return;
+        if (latestRef.current.addressBar === false || !s.linkKey || typeof window === "undefined" || window.location.pathname !== s.path) return;
         try {
             const hash = writeLinkView(window.location.hash, s.linkKey, next);
             if (hash === window.location.hash || (hash === "" && !window.location.hash)) return;
@@ -37,7 +38,7 @@ export function useStoredView(props, latest) {
         } catch {
             // a browser that refuses (Safari limits replaceState calls): sessionStorage still has it
         }
-    }, []);
+    }, [latestRef]);
     const remember = useCallback((next) => {
         const s = store.current;
         if (!s.key) return;
@@ -90,7 +91,7 @@ export function useStoredView(props, latest) {
             if (start.inStorage) showInLink(start.view);
             else remember(start.view);
             // the component's state holds the restored view too (withComponentFeatures passes it back as props.view)
-            if (typeof latest.current.setState === "function") latest.current.setState({ view: start.view });
+            if (typeof latestRef.current.setState === "function") latestRef.current.setState({ view: start.view });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);

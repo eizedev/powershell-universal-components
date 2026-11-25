@@ -40,6 +40,10 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
   `New-UDEChart` runs its steps through helpers. Commands, parameters, help and output are unchanged
   ([#169](https://github.com/eizedev/powershell-universal-components/issues/169)).
 - The help of `-Value`, `-Path`, `-Source` and `-Target` names every chart type that reads them.
+- The component passes the React hooks lint rules, which are now errors in CI: the latest props
+  for its event handlers are kept in a ref written in an effect, not during render
+  ([#217](https://github.com/eizedev/powershell-universal-components/issues/217)). Clicks, selections, zoom, the
+  export buttons and the theme switch work as before.
 
 ## [0.3.1] - 2026-11-22
 

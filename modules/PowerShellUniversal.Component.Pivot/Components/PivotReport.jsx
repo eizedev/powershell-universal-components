@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from "react";
+import React, { useMemo } from "react";
 import { PivotReport as Report } from "pivotkit-react";
 // Excel workbooks for -AllowImport: a small descriptor; its reader is imported on the first workbook
 import xlsxReader from "pivotkit-xlsx";
@@ -6,6 +6,7 @@ import { bundleScriptOf, importWorkerOf, workerUrlOf } from "./importWorker";
 import "pivotkit-react/styles.css";
 import "./psu.css";
 import { useNarrowWindow } from "./hooks";
+import { useLatest } from "../../../shared/js/useLatest";
 import { useStoredView } from "./useStoredView";
 import { useLoadedFile } from "./useLoadedFile";
 import { useTemplateEndpoints } from "./useTemplateEndpoints";
@@ -50,8 +51,7 @@ export default function PsuPivotReport(props) {
     const rows = useMemo(() => (records ? records.table : restoreRows(props.data, props.columnNames)), [records, props.data, props.columnNames]);
     // a text that does not parse is the server's fault, never a partial report
     const problem = problemOf(props.problem) ?? (typeof props.records === "string" && !records ? problemOf({ kind: "serverError" }) : undefined);
-    const latest = useRef(props);
-    latest.current = props;
+    const latest = useLatest(props);
     const narrow = useNarrowWindow();
 
     // the view, a file the reader loaded, the templates and the settings, in this order (hooks.js and use*.js)
@@ -61,8 +61,7 @@ export default function PsuPivotReport(props) {
     const { fieldDefaults, chartOptions, tips, source, schemaUrl, exportData, labels } = useReportOptions(props);
 
     // ---- clicks ----------------------------------------------------------------------------------
-    const viewRef = useRef(view);
-    viewRef.current = view;
+    const viewRef = useLatest(view);
     // the rows of a loaded file never go to the server: -OnCellClick runs on the app's data only
     const onCellClick = !fileShown && typeof props.onCellClick === "function"
         ? (cell) => {

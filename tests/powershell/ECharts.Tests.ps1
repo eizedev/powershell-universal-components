@@ -206,6 +206,43 @@ Describe 'Demo module' {
         $readme | Should -Match '\]\(https://github\.com/[^)]+/blob/HEAD/modules/PowerShellUniversal\.Component\.ECharts\.Demo/Apps/Showcase\.ps1\)'
         Join-Path $built.FullName 'Apps' 'Showcase.ps1' | Should -Exist
     }
+
+    Context 'Ticket report' {
+        BeforeAll {
+            # what PSU provides: $Cache; the layout commands draw their content, the others draw nothing.
+            # New-UDEChart is the real one
+            if (-not (Get-PSDrive -Name Cache -ErrorAction Ignore)) { New-PSDrive -Name Cache -PSProvider Variable -Root '' -Scope Global | Out-Null }
+            function global:New-UDApp { param($Title, $Pages) @{ Title = $Title; Pages = @($Pages) } }
+            function global:New-UDPage { param($Name, $Url, $Content) @{ Name = $Name; Url = $Url; Content = $Content } }
+            foreach ($name in 'New-UDGrid', 'New-UDCard', 'New-UDDynamic') {
+                Set-Item -Path "function:global:$name" -Value { param($Content) if ($Content) { & $Content } }
+            }
+            foreach ($name in 'New-UDTypography', 'New-UDButton', 'New-UDTable', 'Sync-UDElement', 'Show-UDToast') {
+                Set-Item -Path "function:global:$name" -Value { }
+            }
+        }
+        AfterAll {
+            foreach ($name in 'New-UDApp', 'New-UDPage', 'New-UDGrid', 'New-UDCard', 'New-UDDynamic', 'New-UDTypography', 'New-UDButton', 'New-UDTable', 'Sync-UDElement', 'Show-UDToast') {
+                Remove-Item -Path "function:$name" -ErrorAction Ignore
+            }
+            Remove-PSDrive -Name Cache -ErrorAction Ignore
+        }
+
+        It 'compares the two periods on days with tickets, also when the cached tickets are days old, with the averages apart' {
+            # dot-sourced: the stub $Cache holds the app's variables in this scope, where the pages read them
+            $app = . (Join-Path $script:repo 'modules' 'PowerShellUniversal.Component.ECharts.Demo' 'Apps' 'Showcase.ps1')
+            # PSU keeps $Cache for days: the tickets were made two days ago
+            foreach ($ticket in $Cache:EChartsTickets) { $ticket.Created = $ticket.Created.AddDays(-2) }
+            $page = $app.Pages | Where-Object Name -EQ 'Ticket report'
+            $chart = & $page.Content | Where-Object { $_ -is [hashtable] -and $_.options -and $_.options.series -and $_.options.series[0].name -eq 'This period' }
+            $chart | Should -HaveCount 1
+            $chart.data | Should -HaveCount 60
+            # a day without data would be a zero: the generated data has tickets on every day
+            @($chart.data | Where-Object { $_.Current -eq 0 -or $_.Previous -eq 0 }) | Should -BeNullOrEmpty
+            # the first series' average is labelled at the end (the module's default), the second's at the start
+            $chart.options.series[1].markLine.label.position | Should -BeLike 'insideStart*'
+        }
+    }
 }
 
 Describe '-TooltipMode' {
