@@ -5,6 +5,14 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+### Changed
+
+- The component passes the React hooks lint rules, which are now errors in CI: the latest props
+  for its event handlers are kept in a ref written in an effect, not during render
+  ([#217](https://github.com/eizedev/powershell-universal-components/issues/217)). The reader's view, a loaded file,
+  `-OnViewChange`, `-OnCellClick` and the templates work as before. New templates from the server
+  replace the ones saved in the browser in the same render, not in one after it.
+
 ## [0.10.1] - 2026-11-25
 
 ### Fixed

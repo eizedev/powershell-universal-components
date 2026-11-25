@@ -190,10 +190,12 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
             }
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 8 -Content {
                 New-UDCard -Title 'Opened per day: this period vs previous period' -Content {
-                    # last 60 days against the 60 before, aligned by day number
-                    $today = (Get-Date).Date
+                    # the last 60 days of the data against the 60 before, aligned by day number. The period
+                    # ends on the newest ticket's day, not today: the data ends yesterday and stays in
+                    # $Cache: for days, so counting up to today would show days without data as zeros
+                    $lastDay = ($tickets.Created | Measure-Object -Maximum).Maximum.Date
                     $perDay = foreach ($offset in 0..59) {
-                        $now = $today.AddDays(-59 + $offset)
+                        $now = $lastDay.AddDays(-59 + $offset)
                         $before = $now.AddDays(-60)
                         [pscustomobject]@{
                             Day      = 'Day {0}' -f ($offset + 1)
@@ -202,7 +204,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
                         }
                     }
                     New-UDEChart -Data $perDay -Type line -X Day -Y Current, Previous -Smooth -Height 260px -MarkLine average `
-                        -Options @{ series = @(@{ name = 'This period' }, @{ name = 'Previous period'; lineStyle = @{ type = 'dashed' }; itemStyle = @{ opacity = 0.6 } }) }
+                        -Options @{ series = @(@{ name = 'This period' }, @{ name = 'Previous period'; lineStyle = @{ type = 'dashed' }; itemStyle = @{ opacity = 0.6 }; markLine = @{ label = @{ position = 'insideStartBottom' } } }) }
                 }
             }
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Content {
@@ -246,7 +248,7 @@ New-UDApp -Title 'ECharts for PowerShell Universal' -Pages @(
             New-UDGrid -Item -ExtraSmallSize 12 -Content {
                 New-UDCard -Title 'Tickets per day: select a range (brush button) to filter the table' -Content {
                     $daily = $tickets | Group-Object { $_.Created.Date } | ForEach-Object {
-                        [pscustomobject]@{ Day = [datetime]$_.Name; Opened = $_.Count; P1 = @($_.Group | Where-Object Priority -EQ 'P1').Count }
+                        [pscustomobject]@{ Day = $_.Group[0].Created.Date; Opened = $_.Count; P1 = @($_.Group | Where-Object Priority -EQ 'P1').Count }
                     } | Sort-Object Day
                     New-UDEChart -Data $daily -Type bar -X Day -Y Opened, P1 -SecondaryY P1 -SecondaryTitle 'P1' -Zoom Both -Brush -Height 320px `
                         -Options @{ series = @(@{}, @{ type = 'line'; smooth = $true }) } -OnSelect {

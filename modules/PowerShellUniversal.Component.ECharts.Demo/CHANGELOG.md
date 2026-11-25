@@ -17,6 +17,16 @@ All notable changes to PowerShellUniversal.Component.ECharts.Demo. Format:
   The diverging survey chart lost an `-Options` entry that changed nothing.
 - The help and README say that the generated data counts its dates from today.
 
+### Fixed
+
+- Ticket report, "Opened per day: this period vs previous period": the period ends on the day of the
+  newest ticket. Before, it ended today, and the generated tickets end yesterday and stay cached for
+  days, so the last days of "This period" dropped to 0.
+- The same chart labels the previous period's average at the start of its line. The two "Average"
+  labels overlapped at the right edge when the averages were close.
+- The "Tickets per day" chart of the Ticket report no longer fails on a server whose culture writes
+  dates other than en-US does, such as de-DE.
+
 ## [0.3.0] - 2026-11-09
 
 ### Changed

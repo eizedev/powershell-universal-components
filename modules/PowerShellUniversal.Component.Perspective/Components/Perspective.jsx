@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { usePsuTheme, effectiveMode } from "../../../shared/js/psuTheme";
+import { useLatest } from "../../../shared/js/useLatest";
 import { THEMES, viewerConfig, prepareRows, toolbarLabels, switchTarget, isChartPlugin, TABLE_PLUGIN } from "./prepare";
 
 /*
@@ -90,12 +91,9 @@ export default function Perspective(props) {
     const psuTheme = usePsuTheme();
     const mode = effectiveMode(props.theme, psuTheme);
     const prepared = React.useMemo(() => prepareRows(Array.isArray(props.data) ? props.data : [], props.columnNames), [props.data, props.columnNames]);
-    const keys = prepared.columns;
-    const latest = useRef(props);
-    latest.current = props;
+    const latest = useLatest(props);
     // the mode when a load finishes, not when it started: PSU's theme switch can come in between
-    const modeRef = useRef(mode);
-    modeRef.current = mode;
+    const modeRef = useLatest(mode);
     // toolbar: whether the configuration panel is open and which plugin the view shows, kept in step
     // with the viewer's own events (the reader can also change both in the panel)
     const [settingsOpen, setSettingsOpen] = useState(Boolean(props.settings));
@@ -104,7 +102,8 @@ export default function Perspective(props) {
     const labels = toolbarLabels(props.labels);
     const colors = TOOLBAR_COLORS[mode] || TOOLBAR_COLORS.light;
 
-    // table: created once, replaced in place when the data changes (the view keeps its layout)
+    // table: created once; new rows with the same columns and types replace its rows in place (the view
+    // keeps its layout), other columns or column names build a new table and the view starts again
     useEffect(() => {
         let cancelled = false;
         (async () => {
@@ -135,7 +134,7 @@ export default function Perspective(props) {
                         // first load, or other columns: the reader's layout may name columns that are
                         // gone, so the view starts again from the parameters
                         const problems = [];
-                        await viewerRef.current.restore(viewerConfig(latest.current, keys, modeRef.current, prepared.schema, problems));
+                        await viewerRef.current.restore(viewerConfig(latest.current, prepared.columns, modeRef.current, prepared.schema, problems));
                         if (problems.length && !cancelled) setError(problems.join("; "));
                     }
                 } finally {
@@ -149,7 +148,7 @@ export default function Perspective(props) {
         return () => {
             cancelled = true;
         };
-    }, [props.data]);
+    }, [prepared, latest, modeRef]);
 
     // theme follows PSU's light/dark switch without resetting what the user arranged
     useEffect(() => {
@@ -213,7 +212,7 @@ export default function Perspective(props) {
         };
         viewer.addEventListener("perspective-click", onClick);
         return () => viewer.removeEventListener("perspective-click", onClick);
-    }, []);
+    }, [latest]);
 
     // free the viewer and the table when the component leaves the page
     useEffect(() => () => {

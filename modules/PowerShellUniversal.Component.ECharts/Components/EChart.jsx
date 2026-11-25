@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
 import { buildOption, dataRows, rowOf, responsive, optionForWidth, tooltipTracksHover, NARROW, TINY } from "./buildOption";
 import { tooltipState } from "./tooltipMode";
@@ -11,6 +11,7 @@ import { defaultLocale } from "./formatters.js";
 import { toCsv, toXlsxBytes, download, safeFileName } from "./exporter.js";
 import { pickColumns } from "../../../shared/js/columns";
 import { answerStateRequests } from "../../../shared/js/elementState";
+import { useLatest } from "../../../shared/js/useLatest";
 
 // components replaced (not merged) on every update, so a live update that changes the shape of the
 // chart leaves no stale axes or coordinate systems behind; zoom and legend state are kept
@@ -30,6 +31,30 @@ function canFullscreen() {
 
 function fullscreenElement() {
     return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+
+// CSV/Excel of the rows behind the chart (p: the chart's props), columns and types from -ExportColumns
+function exportRows(kind, p) {
+    const name = safeFileName(p.exportFileName || p.title, "chart");
+    const data = p.data || [];
+    if (kind === "csv") {
+        download(`${name}.csv`, toCsv(data, p.exportColumns, defaultLocale(p.locale)), "text/csv;charset=utf-8");
+    } else {
+        download(`${name}.xlsx`, toXlsxBytes(data, p.exportColumns, p.title || "Data"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+}
+
+// the chart (its outer element) alone on the whole screen and back (Esc or the button); zoom,
+// selection and the hidden series stay, because it is the same chart
+function toggleFullscreen(el) {
+    if (!el) {
+        return;
+    }
+    if (fullscreenElement() === el) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    } else {
+        (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+    }
 }
 
 /*
@@ -59,19 +84,21 @@ export default function EChart(props) {
     const mode = effectiveMode(props.theme, psuTheme);
     const locale = defaultLocale(props.locale);
     // -LightTheme / -DarkTheme: the corporate ECharts theme for the current mode
-    const customTheme = mode === "dark" ? props.darkTheme : props.lightTheme;
-    const customKey = customTheme ? JSON.stringify(customTheme) : "";
+    const customProp = mode === "dark" ? props.darkTheme : props.lightTheme;
+    const customKey = customProp ? JSON.stringify(customProp) : "";
+    // one object per content: PSU sends the theme anew with every update of the props, which must
+    // not set the theme again
+    const customTheme = useMemo(() => (customKey ? JSON.parse(customKey) : undefined), [customKey]);
     // the latest props for event handlers registered once
-    const latest = useRef(props);
-    latest.current = props;
+    const latest = useLatest(props);
     // Get-UDElement: the last click, range and zoom, kept here because PSU asks for them synchronously
     // (shared/js/elementState.js). The component's state holds them too; the wrapper's late POST sends
     // that copy, which PSU ignores
     const elementState = useRef({});
-    const remember = (part) => {
+    const remember = useCallback((part) => {
         elementState.current = { ...elementState.current, ...part };
         if (typeof latest.current.setState === "function") latest.current.setState(part);
-    };
+    }, [latest]);
     useEffect(() => {
         const pubsub = typeof window !== "undefined" ? window.UniversalDashboard : undefined;
         elementState.current = {};
@@ -91,42 +118,20 @@ export default function EChart(props) {
         try {
             const exportIcons = {
                 ...EXPORT_ICONS,
-                onCsv: props.export === false ? undefined : () => exportAs("csv"),
-                onXlsx: props.export === false ? undefined : () => exportAs("xlsx"),
-                onFullscreen: props.fullscreen === false || !canFullscreen() ? undefined : () => toggleFullscreen()
+                onCsv: props.export === false ? undefined : () => exportRows("csv", latest.current),
+                onXlsx: props.export === false ? undefined : () => exportRows("xlsx", latest.current),
+                onFullscreen: props.fullscreen === false || !canFullscreen() ? undefined : () => toggleFullscreen(outer.current)
             };
+            // the option only keeps these: the buttons read the props and the element when clicked, the
+            // tooltip formatter reads its state on hover, never during render
+            // eslint-disable-next-line react-hooks/refs
             const base = buildOption(props, { locale, exportIcons, mode, tooltipState: tipState.current });
             return { value: base, rules: responsive(base, props, { locale }) };
         } catch (e) {
             return { error: e.message };
         }
-    }, [props, locale, mode]);
+    }, [props, locale, mode, latest]);
 
-    // CSV/Excel of the rows behind the chart, columns and types from -ExportColumns
-    function exportAs(kind) {
-        const p = latest.current;
-        const name = safeFileName(p.exportFileName || p.title, "chart");
-        const data = p.data || [];
-        if (kind === "csv") {
-            download(`${name}.csv`, toCsv(data, p.exportColumns, defaultLocale(p.locale)), "text/csv;charset=utf-8");
-        } else {
-            download(`${name}.xlsx`, toXlsxBytes(data, p.exportColumns, p.title || "Data"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        }
-    }
-
-    // the chart alone on the whole screen and back (Esc or the button); zoom, selection and the
-    // hidden series stay, because it is the same chart
-    function toggleFullscreen() {
-        const el = outer.current;
-        if (!el) {
-            return;
-        }
-        if (fullscreenElement() === el) {
-            (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-        } else {
-            (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
-        }
-    }
     useEffect(() => {
         const onChange = () => setFull(fullscreenElement() === outer.current);
         document.addEventListener("fullscreenchange", onChange);
@@ -141,8 +146,7 @@ export default function EChart(props) {
     // limit, or - for charts without a grid, whose plot is placed by size (fitPlot) - when the size or
     // the number of legend lines changes noticeably
     const [layoutKey, setLayoutKey] = useState("wide");
-    const latestOption = useRef(null);
-    latestOption.current = option.value;
+    const latestOption = useLatest(option.value);
     const keyOf = (w, h) => {
         const base = w <= TINY ? "tiny" : w <= NARROW ? "narrow" : "wide";
         const o = latestOption.current;
@@ -176,6 +180,9 @@ export default function EChart(props) {
             chart.dispose();
             chartRef.current = null;
         };
+        // made again only for another renderer or locale: the theme is the starting one, a new theme
+        // goes to the living chart (next effect), so zoom, legend and brush stay
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [props.renderer, locale]);
 
     // theme follows PSU's light/dark switch
@@ -184,7 +191,7 @@ export default function EChart(props) {
         if (chart) {
             chart.setTheme(ensureTheme(echarts, mode, psuTheme, customTheme));
         }
-    }, [mode, psuTheme.text, customKey]);
+    }, [mode, psuTheme, customTheme]);
 
     // option: series, axes and datasets are replaced, zoom and legend state survive data updates.
     // After the width rules and the text sizes: the plot of a chart without a grid placed clear of title, toolbox and
@@ -202,7 +209,7 @@ export default function EChart(props) {
         chart.setOption(insideLabelColors(placed, theme.color, theme.textStyle && theme.textStyle.color), { replaceMerge: REPLACED });
         // the series are as built again (a toolbox switch to line, bar or stack is gone)
         tipState.current.live = null;
-    }, [option, layoutKey, mode, psuTheme.text, customKey]);
+    }, [option, layoutKey, mode, psuTheme, customTheme, props.options]);
 
     // linked charts: same -Group share tooltip, zoom and legend; a removed group unlinks the chart
     useEffect(() => {
@@ -358,7 +365,7 @@ export default function EChart(props) {
             chart.off("datazoom", onZoom);
             chart.off("legendselectchanged", onLegend);
         };
-    }, [option]);
+    }, [option, latest, remember]);
 
     return (
         // -ClassName and -Style as on PSU's own components; -Width wins over a width in -Style

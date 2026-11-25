@@ -4,9 +4,9 @@ import { dataLoadEvent, VIEW_EVENT_DELAY_MS } from "./prepare";
 /*
  * -AllowImport and -OnViewChange: which data pivotkit shows (the app's or a file the reader loaded),
  * and the view changes of the app's data, passed on after the reader paused.
- * latest: a ref to the current props; stored: what useStoredView returned.
+ * latestRef: a ref to the current props; stored: what useStoredView returned.
  */
-export function useLoadedFile(latest, stored) {
+export function useLoadedFile(latestRef, stored) {
     const { setView, remember, fileRef, hostView, shownKey } = stored;
     // ---- a file the reader loaded (-AllowImport) ---------------------------------------------------
     // While a file's data is shown, its view, its cells and its saved views stay in the browser: the
@@ -24,11 +24,11 @@ export function useLoadedFile(latest, stored) {
         const { next } = pending.current;
         clearTimeout(pending.current.timer);
         pending.current = null;
-        const handler = latest.current.onViewChange;
+        const handler = latestRef.current.onViewChange;
         if (typeof handler === "function") {
             handler({ view: next, json: JSON.stringify(next) });
         }
-    }, []);
+    }, [latestRef]);
     useEffect(() => () => flush(), [flush]);
 
     // the view of the app's data leaves the component: remembered, in the state, to -OnViewChange
@@ -37,13 +37,13 @@ export function useLoadedFile(latest, stored) {
             hostView.current = next;
             remember(next);
             // the component's state holds the view (withComponentFeatures passes it back as props.view)
-            if (typeof latest.current.setState === "function") latest.current.setState({ view: next });
-            if (typeof latest.current.onViewChange === "function") {
+            if (typeof latestRef.current.setState === "function") latestRef.current.setState({ view: next });
+            if (typeof latestRef.current.onViewChange === "function") {
                 if (pending.current) clearTimeout(pending.current.timer);
                 pending.current = { next, timer: setTimeout(flush, VIEW_EVENT_DELAY_MS) };
             }
         },
-        [flush, remember]
+        [flush, remember, hostView, latestRef]
     );
     const onViewChange = useCallback(
         (next) => {
@@ -58,7 +58,7 @@ export function useLoadedFile(latest, stored) {
                 if (!fileRef.current && lastView.current === next) publish(next);
             });
         },
-        [publish]
+        [publish, fileRef, setView, shownKey]
     );
     const onDataLoad = useCallback(
         (detail) => {
@@ -84,7 +84,7 @@ export function useLoadedFile(latest, stored) {
                     if (!fileRef.current && lastView.current === shown) publish(shown);
                 });
             }
-            const handler = latest.current.onDataLoad;
+            const handler = latestRef.current.onDataLoad;
             try {
                 if (typeof handler === "function") handler(dataLoadEvent(detail));
             } catch (error) {
@@ -96,7 +96,7 @@ export function useLoadedFile(latest, stored) {
             // never false: the server is told, it cannot refuse a file (pivotkit does not wait for it)
             return undefined;
         },
-        [flush, publish]
+        [flush, publish, fileRef, hostView, latestRef, setView, shownKey]
     );
     return { fileShown, onViewChange, onDataLoad };
 }

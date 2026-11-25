@@ -23,9 +23,16 @@ All notable changes to PowerShellUniversal.Component.Perspective. Format:
   before, about 40 ms now, measured on a PSU test instance): no function call per cell, and large
   DataTables go through a small class compiled on first use (Add-Type, once per PSU process). The rows
   the component gets are the same as before.
+- The component passes the React hooks lint rules, which are now errors in CI: the latest props
+  for its event handlers are kept in a ref written in an effect, not during render
+  ([#217](https://github.com/eizedev/powershell-universal-components/issues/217)). Clicks, the toolbar and the theme switch
+  work as before.
 
 ### Fixed
 
+- New `columnNames` with the same rows (`Set-UDElement -Properties @{ columnNames = ... }`) reach the
+  viewer. Before, they waited for the next new data. As with new columns in the data, the view then
+  starts again from the parameters.
 - In dark mode, the chart picker at the top of the editor no longer turns white under the mouse.
 - When new rows hold a value the table refuses, the viewer frees the half-built table in its worker.
   Before, its memory stayed until the reader closed the page.

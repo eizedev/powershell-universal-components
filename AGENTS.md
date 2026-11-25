@@ -32,7 +32,8 @@ The modules form one product. Judge code, tests, docs and these rules as a whole
   A module without `package.json` is PowerShell only (the demo modules with their app in `Apps/`).
   A module's `Build.psd1` names files from elsewhere in the repository the build copies into it (the
   pivot demo carries the site's examples and data snapshots and the pivot showcase), so each is defined once.
-- `shared/js/` - JavaScript used by several modules: the PSU theme bridge, column matching and the answer
+- `shared/js/` - JavaScript used by several modules: the PSU theme bridge, the latest props for handlers
+  registered once (`useLatest.js`), column matching and the answer
   to `Get-UDElement` in `elementState.js`. Compiled into each module's bundle; never a runtime dependency
   between modules. Formats, the CSV/XLSX export and text contrast on fills serve only the ECharts module
   and live in its `Components/`.

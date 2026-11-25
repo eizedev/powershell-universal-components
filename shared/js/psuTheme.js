@@ -35,7 +35,12 @@ export function readPsuTheme() {
 export function usePsuTheme() {
     const [theme, setTheme] = useState(readPsuTheme);
     useEffect(() => {
-        const observer = new MutationObserver(() => setTheme(readPsuTheme()));
+        // the same colours again (data-theme set to the value it has) keep the object: no new render,
+        // and effects that depend on the theme do not run again
+        const observer = new MutationObserver(() => {
+            const next = readPsuTheme();
+            setTheme((previous) => (JSON.stringify(previous) === JSON.stringify(next) ? previous : next));
+        });
         observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
         return () => observer.disconnect();
     }, []);
