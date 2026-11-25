@@ -61,24 +61,20 @@ In the PowerShell Gallery: [PowerShellUniversal.Component.Perspective](https://w
 
 ## Pivot
 
-`New-UDPivotReport` is a pivot report builder on [pivotkit](https://pivotkit.eize.dev/):
-readers drag fields into rows, columns, values and filters and get a table or a chart, with date
-grouping, drill-down to the source rows, shared views and views readers keep (roles decide who
-publishes), undo, Excel, CSV, PNG, SVG and HTML export and print, and readers' own CSV, JSON and Excel files read in the
-browser ([`-AllowImport`](pivot/import.md)); English and German; themed from the same stylesheet as
-the charts. `Invoke-UDPivotReport` renders the same views into Excel, HTML, CSV, JSON or SVG files
-from endpoints and schedules, without a browser, or into a link that expires from a pivotkit-server
-([Reports without a browser](pivot/reports.md)).
+`New-UDPivotReport` puts a pivot report on a page: readers drag fields into rows, columns, values and
+filters and get a table or a chart.
+
+![The pivot report in the light theme: mean temperature per month and city of six cities as a colour scale, with the tabs Table, Chart and Both](assets/pivot-weather-light.png#only-light)
+![The pivot report in the dark theme: mean temperature per month and city of six cities as a colour scale, with the tabs Table, Chart and Both](assets/pivot-weather-dark.png#only-dark)
 
 ```powershell
 Install-PSResource -Name PowerShellUniversal.Component.Pivot
 New-UDPivotReport -Id 'python' -Data (Invoke-RestMethod 'https://endoflife.date/api/python.json')
 ```
 
-In the PowerShell Gallery: [PowerShellUniversal.Component.Pivot](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot).
-
-![The pivot report in the light theme: mean temperature per month and city of six cities as a colour scale, with the tabs Table, Chart and Both](assets/pivot-weather-light.png#only-light)
-![The pivot report in the dark theme: mean temperature per month and city of six cities as a colour scale, with the tabs Table, Chart and Both](assets/pivot-weather-dark.png#only-dark)
+[PowerShell Gallery](https://www.powershellgallery.com/packages/PowerShellUniversal.Component.Pivot) ·
+[pivotkit docs](https://pivotkit.eize.dev/) · [Live demo](https://pivotkit.eize.dev/demo/) ·
+[How readers use the report](https://pivotkit.eize.dev/use/) · [Versioning](versioning.md)
 
 <small>The pictures on this page: weather data by [Open-Meteo.com](https://open-meteo.com/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), with modified Copernicus Climate Change Service information ([sources and licences](https://github.com/eizedev/powershell-universal-components/blob/HEAD/docs/site/data/SOURCES.md)).</small>
 
