@@ -2,7 +2,8 @@
 
 Custom components for PowerShell Universal (PSU) apps, one PowerShell module per component, built
 from one repository. Each module is a React bundle plus a PowerShell module that returns the
-hashtable PSU renders; see [README.md](README.md).
+hashtable PSU renders; see [README.md](README.md) and [PRODUCT.md](PRODUCT.md). Accepted records in
+[docs/decisions/](docs/decisions/index.md) are binding.
 
 ## How we build
 
@@ -62,6 +63,7 @@ The modules form one product. Judge code, tests, docs and these rules as a whole
 ```bash
 npm ci && npm test                                   # JavaScript unit tests (repository root)
 npm run growth                                       # the growth guards, below
+npm run lint                                         # ESLint, as CI runs it
 npx playwright install chromium firefox webkit && npm run test:browser   # after building the site
 # browser tests against showcase apps on a PSU instance: docs/development/index.md#browser-tests-on-psu
 pwsh ./build/Build-Module.ps1 -Module PowerShellUniversal.Component.ECharts   # output/<Module>/<Version>
@@ -76,7 +78,8 @@ pwsh ./build/Invoke-ScriptAnalysis.ps1              # PSScriptAnalyzer as CI run
 The limits and their reasons are in that file. Each guard is a CI step:
 
 - `powershell`: code lines per `.ps1`/`.psm1` file and per function, read with the PowerShell parser.
-- `javascript`: lines and complexity per function in `modules/*/Components` and `shared/js`, read with ESLint.
+- `javascript`: lines and complexity per function in `modules/*/Components` and `shared/js`, read with ESLint
+  (sources and parser options in `build/javascript-sources.js`, shared with `npm run lint`).
 - `duplication`: copied JavaScript in the same folders, over the threshold in `.jscpd.json`, found with jscpd.
 - `docs`: lines per docs page and README by kind of page, and of all of them together.
 
@@ -114,10 +117,13 @@ rendering.
   - In the pivot module, a `catch` around an HTTP request or the reading of its answer calls
     `Remove-UDPivotErrorRecord -ErrorRecord $_` first, so no request, header or token stays in `$Error`.
 - Behaviour is documented on the site pages in `docs/`; the root README and the module READMEs stay
-  short (what it is, install, a quick example, links to the pages).
-- Docs describe the current state; history belongs in `CHANGELOG.md`, commits and pull requests.
+  short (what it is, install, a quick example, links to the pages). Where pivotkit's docs own a topic
+  (how readers use the report, the view format), link them instead of copying.
+- Docs describe the current state and name no release of pivotkit or a module, only minimum versions;
+  history belongs in `CHANGELOG.md`, commits and pull requests.
 - Conventional Commits; one change per pull request; every module keeps its own `CHANGELOG.md` and
-  SemVer `ModuleVersion`.
+  SemVer `ModuleVersion`. A break of its public interface (`docs/versioning.md`) is marked `**Breaking:**`
+  there, with "Who is affected" and "What to do".
 - A change in `shared/` reaches every module that uses it only with that module's next release: give
   each of them a CHANGELOG entry, and a patch release for a fix. Code moves into `shared/` only once a
   second module needs it; until then it stays in its module. No common runtime module: each module
