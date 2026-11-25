@@ -32,7 +32,7 @@ No module claims a WCAG conformance level. Colours that an app's theme sets are 
 ## Supported environments
 
 The PowerShell Universal versions and browsers under
-[Requirements](https://powershell-universal-components.eize.dev/#requirements).
+[Compatibility](https://powershell-universal-components.eize.dev/compatibility/).
 
 ## Known limitations
 

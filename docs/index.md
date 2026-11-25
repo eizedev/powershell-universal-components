@@ -84,10 +84,8 @@ New-UDPivotReport -Id 'python' -Data (Invoke-RestMethod 'https://endoflife.date/
 
 ## Requirements
 
-- PowerShell Universal 2026.2 or 2026.3, with PowerShell 7.4 or later.
-- Tested on PowerShell Universal 2026.2.5 and 2026.3.4.
-- `Invoke-UDPivotReport -Engine Node` tested with pivotkit-cli 0.5.0 and 0.6.0 ([what it needs](pivot/reports.md#two-engines)).
-- Tested in Chromium, Firefox and WebKit, the engine of Safari. The Safari app and iOS are not tested.
+PowerShell Universal with PowerShell 7 in the app's environment, and a current browser. The versions
+the modules support and were tested with: [Compatibility](compatibility.md).
 
 ## Questions and stability
 

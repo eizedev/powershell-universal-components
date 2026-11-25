@@ -9,7 +9,7 @@ events, light and dark theme and CSV/Excel export.
 New-UDEChart -Data (Get-Process | Sort-Object CPU -Descending | Select-Object -First 10 Name, CPU) -Type bar -X Name -Y CPU
 ```
 
-Supported and tested versions: [Requirements](https://powershell-universal-components.eize.dev/#requirements).
+Supported and tested versions: [Compatibility](https://powershell-universal-components.eize.dev/compatibility/).
 
 **Documentation: [powershell-universal-components.eize.dev](https://powershell-universal-components.eize.dev/echarts/)** - every chart type with
 live examples next to their code, and the parameter reference.
