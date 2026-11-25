@@ -17,11 +17,11 @@ Read [what changed](#changes) first.
 1. Install the new version of each module you use, the way you installed it:
 
     ```powershell
-    Update-PSResource -Name PowerShellUniversal.Component.Pivot                    # the newest version
-    Install-PSResource -Name PowerShellUniversal.Component.Pivot -Version <x.y.z>  # a version you name
+    Update-PSResource -Name PowerShellUniversal.Component.Pivot   # repeat for each module
     ```
 
-    Both put the new version in a folder of its own, next to the old one. From a release zip, copy
+    `Update-PSResource` puts the newest version in a folder of its own, next to the old one. To take
+    a version you name instead, see [Versioning](versioning.md#before-100). From a release zip, copy
     the new `<version>` folder next to the old one in `Modules/<Module>/`.
 
 2. Restart PSU. PowerShell imports the newest version it finds in the folder, but a process that has
@@ -45,7 +45,8 @@ What to check:
 
 ## What changed { #changes }
 
-Each entry names who is affected and what to do. Releases not listed here need no action.
+The breaks of each module's newest minor release and of the next release. Each entry names who is
+affected and what to do. Older breaks are in the changelogs, [below](#older).
 
 ### In the next release { #next }
 
@@ -77,7 +78,7 @@ ECharts module:
     - What to do: remove the key.
 - **A shared view of a template store takes no origin from the request's headers** for a
   `-SchemaUrl` path. It takes the origin of an https `PSU_COMPONENT_PIVOT_SCHEMA_URL`, else
-  pivotkit's schema address.
+  pivotkit's schema address. A view a reader saves for themselves keeps the origin of the request.
     - Who is affected: an app that publishes shared views with a `-SchemaUrl` path and no https default.
     - What to do: to keep your own address in them, set `PSU_COMPONENT_PIVOT_SCHEMA_URL` to it.
 
