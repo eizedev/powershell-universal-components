@@ -9,7 +9,6 @@
 //    address next to its own (Components/importWorker.js). Where it cannot start (a
 //    Content-Security-Policy without worker-src for it), pivotkit reads the file on the page.
 const fs = require("fs");
-const path = require("path");
 const webpack = require("webpack");
 const base = require("../../build/webpack.base.cjs");
 
