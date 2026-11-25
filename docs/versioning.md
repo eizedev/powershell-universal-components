@@ -20,7 +20,7 @@ The modules are 0.x and under active development.
 To choose when you update, install a fixed version:
 
 ```powershell
-Install-PSResource -Name PowerShellUniversal.Component.Pivot -Version 0.10.1
+Install-PSResource -Name PowerShellUniversal.Component.Pivot -Version <x.y.z>
 ```
 
 ### From 1.0.0

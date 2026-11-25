@@ -24,7 +24,7 @@ Supported and tested versions: [Requirements](https://powershell-universal-compo
 
 > [!NOTE]
 > The modules are 0.x. A minor release can break things, so read the module's `CHANGELOG.md` before
-> you update. [Versioning](https://powershell-universal-components.eize.dev/versioning/) says what counts as a break.
+> you update. [Versioning](https://powershell-universal-components.eize.dev/versioning/) lists what the modules treat as public interface.
 
 ## Modules
 
