@@ -30,3 +30,5 @@ link each other. [0001](0001-record-decisions.md) has the rules.
 | [0006](0006-one-function-per-file.md) | One function per file in a split module | accepted | 2026-11-22 |
 | [0007](0007-theme-tokens-are-a-contract.md) | The theme tokens are a contract | accepted | 2026-11-08 |
 | [0008](0008-modules-released-on-their-own.md) | Each module is released on its own | accepted | 2026-11-06 |
+| [0009](0009-pivot-dark-values-on-data-pk-theme.md) | The pivot module's dark values follow the report's theme | accepted | 2026-11-14 |
+| [0010](0010-growth-guards-are-a-ratchet.md) | The growth guards are a ratchet | accepted | 2026-11-22 |
