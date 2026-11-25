@@ -102,7 +102,8 @@ export default function Perspective(props) {
     const labels = toolbarLabels(props.labels);
     const colors = TOOLBAR_COLORS[mode] || TOOLBAR_COLORS.light;
 
-    // table: created once, replaced in place when the data or its column names change (the view keeps its layout)
+    // table: created once; new rows with the same columns and types replace its rows in place (the view
+    // keeps its layout), other columns or column names build a new table and the view starts again
     useEffect(() => {
         let cancelled = false;
         (async () => {
