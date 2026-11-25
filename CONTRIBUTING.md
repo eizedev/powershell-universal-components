@@ -1,7 +1,7 @@
 # Contributing
 
-Thanks for helping. Bug reports and ideas go into [issues](https://github.com/eizedev/powershell-universal-components/issues),
-questions into [discussions](https://github.com/eizedev/powershell-universal-components/discussions),
+Thanks for helping. Bug reports and concrete feature requests go into [issues](https://github.com/eizedev/powershell-universal-components/issues),
+questions and ideas into [discussions](https://github.com/eizedev/powershell-universal-components/discussions),
 security reports privately (see [SECURITY.md](SECURITY.md)).
 
 ## Changes

@@ -92,6 +92,14 @@ In the PowerShell Gallery: [PowerShellUniversal.Component.Pivot](https://www.pow
 - Tested on PowerShell Universal 2026.2.5 and 2026.3.4.
 - Tested in Chromium, Firefox and WebKit, the engine of Safari. The Safari app and iOS are not tested.
 
+## Questions and stability
+
+The modules are 0.x. A minor release can break things. Each break is marked **Breaking** in the
+module's `CHANGELOG.md`, with what to do.
+
+Ask questions and share ideas in [GitHub Discussions](https://github.com/eizedev/powershell-universal-components/discussions). Bugs go into
+[issues](https://github.com/eizedev/powershell-universal-components/issues). Each release of a component module is announced in Discussions too.
+
 ## License
 
 MIT. The bundled libraries keep their own licenses: Apache ECharts (Apache-2.0), ZRender

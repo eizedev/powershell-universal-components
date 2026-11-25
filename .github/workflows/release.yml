@@ -83,6 +83,7 @@ jobs:
     environment: psgallery
     permissions:
       contents: write
+      discussions: write # the release of a component module starts a discussion in Announcements
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -110,4 +111,6 @@ jobs:
           if ($LASTEXITCODE -eq 0) { Write-Output "Release $env:GITHUB_REF_NAME exists already."; exit 0 }
           # notes and zip were written by the prepare step (Publish-Module.ps1)
           $prerelease = if ($env:VERSION -match '-') { @('--prerelease') } else { @() }
-          gh release create $env:GITHUB_REF_NAME "output/$env:MODULE-$env:VERSION.zip" --title "$env:MODULE $env:VERSION" --notes-file "output/$env:MODULE-$env:VERSION.notes.md" --verify-tag @prerelease
+          # one discussion per component module release; demos and prereleases get none
+          $discussion = if ($env:VERSION -notmatch '-' -and $env:MODULE -notlike '*.Demo') { @('--discussion-category', 'Announcements') } else { @() }
+          gh release create $env:GITHUB_REF_NAME "output/$env:MODULE-$env:VERSION.zip" --title "$env:MODULE $env:VERSION" --notes-file "output/$env:MODULE-$env:VERSION.notes.md" --verify-tag @prerelease @discussion
