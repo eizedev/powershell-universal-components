@@ -5,6 +5,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-25
+
 ### Fixed
 
 - `Invoke-UDPivotReport -Engine Rest` without `-OutFile` returns a `byte[]` again, as with
