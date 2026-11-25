@@ -20,9 +20,8 @@ tag `<Module>-v<Version>` on `main`.
 
 "Run workflow" on `release.yml` with a tag name checks a release without publishing anything. That
 trial run checks main membership and the CI run of the ref you choose to run it on, not of the tag
-you type. A module
-that requires another one (a demo requires its component module) is released after it: the gallery checks that
-the required version is there.
+you type. A module that requires another one (a demo requires its component module) is released after
+it: the gallery checks that the required version is there.
 
 Once per repository: Settings > Environments > `psgallery` with the maintainers as required reviewers
 and deployment tags `*-v*`; in that environment (never as a repository secret) the secret

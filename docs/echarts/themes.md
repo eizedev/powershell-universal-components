@@ -1,5 +1,5 @@
 ---
-description: "Theme New-UDEChart: light and dark with the app, an ECharts theme per mode, CSS custom properties shared with the pivot report, fixed colours per category and their order."
+description: "Themes of New-UDEChart: light and dark with the app, an ECharts theme per mode, CSS custom properties shared with the pivot report, fixed colours per category and their order."
 ---
 
 # Themes and corporate design

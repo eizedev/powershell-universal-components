@@ -1,5 +1,5 @@
 ---
-description: "Size and place of New-UDEChart: -Height, -Width, -Id, -ClassName and -Style, a chart that follows its container, and the grid of charts with axes."
+description: "Size and place of New-UDEChart: -Height, -Width, -Id, -ClassName and -Style, a chart that follows its container, and where the plot, legend and toolbox sit in charts without axes."
 ---
 
 # Layout

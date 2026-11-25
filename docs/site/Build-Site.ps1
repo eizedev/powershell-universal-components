@@ -237,7 +237,7 @@ finally {
 $images = Join-Path $docs 'assets' 'images'
 New-Item -ItemType Directory -Path $images -Force | Out-Null
 Copy-Item -Path (Join-Path $repo 'assets' 'screenshot-*.png'), (Join-Path $repo 'assets' 'icon.svg'), (Join-Path $repo 'assets' 'social-preview.png') -Destination $images -Force
-# robots.txt with the address of the sitemap, from site_url in zensical.toml
+# robots.txt with the address of the sitemap, from site_url in zensical.toml (it ends with a slash)
 $siteUrl = (Select-String -LiteralPath (Join-Path $repo 'zensical.toml') -Pattern '^site_url\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
 if (-not $siteUrl) { throw 'zensical.toml names no site_url.' }
 Write-Generated (Join-Path $docs 'robots.txt') ("User-agent: *`nAllow: /`n`nSitemap: {0}sitemap.xml" -f $siteUrl)
