@@ -1,6 +1,6 @@
 # PowerShellUniversal.Component.Pivot
 
-A pivot report builder for PowerShell Universal apps, on [pivotkit](https://github.com/eizedev/pivotkit).
+A pivot report builder for PowerShell Universal apps, on [pivotkit](https://pivotkit.eize.dev/).
 Readers drag fields into Rows, Columns, Values and Filters and get a table with totals or a chart.
 
 - Dates grouped by month, quarter or year; a click on a value shows the rows behind it.

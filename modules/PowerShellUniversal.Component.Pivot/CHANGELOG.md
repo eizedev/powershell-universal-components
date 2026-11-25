@@ -39,7 +39,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   pinned. What readers see:
     - On a phone, the settings button shows its icon only, and table headers wrap between words.
     - A menu that a low window cuts off fades out at its end.
-  The [pivotkit changelogs](https://pivotkit.eize.dev/getting-started/upgrading/#from-0-9) list all changes.
+  The [pivotkit changelogs](https://github.com/eizedev/pivotkit/blob/609c8602e0b589922a7f31e620b32155f9c7340d/docs/getting-started/upgrading.md?plain=1#L123) list all changes.
 - **Breaking:** a loaded CSV or Excel file with numbers such as `1,234` or `1.500` reads them in the
   notation of the report's locale and says so in a note.
     - Who is affected: readers of a report with `-AllowImport` who load such files.
@@ -228,7 +228,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 ### Changed
 
 - pivotkit-react 0.8.1 ([release](https://github.com/eizedev/pivotkit/releases/tag/pivotkit-react%400.8.1),
-  [upgrading from 0.8.0](https://pivotkit.eize.dev/getting-started/upgrading/#from-0-8-0)).
+  [upgrading from 0.8.0](https://github.com/eizedev/pivotkit/blob/5e36b19f07b8c9cff75a14c57316576d8dd9d50b/docs/getting-started/upgrading.md?plain=1#L454)).
   pivotkit-core stays at 0.8.0, pivotkit-report at 0.4.0 and pivotkit-xlsx at 0.5.0, all pinned.
   What readers see:
     - The four zones form an even 2×2 grid: Filters and Columns on top, Rows and Values below, in
@@ -295,7 +295,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 ### Changed
 
 - pivotkit 0.8.0 ([pivotkit-react release](https://github.com/eizedev/pivotkit/releases/tag/pivotkit-react%400.8.0),
-  [upgrading from 0.7](https://pivotkit.eize.dev/getting-started/upgrading/#from-0-7)):
+  [upgrading from 0.7](https://github.com/eizedev/pivotkit/blob/5e36b19f07b8c9cff75a14c57316576d8dd9d50b/docs/getting-started/upgrading.md?plain=1#L471)):
   pivotkit-core and pivotkit-react 0.8.0, pivotkit-report 0.4.0 and pivotkit-xlsx 0.5.0, all pinned.
   What readers see:
     - Table and Chart are tabs on top of the result, with "Table settings" or "Chart settings"
@@ -316,7 +316,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
       with Source data.
 - **Breaking:** `-Labels`: pivotkit 0.8.0 no longer shows the keys `layout`, `showLayout`, `options`
   and `chartDisplay`, and says once in the browser's console which key holds that text now
-  ([upgrading](https://pivotkit.eize.dev/getting-started/upgrading/#view-tabs-0-8)).
+  ([upgrading](https://github.com/eizedev/pivotkit/blob/5e36b19f07b8c9cff75a14c57316576d8dd9d50b/docs/getting-started/upgrading.md?plain=1#L511)).
     - Who is affected: an app that sets one of these keys in `-Labels`.
     - What to do: use `zonesTitle`, `tableSettings` and `chartSettings`. An app that sets `rowsCount`
       sets `rowsFiltered` too.
@@ -389,7 +389,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 ### Changed
 
 - pivotkit 0.7.0 ([pivotkit-react release](https://github.com/eizedev/pivotkit/releases/tag/pivotkit-react%400.7.0),
-  [upgrading from 0.6](https://pivotkit.eize.dev/getting-started/upgrading/#from-0-6-1)):
+  [upgrading from 0.6](https://github.com/eizedev/pivotkit/blob/5e36b19f07b8c9cff75a14c57316576d8dd9d50b/docs/getting-started/upgrading.md?plain=1#L803)):
   pivotkit-core and pivotkit-react 0.7.0, pivotkit-report 0.3.0 and pivotkit-xlsx 0.4.0, all pinned.
 - Export, HTML report carries the dark colours of the report's theme too. A reader on a dark screen
   sees the app's dark values (the `--psu-pivot-*` of `.ud-pivot-report [data-pk-theme="dark"]`), or
@@ -440,7 +440,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 ### Changed
 
 - pivotkit 0.6.1 ([pivotkit-react release](https://github.com/eizedev/pivotkit/releases/tag/pivotkit-react%400.6.1),
-  [upgrading from 0.4](https://pivotkit.eize.dev/getting-started/upgrading/)): pivotkit-core and
+  [upgrading from 0.4](https://github.com/eizedev/pivotkit/blob/5e36b19f07b8c9cff75a14c57316576d8dd9d50b/docs/getting-started/upgrading.md?plain=1#L1554)): pivotkit-core and
   pivotkit-react 0.6.1, pivotkit-xlsx 0.3.1 and pivotkit-report 0.2.1, all pinned and in the one
   bundle (1.58 MB, 494 KB gzip). Export's table as CSV is called **Table as CSV (.csv)**; pivotkit's
   Source data export stays off (`-ExportData` follows,

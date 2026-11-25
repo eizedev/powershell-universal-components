@@ -61,7 +61,7 @@ In the PowerShell Gallery: [PowerShellUniversal.Component.Perspective](https://w
 
 ## Pivot
 
-`New-UDPivotReport` is a pivot report builder on [pivotkit](https://www.npmjs.com/package/pivotkit-react):
+`New-UDPivotReport` is a pivot report builder on [pivotkit](https://pivotkit.eize.dev/):
 readers drag fields into rows, columns, values and filters and get a table or a chart, with date
 grouping, drill-down to the source rows, shared views and views readers keep (roles decide who
 publishes), undo, Excel, CSV, PNG, SVG and HTML export and print, and readers' own CSV, JSON and Excel files read in the
@@ -90,6 +90,7 @@ In the PowerShell Gallery: [PowerShellUniversal.Component.Pivot](https://www.pow
 
 - PowerShell Universal 2026.2 or 2026.3, with PowerShell 7.4 or later.
 - Tested on PowerShell Universal 2026.2.5 and 2026.3.4.
+- Pivot reports without a browser (`Invoke-UDPivotReport -Engine Node`): tested with pivotkit-cli 0.5.0 and 0.6.0.
 - Tested in Chromium, Firefox and WebKit, the engine of Safari. The Safari app and iOS are not tested.
 
 ## Questions and stability
