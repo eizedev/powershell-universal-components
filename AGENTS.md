@@ -117,10 +117,8 @@ rendering.
   short (what it is, install, a quick example, links to the pages).
 - Docs describe the current state; history belongs in `CHANGELOG.md`, commits and pull requests.
 - Conventional Commits; one change per pull request; every module keeps its own `CHANGELOG.md` and
-  SemVer `ModuleVersion`.
-- Every change that breaks a module's public interface (the list is on the versioning page,
-  `docs/versioning.md`) is marked `**Breaking:**` in that module's `CHANGELOG.md`, with two
-  sub-bullets: "Who is affected" and "What to do".
+  SemVer `ModuleVersion`. A break of its public interface (`docs/versioning.md`) is marked `**Breaking:**`
+  there, with "Who is affected" and "What to do".
 - A change in `shared/` reaches every module that uses it only with that module's next release: give
   each of them a CHANGELOG entry, and a patch release for a fix. Code moves into `shared/` only once a
   second module needs it; until then it stays in its module. No common runtime module: each module
