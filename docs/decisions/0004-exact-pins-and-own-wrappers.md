@@ -25,9 +25,9 @@ next build.
 Chosen option: every package pinned to an exact version with a lock file, and a small own wrapper
 preferred over a wrapper package.
 
-The reason recorded in #9: chart libraries have been hijacked on npm (`echarts-for-react`, May 2026).
+The reason recorded in AGENTS.md since #9: chart libraries have been hijacked on npm (`echarts-for-react`, May 2026).
 
 ### Consequences
 
 - Good: a build ships exactly the reviewed versions.
-- Bad: every update is a pull request of its own (Dependabot), and the own wrappers need upkeep.
+- Bad: no update arrives by itself; each comes as a Dependabot pull request.

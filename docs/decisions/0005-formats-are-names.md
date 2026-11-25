@@ -24,10 +24,10 @@ component's props reach the browser as JSON from PowerShell.
 Chosen option: formats are names, resolved in the ECharts module's `Components/formatters.js`. A
 string from props is never evaluated as code.
 
-The reason recorded in #9: PowerShell sends no functions. Why a string is never evaluated as code:
-reason not recorded.
+The reason recorded in AGENTS.md since #9: PowerShell sends no functions. Why a string is never
+evaluated as code: reason not recorded.
 
 ### Consequences
 
-- Good: data and options in props cannot run script in the browser.
+- Good: no prop is run as code in the browser.
 - Bad: a format the modules do not name needs a change to the module.

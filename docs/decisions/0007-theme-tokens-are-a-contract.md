@@ -13,7 +13,7 @@ Sources: [#2](https://github.com/eizedev/powershell-universal-components/issues/
 
 A company wants its colours in every chart of an app without passing them to each one (#2). #23 added
 CSS custom properties that the ECharts module reads from the app's stylesheet. The pivot module came
-later and needed the same design.
+later and reads the same tokens (#66).
 
 ## Considered Options
 
@@ -28,8 +28,9 @@ Chosen option: one set of `--psu-chart-*` tokens (#66). Today the ECharts module
 - A token is added to that page and to its reader together.
 - Renaming or removing a token is a breaking change in every module.
 
-The reason recorded in #23: charts take a company's design without passing `-Palette` to each one.
-#66 states the contract: the tokens are the interface between the modules and an app's stylesheet.
+The reason recorded in #23 for the tokens: charts take a company's design without passing `-Palette`
+to each one. AGENTS.md since #66 calls them the contract between the modules and an app's stylesheet.
+Why the modules share one set: reason not recorded.
 
 ### Consequences
 

@@ -37,4 +37,5 @@ The [versioning page](../versioning.md) says when an update can break an app.
 ### Consequences
 
 - Good: a fix to one module does not release the others.
-- Bad: a module that requires another one (a demo requires its component module) is released after it.
+- Bad: a demo module requires a minimum version of its component module, so a release of the demo
+  can depend on one of the component module.

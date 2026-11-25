@@ -21,7 +21,7 @@ component. A module's bundle needs React too. Does it bring its own?
 
 ## Decision Outcome
 
-Chosen option: webpack externals (`build/webpack.base.cjs`).
+Chosen option: webpack externals (`build/webpack.base.cjs`, AGENTS.md since #9).
 
 - No module bundles React, ReactDOM or `UniversalDashboard`.
 - No module depends on a library that needs React 19 or brings its own MUI.

@@ -12,8 +12,7 @@ Source: [#217](https://github.com/eizedev/powershell-universal-components/issues
 ## Context and Problem Statement
 
 Lasting decisions of the modules lived in AGENTS.md, in pull requests and in comments in the code.
-A rule there says what to do, but rarely why, and nothing marks which rules are decisions that a
-change must not undo by accident.
+#217 asks to record them once, with an index, as pivotkit does.
 
 ## Considered Options
 
@@ -45,7 +44,7 @@ Status means:
 Where no source gives the reason, a record says "reason not recorded".
 
 A record's `date` is the day it was accepted. A record of a decision made before this folder existed
-carries the day its source was merged.
+carries the day the first source that states the decision was merged.
 
 ### Consequences
 

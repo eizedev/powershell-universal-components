@@ -16,7 +16,7 @@ answer to `Get-UDElement`, and the data conversion in PowerShell. How do the mod
 
 ## Considered Options
 
-- A common runtime module that the component modules require (named and ruled out in #66).
+- A common runtime module that the component modules require (ruled out by AGENTS.md since #66, not discussed).
 - One copy in `shared/`, compiled or copied into each module when it is built.
 
 ## Decision Outcome
@@ -29,7 +29,8 @@ Chosen option: one copy in `shared/`, built into each module.
   which also writes `Private/SHARED.txt` with the hashes of what was copied (#66).
 - Code moves into `shared/` only once a second module needs it (#66).
 
-The reason recorded in #66 and in `build/webpack.base.cjs`: each module stays installable on its own.
+The reason recorded in AGENTS.md since #66 and in `build/webpack.base.cjs`: each module stays
+installable on its own.
 
 ### Consequences
 

@@ -30,8 +30,8 @@ module in #173.
 - Perspective and the demo modules have one to three functions and stay in their `.psm1`.
 
 The reasons recorded in #171: dot-sourcing keeps the tested source and the shipped module the same,
-and error positions point to the real files. Measured there outside PSU: about 11 ms more per runspace
-import for the pivot module. If that matters on PSU, the build can merge the files without changing the
+and error positions point to the real files. Measured there on macOS with PowerShell 7.6, not on PSU:
+about 11 ms more per runspace import for the pivot module. If that matters on PSU, the build can merge the files without changing the
 source layout.
 
 ### Consequences
