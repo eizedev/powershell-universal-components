@@ -133,8 +133,10 @@ test("the command fails on growth and on a stale baseline, and --update writes o
     let run = await runDocsGuard(dir);
     assert.equal(run.exitCode, 1);
     assert.ok(run.output.includes(`docs: grew\n  docs/page.md: ${DOCS_LIMITS.topic + 10} lines, new`), run.output);
-    assert.match(run.output, /Shorten the page/);
-    assert.match(run.output, /--accept-growth and say why/);
+    assert.match(run.output, /The page grew\. Stop and read the whole of it/);
+    assert.match(run.output, /PULL_REQUEST_TEMPLATE\.md, "Whole-change check"/);
+    assert.match(run.output, /--accept-growth, with the reason in the whole-change check/);
+    assert.match(run.output, /Never merge lines or cut words only to pass the number/);
     run = await runDocsGuard(dir, "--update");
     assert.equal(run.exitCode, 1, "--update alone never raises the baseline");
     run = await runDocsGuard(dir, "--update", "--accept-growth");

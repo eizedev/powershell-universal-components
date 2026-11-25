@@ -159,3 +159,32 @@ test("the docs workflow checks the README links against the built site, after bu
     const upload = steps.findIndex((step) => String(step.uses ?? "").startsWith("actions/upload-pages-artifact@"));
     assert.ok(check < upload, "docs.yml uploads the site before checking the README links");
 });
+
+// The whole-change check (build/whole-change-check.js) runs again when the description is edited,
+// reads only, and gets the description, title and author through env: an expression in a `run` would
+// put text whoever opens the pull request wrote into the shell script
+test("the whole-change check runs on every pull request event that can fix it, reads only, and takes the pull request only through env", () => {
+    const check = workflow("whole-change-check.yml");
+    assert.deepEqual(Object.keys(check.on), ["pull_request"], "the check runs on another event than pull_request (pull_request_target would hold a write token)");
+    assert.deepEqual([...check.on.pull_request.types].sort(), ["edited", "opened", "reopened", "synchronize"]);
+    assert.equal(check.on.pull_request.paths ?? check.on.pull_request["paths-ignore"], undefined, "the script decides what needs the check");
+    assert.deepEqual(check.on.pull_request.branches, workflow("ci.yml").on.pull_request.branches, "the check runs for other base branches than ci.yml");
+    assert.deepEqual(check.permissions, { contents: "read" });
+    assert.notEqual(check.concurrency.group, workflow("ci.yml").concurrency.group, "an edit of the description cancels CI");
+    const steps = Object.values(check.jobs).flatMap((job) => {
+        assert.equal(job.permissions, undefined, "a job of the check asks for more permissions");
+        return job.steps;
+    });
+    for (const step of steps) assert.doesNotMatch(String(step.run ?? ""), /\$\{\{/, `"${step.name ?? step.uses}" has an expression in its run`);
+    const run = steps.find((step) => commandsOf(step).includes("node build/whole-change-check.js"));
+    assert.ok(run, "no step runs build/whole-change-check.js");
+    assert.deepEqual(run.env, {
+        PR_BODY: "${{ github.event.pull_request.body }}",
+        PR_TITLE: "${{ github.event.pull_request.title }}",
+        PR_AUTHOR: "${{ github.event.pull_request.user.login }}",
+    });
+    assert.ok(commandsOf(run).some((line) => /^CHANGED_FILES="\$\(git -c core\.quotepath=off diff --name-only HEAD\^1 HEAD\)"$/.test(line)), "the changed files are not the merge commit's difference to its base");
+    const checkout = steps.find((step) => String(step.uses).startsWith("actions/checkout@"));
+    assert.equal(checkout.with["persist-credentials"], false);
+    assert.equal(checkout.with["fetch-depth"], 2, "without the merge commit's parent there is nothing to compare with");
+});

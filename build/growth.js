@@ -13,7 +13,8 @@
 // build/growth-baseline.json with their numbers. A check fails when an offender grows or a new one
 // appears. It also fails when an offender shrank or went: the baseline must follow in the same pull
 // request (--update), or the room it left could be filled again unseen. --update never raises an
-// entry by itself. Raising one is --accept-growth, and the pull request says why.
+// entry by itself. Raising one is --accept-growth, and the pull request's whole-change check says
+// why (.github/PULL_REQUEST_TEMPLATE.md).
 // eizedev/pivotkit has the same guards in scripts/growth.js; both work alike.
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -57,16 +58,22 @@ export const DOCS_LIMITS = Object.freeze({ overview: 150, topic: 200, reference:
 /** How far the lines of all pages together may drift from the baseline, in percent, before it is updated. */
 export const DOCS_TOTAL_MARGIN = 2;
 
+/**
+ * What to do when a function or a page grew. A number cannot judge sense: the guard is an alarm to
+ * look at the whole, and squeezing lines or cutting words to pass it makes the code or page worse.
+ */
+const STOP = `Stop and read the whole of it; write what you found in the pull request's whole-change check (.github/PULL_REQUEST_TEMPLATE.md, "Whole-change check").`;
+
 /** What to do when a guard fails, said once per guard. */
 const ADVICE = {
-    powershell: `Split the function into smaller ones, one job each, and the file into one file per function (AGENTS.md, "Small units"). Limits: ${POWERSHELL_LIMITS.function} code lines per function, ${POWERSHELL_LIMITS.file} per file; blank lines and comments do not count.`,
-    javascript: `Split the function into smaller ones, one job each (AGENTS.md, "Small units"). Limits: ${FUNCTION_LIMITS.lines} lines without blank lines and comments, complexity ${FUNCTION_LIMITS.complexity}.`,
+    powershell: `The function or file grew. ${STOP} Then reshape it for real: extract the jobs it does beside its own, one function per file (AGENTS.md, "Small units"). Limits: ${POWERSHELL_LIMITS.function} code lines per function, ${POWERSHELL_LIMITS.file} per file; blank lines and comments do not count.`,
+    javascript: `The function grew. ${STOP} Then reshape it for real: extract the jobs it does beside its own (AGENTS.md, "Small units"). Limits: ${FUNCTION_LIMITS.lines} lines without blank lines and comments, complexity ${FUNCTION_LIMITS.complexity}.`,
     duplication: "Move the copied code into one function or module that both places import (AGENTS.md, \"One place per fact\"; shared/js once a second module needs it). The threshold is in .jscpd.json.",
-    docs: "Shorten the page, or split it into pages with one topic each; rewrite instead of appending (AGENTS.md, \"Shape what exists\"). When all pages together grew, make room in the pages the change touches.",
+    docs: `The page grew. ${STOP} Then reshape it for real: move detail to a sub-page and link it, write a list or a table instead of prose, or move a section to the page that owns its topic (AGENTS.md, "Shape what exists"). When all pages together grew, make room in the pages the change touches.`,
 };
 
 /** The way out when the growth is right, said under every guard that grew. */
-const ACCEPT = `If the growth is right, raise the baseline with ${UPDATE} --accept-growth and say why in the pull request.`;
+const ACCEPT = `Or raise the baseline with ${UPDATE} --accept-growth, with the reason in the whole-change check and the maintainer's approval. Never merge lines or cut words only to pass the number.`;
 
 const posix = (path, base = root) => relative(base, path).split(sep).join("/");
 
@@ -320,7 +327,7 @@ export async function main(argv, { dir = root, baselineFile = fileURLToPath(BASE
         writeFileSync(baselineFile, formatBaseline(next));
         console.log(`wrote ${posix(baselineFile)}`);
     } else if (update) {
-        console.error(`\nThe baseline was not written: something grew. Fix that, or raise the baseline with ${UPDATE} --accept-growth and say why in the pull request.`);
+        console.error(`\nThe baseline was not written: something grew. Reshape it, or raise the baseline with ${UPDATE} --accept-growth and give the reason in the pull request's whole-change check.`);
     }
     process.exitCode = failed ? 1 : 0;
 }

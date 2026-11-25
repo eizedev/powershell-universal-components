@@ -1,0 +1,45 @@
+name: Whole-change check
+
+# A pull request that changes docs or code says in its description what its author read whole and how
+# the change reshaped it (build/whole-change-check.js says what counts and who is exempt). It runs
+# again when the description is edited, so fixing the description turns it green; a workflow of its
+# own, so an edit does not run all of CI again.
+#
+# The description, title and author reach the script only through env: whoever opens the pull request
+# writes them, and an expression inside `run` would become part of the shell script.
+on:
+  # pull requests to main, as ci.yml
+  pull_request:
+    branches: ["main"]
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: whole-change-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # the merge commit and its first parent, the base: their difference is what the pull request changes
+          fetch-depth: 2
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Whole-change check
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          # quotepath off: a path with non-ASCII letters as it is, not quoted and escaped
+          CHANGED_FILES="$(git -c core.quotepath=off diff --name-only HEAD^1 HEAD)"
+          export CHANGED_FILES
+          node build/whole-change-check.js

@@ -84,7 +84,8 @@ The limits and their reasons are in that file. Each guard is a CI step:
 - `docs`: lines per docs page and README by kind of page, and of all of them together.
 
 The offenders over a limit are in `build/growth-baseline.json`. A new or grown one fails. A smaller one
-fails until `node build/growth.js --update` lowers the baseline in the same pull request.
+fails until `node build/growth.js --update` lowers the baseline in the same pull request. A raised
+baseline needs its reason in the pull request's whole-change check.
 
 A change to a component is checked on a PSU test instance in a browser (light and dark theme, a
 narrow and a wide window, the events it fires) before it is called done; unit tests do not cover
