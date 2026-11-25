@@ -533,7 +533,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   `removeConditions`, `removeFilter`, `chooseValues`, `valueFilter`, `change`, `removeSetting`,
   `topStart`, `binsStart`, `filterIs`, `groupBy`, `resetSections`, `resetSectionsDone`.
     - Who is affected: an app that sets one of the keys that are gone. Their text is ignored.
-    - What to do: set the text under the new key.
+    - What to do: remove those keys, and set the texts of the new keys you want to change.
 - The report's default height (without `-Height`) is one screen: the window's height minus 160
   pixels for PSU's app bar and a page title, between 600 and 1400 pixels (was minus 200, between 480
   and 1400). The whole report is on screen when the page loads, and the table shows more rows below

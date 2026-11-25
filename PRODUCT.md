@@ -44,11 +44,5 @@ each of them. A component module never depends on another one at run time.
 
 ## What a change delivers
 
-[CONTRIBUTING.md](CONTRIBUTING.md) has the steps and [AGENTS.md](AGENTS.md) the rules. A pull
-request delivers:
-
-- Tests that fail without the change and pass with it.
-- A check on a PSU instance in a browser for a change to a component: light and dark theme, a narrow
-  and a wide window, the events it fires.
-- Docs that describe how it works now, and an entry in the module's `CHANGELOG.md`.
-- Green CI, the growth guards included.
+A change makes the product better for at least one of the three roles and keeps the
+[promises above](#promises-and-limits). [CONTRIBUTING.md](CONTRIBUTING.md) has the steps and checks.
