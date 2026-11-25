@@ -23,6 +23,15 @@ All notable changes to PowerShellUniversal.Component.ECharts. Format:
   holds entries that are no objects, such as `$null`. Before, the row came from the wrong place in the
   data. `New-UDEChart` and `Set-UDEChartData` never send such entries. This affects only an app that
   sets the data another way, such as `Set-UDElement -Properties @{ data = ... }`.
+- The zoom, the series hidden in the legend and a brushed range stay when PSU's light/dark switch
+  changes the theme. Before, the chart started over at full range with every series shown. No
+  `-OnZoom`, `-OnSelect` or `-OnLegendChange` runs for the switch.
+- `-MarkLine 'average'` (and `median`, `min`, `max`) with several series: the label of the higher line
+  sits above it and the lower one's below. Before, the side came from the series' order, so the labels
+  of close lines overlapped when the second line was higher. Where another series has the same
+  statistic on the same axis, a label position for a series' whole `markLine` in `-Options` no
+  longer moves these labels; set it per line instead:
+  `markLine = @{ data = @(@{ label = @{ position = 'insideStartBottom' } }) }`.
 
 ### Changed
 

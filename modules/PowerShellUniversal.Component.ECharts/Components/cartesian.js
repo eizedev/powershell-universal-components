@@ -1,7 +1,7 @@
 import { resolveColumn, resolveColumns } from "../../../shared/js/columns.js";
 import { formatter } from "./formatters.js";
 import { html } from "./html.js";
-import { LARGE, CARTESIAN, SHADE, list, num, axisTypeFor, unique, displayName, isPlainObject, valueFormatter, labelFormatter, titleOf, legendOf, gridOf, dataZoomOf, toolboxOf, markAreaOf, markLineOf, markPointOf, axisBreaks, maxOf, minOf, aggregate, groupRows, toTime, linearFit, medianStep } from "./optionParts.js";
+import { LARGE, CARTESIAN, SHADE, list, num, axisTypeFor, unique, displayName, isPlainObject, valueFormatter, labelFormatter, titleOf, legendOf, gridOf, dataZoomOf, toolboxOf, markAreaOf, markLineOf, addStatisticLines, markPointOf, axisBreaks, maxOf, minOf, aggregate, groupRows, toTime, linearFit, medianStep } from "./optionParts.js";
 import { timeAxisLabel } from "./timeaxis.js";
 import { cartesianTooltipFormatter, resolveTooltipMode } from "./tooltipMode.js";
 
@@ -279,12 +279,7 @@ export function cartesian(props_, rows, keys, ctx) {
         });
     }
 
-    // markLine statistics belong to every series, fixed lines once
-    if (list(props.markLine).some((m) => typeof m === "string")) {
-        series.slice(1).forEach((s, i) => {
-            s.markLine = markLineOf({ markLine: list(props.markLine).filter((m) => typeof m === "string") }, horizontal, fmt, i + 1);
-        });
-    }
+    addStatisticLines(series, props, horizontal, fmt);
 
     const valueAxis = (index) => ({
         type: props.logScale ? "log" : "value",

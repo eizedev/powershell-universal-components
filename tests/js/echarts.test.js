@@ -1,7 +1,7 @@
 // Tests for the ECharts option builder. Run: node --test tests/js/
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { buildOption, dataRows, rowOf, mergeOptions, boxStats, quantile, displayName, linearFit, tooltipTracksHover, CHART_TYPES, LARGE } from "../../modules/PowerShellUniversal.Component.ECharts/Components/buildOption.js";
 import { echartsLocale, LANGUAGES } from "../../modules/PowerShellUniversal.Component.ECharts/Components/language.js";
 import { textsFor, TEXT_LANGUAGES } from "../../modules/PowerShellUniversal.Component.ECharts/Components/texts.js";
@@ -55,6 +55,72 @@ test("markLine: statistics per series, fixed line once", () => {
     assert.equal(o.series[0].markLine.data.length, 2);
     assert.equal(o.series[1].markLine.data.length, 1);
     assert.equal(o.series[0].markLine.data[1].yAxis, 48);
+});
+
+// the label side of each statistic line: [series][line] -> position (its own, else the series' markLine's)
+const statLabels = (o) => o.series.map((s) => (s.markLine ? s.markLine.data.filter((d) => d.type).map((d) => (d.label || s.markLine.label).position) : []));
+
+test("markLine: the higher statistic line is labelled above, the lower one below, whichever series it is", () => {
+    const rows = [{ d: "1", a: 2, b: 5 }, { d: "2", a: 4, b: 7 }];
+    // second series higher: before, its label faced the first one's and both overlapped
+    assert.deepEqual(statLabels(buildOption({ chartType: "line", data: rows, x: "d", y: ["a", "b"], markLine: ["average"] }, {})), [["insideEndBottom"], ["insideEndTop"]]);
+    // first series higher: as before
+    assert.deepEqual(statLabels(buildOption({ chartType: "line", data: rows, x: "d", y: ["b", "a"], markLine: ["average"] }, {})), [["insideEndTop"], ["insideEndBottom"]]);
+    // one series: above its line, as before, and a position from -Options for its markLine still applies
+    const one = buildOption({ chartType: "line", data: rows, x: "d", y: ["a"], markLine: ["average"], options: { series: [{ markLine: { label: { position: "end" } } }] } }, {});
+    assert.equal(one.series[0].markLine.data[0].label, undefined);
+    assert.equal(one.series[0].markLine.label.position, "end");
+    assert.deepEqual(statLabels(buildOption({ chartType: "line", data: rows, x: "d", y: ["a"], markLine: ["average"] }, {})), [["insideEndTop"]]);
+});
+
+test("markLine: each statistic is ordered on its own, a middle line's label faces away from its nearer neighbour", () => {
+    // averages a 3, b 6, c 10: b is nearer to a, so its label goes above; maxima a 4, b 7, c 12 alike
+    const rows = [{ d: "1", a: 2, b: 5, c: 8 }, { d: "2", a: 4, b: 7, c: 12 }];
+    assert.deepEqual(statLabels(buildOption({ chartType: "line", data: rows, x: "d", y: ["c", "a", "b"], markLine: ["average", "max"] }, {})), [
+        ["insideEndTop", "insideEndTop"],
+        ["insideEndBottom", "insideEndBottom"],
+        ["insideEndTop", "insideEndTop"]
+    ]);
+    // min of a is higher than b's, its average lower: each line by its own value
+    const crossing = [{ d: "1", a: 5, b: 1 }, { d: "2", a: 5, b: 20 }];
+    assert.deepEqual(statLabels(buildOption({ chartType: "line", data: crossing, x: "d", y: ["a", "b"], markLine: ["average", "min"] }, {})), [
+        ["insideEndBottom", "insideEndTop"],
+        ["insideEndTop", "insideEndBottom"]
+    ]);
+});
+
+test("markLine: lines are compared on their own value axis, stacked series by their stacked values, median as ECharts computes it", () => {
+    const rows = [{ d: "1", a: 2, b: 50 }, { d: "2", a: 4, b: 70 }];
+    // b on the secondary axis: each line alone on its axis keeps the series' label above it
+    const apart = buildOption({ chartType: "line", data: rows, x: "d", y: ["b", "a"], secondaryY: ["b"], markLine: ["average"] }, {});
+    assert.deepEqual(statLabels(apart), [["insideEndTop"], ["insideEndTop"]]);
+    assert.deepEqual(apart.series.map((s) => s.markLine.data[0].label), [undefined, undefined]);
+    // stacked: ECharts draws b's line at a + b, above a, although b alone is smaller here
+    const stacked = [{ d: "1", a: 10, b: 1 }, { d: "2", a: 12, b: 1 }];
+    assert.deepEqual(statLabels(buildOption({ chartType: "area", data: stacked, x: "d", y: ["a", "b"], stacked: true, markLine: ["average"] }, {})), [["insideEndBottom"], ["insideEndTop"]]);
+    // median of an even count is the mean of the two middle values: a 5.5 against b 5
+    const median = [{ d: "1", a: 1, b: 5 }, { d: "2", a: 10, b: 5 }, { d: "3", a: 1, b: 5 }, { d: "4", a: 10, b: 5 }];
+    assert.deepEqual(statLabels(buildOption({ chartType: "bar", data: median, x: "d", y: ["b", "a"], markLine: ["median"] }, {})), [["insideEndBottom"], ["insideEndTop"]]);
+});
+
+// the same drawn by the module's ECharts (server-side rendering): the two "Average" labels do not overlap
+const echartsUrl = new URL("../../modules/PowerShellUniversal.Component.ECharts/node_modules/echarts/index.js", import.meta.url);
+test("markLine: ECharts draws the labels of close averages apart, also on horizontal bars", { skip: existsSync(echartsUrl) ? false : "the ECharts module's packages are not installed" }, async () => {
+    const echarts = await import(echartsUrl);
+    // averages 10.9 and 11.5: the second series is higher
+    const rows = Array.from({ length: 10 }, (_, i) => ({ d: String(i), a: 10 + (i % 3), b: 11 + (i % 2) }));
+    for (const extra of [{ chartType: "line" }, { chartType: "bar", horizontal: true }]) {
+        const chart = echarts.init(null, null, { renderer: "svg", ssr: true, width: 700, height: 400 });
+        chart.setOption({ ...buildOption({ ...extra, data: rows, x: "d", y: ["a", "b"], markLine: ["average"] }, { locale: "en-US" }), animation: false });
+        const boxes = chart.getZr().storage.getDisplayList(true).filter((el) => el.style && /^Average/.test(el.style.text || "")).map((el) => {
+            const r = el.getBoundingRect().clone();
+            r.applyTransform(el.getComputedTransform());
+            return r;
+        });
+        chart.dispose();
+        assert.equal(boxes.length, 2, extra.chartType);
+        assert.equal(boxes[0].intersect(boxes[1]), false, `${extra.chartType}${extra.horizontal ? " horizontal" : ""}: labels overlap`);
+    }
 });
 
 test("every formatter returns a string", () => {
