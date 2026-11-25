@@ -41,13 +41,15 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
       of the report's locale and says so in a note. Check such a column after the update.
     - On a phone, the settings button shows its icon only, and table headers wrap between words.
     - A menu that a low window cuts off fades out at its end.
-  `-Labels` no longer uses the key `settingsShort`. Remove it if you set it. The
-  [pivotkit changelogs](https://pivotkit.eize.dev/getting-started/upgrading/#from-0-9) list all changes.
-- A shared view of a template store takes no origin from the request's headers for a `-SchemaUrl`
-  path. It takes the origin of an https `PSU_COMPONENT_PIVOT_SCHEMA_URL`, else it names pivotkit's
-  schema address. This affects you when you publish shared views with a path and no https default:
-  to keep your own address in them, set `PSU_COMPONENT_PIVOT_SCHEMA_URL` to it. A view a reader saves
-  for themselves keeps the origin of the request.
+  The [pivotkit changelogs](https://pivotkit.eize.dev/getting-started/upgrading/#from-0-9) list all changes.
+- **Breaking:** `-Labels` no longer uses the key `settingsShort`; its text is not shown.
+    - Who is affected: an app that sets `settingsShort` in `-Labels`.
+    - What to do: remove the key.
+- **Breaking:** a shared view of a template store takes no origin from the request's headers for a
+  `-SchemaUrl` path. It takes the origin of an https `PSU_COMPONENT_PIVOT_SCHEMA_URL`, else it names
+  pivotkit's schema address. A view a reader saves for themselves keeps the origin of the request.
+    - Who is affected: an app that publishes shared views with a `-SchemaUrl` path and no https default.
+    - What to do: to keep your own address in them, set `PSU_COMPONENT_PIVOT_SCHEMA_URL` to it.
 - `ConvertTo-PSUComponentData`, the data conversion all modules share, keeps its C# converter in
   `RowConverter.cs` and its helpers one function per file. The rows it returns are unchanged.
 - The module's code is one function per file in `Public/` and `Private/`; the `.psm1` only loads them.
@@ -247,15 +249,21 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Changed
 
-- `New-UDPivotReport`, `ConvertTo-UDPivotViewFile` and the template stores check `-SchemaUrl` the
-  same way: `''`, an https address or a path; no spaces, at most 2,000 characters, no user name or
-  password. The scheme may be in any case. `ConvertTo-UDPivotViewFile` and the stores took any text
-  before: an `http://` address or another value now stops them with an error. The error text is new
-  in all of them ([#110](https://github.com/eizedev/powershell-universal-components/issues/110)).
-- An address of your own names the schema of the current format (view file format 2). A file of
-  format 1 keeps pivotkit's `view-file-1.json` address, so it never names the schema of another
-  format ([#110](https://github.com/eizedev/powershell-universal-components/issues/110)).
-- An address of your own for a file of format 1 is no longer possible.
+- **Breaking:** `New-UDPivotReport`, `ConvertTo-UDPivotViewFile` and the template stores check
+  `-SchemaUrl` the same way: `''`, an https address or a path; no spaces, at most 2,000 characters, no
+  user name or password. The scheme may be in any case. `ConvertTo-UDPivotViewFile` and the stores
+  took any text before. The error text is new in all of them
+  ([#110](https://github.com/eizedev/powershell-universal-components/issues/110)).
+    - Who is affected: an app that gives `ConvertTo-UDPivotViewFile` or a template store an `http://`
+      address or another value that is no https address or path. It now stops with an error.
+    - What to do: use an https address or a path on the PSU server.
+- **Breaking:** an address of your own names the schema of the current format (view file format 2).
+  A file of format 1 keeps pivotkit's `view-file-1.json` address, so it never names the schema of
+  another format ([#110](https://github.com/eizedev/powershell-universal-components/issues/110)).
+    - Who is affected: an app that writes view files of format 1 (views of version 1 or without a
+      version) and relies on its own `-SchemaUrl` in them. Those files name pivotkit's address now.
+    - What to do: nothing for pivotkit and the module, which read the file either way. A tool that
+      needs your address reads files of format 2.
 
 ## [0.7.0] - 2026-11-18
 
@@ -293,10 +301,12 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 - Behaviour change: without `-ExportData` the drill-down panel has no Export menu any more. Readers
   still see the rows behind a value and can select and copy their text. `-DrillDownExport` brings the
   menu back without Source data; `-ExportData` brings it with Source data.
-- `-Labels`: pivotkit 0.8.0 no longer shows the keys `layout`, `showLayout`, `options` and
-  `chartDisplay`, and says once in the browser's console which key holds that text now. Use
-  `zonesTitle`, `tableSettings` and `chartSettings`. An app that sets `rowsCount` sets `rowsFiltered`
-  too ([upgrading](https://pivotkit.eize.dev/getting-started/upgrading/#view-tabs-0-8)).
+- **Breaking:** `-Labels`: pivotkit 0.8.0 no longer shows the keys `layout`, `showLayout`, `options`
+  and `chartDisplay`, and says once in the browser's console which key holds that text now
+  ([upgrading](https://pivotkit.eize.dev/getting-started/upgrading/#view-tabs-0-8)).
+    - Who is affected: an app that sets one of these keys in `-Labels`.
+    - What to do: use `zonesTitle`, `tableSettings` and `chartSettings`. An app that sets `rowsCount`
+      sets `rowsFiltered` too.
 - The help of `-Tips`, `-FieldInfo`, `-ZoneInfo` and `-SettingInfo` and the Pivot pages name More,
   Help instead of Options, and the zones' heading instead of the Layout button.
 - `Invoke-UDPivotReport` is tested with pivotkit-cli 0.4.0 and pivotkit-server 0.3.0. The file route
@@ -516,12 +526,14 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   and the questions before a delete or a publish are levels of the menu. A press inside a menu no
   longer drags the chip that opened it. New filter types in a view, `compare` and `relative` (with
   `anchor`); views saved by earlier versions load unchanged, and the template stores keep the new
-  filters as they are. Labels a `-Labels` override may use changed again (new `summary*`, `quick*`,
-  `anchor*`, `yearsCombined*`, `rule*`, `back`, `searchMenu` and more; gone: `moreFilters`,
+  filters as they are. The docs describe the menus and the view's filter types.
+- **Breaking:** labels a `-Labels` override may use changed again. New: `summary*`, `quick*`,
+  `anchor*`, `yearsCombined*`, `rule*`, `back`, `searchMenu` and more. Gone: `moreFilters`,
   `itemsPicked`, `itemsShown*`, `pickedPlus`, `ruleOut`, `quickCustom`, `conditionOnNames`,
   `removeConditions`, `removeFilter`, `chooseValues`, `valueFilter`, `change`, `removeSetting`,
-  `topStart`, `binsStart`, `filterIs`, `groupBy`, `resetSections`, `resetSectionsDone`; a text for a
-  key that is gone is ignored). The docs describe the menus and the view's filter types.
+  `topStart`, `binsStart`, `filterIs`, `groupBy`, `resetSections`, `resetSectionsDone`.
+    - Who is affected: an app that sets one of the keys that are gone. Their text is ignored.
+    - What to do: set the text under the new key.
 - The report's default height (without `-Height`) is one screen: the window's height minus 160
   pixels for PSU's app bar and a page title, between 600 and 1400 pixels (was minus 200, between 480
   and 1400). The whole report is on screen when the page loads, and the table shows more rows below
@@ -537,9 +549,11 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 - pivotkit 0.2.0 ([pivotkit-react release](https://github.com/eizedev/pivotkit/releases/tag/pivotkit-react%400.2.0)):
   Save, Save as and New, empty report in the Views menu with the loaded view's name and an
   unsaved-changes dot in the toolbar; sorting by a click on a table header; a view's unused parts as a
-  warning in plain words; field menus with one line per setting. Labels a `-Labels` override may use
-  changed: `issues`, `viewMissingFields`, `viewOtherIssue(s)` and `valuesFilterHint` are gone (see
-  pivotkit-react's CHANGELOG for the new keys).
+  warning in plain words; field menus with one line per setting.
+- **Breaking:** labels a `-Labels` override may use changed: `issues`, `viewMissingFields`,
+  `viewOtherIssue(s)` and `valuesFilterHint` are gone.
+    - Who is affected: an app that sets one of these keys.
+    - What to do: set the text under the new key (see pivotkit-react's CHANGELOG for the new keys).
 - View names in the template stores match as in pivotkit's Views menu: the same characters in the same
   case (after trimming). `Sales` and `sales` are two views; before, saving `sales` replaced `Sales`
   without pivotkit asking. Files of new views carry a hash of the name as it is. A view saved by 0.1.0
