@@ -3,7 +3,7 @@
         "pages": {
             "README.md": [110]
         },
-        "totalLines": 5202
+        "totalLines": 5252
     },
     "javascript": {
         "complexity": {
@@ -26,7 +26,7 @@
             "modules/PowerShellUniversal.Component.ECharts.Demo/Apps/Showcase.ps1": [1330],
             "modules/PowerShellUniversal.Component.Pivot.Demo/Apps/Showcase.ps1": [305],
             "tests/powershell/Pivot.Tests.ps1": [521],
-            "tests/powershell/PivotReport.Tests.ps1": [1391],
+            "tests/powershell/PivotReport.Tests.ps1": [1407],
             "tests/powershell/PivotTemplates.Tests.ps1": [729]
         },
         "functions": {
