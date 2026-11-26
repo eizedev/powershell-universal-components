@@ -5,6 +5,13 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+### Fixed
+
+- `Invoke-UDPivotReport -Engine Rest -Parameter` names the server version it needs also for the
+  answer newer pivotkit-servers give when none of their sources takes parameters ("this server has
+  no source that takes params"), as for the older `no key "params"`
+  ([#132](https://github.com/eizedev/powershell-universal-components/issues/132)).
+
 ### Changed
 
 - The component passes the React hooks lint rules, which are now errors in CI: the latest props

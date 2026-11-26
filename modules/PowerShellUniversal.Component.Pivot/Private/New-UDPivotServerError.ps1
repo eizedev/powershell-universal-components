@@ -44,8 +44,9 @@ function New-UDPivotServerError {
             else { 'The data is too large for the server: send fewer rows or columns, or let the operator configure a source for it and use -Source.' })
     }
     # pivotkit-server 0.1.1 knows neither data in the request nor params; its answer reads like a
-    # fault in the request (#129). 0.2.0 answers params the same way when none of its sources takes any.
-    if ($status -eq 400 -and $code -eq 'INVALID_INPUT' -and $p.Detail -match 'no key "(data|params)"') {
+    # fault in the request (#129). 0.2.0 answers params the same way when none of its sources takes
+    # any; later versions say so in words, recognised by "takes params" (NO_PARAMS_TEXT, #132).
+    if ($status -eq 400 -and $code -eq 'INVALID_INPUT' -and $p.Detail -match 'no key "(data|params)"|(takes params)') {
         $message += [Environment]::NewLine + $(if ($Matches[1] -eq 'data') { '-Data needs pivotkit-server 0.2.0 or later; an older server renders only -Source.' }
             else { '-Parameter needs a source with parameters on pivotkit-server 0.2.0 or later.' })
     }

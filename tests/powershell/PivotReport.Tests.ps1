@@ -596,6 +596,11 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
         $caught = $null
         try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Source 'vms' -Parameter @{ customer = 'acme' } -View $view } catch { $caught = $_ }
         $caught.Exception.Message | Should -BeLike '*INVALID_INPUT (400): input has no key "params"*-Parameter needs a source with parameters on pivotkit-server 0.2.0 or later*'
+        # newer servers say it in words (NO_PARAMS_TEXT of pivotkit-server's sources/input.js, #132)
+        $mock.Render.Enqueue(@{ Status = 400; Body = '{"type":"https://pivotkit.eize.dev/reference/rest/#error-invalid-input","title":"Invalid input","status":400,"code":"INVALID_INPUT","detail":"this server has no source that takes params; leave params out (GET /sources lists the sources)"}' })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Source 'vms' -Parameter @{ customer = 'acme' } -View $view } catch { $caught = $_ }
+        $caught.Exception.Message | Should -BeLike '*INVALID_INPUT (400): this server has no source that takes params*-Parameter needs a source with parameters on pivotkit-server 0.2.0 or later*'
         # another invalid input, and data refused by the server's policy, get no version hint
         $mock.Render.Enqueue(@{ Status = 400; Body = '{"type":"x","title":"Invalid input","status":400,"code":"INVALID_INPUT","detail":"view.rows[0] must be a string"}' })
         $caught = $null
