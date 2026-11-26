@@ -67,21 +67,6 @@ ECharts module:
     - Who is affected: readers who compare the series of a position in the tooltip.
     - What to do: `-TooltipMode Axis` lists every series at the position.
 
-### Pivot 0.10 { #pivot }
-
-- **A reader's CSV or Excel file with numbers such as `1,234` or `1.500`** is read in the notation of
-  the report's locale, with a note that says so.
-    - Who is affected: readers of a report with `-AllowImport` who load such files.
-    - What to do: check such a column after the update.
-- **`-Labels` has no key `settingsShort`.**
-    - Who is affected: an app that sets it.
-    - What to do: remove the key.
-- **A shared view of a template store takes no origin from the request's headers** for a
-  `-SchemaUrl` path. It takes the origin of an https `PSU_COMPONENT_PIVOT_SCHEMA_URL`, else
-  pivotkit's schema address. A view a reader saves for themselves keeps the origin of the request.
-    - Who is affected: an app that publishes shared views with a `-SchemaUrl` path and no https default.
-    - What to do: to keep your own address in them, set `PSU_COMPONENT_PIVOT_SCHEMA_URL` to it.
-
 ### Older releases { #older }
 
 The breaks of every release, marked **Breaking:**, are in each module's `CHANGELOG.md`:

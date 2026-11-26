@@ -40,7 +40,7 @@
 /* ---- PSU's defaults in both modes, also read by the admin panel next to pivotkit's root ---------- */
 .ud-pivot-report {
     --psu-default-radius: 8px;
-    --psu-default-radius-sm: 4px;
+    --psu-default-radius-sm: 7px;
     --psu-default-font-size: max(14px, 1em);
     /* the admin panel's text: PSU's body2 (0.875rem), never below 14 px (pivotkit's smallest) */
     --psu-default-font-size-small: max(14px, 0.875rem);
@@ -221,10 +221,12 @@
     --pk-zone-filters: var(--psu-pivot-zone-filters, var(--pk-muted));
     --pk-zone-tint: var(--psu-pivot-zone-tint, var(--psu-default-zone-tint));
     --pk-zone-tint-base: var(--psu-pivot-zone-tint-base, var(--pk-surface));
-    /* a chip's grip, menu arrow and x; the sort arrow of the sorted field; a field's hover in the list;
-       the chart's reference lines of no series. Without a value of the app, derived as pivotkit does */
+    /* a chip's grip, menu arrow and x; the sort arrow of the sorted field and the up-down mark of every
+       other header that sorts; a field's hover in the list; the chart's reference lines of no series.
+       Without a value of the app, derived as pivotkit does */
     --pk-control-icon: var(--psu-pivot-control-icon, var(--pk-muted));
-    --pk-sort-arrow: var(--psu-pivot-sort-arrow, var(--pk-text));
+    --pk-sort-arrow: var(--psu-pivot-sort-arrow, var(--pk-accent));
+    --pk-sort-arrow-rest: var(--psu-pivot-sort-arrow-rest, var(--pk-muted));
     --pk-field-hover: var(--psu-pivot-field-hover, var(--pk-surface));
     --pk-chart-reference: var(--psu-pivot-chart-reference, var(--pk-muted));
 

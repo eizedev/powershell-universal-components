@@ -50,7 +50,8 @@ minimum.
 | `--psu-pivot-zone-tint` | - | how much of its zone's colour a chip's fill takes | `16%` | `16%` |
 | `--psu-pivot-zone-tint-base` | `--psu-pivot-surface` | what a chip's fill mixes the zone's colour into | `#ffffff` | `#121212` |
 | `--psu-pivot-control-icon` | `--psu-pivot-muted`, `--psu-chart-muted` | a chip's grip, menu arrow and remove button | `rgba(0, 0, 0, 0.62)` | `rgba(255, 255, 255, 0.64)` |
-| `--psu-pivot-sort-arrow` | `--psu-pivot-text`, `--psu-chart-text` | the sort arrow of the sorted field | `rgba(0, 0, 0, 0.87)` | `rgba(255, 255, 255, 0.87)` |
+| `--psu-pivot-sort-arrow` | `--psu-pivot-accent`, `--psu-chart-accent` | the arrow behind the name of the sorted header and on its chip | `#1976d2` | `#90caf9` |
+| `--psu-pivot-sort-arrow-rest` | `--psu-pivot-muted`, `--psu-chart-muted` | the up-down mark behind every other header that sorts | `rgba(0, 0, 0, 0.62)` | `rgba(255, 255, 255, 0.64)` |
 | `--psu-pivot-field-hover` | `--psu-pivot-surface` | a field in the field list on hover | `#ffffff` | `#121212` |
 | `--psu-pivot-chart-reference` | `--psu-pivot-muted`, `--psu-chart-muted` | the chart's reference lines that belong to no series | `rgba(0, 0, 0, 0.62)` | `rgba(255, 255, 255, 0.64)` |
 | `--psu-pivot-tab-bg` | - | a tab not shown (Table, Chart): its background | `transparent` | `transparent` |
@@ -65,7 +66,7 @@ minimum.
 | `--psu-pivot-primary-text` | `--psu-pivot-accent-text` | the main action's text | `#ffffff` | `#0b1a2a` |
 | `--psu-pivot-primary-hover-bg` | - | the main action's fill on hover | 88 % of its fill, mixed with the text colour | 88 % of its fill, mixed with the text colour |
 | `--psu-pivot-radius` | - | corner radius of the report, panels, zones and popovers | `8px` | `8px` |
-| `--psu-pivot-radius-sm` | - | corner radius of buttons, chips, notes, the fields in the field list and their hover, and a field's name in the table's header; pivotkit's smaller corners (links, a chip's grip, badges, a field's type icon) follow it. `4px` is PSU's own corner; pivotkit's is `7px`. Chips and the table's field names follow it with pivotkit 0.11.0 or later | `4px` | `4px` |
+| `--psu-pivot-radius-sm` | - | corner radius of buttons, chips, notes, the fields in the field list and their hover, and a field's name in the table's header; pivotkit's smaller corners (links, a chip's grip, badges, a field's type icon) follow it. The default is pivotkit's `7px` | `7px` | `7px` |
 | `--psu-pivot-font` | - | font family | the page's font | the page's font |
 | `--psu-pivot-font-size` | - | base text size | `max(14px, 1em)` | `max(14px, 1em)` |
 | `--psu-pivot-weight-normal` | - | plain text inside a bolder part (hints, table cells) | `400` | `400` |
