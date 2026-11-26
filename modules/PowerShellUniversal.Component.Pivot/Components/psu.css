@@ -25,8 +25,9 @@
  *
  * The tabs and buttons (pivotkit-react) take --psu-pivot-tab-*, --psu-pivot-icon-button-*,
  * --psu-pivot-button-* and --psu-pivot-primary-*; without them they derive from the general tokens as
- * pivotkit does, so they follow PSU. The zone frames follow --pk-border-strong. The field type colours
- * take --psu-pivot-type-*; without them they keep pivotkit's own values, repeated below per mode.
+ * pivotkit does, so they follow PSU. The zone frames follow --pk-border-strong. The zones' colours take
+ * --psu-pivot-zone-*; without them they keep pivotkit's own values, repeated below per mode. The field
+ * type icons take --psu-pivot-type-*; without them they are the muted text, pivotkit's neutral default.
  *
  * pivotkit's shadows, scrims and its other semantic colours (danger, warning, the switch's knob) stay
  * pivotkit's: at their alpha the light shadows' blue tint does not show next to PSU's greys.
@@ -56,6 +57,8 @@
     --psu-default-tab-bg: transparent;
     /* how much of the primary button's fill stays on hover, mixed with the text colour (pivotkit's) */
     --psu-default-mix-primary-hover: 88%;
+    /* how much of a zone's colour its fill takes (pivotkit's) */
+    --psu-default-zone-tint: 16%;
 }
 
 /* ---- PSU's defaults, light ------------------------------------------------------------------- */
@@ -94,11 +97,10 @@
     --psu-default-mix-soft: 12%;
     --psu-default-mix-drop: 18%;
     --psu-default-mix-note: 7%;
-    /* the field types' colours: pivotkit's (pivotkit-react's styles.css) */
-    --psu-default-type-string: #6250d6;
-    --psu-default-type-number: #1a7f5a;
-    --psu-default-type-date: #b5560b;
-    --psu-default-type-boolean: #a3367a;
+    /* the zones' colours: pivotkit's (pivotkit-react's styles.css), 4.5:1 on PSU's zone section too */
+    --psu-default-zone-rows: #1d5fcc;
+    --psu-default-zone-columns: #a85a00;
+    --psu-default-zone-values: #0b785c;
 }
 
 /* ---- PSU's defaults, dark -------------------------------------------------------------------- */
@@ -136,10 +138,9 @@
     --psu-default-mix-soft: 18%;
     --psu-default-mix-drop: 32%;
     --psu-default-mix-note: 10%;
-    --psu-default-type-string: #a99dff;
-    --psu-default-type-number: #5fd3a3;
-    --psu-default-type-date: #f2a65a;
-    --psu-default-type-boolean: #f08cc6;
+    --psu-default-zone-rows: #8db4ff;
+    --psu-default-zone-columns: #f2b559;
+    --psu-default-zone-values: #5fd6ac;
 }
 
 /* ---- the bridge, one declaration per token for both modes ------------------------------------ */
@@ -206,11 +207,26 @@
     --pk-weight-strong: var(--psu-pivot-weight-strong, var(--psu-default-weight-strong));
     --pk-weight-bold: var(--psu-pivot-weight-bold, var(--psu-default-weight-bold));
 
-    /* the field type icons and the empty state's pills */
-    --pk-type-string: var(--psu-pivot-type-string, var(--psu-default-type-string));
-    --pk-type-number: var(--psu-pivot-type-number, var(--psu-default-type-number));
-    --pk-type-date: var(--psu-pivot-type-date, var(--psu-default-type-date));
-    --pk-type-boolean: var(--psu-pivot-type-boolean, var(--psu-default-type-boolean));
+    /* the field type icons and the empty state's pills: neutral as pivotkit's, so colour marks the zones */
+    --pk-type-string: var(--psu-pivot-type-string, var(--pk-muted));
+    --pk-type-number: var(--psu-pivot-type-number, var(--pk-muted));
+    --pk-type-date: var(--psu-pivot-type-date, var(--pk-muted));
+    --pk-type-boolean: var(--psu-pivot-type-boolean, var(--pk-muted));
+
+    /* each zone's colour (its icons, its marks in the field list, a field's name in the table's header)
+       and the fill of its chips and names: that share of the colour mixed into the base */
+    --pk-zone-rows: var(--psu-pivot-zone-rows, var(--psu-default-zone-rows));
+    --pk-zone-columns: var(--psu-pivot-zone-columns, var(--psu-default-zone-columns));
+    --pk-zone-values: var(--psu-pivot-zone-values, var(--psu-default-zone-values));
+    --pk-zone-filters: var(--psu-pivot-zone-filters, var(--pk-muted));
+    --pk-zone-tint: var(--psu-pivot-zone-tint, var(--psu-default-zone-tint));
+    --pk-zone-tint-base: var(--psu-pivot-zone-tint-base, var(--pk-surface));
+    /* a chip's grip, menu arrow and x; the sort arrow of the sorted field; a field's hover in the list;
+       the chart's reference lines of no series. Without a value of the app, derived as pivotkit does */
+    --pk-control-icon: var(--psu-pivot-control-icon, var(--pk-muted));
+    --pk-sort-arrow: var(--psu-pivot-sort-arrow, var(--pk-text));
+    --pk-field-hover: var(--psu-pivot-field-hover, var(--pk-surface));
+    --pk-chart-reference: var(--psu-pivot-chart-reference, var(--pk-muted));
 
     /* the tabs (Table, Chart) and the buttons; without a value of the app, derived as pivotkit does */
     --pk-tab-bg: var(--psu-pivot-tab-bg, var(--psu-default-tab-bg));

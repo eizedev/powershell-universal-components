@@ -571,9 +571,9 @@ for (const mode of ["light", "dark"]) {
 }
 
 // pivotkit-react's own values (styles.css, the same in 0.8.1 and 0.9.0) for the tokens the bridge
-// maps without changing them: the field types per mode, the tabs and buttons as pivotkit derives
-// them. Where the module's packages are installed (CI's pivot step), the test reads them from the
-// installed styles.css instead, so a new pivotkit version that changes one fails there.
+// maps without changing them: the tabs and buttons as pivotkit derives them. Where the module's
+// packages are installed (CI's pivot step), the test reads them from the installed styles.css
+// instead, so a new pivotkit version that changes one fails there.
 const PK_ROOT = {
     "--pk-tab-bg": "transparent",
     "--pk-tab-text": "var(--pk-muted)",
@@ -587,27 +587,70 @@ const PK_ROOT = {
     "--pk-primary-text": "var(--pk-accent-text)",
     "--pk-primary-hover-bg": "color-mix(in srgb, var(--pk-accent) 88%, var(--pk-text))",
 };
-const PK_TYPES = [
-    { "--pk-type-string": "#6250d6", "--pk-type-number": "#1a7f5a", "--pk-type-date": "#b5560b", "--pk-type-boolean": "#a3367a" },
-    { "--pk-type-string": "#a99dff", "--pk-type-number": "#5fd3a3", "--pk-type-date": "#f2a65a", "--pk-type-boolean": "#f08cc6" },
-];
 const pkStylesUrl = new URL("../../modules/PowerShellUniversal.Component.Pivot/node_modules/pivotkit-react/dist/styles.css", import.meta.url);
 function pkDeclarations(index) {
-    if (!existsSync(pkStylesUrl)) return { ...(index ? {} : PK_ROOT), ...PK_TYPES[index] };
-    // the first block that sets --pk-type-string is the light root, the second the dark one
-    const blocks = [...readFileSync(pkStylesUrl, "utf8").matchAll(/\{([^{}]*--pk-type-string[^{}]*)\}/g)].map((m) => m[1]);
+    if (!existsSync(pkStylesUrl)) return index ? {} : PK_ROOT;
+    // the first block that sets --pk-chart-1 is the light root, the second the dark one
+    const blocks = [...readFileSync(pkStylesUrl, "utf8").matchAll(/\{([^{}]*--pk-chart-1:[^{}]*)\}/g)].map((m) => m[1]);
     return Object.fromEntries([...blocks[index].matchAll(/(--pk-[a-z0-9-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
 }
 const PART_TOKENS = ["tab-bg", "tab-text", "tab-selected-bg", "tab-selected-text", "icon-button-text", "icon-button-hover-bg", "button-border", "button-border-hover", "primary-bg", "primary-text", "primary-hover-bg"];
 
+// pivotkit-react's tokens of the reworked field area and table header (eizedev/pivotkit#920), as
+// pivotkit's main has them: the zone colours per mode, the rest derived from the general tokens, the
+// type icons neutral. pivotkit-react 0.10 has none of them but the chart's reference lines; once the
+// installed one has the zone colours, the test reads it instead.
+const PK_ZONES = [
+    {
+        "--pk-type-string": "var(--pk-muted)",
+        "--pk-type-number": "var(--pk-muted)",
+        "--pk-type-date": "var(--pk-muted)",
+        "--pk-type-boolean": "var(--pk-muted)",
+        "--pk-zone-rows": "#1d5fcc",
+        "--pk-zone-columns": "#a85a00",
+        "--pk-zone-values": "#0b785c",
+        "--pk-zone-filters": "var(--pk-muted)",
+        "--pk-zone-tint": "16%",
+        "--pk-zone-tint-base": "var(--pk-surface)",
+        "--pk-control-icon": "var(--pk-muted)",
+        "--pk-sort-arrow": "var(--pk-text)",
+        "--pk-field-hover": "var(--pk-surface)",
+        "--pk-chart-reference": "var(--pk-muted)",
+    },
+    { "--pk-zone-rows": "#8db4ff", "--pk-zone-columns": "#f2b559", "--pk-zone-values": "#5fd6ac", "--pk-chart-reference": "var(--pk-muted)" },
+];
+const ZONE_TOKENS = Object.keys(PK_ZONES[0]);
+const pkZones = (index) => (existsSync(pkStylesUrl) && pkDeclarations(0)["--pk-zone-rows"] ? pkDeclarations(index) : PK_ZONES[index]);
+
 for (const [mode, index] of [["light", 0], ["dark", 1]]) {
-    test(`theme bridge (${mode}): the field type colours are pivotkit's without an app's value, --psu-pivot-type-* sets them (#137)`, () => {
+    test(`theme bridge (${mode}): zone colours, type icons, chip controls, sort arrow, field hover and reference lines are pivotkit's without an app's value, --psu-pivot-* sets each (#137, pivotkit#920)`, () => {
         const t = tokensOf(mode);
-        const pk = pkDeclarations(index);
-        for (const type of ["string", "number", "date", "boolean"]) {
-            assert.ok(pk[`--pk-type-${type}`], `pivotkit sets --pk-type-${type} in ${mode}`);
-            assert.equal(t[`--pk-type-${type}`], pk[`--pk-type-${type}`], `--pk-type-${type} stays pivotkit's`);
-            assert.equal(tokensOf(mode, { [`--psu-pivot-type-${type}`]: "#003b6f" })[`--pk-type-${type}`], "#003b6f");
+        const pk = { ...pkZones(0), ...(index ? pkZones(1) : {}) };
+        // pivotkit's values, its derivations resolved over the bridge's general tokens
+        const general = Object.fromEntries(Object.entries(t).filter(([n]) => !ZONE_TOKENS.includes(n)));
+        for (const name of ZONE_TOKENS) {
+            assert.ok(pk[name], `pivotkit-react has ${name}`);
+            assert.equal(t[name], substitute(pk[name], {}, general, new Set()), `${name} as pivotkit has it`);
+            assert.equal(tokensOf(mode, { [name.replace("--pk-", "--psu-pivot-")]: "#123456" })[name], "#123456", name.replace("--pk-", "--psu-pivot-"));
+        }
+        // the type icons follow the muted text, also a corporate one
+        assert.equal(tokensOf(mode, { "--psu-chart-muted": "#4a5263" })["--pk-type-number"], "#4a5263");
+    });
+
+    test(`theme bridge (${mode}): each zone colour 4.5:1 on PSU's zone section, the values colour also on the grand total's header; 3:1 on its own fill; the chip controls 3:1 on every fill`, () => {
+        const t = tokensOf(mode);
+        const base = parseColor(t["--pk-zone-tint-base"]);
+        const share = Number.parseFloat(t["--pk-zone-tint"]) / 100;
+        for (const zone of ["rows", "columns", "values"]) {
+            const colour = parseColor(t[`--pk-zone-${zone}`]);
+            // the field names in the table's header take their zone's colour; only the values' names sit on the grand total
+            for (const surface of zone === "values" ? ["--pk-surface-2", "--pk-total-strong"] : ["--pk-surface-2"]) {
+                assert.ok(contrastRatio(colour, parseColor(t[surface])) >= 4.5, `${zone} on ${surface}`);
+            }
+            // the fill: an opaque mix of the zone's colour into the base (pivotkit-react's .pk-zone-fill)
+            const fill = `rgb(${colour.map((v, i) => Math.round(v * share + base[i] * (1 - share))).join(", ")})`;
+            assert.ok(contrastRatio(colour, parseColor(fill)) >= 3, `${zone} on its fill`);
+            assert.ok(contrastRatio(over(t["--pk-control-icon"], fill), parseColor(fill)) >= 3, `chip controls on the ${zone} fill`);
         }
     });
 

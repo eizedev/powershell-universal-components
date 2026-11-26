@@ -816,9 +816,9 @@ test.describe("pivot showcase on PSU", () => {
         const tab = report.locator('.pk-tab[aria-selected="true"]').first();
         await expect(icon).toBeVisible();
         await expect(tab).toBeVisible();
-        // without the app's values: pivotkit's own type colour, and the shown tab in the accent (PSU's blue)
+        // without the app's values: the muted text, pivotkit's neutral type icons, and the shown tab in the accent (PSU's blue)
         await setTheme(page, "light");
-        await expect(icon).toHaveCSS("color", "rgb(98, 80, 214)");
+        await expect(icon).toHaveCSS("color", "rgba(0, 0, 0, 0.62)");
         await expect(tab).toHaveCSS("color", "rgb(25, 118, 210)");
         await page.addStyleTag({
             content: ':root, .ud-pivot-report [data-pk-theme="light"] { --psu-pivot-type-string: #8a1538; --psu-pivot-tab-selected-text: #005500; } ' +
@@ -829,6 +829,31 @@ test.describe("pivot showcase on PSU", () => {
             await expect(report).toHaveAttribute("data-pk-theme", mode);
             await expect(icon).toHaveCSS("color", type);
             await expect(tab).toHaveCSS("color", selected);
+        }
+    });
+
+    test("--psu-pivot-zone-* and the chip controls from the app's stylesheet reach pivotkit's zone tokens, per PSU mode (pivotkit#920)", async ({ page }) => {
+        await open(page, "tickets");
+        const report = page.locator(REPORT);
+        const token = (name) => report.evaluate((e, n) => getComputedStyle(e).getPropertyValue(n).trim(), name);
+        // without the app's values: pivotkit's zone colours, as docs/pivot/themes.md lists them
+        const defaults = { light: ["#1d5fcc", "#a85a00", "#0b785c", "16%"], dark: ["#8db4ff", "#f2b559", "#5fd6ac", "16%"] };
+        const names = ["--pk-zone-rows", "--pk-zone-columns", "--pk-zone-values", "--pk-zone-tint"];
+        for (const mode of ["light", "dark"]) {
+            await setTheme(page, mode);
+            await expect(report).toHaveAttribute("data-pk-theme", mode);
+            for (const [k, name] of names.entries()) await expect.poll(() => token(name)).toBe(defaults[mode][k]);
+            await expect.poll(() => token("--pk-control-icon")).toBe(await token("--pk-muted"));
+        }
+        await page.addStyleTag({
+            content: ':root, .ud-pivot-report [data-pk-theme="light"] { --psu-pivot-zone-rows: #003b6f; --psu-pivot-control-icon: #4a5263; } ' +
+                ':root[data-theme="dark"], .ud-pivot-report [data-pk-theme="dark"] { --psu-pivot-zone-rows: #6fa8dc; --psu-pivot-control-icon: #a9b1bf; }'
+        });
+        for (const [mode, rows, control] of [["light", "#003b6f", "#4a5263"], ["dark", "#6fa8dc", "#a9b1bf"]]) {
+            await setTheme(page, mode);
+            await expect(report).toHaveAttribute("data-pk-theme", mode);
+            await expect.poll(() => token("--pk-zone-rows")).toBe(rows);
+            await expect.poll(() => token("--pk-control-icon")).toBe(control);
         }
     });
 

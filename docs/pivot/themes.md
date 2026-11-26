@@ -50,16 +50,12 @@ the report a value of its own; a `--psu-pivot-*` property wins over its `--psu-c
 }
 ```
 
-The first block is the light mode, the second the dark one. Each mode needs its own values: a
-property set only in `:root` applies to both modes, and a dark text colour from the light block would
-be unreadable on the dark report. Each block names two selectors: `:root` and `:root[data-theme="dark"]`
-for the ECharts charts, which follow the page, and `.ud-pivot-report [data-pk-theme="light"]` and
-`[data-pk-theme="dark"]` for the theme the report shows. The second pair matters for the exports.
-The Excel export is light (black text in Excel). The HTML report carries both modes: light for paper
-and a light screen, dark for a reader whose screen is dark. The report reads each mode's colours by
-showing that theme for a moment. With the page's selectors alone, it would inherit the page's current
-mode both times and write that mode's values into the file. Colours are hex or `rgb()`/`rgba()`: the report's chart hands the
-series colours to ECharts, which does not read every CSS colour syntax.
+The first block is the light mode, the second the dark one. `:root` and `:root[data-theme="dark"]` serve
+the ECharts charts, which follow the page; `.ud-pivot-report [data-pk-theme="light"]` and
+`[data-pk-theme="dark"]` serve the theme the report shows. The exports need the second pair: the report
+reads each mode's colours by showing that theme for a moment, and with the page's selectors alone it
+would write the page's current mode both times. Colours are hex or `rgb()`/`rgba()`: the report's chart
+hands the series colours to ECharts, which does not read every CSS colour syntax.
 
 ## Adding the stylesheet to an app
 
@@ -74,21 +70,20 @@ New-PSUPublishedFolder -RequestPath '/assets' -Path 'C:\ProgramData\UniversalAut
 New-UDApp -Title 'Reports' -Stylesheets @('/assets/corporate.css') -Pages @( ... )
 ```
 
-For a single page, or to try values out, a `<style>` element on the page works the same way:
+For a single page, or to try values out, a `<style>` element on the page works the same way. The
+properties apply to every chart and report of the page, so this site shows no live example of them.
 
 ```powershell
 New-UDHtml -Markup '<style>:root, .ud-pivot-report [data-pk-theme="light"] { --psu-chart-1: #003b6f; } :root[data-theme="dark"], .ud-pivot-report [data-pk-theme="dark"] { --psu-chart-1: #6fa8dc; }</style>'
 ```
 
-The properties apply to every chart and report of the page, so this site shows no live example of them.
-
 ## Properties
 
 The series colours (`--psu-chart-1` ... `--psu-chart-8`) and the accent (`--psu-chart-accent` or
 `--psu-pivot-accent`) carry a corporate design: the highlight, drop zone, note, tab and button colours
-follow from the accent, and without one they keep PSU's values. The `--psu-pivot-*` properties in the
-table set what only the report has or give it a value of its own. Set `--psu-pivot-accent-text` whenever the accent is light in the light mode
-or dark in the dark mode: the default text on the accent is white in light mode and near-black in dark.
+follow from the accent, and without one they keep PSU's values. Set `--psu-pivot-accent-text` whenever
+the accent is light in the light mode or dark in the dark mode: the default text on the accent is white
+in light mode and near-black in dark.
 
 <details class="note" markdown="1">
 <summary>Every property: what it falls back to when unset, and its default without a corporate stylesheet</summary>
@@ -123,10 +118,17 @@ or dark in the dark mode: the default text on the accent is white in light mode 
 | `--psu-pivot-scale-low` | `--psu-pivot-heat-low` | colour scale of a value without colours of its own, lowest | `#eaf1fb` | `#1d2735` |
 | `--psu-pivot-scale-mid` | - | colour scale of a value, middle: set, the scale has three colours | none | none |
 | `--psu-pivot-scale-high` | `--psu-pivot-heat-high` | colour scale of a value without colours of its own, highest | `#2a78d6` | `#3987e5` |
-| `--psu-pivot-type-string` | - | the icon of a text field and its pill in the empty report | `#6250d6` | `#a99dff` |
-| `--psu-pivot-type-number` | - | the icon of a number field and its pill | `#1a7f5a` | `#5fd3a3` |
-| `--psu-pivot-type-date` | - | the icon of a date field and its pill | `#b5560b` | `#f2a65a` |
-| `--psu-pivot-type-boolean` | - | the icon of a yes/no field and its pill | `#a3367a` | `#f08cc6` |
+| `--psu-pivot-type-string`, `--psu-pivot-type-number`, `--psu-pivot-type-date`, `--psu-pivot-type-boolean` | `--psu-pivot-muted`, `--psu-chart-muted` | the icon of a text, number, date or yes/no field and its pill in the empty report | `rgba(0, 0, 0, 0.62)` | `rgba(255, 255, 255, 0.64)` |
+| `--psu-pivot-zone-rows` | - | the Rows zone: its icons, its marks in the field list, its fields' names in the table's header | `#1d5fcc` | `#8db4ff` |
+| `--psu-pivot-zone-columns` | - | the Columns zone, the same parts | `#a85a00` | `#f2b559` |
+| `--psu-pivot-zone-values` | - | the Values zone, the same parts, also on the grand total | `#0b785c` | `#5fd6ac` |
+| `--psu-pivot-zone-filters` | `--psu-pivot-muted`, `--psu-chart-muted` | the Filters zone, the same parts | `rgba(0, 0, 0, 0.62)` | `rgba(255, 255, 255, 0.64)` |
+| `--psu-pivot-zone-tint` | - | how much of its zone's colour a chip's fill takes | `16%` | `16%` |
+| `--psu-pivot-zone-tint-base` | `--psu-pivot-surface` | what a chip's fill mixes the zone's colour into | `#ffffff` | `#121212` |
+| `--psu-pivot-control-icon` | `--psu-pivot-muted`, `--psu-chart-muted` | a chip's grip, menu arrow and remove button | `rgba(0, 0, 0, 0.62)` | `rgba(255, 255, 255, 0.64)` |
+| `--psu-pivot-sort-arrow` | `--psu-pivot-text`, `--psu-chart-text` | the sort arrow of the sorted field | `rgba(0, 0, 0, 0.87)` | `rgba(255, 255, 255, 0.87)` |
+| `--psu-pivot-field-hover` | `--psu-pivot-surface` | a field in the field list on hover | `#ffffff` | `#121212` |
+| `--psu-pivot-chart-reference` | `--psu-pivot-muted`, `--psu-chart-muted` | the chart's reference lines that belong to no series | `rgba(0, 0, 0, 0.62)` | `rgba(255, 255, 255, 0.64)` |
 | `--psu-pivot-tab-bg` | - | a tab not shown (Table, Chart): its background | `transparent` | `transparent` |
 | `--psu-pivot-tab-text` | `--psu-pivot-muted`, `--psu-chart-muted` | a tab not shown: its text | `rgba(0, 0, 0, 0.62)` | `rgba(255, 255, 255, 0.64)` |
 | `--psu-pivot-tab-selected-bg` | `--psu-pivot-surface` | the tab shown: its background | `#ffffff` | `#121212` |
@@ -149,13 +151,13 @@ or dark in the dark mode: the default text on the accent is white in light mode 
 
 </details>
 
-The report's chart has eight series colours: `--psu-chart-9` ... `--psu-chart-12` colour only ECharts
-charts. `--psu-chart-tooltip`, `--psu-chart-tooltip-border` and `--psu-chart-font-size` are ECharts
-only as well; the report's tooltips use `--psu-pivot-surface-raised`.
+The report's chart has eight series colours. `--psu-chart-9` ... `--psu-chart-12`, `--psu-chart-tooltip`,
+`--psu-chart-tooltip-border` and `--psu-chart-font-size` are ECharts only; the report's tooltips use
+`--psu-pivot-surface-raised`.
 
-The field type colours are pivotkit's own: a corporate palette sets them per mode, so each stays
-readable on its mode's surface. Set the tab and button properties only where a part needs a colour of
-its own.
+Colour marks the zones, not the field types: the type icons are the muted text. The zone colours are
+pivotkit's own; a corporate one needs 4.5:1 on `--psu-pivot-surface-2` (the values colour also on
+`--psu-pivot-total-strong`) and 3:1 on its chips' fill.
 
 A colour scale a reader adds without picking colours runs from light to strong blue, the heatmap's
 colours: it says "more", not "good" or "bad", and the Excel export writes the same colours. For
@@ -187,14 +189,12 @@ dark** follows the three properties above.
 ## Light and dark
 
 Excel and print are light also from a dark app; the HTML report is light on paper and on a light screen
-and dark on a dark one. The report takes light or dark from PSU's `<html data-theme>` and switches with the app's toggle, the
-table and the chart at once, without a reload, and keeps the reader's view ([Views](views.md#the-start-view-view));
-undo and redo start over. The theme the report shows is `data-pk-theme="light"` or `"dark"` on its
-root; the stylesheet above sets the values on it, so a report pinned with `-Theme Light` or
-`-Theme Dark` takes the values of its own theme, also in an app of the other mode. Properties set only
-on the page root (`:root`, `:root[data-theme="dark"]`) reach the report by inheritance in the page's
-current mode; they are fine for a value that is the same in both modes. Set corners, font weights and
-the font on `:root`: the admin panel of `-AdminRole` sits next to the report, outside its theme, and
-takes `--psu-pivot-radius`, `--psu-pivot-radius-sm` and `--psu-pivot-weight-strong` from there.
+and dark on a dark one. The report takes light or dark from PSU's `<html data-theme>` and switches with the
+app's toggle without a reload, keeping the reader's view ([Views](views.md#the-start-view-view)); undo
+and redo start over. The theme it shows is `data-pk-theme="light"` or `"dark"` on its root, where the
+stylesheet above sets the values, so a report pinned with `-Theme Light` or `-Theme Dark` takes its own
+theme's values in either app mode. A property set only on `:root` reaches both modes: keep it to values
+both share, as corners, font weights and the font. The admin panel of `-AdminRole` sits outside the
+report's theme and takes `--psu-pivot-radius`, `--psu-pivot-radius-sm` and `--psu-pivot-weight-strong` from `:root`.
 
 Next: [Views](views.md), [Templates, view files and roles](templates.md), [Events, security and limits](events.md), [Reference](reference.md).
