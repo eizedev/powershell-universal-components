@@ -20,7 +20,9 @@ Thanks for helping.
 2. For a fix, write the test first (see [Tests](#tests)).
 3. Run the checks below.
 4. Update the pages in `docs/` and add an entry under `[Unreleased]` in the `CHANGELOG.md` of each
-   module you changed.
+   module you changed. Once the pull request is open, end the entry with it and your name, after any
+   issue link: `([#123](https://github.com/eizedev/powershell-universal-components/pull/123), thanks @you)`.
+   If you leave it out, the maintainer adds it. Each release also thanks its contributors by name.
 5. Open a pull request. Use Conventional Commits with the module as scope: `fix(pivot): ...`.
    A change to docs or code fills in the template's whole-change check: what you read whole, and how
    you reshaped it instead of appending. CI fails without it; editing the description runs it again.
