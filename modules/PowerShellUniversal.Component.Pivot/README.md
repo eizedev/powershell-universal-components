@@ -53,6 +53,7 @@ is a showcase app in one line (`New-UDPivotShowcase`).
 - [Reports without a browser](https://powershell-universal-components.eize.dev/pivot/reports/): `Invoke-UDPivotReport`; [from a pivotkit-server](https://powershell-universal-components.eize.dev/pivot/reports-server/) with `Get-UDPivotSource`
 - [Themes and corporate design](https://powershell-universal-components.eize.dev/pivot/themes/), shared with the ECharts module
 - [Reference](https://powershell-universal-components.eize.dev/pivot/reference/): every parameter
+- [Coming from UniversalDashboard.Pivot](https://powershell-universal-components.eize.dev/pivot/#coming-from-universaldashboardpivot): `New-UDPivot`'s parameters in `New-UDPivotReport`
 
 ## Security notes
 

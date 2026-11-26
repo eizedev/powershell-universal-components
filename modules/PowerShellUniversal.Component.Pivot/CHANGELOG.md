@@ -18,6 +18,10 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   `--psu-pivot-chart-reference`, per light and dark mode, listed on the themes page. Without them
   the report keeps pivotkit's values. The zone colours, the chip controls, the sort arrow and the
   field hover take effect with pivotkit 0.11.0; the reference lines already with 0.10.0.
+- The pivot overview's section "Coming from UniversalDashboard.Pivot" maps every parameter of
+  `New-UDPivot` to `New-UDPivotReport`, names those without a counterpart, and shows one report
+  before and after; the module README links it
+  ([#121](https://github.com/eizedev/powershell-universal-components/issues/121)).
 
 ### Fixed
 
