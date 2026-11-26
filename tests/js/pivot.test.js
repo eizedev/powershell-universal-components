@@ -419,6 +419,7 @@ test("stored view: blocked, full or broken storage is ignored", () => {
 
 const css = readFileSync(new URL("../../modules/PowerShellUniversal.Component.Pivot/Components/psu.css", import.meta.url), "utf8");
 const themesDoc = readFileSync(new URL("../../docs/pivot/themes.md", import.meta.url), "utf8");
+const themePropertiesDoc = readFileSync(new URL("../../docs/pivot/theme-properties.md", import.meta.url), "utf8");
 const WRAPPER = ".ud-pivot-report";
 const LIGHT = ".ud-pivot-report .pk-root";
 const DARK = '.ud-pivot-report .pk-root[data-pk-theme="dark"]';
@@ -484,9 +485,9 @@ const tokensOf = (mode, page = {}) => {
 // the properties an app may set: every --psu-pivot-* and --psu-chart-* the bridge reads
 const publicNames = () => [...new Set([...css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/var\((--psu-(?:pivot|chart)-[a-z0-9-]+)/g)].map((m) => m[1]))].sort();
 
-// the table in docs/pivot/themes.md: property, falls back to, what it sets, light, dark
+// the table in docs/pivot/theme-properties.md: property, falls back to, what it sets, light, dark
 function docRows() {
-    return themesDoc.split("\n").filter((l) => l.startsWith("| `--psu-")).map((line) => {
+    return themePropertiesDoc.split("\n").filter((l) => l.startsWith("| `--psu-")).map((line) => {
         const cells = line.split("|").slice(1, -1).map((c) => c.trim());
         let names = [...cells[0].matchAll(/`(--psu-[a-z0-9-]+)`/g)].map((m) => m[1]);
         const range = /^`--psu-([a-z]+)-(\d+)` \.\.\. `--psu-\1-(\d+)`$/.exec(cells[0]);
@@ -715,7 +716,7 @@ test("theme bridge: dark values go on pivotkit's data-pk-theme, never on the pag
     }
 });
 
-test("theme bridge: docs/pivot/themes.md lists every property the bridge reads, with its fallbacks and defaults", () => {
+test("theme bridge: docs/pivot/theme-properties.md lists every property the bridge reads, with its fallbacks and defaults", () => {
     const rows = docRows();
     assert.deepEqual([...new Set(rows.flatMap((r) => [...r.names, ...r.fallbacks]))].sort(), publicNames());
     for (const row of rows) {

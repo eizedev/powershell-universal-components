@@ -836,7 +836,7 @@ test.describe("pivot showcase on PSU", () => {
         await open(page, "tickets");
         const report = page.locator(REPORT);
         const token = (name) => report.evaluate((e, n) => getComputedStyle(e).getPropertyValue(n).trim(), name);
-        // without the app's values: pivotkit's zone colours, as docs/pivot/themes.md lists them
+        // without the app's values: pivotkit's zone colours, as docs/pivot/theme-properties.md lists them
         const defaults = { light: ["#1d5fcc", "#a85a00", "#0b785c", "16%"], dark: ["#8db4ff", "#f2b559", "#5fd6ac", "16%"] };
         const names = ["--pk-zone-rows", "--pk-zone-columns", "--pk-zone-values", "--pk-zone-tint"];
         for (const mode of ["light", "dark"]) {

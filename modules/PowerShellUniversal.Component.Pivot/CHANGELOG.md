@@ -8,14 +8,15 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 ### Added
 
 - `Invoke-UDPivotReport -Engine Rest` takes `-Locale`, `-Numbers` and `-FlatHeader` and passes them
-  to pivotkit-server's render routes as `locale`, `numbers` and `flatHeader`, so both engines write
-  the same CSV and JSON. They need pivotkit-server 0.3.0 or later; an older server's answer names
+  to pivotkit-server's render routes as `locale`, `numbers` and `flatHeader`, so with the same
+  `-Locale` and server settings both engines write the same CSV and JSON. They need pivotkit-server 0.3.0 or later; an older server's answer names
   that version. `-TimeZone` stays with `-Engine Node`
   ([#135](https://github.com/eizedev/powershell-universal-components/issues/135)).
 - Theme properties for pivotkit's zone colours and chip controls: `--psu-pivot-zone-rows`,
   `-zone-columns`, `-zone-values`, `-zone-filters`, `-zone-tint`, `-zone-tint-base`,
   `--psu-pivot-control-icon`, `--psu-pivot-sort-arrow`, `--psu-pivot-field-hover` and
-  `--psu-pivot-chart-reference`, per light and dark mode, listed on the themes page. Without them
+  `--psu-pivot-chart-reference`, per light and dark mode, listed on the new Theme properties page
+  with every other property. Without them
   the report keeps pivotkit's values. The zone colours, the chip controls, the sort arrow and the
   field hover take effect with pivotkit 0.11.0; the reference lines already with 0.10.0.
 - The pivot overview's section "Coming from UniversalDashboard.Pivot" maps every parameter of
@@ -35,7 +36,10 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 - The field type icons are the muted text without an app's `--psu-pivot-type-*`, as pivotkit's own
   neutral default: colour marks the zones, not the field types. With pivotkit 0.10.0 this also
-  makes the empty report's field pills and the border of a value chip grey.
+  makes the empty report's field pills and the border of a value chip grey. For the earlier
+  colours, set the four type properties per mode, for example
+  `:root { --psu-pivot-type-string: #6250d6; --psu-pivot-type-number: #1a7f5a; --psu-pivot-type-date: #b5560b; --psu-pivot-type-boolean: #a3367a; }`;
+  the themes page has the light and dark values.
 - The component passes the React hooks lint rules, which are now errors in CI: the latest props
   for its event handlers are kept in a ref written in an effect, not during render
   ([#217](https://github.com/eizedev/powershell-universal-components/issues/217)). The reader's view, a loaded file,

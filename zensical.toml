@@ -90,6 +90,7 @@ nav = [
     ] },
     { "Reference" = [
       { "Commands and parameters" = "pivot/reference.md" },
+      { "Theme properties" = "pivot/theme-properties.md" },
       { "Errors" = "pivot/errors.md" },
     ] },
   ] },
