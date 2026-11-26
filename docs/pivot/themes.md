@@ -88,8 +88,8 @@ in light mode and near-black in dark.
 Every property, what it falls back to when unset and its default without a corporate stylesheet:
 [Theme properties](theme-properties.md).
 
-Colour marks the zones, not the field types: the type icons are the muted text. The zone colours are
-pivotkit's own; a corporate one needs 4.5:1 on `--psu-pivot-surface-2` (the values colour also on
+With pivotkit 0.11.0 or later in the module, colour marks the zones, not the field types: the type
+icons are the muted text. The zone colours are pivotkit's own; a corporate one needs 4.5:1 on `--psu-pivot-surface-2` (the values colour also on
 `--psu-pivot-total-strong`) and 3:1 on its chips' fill. For coloured type icons, as the report had
 before, set the four type properties per mode:
 

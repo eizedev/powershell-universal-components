@@ -38,9 +38,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 - The field type icons are the muted text without an app's `--psu-pivot-type-*`, as pivotkit's own
   neutral default: colour marks the zones, not the field types. With pivotkit 0.10.0 this also
   makes the empty report's field pills and the border of a value chip grey. For the earlier
-  colours, set the four type properties per mode, for example
-  `:root { --psu-pivot-type-string: #6250d6; --psu-pivot-type-number: #1a7f5a; --psu-pivot-type-date: #b5560b; --psu-pivot-type-boolean: #a3367a; }`;
-  the themes page has the light and dark values.
+  colours, set the four `--psu-pivot-type-*` properties per mode; the themes page has the light
+  and dark values.
 - The component passes the React hooks lint rules, which are now errors in CI: the latest props
   for its event handlers are kept in a ref written in an effect, not during render
   ([#217](https://github.com/eizedev/powershell-universal-components/issues/217)). The reader's view, a loaded file,

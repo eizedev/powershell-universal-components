@@ -9,7 +9,8 @@ The properties an app's stylesheet sets for the report, per light and dark mode,
 [Themes and corporate design](themes.md) shows. A property without a value falls back to the next one
 in its row; without any, the report keeps the default of its mode. The rows from
 `--psu-pivot-zone-rows` to `--psu-pivot-field-hover` take effect with pivotkit 0.11.0 or later in the
-module; with an older pivotkit they set nothing.
+module; with an older pivotkit they set nothing. `--psu-pivot-chart-reference`, after them, needs no
+minimum.
 
 | Property | Falls back to | What it sets in the report | Light | Dark |
 | --- | --- | --- | --- | --- |
@@ -64,7 +65,7 @@ module; with an older pivotkit they set nothing.
 | `--psu-pivot-primary-text` | `--psu-pivot-accent-text` | the main action's text | `#ffffff` | `#0b1a2a` |
 | `--psu-pivot-primary-hover-bg` | - | the main action's fill on hover | 88 % of its fill, mixed with the text colour | 88 % of its fill, mixed with the text colour |
 | `--psu-pivot-radius` | - | corner radius of the report, panels, zones and popovers | `8px` | `8px` |
-| `--psu-pivot-radius-sm` | - | corner radius of buttons, chips, notes, the fields in the field list and their hover, and a field's name in the table's header; pivotkit's smaller corners (links, a chip's grip, badges, a field's type icon) follow it. `4px` is PSU's own corner; pivotkit's is `7px` | `4px` | `4px` |
+| `--psu-pivot-radius-sm` | - | corner radius of buttons, chips, notes, the fields in the field list and their hover, and a field's name in the table's header; pivotkit's smaller corners (links, a chip's grip, badges, a field's type icon) follow it. `4px` is PSU's own corner; pivotkit's is `7px`. Chips and the table's field names follow it with pivotkit 0.11.0 or later | `4px` | `4px` |
 | `--psu-pivot-font` | - | font family | the page's font | the page's font |
 | `--psu-pivot-font-size` | - | base text size | `max(14px, 1em)` | `max(14px, 1em)` |
 | `--psu-pivot-weight-normal` | - | plain text inside a bolder part (hints, table cells) | `400` | `400` |
