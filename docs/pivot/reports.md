@@ -46,9 +46,9 @@ A CSV or JSON file holds every number with full precision. `-Numbers Shown` roun
 decimals the view shows; `-Numbers Full` is the default. `-FlatHeader` gives a CSV file one header
 row instead of one per column field; each column names its labels joined with " / ". `-Locale` sets
 the language and number format of a view that names none (a CSV in `de-DE` uses `;` and the decimal
-comma). Both engines write the same file from them. `-Numbers` and `-FlatHeader` need pivotkit-cli
-0.5.0 or later, and all three need pivotkit-server 0.3.0 or later; the function refuses `-Numbers` and
-`-FlatHeader` for another format.
+comma). With the same `-Locale` and server settings, both engines write the same file. `-Numbers` and
+`-FlatHeader` need pivotkit-cli 0.5.0 or later, and all three need pivotkit-server 0.3.0 or later;
+the function refuses `-Numbers` and `-FlatHeader` for another format.
 
 ```powershell
 Invoke-UDPivotReport -Engine Node -Data $tickets -View $view -OutFile ./tickets.csv -Numbers Shown -FlatHeader -Locale de-DE

@@ -40,7 +40,7 @@ New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Ticke
 | What readers get, and what the app decides for them | [Readers and your app](readers.md) |
 | What `-Data` takes, large data | [Data and loading](data.md) |
 | Every parameter | [Commands and parameters](reference.md) |
-| Move an app from `New-UDPivot` | [Coming from UniversalDashboard.Pivot](#coming-from-universaldashboardpivot) |
+| Move an app from `New-UDPivot` | [Coming from UniversalDashboard.Pivot](coming-from-ud-pivot.md) |
 
 Readers drag fields from a searchable list into **Rows**, **Columns**, **Values** and **Filters** and
 get a table with totals or a chart, with date grouping, drill-down to the source rows, shared views and
@@ -99,49 +99,5 @@ New-UDDynamic -Id 'tickets-report' -LoadingComponent {
 ## Pivot report in German
 
 --8<-- "examples/pivot-report-in-german.md"
-
-## Coming from UniversalDashboard.Pivot { #coming-from-universaldashboardpivot }
-
-`New-UDPivotReport` replaces `New-UDPivot` of [UniversalDashboard.Pivot](https://github.com/eizedev/UniversalDashboard.Pivot),
-which wraps react-pivottable. Check the PowerShell and PSU versions on [Compatibility](../compatibility.md).
-The start view moves from parameters into one `-View` ([Views](views.md#the-start-view-view)). The
-same rows, before and after:
-
-```powershell
-$data = @(
-    @{ Team = 'OPS'; Status = 'Open'; Priority = 'High'; Hours = 5 }
-    @{ Team = 'OPS'; Status = 'Closed'; Priority = 'Low'; Hours = 2 }
-    @{ Team = 'OPS'; Status = 'Closed'; Priority = 'High'; Hours = 4 }
-    @{ Team = 'DEV'; Status = 'Open'; Priority = 'High'; Hours = 8 }
-    @{ Team = 'DEV'; Status = 'Closed'; Priority = 'Medium'; Hours = 3 }
-    @{ Team = 'DEV'; Status = 'Open'; Priority = 'Low'; Hours = 6 }
-    @{ Team = 'QA'; Status = 'Open'; Priority = 'Medium'; Hours = 1 }
-    @{ Team = 'QA'; Status = 'Closed'; Priority = 'High'; Hours = 7 }
-)
-# before
-New-UDPivot -Id 'tickets-before' -Data $data -Rows 'Team' -Cols 'Status' -Vals 'Hours' -AggregatorName 'Sum' -RowOrder 'value_z_to_a' -ValueFilter @{ Priority = @{ Low = $true } }
-# after
-New-UDPivotReport -Id 'tickets-after' -Data $data -View @{
-    rows    = @('Team')
-    cols    = @('Status')
-    values  = @(@{ field = 'Hours'; agg = 'sum' })
-    filters = @(@{ field = 'Priority'; type = 'in'; items = @('Low'); not = $true; blanks = 'include' })
-    sort    = @(@{ field = 'Team'; by = 'value'; order = 'desc' })
-}
-```
-
-Both show the sum of hours without the Low tickets, the teams by their total, highest first: DEV 11,
-OPS 9, QA 8.
-
-| `New-UDPivot` | `New-UDPivotReport` |
-| --- | --- |
-| `-Id`, `-Data` | `-Id`, `-Data`: also a script block, and a DataTable ([Data and loading](data.md)) |
-| `-Rows`, `-Cols` | `rows`, `cols` in `-View` |
-| `-Vals`, `-AggregatorName` | `values`, each with its field and `agg`. `Count` is `count` on a field: it counts the rows where the field has a value. `Count Unique Values`, `List Unique Values`: `countUnique`, `listUnique`. `Sum`, `Integer Sum`: `sum` (with `format = 'integer'`). `Average`, `Median`, `Minimum`, `Maximum`, `First`, `Last`: `average`, `median`, `min`, `max`, `first`, `last`. `Sample Variance`, `Sample Standard Deviation`: `var`, `stdev`. `Sum` or `Count as Fraction of Total`, `of Rows`, `of Columns`: `sum` or `count` with `showAs = @{ type = 'percentOfGrandTotal' }`, `'percentOfRowTotal'`, `'percentOfColumnTotal'`. No counterpart: `Sum over Sum`, `80% Upper Bound`, `80% Lower Bound`. |
-| `-RendererName` | `Table`: the default. `Table Heatmap`: `conditional = @{ type = 'colorScale' }` on the value. `Grouped Column Chart`, `Stacked Column Chart`: `display = 'chart'; chart = @{ type = 'bar' }`, with `stacked = $true`; `Grouped Bar Chart`, `Stacked Bar Chart` add `horizontal = $true`. `Line Chart`, `Area Chart`: `type = 'line'`, `'area'`. `Exportable TSV`: the reader's export copies the table as tab-separated text. No counterpart: `Table Row Heatmap`, `Table Col Heatmap`, `Dot Chart`, `Scatter Chart`, `Multiple Pie Chart` (`type = 'pie'` draws one pie of the row totals). |
-| `-RowOrder`, `-ColOrder` | `key_a_to_z`: the default. `value_a_to_z`, `value_z_to_a`: `sort = @(@{ field = 'Team'; by = 'value'; order = 'asc' })` or `'desc'`, per row or column field. |
-| `-ValueFilter` | `filters`: the listed items with `type = 'in'; not = $true; blanks = 'include'` ([Filters](filters.md)). |
-| `-HiddenAttributes` | No counterpart: leave the column out of the rows you pass to `-Data` (`Select-Object -ExcludeProperty` for objects), so it does not reach the browser either. |
-| `-HiddenFromAggregators`, `-HiddenFromDragDrop`, `-MenuLimit`, `-UnusedOrientationCutoff` | No counterpart. |
 
 Next: [Readers and your app](readers.md), [Data and loading](data.md), [Field names and descriptions](fields.md), [Themes and corporate design](themes.md), [Views](views.md), [Templates, view files and roles](templates.md), [Events, security and limits](events.md), [Reference](reference.md).

@@ -9,8 +9,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 - `Invoke-UDPivotReport -Engine Rest` takes `-Locale`, `-Numbers` and `-FlatHeader` and passes them
   to pivotkit-server's render routes as `locale`, `numbers` and `flatHeader`, so with the same
-  `-Locale` and server settings both engines write the same CSV and JSON. They need pivotkit-server 0.3.0 or later; an older server's answer names
-  that version. `-TimeZone` stays with `-Engine Node`
+  `-Locale` and server settings both engines write the same CSV and JSON. They need pivotkit-server
+  0.3.0 or later; an older server's answer names that version. `-TimeZone` stays with `-Engine Node`
   ([#135](https://github.com/eizedev/powershell-universal-components/issues/135)).
 - Theme properties for pivotkit's zone colours and chip controls: `--psu-pivot-zone-rows`,
   `-zone-columns`, `-zone-values`, `-zone-filters`, `-zone-tint`, `-zone-tint-base`,
@@ -19,9 +19,10 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   with every other property. Without them
   the report keeps pivotkit's values. The zone colours, the chip controls, the sort arrow and the
   field hover take effect with pivotkit 0.11.0; the reference lines already with 0.10.0.
-- The pivot overview's section "Coming from UniversalDashboard.Pivot" maps every parameter of
-  `New-UDPivot` to `New-UDPivotReport`, names those without a counterpart, and shows one report
-  before and after; the module README links it
+- The page "Coming from UniversalDashboard.Pivot" maps every parameter, aggregator and renderer of
+  `New-UDPivot` to `New-UDPivotReport`, names those without a counterpart, states the PowerShell and
+  PSU versions, and shows one report before and after; the pivot overview and the module README
+  link it
   ([#121](https://github.com/eizedev/powershell-universal-components/issues/121)).
 
 ### Fixed

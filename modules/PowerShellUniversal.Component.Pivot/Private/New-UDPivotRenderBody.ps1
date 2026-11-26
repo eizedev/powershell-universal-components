@@ -4,8 +4,9 @@ function New-UDPivotRenderBody {
         The input of pivotkit-server's render_view as UTF-8 JSON, the rows written straight into it.
     .DESCRIPTION
         source, then data (columns, rows, rowCount, name, asOf) or params, then view or layout, format,
-        title, locale, numbers and flatHeader. The rows go through Write-UDPivotReportTable: no copy of them as objects or as one JSON
-        string, and past -MaxBytes it stops with PivotDataTooLarge before the rest is converted.
+        title, locale, numbers and flatHeader. The rows go through Write-UDPivotReportTable: no copy of
+        them as objects or as one JSON string, and past -MaxBytes it stops with PivotDataTooLarge before
+        the rest is converted.
     .PARAMETER Data
         The rows, or $null with -Source.
     .PARAMETER Source
