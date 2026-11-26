@@ -66,7 +66,7 @@ minimum.
 | `--psu-pivot-primary-text` | `--psu-pivot-accent-text` | the main action's text | `#ffffff` | `#0b1a2a` |
 | `--psu-pivot-primary-hover-bg` | - | the main action's fill on hover | 88 % of its fill, mixed with the text colour | 88 % of its fill, mixed with the text colour |
 | `--psu-pivot-radius` | - | corner radius of the report, panels, zones and popovers | `8px` | `8px` |
-| `--psu-pivot-radius-sm` | - | corner radius of buttons, chips, notes, the fields in the field list and their hover, and a field's name in the table's header; pivotkit's smaller corners (links, a chip's grip, badges, a field's type icon) follow it. `4px` is PSU's own corner; pivotkit's is `7px`. Chips and the table's field names follow it with pivotkit 0.11.0 or later | `4px` | `4px` |
+| `--psu-pivot-radius-sm` | - | corner radius of buttons, chips, notes, the fields in the field list and their hover, and a field's name in the table's header; pivotkit's smaller corners (links, a chip's grip, badges, a field's type icon) follow it. The default is pivotkit's `7px` | `7px` | `7px` |
 | `--psu-pivot-font` | - | font family | the page's font | the page's font |
 | `--psu-pivot-font-size` | - | base text size | `max(14px, 1em)` | `max(14px, 1em)` |
 | `--psu-pivot-weight-normal` | - | plain text inside a bolder part (hints, table cells) | `400` | `400` |

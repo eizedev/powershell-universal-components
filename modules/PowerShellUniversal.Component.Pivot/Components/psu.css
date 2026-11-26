@@ -40,7 +40,7 @@
 /* ---- PSU's defaults in both modes, also read by the admin panel next to pivotkit's root ---------- */
 .ud-pivot-report {
     --psu-default-radius: 8px;
-    --psu-default-radius-sm: 4px;
+    --psu-default-radius-sm: 7px;
     --psu-default-font-size: max(14px, 1em);
     /* the admin panel's text: PSU's body2 (0.875rem), never below 14 px (pivotkit's smallest) */
     --psu-default-font-size-small: max(14px, 0.875rem);
