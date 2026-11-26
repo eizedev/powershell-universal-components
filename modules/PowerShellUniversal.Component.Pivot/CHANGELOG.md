@@ -5,6 +5,14 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+### Added
+
+- `Invoke-UDPivotReport -Engine Rest` takes `-Locale`, `-Numbers` and `-FlatHeader` and passes them
+  to pivotkit-server's render routes as `locale`, `numbers` and `flatHeader`, so both engines write
+  the same CSV and JSON. They need pivotkit-server 0.3.0 or later; an older server's answer names
+  that version. `-TimeZone` stays with `-Engine Node`
+  ([#135](https://github.com/eizedev/powershell-universal-components/issues/135)).
+
 ### Fixed
 
 - `Invoke-UDPivotReport -Engine Rest -Parameter` names the server version it needs also for the

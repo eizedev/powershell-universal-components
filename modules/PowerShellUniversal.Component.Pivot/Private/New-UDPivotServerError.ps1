@@ -6,8 +6,8 @@ function New-UDPivotServerError {
     .DESCRIPTION
         The message holds the code, the status, the detail, the findings, when to try again, a hint for
         the known cases (401, 403 INSUFFICIENT_SCOPE, 413 by its code, the 400 of a server too old for
-        -Data or -Parameter) and the request id. Exception.Data holds Status, Code, Title, Detail,
-        RetryAfter, Retryable and RequestId. The error ids: PivotTokenRefused (401, 403
+        -Data, -Parameter, -Locale, -Numbers or -FlatHeader) and the request id. Exception.Data holds
+        Status, Code, Title, Detail, RetryAfter, Retryable and RequestId. The error ids: PivotTokenRefused (401, 403
         INSUFFICIENT_SCOPE), PivotDataTooLarge (413), PivotViewHasErrors (422), PivotServerError
         (anything else). With -RowsRoute, by the rows route's codes: PivotRowsNotAllowed (403
         NOT_ALLOWED), PivotNoData (404 SOURCE_NOT_FOUND, DATA_NOT_AVAILABLE), PivotServerBusy (429
@@ -49,6 +49,9 @@ function New-UDPivotServerError {
     if ($status -eq 400 -and $code -eq 'INVALID_INPUT' -and $p.Detail -match 'no key "(data|params)"|(takes params)') {
         $message += [Environment]::NewLine + $(if ($Matches[1] -eq 'data') { '-Data needs pivotkit-server 0.2.0 or later; an older server renders only -Source.' }
             else { '-Parameter needs a source with parameters on pivotkit-server 0.2.0 or later.' })
+    }
+    elseif ($status -eq 400 -and $code -eq 'INVALID_INPUT' -and $p.Detail -match 'no key "(locale|numbers|flatHeader)"') {
+        $message += [Environment]::NewLine + '-Locale, -Numbers and -FlatHeader need pivotkit-server 0.3.0 or later.'
     }
     $scopeMissing = $status -eq 403 -and $code -eq 'INSUFFICIENT_SCOPE'
     if ($scopeMissing -and $RowsRoute) { $message += [Environment]::NewLine + 'The person''s token lacks a scope the server needs (rest.requiredScopes and the source''s scopes): let PSU''s OpenID Connect sign-in ask the provider for it, and make sure the provider puts it into the access token.' }

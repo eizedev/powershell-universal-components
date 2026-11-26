@@ -19,8 +19,8 @@ function Invoke-UDPivotReport {
         The server's operator turns this on per caller (a profile with data: true, or policy.data) and
         caps the body (rest.data.maxBytes, default 10 MiB). With -Source instead of -Data the report
         runs over a source the operator configured (the caller needs results: true). -Data and
-        -Parameter need pivotkit-server 0.2.0 or later; pivotkit-server 0.1.1 renders -Source without
-        parameters, and the error of its answer to -Data or -Parameter says so. Sign-in: a static
+        -Parameter need pivotkit-server 0.2.0 or later, -Locale, -Numbers and -FlatHeader 0.3.0 or
+        later; the error of an older server's answer to them says so. Sign-in: a static
         token (-Token), or OAuth client credentials (-Credential with -TokenUri), the access token kept
         per runspace until shortly before it expires and fetched again once after a 401. Only https, or
         http to this machine; redirects are not followed; neither the token nor the client secret is
@@ -70,7 +70,8 @@ function Invoke-UDPivotReport {
         -Engine Node: the pivotkit program, or pivotkit-cli's bin/pivotkit.js. Default: pivotkit on the
         PATH.
     .PARAMETER Locale
-        -Engine Node: numbers, dates and the report's words (de-DE writes German ones). Default en-US.
+        Numbers, dates and the report's words (de-DE writes German ones) for a view that names no
+        language of its own. Default: en-US with -Engine Node, the server's with -Engine Rest.
     .PARAMETER TimeZone
         -Engine Node: the zone of the data's dates (IANA, default UTC).
     .PARAMETER Uri
@@ -112,12 +113,12 @@ function Invoke-UDPivotReport {
         as --template. pivotkit trusts a template like code: give a file of your own, never one from a
         reader. With -Engine Rest the server's source decides the template, so it is refused there.
     .PARAMETER Numbers
-        -Engine Node with -Format csv or json: Full writes every number with full precision (the command
-        line's default), Shown rounds it to the decimals the view shows, as pivotkit-server writes them.
-        Needs pivotkit-cli 0.5.0 or later.
+        -Format csv or json: Full writes every number with full precision (the default of both
+        engines), Shown rounds it to the decimals the view shows. Needs pivotkit-cli 0.5.0 or later
+        (-Engine Node) or pivotkit-server 0.3.0 or later (-Engine Rest).
     .PARAMETER FlatHeader
-        -Engine Node with -Format csv: one header row instead of one per column field; each column
-        names its labels joined with " / ". Needs pivotkit-cli 0.5.0 or later.
+        -Format csv: one header row instead of one per column field; each column names its labels
+        joined with " / ". Needs pivotkit-cli 0.5.0 or pivotkit-server 0.3.0 or later.
     .PARAMETER AsLink
         -Engine Rest: the server saves the report and the function returns its download link instead of
         the file (POST /views/render with save: true): a PivotReportLink with Url, ExpiresAt (UTC; empty

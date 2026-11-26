@@ -237,7 +237,7 @@ Describe 'Invoke-UDPivotReport: what goes with which engine' {
     It 'refuses parameters of the other engine and missing inputs, before anything runs' {
         { Invoke-UDPivotReport -Engine Node -Data $rows -View $view -Uri 'https://x.example/api/v1' } | Should -Throw '*-Uri: only with -Engine Rest*'
         { Invoke-UDPivotReport -Engine Node -View $view } | Should -Throw '*-Engine Node needs -Data*'
-        { Invoke-UDPivotReport -Engine Rest -Uri 'https://x.example/api/v1' -Token 't' -Data $rows -View $view -Locale de-DE } | Should -Throw '*-Locale: only with -Engine Node*'
+        { Invoke-UDPivotReport -Engine Rest -Uri 'https://x.example/api/v1' -Token 't' -Data $rows -View $view -TimeZone 'Europe/Berlin' } | Should -Throw '*-TimeZone: only with -Engine Node*'
         { Invoke-UDPivotReport -Engine Rest -Token 't' -Data $rows -View $view } | Should -Throw '*needs -Uri*'
         { Invoke-UDPivotReport -Engine Rest -Uri 'https://x.example/api/v1' -Token 't' -View $view } | Should -Throw '*either -Data*or -Source*'
         { Invoke-UDPivotReport -Engine Rest -Uri 'https://x.example/api/v1' -Token 't' -Data $rows -Source 'sales' -View $view } | Should -Throw '*either -Data*or -Source*'
@@ -433,7 +433,8 @@ Describe 'Invoke-UDPivotReport -Engine Node (a stand-in command line)' {
         @((Get-Record).args | Where-Object { $_ -like '--numbers*' -or $_ -eq '--flat-header' }).Count | Should -Be 0
         { Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -Format xlsx -Numbers Shown } | Should -Throw '*-Numbers*csv*json*'
         { Invoke-UDPivotReport -Engine Node -CliPath $fakeCli -Data $rows -View $view -Format json -FlatHeader } | Should -Throw '*-FlatHeader*csv*'
-        { Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Token 't' -Data $rows -View $view -Format csv -Numbers Shown } | Should -Throw '*-Numbers*-Engine Node*'
+        { Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Token 't' -Data $rows -View $view -Format xlsx -Numbers Shown } | Should -Throw '*-Numbers*csv*json*'
+        { Invoke-UDPivotReport -Engine Rest -Uri 'https://reports.example.com/api/v1' -Token 't' -Data $rows -View $view -Format json -FlatHeader } | Should -Throw '*-FlatHeader*csv*'
     }
 
     It 'runs render with the view file, the data and the options; returns the bytes; removes its folder' {
@@ -572,6 +573,31 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
         $sent.data.name | Should -Be 'Tickets'
         $log[0].Body | Should -BeLike '*"asOf":"2026-11-15T06:00:00Z"*'
         $sent.view.rows | Should -Be @('Team')
+    }
+
+    It '-Locale, -Numbers and -FlatHeader go into the body as pivotkit-server reads them, on both routes, and only when given (#135)' {
+        $null = Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view -Format csv -Locale de-DE -Numbers Shown -FlatHeader
+        $sent = (@(Get-Log)[0]).Body | ConvertFrom-Json -Depth 16
+        $sent.locale | Should -Be 'de-DE'
+        $sent.numbers | Should -BeExactly 'shown'
+        $sent.flatHeader | Should -BeTrue
+        $null = Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Source 'sales' -View $view -Format json -Numbers Full -AsLink
+        $log = @(Get-Log)
+        $log[0].Path | Should -Be '/api/v1/views/render'
+        $sent = $log[0].Body | ConvertFrom-Json -Depth 16
+        $sent.numbers | Should -BeExactly 'full'
+        $sent.PSObject.Properties.Name | Should -Not -Contain 'flatHeader'
+        # without them nothing is sent: the server's defaults, and older servers still work
+        $null = Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view -Format csv
+        $sent = (@(Get-Log)[0]).Body | ConvertFrom-Json -Depth 16
+        foreach ($name in 'locale', 'numbers', 'flatHeader') { $sent.PSObject.Properties.Name | Should -Not -Contain $name }
+    }
+
+    It 'a server too old for -Locale, -Numbers or -FlatHeader: the error names the version they need (#135)' {
+        $mock.Render.Enqueue(@{ Status = 400; Body = '{"type":"https://pivotkit.eize.dev/reference/rest/#error-invalid-input","title":"Invalid input","status":400,"code":"INVALID_INPUT","detail":"input has no key \"numbers\""}' })
+        $caught = $null
+        try { Invoke-UDPivotReport @rest -Token 'static-token-0123456789' -Data $rows -View $view -Format csv -Numbers Shown } catch { $caught = $_ }
+        $caught.Exception.Message | Should -BeLike '*input has no key "numbers"*-Locale, -Numbers and -FlatHeader need pivotkit-server 0.3.0 or later*'
     }
 
     It 'a SecureString token, a configured source with parameters, a layout' {

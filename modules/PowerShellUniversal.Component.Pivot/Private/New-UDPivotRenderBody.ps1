@@ -3,8 +3,8 @@ function New-UDPivotRenderBody {
     .SYNOPSIS
         The input of pivotkit-server's render_view as UTF-8 JSON, the rows written straight into it.
     .DESCRIPTION
-        source, then data (columns, rows, rowCount, name, asOf) or params, then view or layout, format and
-        title. The rows go through Write-UDPivotReportTable: no copy of them as objects or as one JSON
+        source, then data (columns, rows, rowCount, name, asOf) or params, then view or layout, format,
+        title, locale, numbers and flatHeader. The rows go through Write-UDPivotReportTable: no copy of them as objects or as one JSON
         string, and past -MaxBytes it stops with PivotDataTooLarge before the rest is converted.
     .PARAMETER Data
         The rows, or $null with -Source.
@@ -24,6 +24,12 @@ function New-UDPivotRenderBody {
         What the data is.
     .PARAMETER DataAsOf
         When the data is from.
+    .PARAMETER Locale
+        The report's language and number format, for a view that names none.
+    .PARAMETER Numbers
+        csv and json: Shown or Full, sent in lower case.
+    .PARAMETER FlatHeader
+        csv: one header row.
     .PARAMETER MaxBytes
         The most bytes of the body; 0 for no cap.
     .PARAMETER Save
@@ -47,6 +53,9 @@ function New-UDPivotRenderBody {
         [string]$Title,
         [string]$DataName,
         [Nullable[datetime]]$DataAsOf,
+        [string]$Locale,
+        [string]$Numbers,
+        [switch]$FlatHeader,
         [long]$MaxBytes = 0,
         [switch]$Save
     )
@@ -69,6 +78,10 @@ function New-UDPivotRenderBody {
         else { $writer.WritePropertyName('layout'); $writer.WriteRawValue((ConvertTo-Json -InputObject $Layout -Depth 32 -Compress -WarningAction SilentlyContinue)) }
         $writer.WriteString('format', $Format)
         if ($Title) { $writer.WriteString('title', $Title) }
+        # left out unless given: the server's defaults, and a server older than 0.3.0 still renders
+        if ($Locale) { $writer.WriteString('locale', $Locale) }
+        if ($Numbers) { $writer.WriteString('numbers', $Numbers.ToLowerInvariant()) }
+        if ($FlatHeader) { $writer.WriteBoolean('flatHeader', $true) }
         if ($Save) { $writer.WriteBoolean('save', $true) }
         $writer.WriteEndObject()
         $writer.Flush()
