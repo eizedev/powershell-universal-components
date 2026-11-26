@@ -25,9 +25,10 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Fixed
 
-- `Invoke-UDPivotReport -Engine Rest -Parameter` names the server version it needs also for the
-  answer newer pivotkit-servers give when none of their sources takes parameters ("this server has
-  no source that takes params"), as for the older `no key "params"`
+- `Invoke-UDPivotReport -Engine Rest -Parameter` explains the answer current pivotkit-servers give
+  when none of their sources takes parameters ("this server has no source that takes params"):
+  leave `-Parameter` out, or use a source that declares them. The older `no key "params"` still
+  names pivotkit-server 0.2.0
   ([#132](https://github.com/eizedev/powershell-universal-components/issues/132)).
 
 ### Changed

@@ -45,10 +45,14 @@ function New-UDPivotServerError {
     }
     # pivotkit-server 0.1.1 knows neither data in the request nor params; its answer reads like a
     # fault in the request (#129). 0.2.0 answers params the same way when none of its sources takes
-    # any; later versions say so in words, recognised by "takes params" (NO_PARAMS_TEXT, #132).
-    if ($status -eq 400 -and $code -eq 'INVALID_INPUT' -and $p.Detail -match 'no key "(data|params)"|(takes params)') {
+    # any; later versions say that in words, recognised by "takes params" (NO_PARAMS_TEXT, #132):
+    # that server is new enough, only its sources take no parameters.
+    if ($status -eq 400 -and $code -eq 'INVALID_INPUT' -and $p.Detail -match 'no key "(data|params)"') {
         $message += [Environment]::NewLine + $(if ($Matches[1] -eq 'data') { '-Data needs pivotkit-server 0.2.0 or later; an older server renders only -Source.' }
             else { '-Parameter needs a source with parameters on pivotkit-server 0.2.0 or later.' })
+    }
+    elseif ($status -eq 400 -and $code -eq 'INVALID_INPUT' -and $p.Detail -match 'takes params') {
+        $message += [Environment]::NewLine + 'No source on this server takes parameters: leave -Parameter out, or use a source that declares them (Get-UDPivotSource lists them).'
     }
     elseif ($status -eq 400 -and $code -eq 'INVALID_INPUT' -and $p.Detail -match 'no key "(locale|numbers|flatHeader)"') {
         $message += [Environment]::NewLine + '-Locale, -Numbers and -FlatHeader need pivotkit-server 0.3.0 or later.'

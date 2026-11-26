@@ -601,10 +601,9 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
         $sent.format | Should -Be 'xlsx'
     }
 
-    It 'a server too old for a parameter: the error names the server version it needs (#129, #132, #135)' {
+    It 'a server too old for a parameter: the error names the server version it needs; one without sources that take params says so (#129, #132, #135)' {
         # pivotkit-server 0.1.1 knows neither data in the request nor params; 0.2.0 answers params the same
-        # way when none of its sources declares parameters, later versions in words (NO_PARAMS_TEXT of
-        # pivotkit-server's sources/input.js); before 0.3.0 it knows no locale, numbers or flatHeader
+        # way when none of its sources declares parameters; before 0.3.0 it knows no locale, numbers or flatHeader
         $errorOf = {
             param([int]$Status, [string]$Code, [string]$Detail, [hashtable]$Call)
             $mock.Render.Enqueue(@{ Status = $Status; Body = (@{ type = 'x'; title = 'x'; status = $Status; code = $Code; detail = $Detail } | ConvertTo-Json -Compress) })
@@ -616,8 +615,10 @@ Describe 'Invoke-UDPivotReport -Engine Rest (a stand-in pivotkit-server)' {
         $caught.FullyQualifiedErrorId | Should -BeLike 'PivotServerError*'
         $caught.Exception.Message | Should -BeLike '*INVALID_INPUT (400): input has no key "data"*-Data needs pivotkit-server 0.2.0 or later*-Source*'
         (& $errorOf 400 'INVALID_INPUT' 'input has no key "params"' $params).Exception.Message | Should -BeLike '*INVALID_INPUT (400): input has no key "params"*-Parameter needs a source with parameters on pivotkit-server 0.2.0 or later*'
-        (& $errorOf 400 'INVALID_INPUT' 'this server has no source that takes params; leave params out (GET /sources lists the sources)' $params).Exception.Message |
-            Should -BeLike '*INVALID_INPUT (400): this server has no source that takes params*-Parameter needs a source with parameters on pivotkit-server 0.2.0 or later*'
+        # a current server that says it in words is new enough: the hint is about its sources, not its version
+        $message = (& $errorOf 400 'INVALID_INPUT' 'this server has no source that takes params; leave params out (GET /sources lists the sources)' $params).Exception.Message
+        $message | Should -BeLike '*INVALID_INPUT (400): this server has no source that takes params*No source on this server takes parameters: leave -Parameter out*Get-UDPivotSource*'
+        $message | Should -Not -BeLike '*pivotkit-server 0.*'
         (& $errorOf 400 'INVALID_INPUT' 'input has no key "numbers"' ($data + @{ Format = 'csv'; Numbers = 'Shown' })).Exception.Message |
             Should -BeLike '*input has no key "numbers"*-Locale, -Numbers and -FlatHeader need pivotkit-server 0.3.0 or later*'
         # another invalid input, and data refused by the server's policy, get no version hint
