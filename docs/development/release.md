@@ -58,6 +58,14 @@ each step skips what already exists.
 ### 5. Before the release is complete
 
 - Check that the version is in the gallery and that the GitHub release and its announcement are there.
+- Add a section `## Contributors` at the end of the GitHub release
+  (`gh release edit <tag> --notes-file notes.md`) and its announcement. It thanks everyone whose pull
+  request is in the release and who is neither a maintainer (`.github/CODEOWNERS`) nor a bot, also
+  for tests, CI and docs that the CHANGELOG leaves out. One line per person:
+  `@login: #n, #m. Thank you!`, or `@login made their first contribution: #n, #m. Thank you!` when
+  they had no merged pull request here before (`gh pr list --author <login> --state merged`). Find
+  them with `gh pr list --state merged --search "merged:>=<date of the previous tag>" --json number,author,files`;
+  pull requests that touch no module go into the next module release.
 - **Look at the entry pages in light and dark**: the README, the docs start page and the module
   overview, of this repository and of [pivotkit](https://github.com/eizedev/pivotkit), whose docs the
   pivot pages hand readers over to. Each image must show, in the theme it was made for. A problem

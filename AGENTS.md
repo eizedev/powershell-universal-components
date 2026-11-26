@@ -123,6 +123,8 @@ rendering.
   (how readers use the report, the view format), link them instead of copying.
 - Docs describe the current state and name no release of pivotkit or a module, only minimum versions;
   history belongs in `CHANGELOG.md`, commits and pull requests.
+- An entry from a contributor's pull request ends with the pull request and the name, after any issue link:
+  `([#787](<issue link>), [#801](<pull request link>), thanks @login)`.
 - Conventional Commits; one change per pull request; every module keeps its own `CHANGELOG.md` and
   SemVer `ModuleVersion`. A break of its public interface (`docs/versioning.md`) is marked `**Breaking:**`
   there, with "Who is affected" and "What to do".
