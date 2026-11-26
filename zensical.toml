@@ -63,6 +63,7 @@ nav = [
       { "Overview" = "pivot/index.md" },
       { "Readers and your app" = "pivot/readers.md" },
       { "Showcase app (demo)" = "pivot/demo.md" },
+      { "Coming from UniversalDashboard.Pivot" = "pivot/coming-from-ud-pivot.md" },
     ] },
     { "Build a report" = [
       { "Data and loading" = "pivot/data.md" },
@@ -90,6 +91,7 @@ nav = [
     ] },
     { "Reference" = [
       { "Commands and parameters" = "pivot/reference.md" },
+      { "Theme properties" = "pivot/theme-properties.md" },
       { "Errors" = "pivot/errors.md" },
     ] },
   ] },

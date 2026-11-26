@@ -22,7 +22,7 @@ function Assert-UDPivotReportEngine {
         if (-not $Bound.ContainsKey('Data')) { throw '-Engine Node needs -Data: the command line runs over the rows you give.' }
         return
     }
-    $wrong = & $given 'CliPath', 'Locale', 'TimeZone', 'Numbers', 'FlatHeader'
+    $wrong = & $given 'CliPath', 'TimeZone'
     if ($wrong.Count) { throw ('{0}: only with -Engine Node (pivotkit-server uses its own).' -f ($wrong -join ', ')) }
     if ($Bound['Template']) { throw '-Template: only with -Engine Node. With -Engine Rest the server''s source decides the template (sources.<id>.template in its configuration).' }
 }

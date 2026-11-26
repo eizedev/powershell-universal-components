@@ -4,7 +4,8 @@ function Invoke-UDPivotRestReport {
         Renders a report with pivotkit-server (Invoke-UDPivotReport -Engine Rest): the file's bytes, or
         with -AsLink a link to the report the server keeps.
     .PARAMETER Bound
-        Invoke-UDPivotReport's $PSBoundParameters: Data, Source, Parameter, DataName, DataAsOf and Uri.
+        Invoke-UDPivotReport's $PSBoundParameters: Data, Source, Parameter, DataName, DataAsOf, Locale,
+        Numbers, FlatHeader and Uri.
     .PARAMETER Report
         The result of Get-UDPivotReportInput.
     .PARAMETER Kind
@@ -34,7 +35,11 @@ function Invoke-UDPivotRestReport {
         [switch]$AsLink
     )
     # splatted: a $(...) around -Data would enumerate a DataTable into its rows
-    $bodyArgs = @{ Source = [string]$Bound['Source']; Parameter = $Bound['Parameter']; Layout = $Report.Layout; Format = $Kind; Title = $Report.Title; DataName = [string]$Bound['DataName']; DataAsOf = $Bound['DataAsOf'] }
+    $bodyArgs = @{
+        Source = [string]$Bound['Source']; Parameter = $Bound['Parameter']; Layout = $Report.Layout; Format = $Kind; Title = $Report.Title
+        DataName = [string]$Bound['DataName']; DataAsOf = $Bound['DataAsOf']
+        Locale = [string]$Bound['Locale']; Numbers = [string]$Bound['Numbers']; FlatHeader = [bool]$Bound['FlatHeader']
+    }
     if ($Bound.ContainsKey('Data')) { $bodyArgs['Data'] = $Bound['Data']; $bodyArgs['MaxBytes'] = $MaxBytes }
     if ($Report.ViewFile) { $bodyArgs['View'] = $Report.ViewFile.View }
     if ($AsLink) {

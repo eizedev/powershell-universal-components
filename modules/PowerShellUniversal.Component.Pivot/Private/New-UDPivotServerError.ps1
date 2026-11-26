@@ -6,8 +6,8 @@ function New-UDPivotServerError {
     .DESCRIPTION
         The message holds the code, the status, the detail, the findings, when to try again, a hint for
         the known cases (401, 403 INSUFFICIENT_SCOPE, 413 by its code, the 400 of a server too old for
-        -Data or -Parameter) and the request id. Exception.Data holds Status, Code, Title, Detail,
-        RetryAfter, Retryable and RequestId. The error ids: PivotTokenRefused (401, 403
+        -Data, -Parameter, -Locale, -Numbers or -FlatHeader) and the request id. Exception.Data holds
+        Status, Code, Title, Detail, RetryAfter, Retryable and RequestId. The error ids: PivotTokenRefused (401, 403
         INSUFFICIENT_SCOPE), PivotDataTooLarge (413), PivotViewHasErrors (422), PivotServerError
         (anything else). With -RowsRoute, by the rows route's codes: PivotRowsNotAllowed (403
         NOT_ALLOWED), PivotNoData (404 SOURCE_NOT_FOUND, DATA_NOT_AVAILABLE), PivotServerBusy (429
@@ -44,10 +44,18 @@ function New-UDPivotServerError {
             else { 'The data is too large for the server: send fewer rows or columns, or let the operator configure a source for it and use -Source.' })
     }
     # pivotkit-server 0.1.1 knows neither data in the request nor params; its answer reads like a
-    # fault in the request (#129). 0.2.0 answers params the same way when none of its sources takes any.
+    # fault in the request (#129). 0.2.0 answers params the same way when none of its sources takes
+    # any; later versions say that in words, recognised by "takes params" (NO_PARAMS_TEXT, #132):
+    # that server is new enough, only its sources take no parameters.
     if ($status -eq 400 -and $code -eq 'INVALID_INPUT' -and $p.Detail -match 'no key "(data|params)"') {
         $message += [Environment]::NewLine + $(if ($Matches[1] -eq 'data') { '-Data needs pivotkit-server 0.2.0 or later; an older server renders only -Source.' }
             else { '-Parameter needs a source with parameters on pivotkit-server 0.2.0 or later.' })
+    }
+    elseif ($status -eq 400 -and $code -eq 'INVALID_INPUT' -and $p.Detail -match 'takes params') {
+        $message += [Environment]::NewLine + 'No source on this server takes parameters: leave -Parameter out, or use a source that declares them (Get-UDPivotSource lists them).'
+    }
+    elseif ($status -eq 400 -and $code -eq 'INVALID_INPUT' -and $p.Detail -match 'no key "(locale|numbers|flatHeader)"') {
+        $message += [Environment]::NewLine + '-Locale, -Numbers and -FlatHeader need pivotkit-server 0.3.0 or later.'
     }
     $scopeMissing = $status -eq 403 -and $code -eq 'INSUFFICIENT_SCOPE'
     if ($scopeMissing -and $RowsRoute) { $message += [Environment]::NewLine + 'The person''s token lacks a scope the server needs (rest.requiredScopes and the source''s scopes): let PSU''s OpenID Connect sign-in ask the provider for it, and make sure the provider puts it into the access token.' }

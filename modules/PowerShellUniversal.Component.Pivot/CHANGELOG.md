@@ -5,8 +5,41 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+### Added
+
+- `Invoke-UDPivotReport -Engine Rest` takes `-Locale`, `-Numbers` and `-FlatHeader` and passes them
+  to pivotkit-server's render routes as `locale`, `numbers` and `flatHeader`, so with the same
+  `-Locale` and server settings both engines write the same CSV and JSON. They need pivotkit-server
+  0.3.0 or later; an older server's answer names that version. `-TimeZone` stays with `-Engine Node`
+  ([#135](https://github.com/eizedev/powershell-universal-components/issues/135)).
+- Theme properties for pivotkit's zone colours and chip controls: `--psu-pivot-zone-rows`,
+  `-zone-columns`, `-zone-values`, `-zone-filters`, `-zone-tint`, `-zone-tint-base`,
+  `--psu-pivot-control-icon`, `--psu-pivot-sort-arrow`, `--psu-pivot-field-hover` and
+  `--psu-pivot-chart-reference`, per light and dark mode, listed on the new Theme properties page
+  with every other property. Without them
+  the report keeps pivotkit's values. The zone colours, the chip controls, the sort arrow and the
+  field hover take effect with pivotkit 0.11.0; the reference lines already with 0.10.0.
+- The page "Coming from UniversalDashboard.Pivot" maps every parameter, aggregator and renderer of
+  `New-UDPivot` to `New-UDPivotReport`, names those without a counterpart, states the PowerShell and
+  PSU versions, and shows one report before and after; the pivot overview and the module README
+  link it
+  ([#121](https://github.com/eizedev/powershell-universal-components/issues/121)).
+
+### Fixed
+
+- `Invoke-UDPivotReport -Engine Rest -Parameter` explains the answer current pivotkit-servers give
+  when none of their sources takes parameters ("this server has no source that takes params"):
+  leave `-Parameter` out, or use a source that declares them. The older `no key "params"` still
+  names pivotkit-server 0.2.0
+  ([#132](https://github.com/eizedev/powershell-universal-components/issues/132)).
+
 ### Changed
 
+- The field type icons are the muted text without an app's `--psu-pivot-type-*`, as pivotkit's own
+  neutral default: colour marks the zones, not the field types. With pivotkit 0.10.0 this also
+  makes the empty report's field pills and the border of a value chip grey. For the earlier
+  colours, set the four `--psu-pivot-type-*` properties per mode; the themes page has the light
+  and dark values.
 - The component passes the React hooks lint rules, which are now errors in CI: the latest props
   for its event handlers are kept in a ref written in an effect, not during render
   ([#217](https://github.com/eizedev/powershell-universal-components/issues/217)). The reader's view, a loaded file,

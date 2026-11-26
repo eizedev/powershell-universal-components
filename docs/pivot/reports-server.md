@@ -26,7 +26,7 @@ data you send. `-DataName` names the data, `-DataAsOf` says when it is from (sen
 arrived).
 
 `-Data` (and with it `-DataName` and `-DataAsOf`) and `-Parameter` need pivotkit-server 0.2.0 or
-later.
+later; `-Locale`, `-Numbers` and `-FlatHeader` ([Reports without a browser](reports.md#two-engines)) 0.3.0 or later.
 
 The token comes from the server's operator, who makes it with `pivotkit-server token new`; keep it in
 a PSU secret. pivotkit-server refuses a static token that is easy to guess

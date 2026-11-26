@@ -40,6 +40,7 @@ New-UDPivotReport -Id 'tickets' -Data (Invoke-Sqlcmd -Query 'SELECT * FROM Ticke
 | What readers get, and what the app decides for them | [Readers and your app](readers.md) |
 | What `-Data` takes, large data | [Data and loading](data.md) |
 | Every parameter | [Commands and parameters](reference.md) |
+| Move an app from `New-UDPivot` | [Coming from UniversalDashboard.Pivot](coming-from-ud-pivot.md) |
 
 Readers drag fields from a searchable list into **Rows**, **Columns**, **Values** and **Filters** and
 get a table with totals or a chart, with date grouping, drill-down to the source rows, shared views and
