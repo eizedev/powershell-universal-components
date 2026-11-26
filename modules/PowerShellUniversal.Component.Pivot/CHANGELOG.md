@@ -14,11 +14,12 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   ([#135](https://github.com/eizedev/powershell-universal-components/issues/135)).
 - Theme properties for pivotkit's zone colours and chip controls: `--psu-pivot-zone-rows`,
   `-zone-columns`, `-zone-values`, `-zone-filters`, `-zone-tint`, `-zone-tint-base`,
-  `--psu-pivot-control-icon`, `--psu-pivot-sort-arrow`, `--psu-pivot-field-hover` and
+  `--psu-pivot-control-icon`, `--psu-pivot-sort-arrow`, `--psu-pivot-sort-arrow-rest`, `--psu-pivot-field-hover` and
   `--psu-pivot-chart-reference`, per light and dark mode, listed on the new Theme properties page
   with every other property. Without them
-  the report keeps pivotkit's values. The zone colours, the chip controls, the sort arrow and the
-  field hover take effect with pivotkit 0.11.0; the reference lines already with 0.10.0.
+  the report keeps pivotkit's values: the sort arrow in the accent, the up-down mark of the other
+  headers that sort in the muted text colour. The zone colours, the chip controls, the sort marks and
+  the field hover take effect with pivotkit 0.11.0; the reference lines already with 0.10.0.
 - The page "Coming from UniversalDashboard.Pivot" maps every parameter, aggregator and renderer of
   `New-UDPivot` to `New-UDPivotReport`, names those without a counterpart, states the PowerShell and
   PSU versions, and shows one report before and after; the pivot overview and the module README
