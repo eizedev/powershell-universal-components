@@ -68,4 +68,17 @@ Describe 'Publish-Module.ps1 release notes' {
         }
         finally { Remove-Item -LiteralPath $root -Recurse -Force }
     }
+    It 'keeps typographic single quotes, which PowerShell also reads as quotes' {
+        $q = [char]0x2019
+        $root = Initialize-ReleaseFixture "## [1.2.3]`n`n- A folder of ``O${q}Neil`` and ${q}quoted${q}.`n"
+        try {
+            $script = Join-Path $root 'build' 'Publish-Module.ps1'
+            & $script -Module Demo.Module -Version 1.2.3 6>$null | Out-Null
+            & $script -Module Demo.Module -Version 1.2.3 6>$null | Out-Null
+            $notes = (Import-PowerShellDataFile (Join-Path $root 'output' 'Demo.Module' '1.2.3' 'Demo.Module.psd1')).PrivateData.PSData.ReleaseNotes
+            $notes | Should -BeExactly "- A folder of ``O${q}Neil`` and ${q}quoted${q}."
+            (Get-Content (Join-Path $root 'output' 'Demo.Module-1.2.3.notes.md') -Raw) | Should -BeLike "*O${q}Neil*"
+        }
+        finally { Remove-Item -LiteralPath $root -Recurse -Force }
+    }
 }

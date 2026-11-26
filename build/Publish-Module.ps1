@@ -77,8 +77,11 @@ if (-not $match.Success -or -not $match.Groups['notes'].Value.Trim()) {
 $notes = ($match.Groups['notes'].Value -replace '(?m)^\[[^\]]+\]:\s*\S+\s*$', '').Trim()
 
 # the built manifest carries the notes (the gallery shows them); the source keeps its link.
-# Update-ModuleManifest writes them safely (quotes, several lines) and can run again.
-Update-ModuleManifest -Path $manifestPath -ReleaseNotes $notes
+# Update-ModuleManifest writes them safely (quotes, several lines) and can run again. It doubles ' in
+# its single-quoted string but not the typographic single quotes ‘ ’ ‚ ‛, which PowerShell reads as
+# quotes too; doubled, each stays one character.
+$manifestNotes = $notes -replace '([‘’‚‛])', '$1$1'
+Update-ModuleManifest -Path $manifestPath -ReleaseNotes $manifestNotes
 # the GitHub release takes the same text and names where the module is installed from
 $releaseNotes = "{0}`n`nIn the PowerShell Gallery: {1}" -f $notes, ($galleryPackageUrl -f $Module, $Version)
 Set-Content -LiteralPath (Join-Path $OutputPath "$Module-$Version.notes.md") -Value $releaseNotes -Encoding utf8NoBOM
