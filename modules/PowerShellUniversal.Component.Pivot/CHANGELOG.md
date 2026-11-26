@@ -5,6 +5,8 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-26
+
 ### Added
 
 - `Invoke-UDPivotReport -Engine Rest` takes `-Locale`, `-Numbers` and `-FlatHeader` and passes them
@@ -18,8 +20,7 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   `--psu-pivot-chart-reference`, per light and dark mode, listed on the new Theme properties page
   with every other property. Without them
   the report keeps pivotkit's values: the sort arrow in the accent, the up-down mark of the other
-  headers that sort in the muted text colour. The zone colours, the chip controls, the sort marks and
-  the field hover take effect with pivotkit 0.11.0; the reference lines already with 0.10.0.
+  headers that sort in the muted text colour.
 - The page "Coming from UniversalDashboard.Pivot" maps every parameter, aggregator and renderer of
   `New-UDPivot` to `New-UDPivotReport`, names those without a counterpart, states the PowerShell and
   PSU versions, and shows one report before and after; the pivot overview and the module README
@@ -36,6 +37,14 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
 
 ### Changed
 
+- The report runs on pivotkit-core and pivotkit-react 0.11.0, pivotkit-report 0.7.0 and
+  pivotkit-xlsx 0.8.0. Readers see the zone colours in the chips and in the field names of the
+  table's header, a sort mark on every header that sorts, "Default order" in a field's menu, a
+  choice of the decimal mark when an import is unclear, and "Entries" instead of "Series" in the
+  chart settings. The [pivotkit changelog](https://github.com/eizedev/pivotkit/blob/pivotkit-react%400.11.0/packages/pivotkit-react/CHANGELOG.md)
+  has every change.
+- Smaller corners (buttons, chips, notes, a field's name in the table's header) are pivotkit's
+  `7px` instead of `4px`. To keep the earlier look, set `--psu-pivot-radius-sm: 4px`.
 - The field type icons are the muted text without an app's `--psu-pivot-type-*`, as pivotkit's own
   neutral default: colour marks the zones, not the field types. With pivotkit 0.10.0 this also
   makes the empty report's field pills and the border of a value chip grey. For the earlier
@@ -709,7 +718,10 @@ All notable changes to PowerShellUniversal.Component.Pivot. Format:
   them); `examples/templates.ps1`: an app with sign-in, readers' views on the server, publishing for
   two roles and the admin panel.
 
-[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.9.1...HEAD
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.11.0...HEAD
+[0.11.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.10.1...PowerShellUniversal.Component.Pivot-v0.11.0
+[0.10.1]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.10.0...PowerShellUniversal.Component.Pivot-v0.10.1
+[0.10.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.9.1...PowerShellUniversal.Component.Pivot-v0.10.0
 [0.9.1]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.9.0...PowerShellUniversal.Component.Pivot-v0.9.1
 [0.9.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.8.0...PowerShellUniversal.Component.Pivot-v0.9.0
 [0.8.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot-v0.7.2...PowerShellUniversal.Component.Pivot-v0.8.0

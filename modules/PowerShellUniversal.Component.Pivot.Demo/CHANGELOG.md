@@ -5,6 +5,8 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-26
+
 ### Fixed
 
 - A value of `New-UDPivotShowcase` with a typographic apostrophe, such as `-PivotkitPath` with a
@@ -138,7 +140,8 @@ All notable changes to PowerShellUniversal.Component.Pivot.Demo. Format:
 - `Get-UDPivotShowcaseData`: answers the app's public API calls from the snapshots shipped in `Data/`
   (with their sources and licences, `Data/SOURCES.md`), or live.
 
-[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.6.0...HEAD
+[Unreleased]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.7.0...HEAD
+[0.7.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.6.0...PowerShellUniversal.Component.Pivot.Demo-v0.7.0
 [0.6.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.5.0...PowerShellUniversal.Component.Pivot.Demo-v0.6.0
 [0.5.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.4.0...PowerShellUniversal.Component.Pivot.Demo-v0.5.0
 [0.4.0]: https://github.com/eizedev/powershell-universal-components/compare/PowerShellUniversal.Component.Pivot.Demo-v0.3.0...PowerShellUniversal.Component.Pivot.Demo-v0.4.0
