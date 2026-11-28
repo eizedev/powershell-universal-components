@@ -26,6 +26,9 @@ updates:
     groups:
       babel:
         patterns: ["@babel/*", "babel-loader"]
+      # Perspective's packages are released together and must have the same version
+      perspective:
+        patterns: ["@perspective-dev/*"]
     # React must stay at the version PSU provides at runtime (18.3.1 in PSU 2026.3)
     ignore:
       - dependency-name: "react"
